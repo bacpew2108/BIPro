@@ -33,6 +33,9 @@ public struct ReportVisual: Sendable, Identifiable, Hashable {
     public var objects: ObjectProperties
     public var containerObjects: ObjectProperties
     public var fields: [ReportField]
+    /// JSON gốc của visual (PBIR: cả `visual.json`; legacy: `singleVisual`). Bộ đọc truy vấn (Phase C) cần
+    /// `query.queryState` có thứ tự, `active`, `sortDefinition`, `expansionStates`, `filterConfig`.
+    public var raw: JSONValue = .null
 
     /// Visuals that need query results to render.
     public var isDataBound: Bool { !fields.isEmpty }
@@ -116,7 +119,7 @@ extension PBIXFile {
                     isHidden: v["isHidden"]?.bool ?? false,
                     objects: ObjectProperties(visual["objects"]),
                     containerObjects: ObjectProperties(visual["visualContainerObjects"]),
-                    fields: Self.pbirFields(visual["query"]?["queryState"])))
+                    fields: Self.pbirFields(visual["query"]?["queryState"]), raw: v))
             }
             pages.append(ReportPage(
                 id: name, displayName: page["displayName"]?.string ?? name,
@@ -169,7 +172,7 @@ extension PBIXFile {
                     isHidden: single["display"]?["mode"]?.string == "hidden",
                     objects: ObjectProperties(single["objects"]),
                     containerObjects: ObjectProperties(single["vcObjects"]),
-                    fields: Self.legacyFields(single)))
+                    fields: Self.legacyFields(single), raw: c))
             }
             pages.append(ReportPage(
                 id: section["name"]?.string ?? UUID().uuidString,

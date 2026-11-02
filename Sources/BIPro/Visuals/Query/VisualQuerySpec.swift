@@ -75,9 +75,29 @@ struct QueryFilter: Hashable, Sendable {
     var tableExpression: String
 }
 
+/// Khuôn truy vấn theo loại visual (C1.md §2.3).
+enum QueryShape: Hashable, Sendable {
+    /// `EVALUATE SUMMARIZECOLUMNS(lọc…, "X", IGNORE(m))`, không có `__DS0Core`.
+    case card
+    /// `CALCULATETABLE(VALUES(cột) | SUMMARIZE(VALUES(bảng), cột, sort), KEEPFILTERS(lọc)…)` + `TOPN(n, …)`.
+    case slicer(top: Int)
+    /// Bar/column/line/combo một hoặc hai trục.
+    case chart
+    /// `ROLLUPADDISSUBTOTAL(cột, "IsGrandTotalRowTotal")` + `TOPN(1002, …)`.
+    case donut
+    /// `TOPN(1002, core, [giá trị], 0, cột, 1)`.
+    case treemap
+    /// `FILTER(KEEPFILTERS(SUMMARIZECOLUMNS(...)), NOT(ISBLANK(cột)))` + `TOPN(3502, …)`.
+    case shapeMap
+    case matrix
+    /// Cột chồng 100%: giảm dữ liệu động viết bằng DAX (D2-100pct).
+    case hundredPercent
+}
+
 struct VisualQuerySpec: Hashable, Sendable {
     var visualID: String
     var visualType: String
+    var shape: QueryShape = .chart
     /// Trục chính: Category (chart), Rows (matrix), Values (slicer).
     var primary: [GroupField]
     /// Trục phụ: Series (chart), Columns (matrix). Rỗng nếu không có.
@@ -96,6 +116,8 @@ struct VisualQuerySpec: Hashable, Sendable {
     var scopedMeasures: [QueryMeasure]
     /// Line trục liên tục: thêm `ROW("DS0IntersectionCount", …)` như PA-D1-1.
     var includeIntersectionCount: Bool
+    /// Matrix có thang màu: tên cột kết quả cần min/max qua `GROUPBY … MINX/MAXX(CURRENTGROUP())` (PA-D1-2).
+    var gradientInputs: [String] = []
 
     init(visualID: String, visualType: String, primary: [GroupField] = [], secondary: [GroupField] = [],
          measures: [QueryMeasure] = [], filters: [QueryFilter] = [], rowTotals: Bool = false, columnTotals: Bool = false,

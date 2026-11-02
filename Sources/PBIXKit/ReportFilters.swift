@@ -13,9 +13,12 @@ public struct ReportFilter: Sendable, Hashable, Identifiable {
     public let summary: String
     public let isHidden: Bool
     public let isLocked: Bool
+    /// JSON gốc của bộ lọc (`field`, `filter.Where`, `howCreated`…), để dịch sang DAX (Phase C).
+    public let raw: JSONValue
     public var isActive: Bool { summary != ReportFilter.allLabel }
 
-    public init(id: String, level: Level, field: ReportField?, type: String, summary: String, isHidden: Bool, isLocked: Bool) {
+    public init(id: String, level: Level, field: ReportField?, type: String, summary: String, isHidden: Bool, isLocked: Bool,
+                raw: JSONValue = .null) {
         self.id = id
         self.level = level
         self.field = field
@@ -23,6 +26,7 @@ public struct ReportFilter: Sendable, Hashable, Identifiable {
         self.summary = summary
         self.isHidden = isHidden
         self.isLocked = isLocked
+        self.raw = raw
     }
 
     static let allLabel = "là (Tất cả)"
@@ -147,7 +151,8 @@ extension PBIXFile {
                 type: f["type"]?.string ?? "Categorical",
                 summary: describe(f["filter"], type: f["type"]?.string),
                 isHidden: f["isHiddenInViewMode"]?.bool ?? false,
-                isLocked: f["isLockedInViewMode"]?.bool ?? false)
+                isLocked: f["isLockedInViewMode"]?.bool ?? false,
+                raw: f)
         }
     }
 
