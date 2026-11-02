@@ -26,8 +26,8 @@ import Testing
         format.matrix.columnWidths["Dim_Client.age_group_current"] = 130
 
         let layout = MatrixLayout(data: data, format: format)
-        // Số tầng tiêu đề cột theo columnLevels
-        #expect(layout.headerTiers == 3)
+        // Chỉ vẽ tầng đang hiện: mẫu chưa mở cấp Bang/Chi nhánh nên 1 tầng (không phải 3 = số columnLevels).
+        #expect(layout.headerTiers == 1)
         // Số tầng tiêu đề đang hiển thị khi chưa mở rộng
         #expect(layout.activeHeaderTiers == 1)
         // Độ rộng cột tiêu đề hàng theo columnWidths

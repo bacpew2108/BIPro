@@ -133,6 +133,9 @@ struct VISNhom6Tests {
             let goldenTables = Self.parseGoldenTables(text: tsvText)
 
             var allMismatches: [String] = []
+            // Engine phải trả ít nhất bằng số bảng của golden (trước đây thiếu bảng vẫn qua).
+            #expect(result.tables.count >= goldenTables.count,
+                    "\(item.name): engine trả \(result.tables.count) bảng, golden có \(goldenTables.count)")
             for (idx, golden) in goldenTables.enumerated() {
                 guard idx < result.tables.count else { break }
                 let engineTable = result.tables[idx]

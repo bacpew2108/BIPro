@@ -132,12 +132,20 @@ struct MatrixGridView: View {
     private func columnHeaderCell(colIndex c: Int, tier: Int) -> some View {
         let col = data.columns[c]
         let isTotal = col.isGrandTotal || col.isSubtotal
-        let label = col.isGrandTotal ? "Total" : (col.path.last?.asText() ?? "")
+        // Mỗi tầng chỉ ghi nhãn của cấp tương ứng; tổng chung ghi "Total" ở tầng cuối.
+        let label: String
+        if col.isGrandTotal {
+            label = tier == layout.headerTiers - 1 ? "Total" : ""
+        } else if tier < col.path.count {
+            label = col.path[tier].asText()
+        } else {
+            label = ""
+        }
         let pointID = columnPointID(col: c)
         let isSelected = context.selection.contains(pointID)
 
         return HStack(spacing: 4) {
-            if col.hasChildren && !isTotal {
+            if col.hasChildren && !isTotal && tier == col.level {
                 Button(action: {
                     context.actions.drill(.toggle(axis: .columns, path: col.path))
                 }) {

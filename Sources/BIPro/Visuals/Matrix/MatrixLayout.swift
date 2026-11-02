@@ -22,10 +22,11 @@ struct MatrixLayout: Sendable {
 
     init(data: MatrixData, format: VisualFormat) {
         // Số tầng tiêu đề
-        let levelsCount = data.columnLevels.count
-        self.headerTiers = max(1, levelsCount)
+        // Chỉ vẽ các tầng đang hiện (cấp cột sâu nhất đang mở + 1), không phải mọi cấp trong `columnLevels`:
+        // matrix "Nhóm tuổi × Vùng/Bang/Chi nhánh" chưa mở thì chỉ có 1 tầng "Vùng" (page-D1.png).
         let maxActive = data.columns.filter { !$0.isGrandTotal }.map(\.level).max() ?? -1
         self.activeHeaderTiers = max(1, maxActive + 1)
+        self.headerTiers = activeHeaderTiers
 
         // Chiều cao dòng và tiêu đề
         let valFontSize = CGFloat(format.matrix.valuesFontSize ?? 10)

@@ -299,6 +299,8 @@ struct PreparedChartLayout: Sendable {
     
     // Fonts & Labels
     var categoryFontSize: CGFloat
+    /// Có tô sáng chéo: mọi thanh/cột vẽ nhạt (0,4), phần tô sáng phủ lên màu đậm (xf-D2.png).
+    var hasHighlights: Bool
     var dataLabelFontSize: CGFloat
     var dataLabelBold: Bool
     var dataLabelColor: Color
@@ -314,6 +316,7 @@ struct PreparedChartLayout: Sendable {
         
         let catFontSize = ReportUnits.pixels(fromPoints: format.categoryAxis.fontSize ?? 9)
         self.categoryFontSize = catFontSize
+        self.hasHighlights = data.highlights != nil
         self.dataLabelFontSize = ReportUnits.pixels(fromPoints: format.dataLabels.fontSize ?? 9)
         self.dataLabelBold = format.dataLabels.bold ?? false
         self.dataLabelColor = theme.color(format.dataLabels.color) ?? (Color(hex: "#252423") ?? .primary)
@@ -371,6 +374,15 @@ struct PreparedChartLayout: Sendable {
                     theme: theme
                 )
                 legItems.append(LegendItem(id: "s-\(sIdx)", name: sVal.asText(), color: col))
+            }
+            // Combo có Series: đường Y2 cũng có mục legend, màu tiếp sau các series (ảnh page-D3).
+            if kind == .comboClustered || kind == .comboStacked {
+                for (mOrder, mIdx) in data.measureIndices(role: "Y2").enumerated() {
+                    let mField = data.measures[mIdx]
+                    let col = ChartColorResolver.resolveColor(
+                        cell: .blank, measure: mField, measureIndex: data.series.count + mOrder, format: format, theme: theme)
+                    legItems.append(LegendItem(id: "m-\(mIdx)", name: mField.displayName, color: col))
+                }
             }
         } else if yMeasureIndices.count > 1 {
             for (mOrder, mIdx) in yMeasureIndices.enumerated() {
@@ -651,8 +663,14 @@ struct PreparedChartLayout: Sendable {
         }
         
         // Prepare Y1 and Y2 ticks
-        let primaryFormatString = roleYIndices.first.map { data.measures[$0].formatString ?? "" } ?? ""
-        let secondaryFormatString = roleY2Indices.first.map { data.measures[$0].formatString ?? "" } ?? ""
+        // Định dạng trục: định dạng tĩnh của measure; không có thì lấy định dạng động của ô đầu tiên có giá trị (ví dụ "0%").
+        func axisFormat(_ mIdx: Int?) -> String {
+            guard let mIdx else { return "" }
+            if let f = data.measures[mIdx].formatString, !f.isEmpty { return f }
+            return data.values[mIdx].lazy.flatMap { $0 }.first { $0.formatString != nil }?.formatString ?? ""
+        }
+        let primaryFormatString = axisFormat(roleYIndices.first ?? (kind == .clusteredBar ? data.measures.indices.first : nil))
+        let secondaryFormatString = axisFormat(roleY2Indices.first)
         
         let y1Ticks = ChartAxis.niceTicks(
             min: format.valueAxis.start ?? minValY1,
@@ -694,8 +712,11 @@ struct PreparedChartLayout: Sendable {
         for (mOrder, mIdx) in lineMeasureIndices.enumerated() {
             let mField = data.measures[mIdx]
             let mSeriesCount = data.values[mIdx].count
+            // Đường Y2 của combo lấy màu tiếp sau các cột (sau các series, hoặc sau các measure Y), như legend.
+            let lineSplitsBySeries = hasSeries && mSeriesCount > 1
+            let colorIndex = hasY2 ? (hasSeries ? data.series.count : roleYIndices.count) + mOrder : mOrder
             for sIdx in 0..<mSeriesCount {
-                let sVal = hasSeries && sIdx < data.series.count ? data.series[sIdx] : nil
+                let sVal = lineSplitsBySeries && sIdx < data.series.count ? data.series[sIdx] : nil
                 let sName = sVal?.asText() ?? mField.displayName
                 var pts: [ChartLinePointDatum] = []
                 let col = ChartColorResolver.resolveColor(
@@ -703,9 +724,9 @@ struct PreparedChartLayout: Sendable {
                     seriesValue: sVal,
                     seriesField: data.seriesField,
                     seriesIndex: sIdx,
-                    hasSeries: hasSeries,
+                    hasSeries: lineSplitsBySeries,
                     measure: mField,
-                    measureIndex: mOrder,
+                    measureIndex: colorIndex,
                     format: format,
                     theme: theme
                 )
@@ -840,6 +861,8 @@ struct CartesianChartView: View {
     let interactive: Bool
     
     private let layout: PreparedChartLayout
+    /// Độ rộng vùng vẽ, đo bằng GeometryReader nền; dùng để quyết định xoay nhãn danh mục (như Power BI).
+    @State private var plotWidth: CGFloat = 0
     
     init(data: CategoricalData, kind: CartesianKind, context: VisualRenderContext, interactive: Bool = true) {
         self.data = data
@@ -901,6 +924,11 @@ struct CartesianChartView: View {
     
     private var chartViewPadded: some View {
         chartViewWithEvents
+            .background(GeometryReader { geo in
+                Color.clear
+                    .onAppear { plotWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { _, w in plotWidth = w }
+            })
             .padding(.top, 14)
             .padding(.trailing, layout.hasSecondaryAxis ? 16 : 8)
             .padding(.leading, 8)
@@ -976,7 +1004,7 @@ struct CartesianChartView: View {
                     y: .value("Category", bar.category)
                 )
                 .position(by: .value("Series", bar.series))
-                .foregroundStyle(bar.color.opacity(bar.highlightValue != nil ? 0.4 : bar.opacity))
+                .foregroundStyle(bar.color.opacity(layout.hasHighlights ? 0.4 : bar.opacity))
                 .annotation(position: .trailing, alignment: .leading) {
                     if let label = bar.dataLabel {
                         Text(label)
@@ -987,8 +1015,10 @@ struct CartesianChartView: View {
                 }
                 
                 if let hl = bar.highlightValue {
+                    // Khoảng [0, hl] phủ lên thanh đầy đủ (không chồng nối tiếp như BarMark(x:)).
                     BarMark(
-                        x: .value("Value", hl),
+                        xStart: .value("Start", 0.0),
+                        xEnd: .value("Value", hl),
                         y: .value("Category", bar.category)
                     )
                     .position(by: .value("Series", bar.series))
@@ -996,11 +1026,12 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartYScale(domain: layout.categories.reversed())
+        .chartYScale(domain: layout.categories)
         .chartXScale(domain: layout.barXDomain)
         .chartYAxis {
-            AxisMarks(position: .leading, values: layout.categories) { val in
-                AxisValueLabel {
+            AxisMarks(preset: .extended, position: .leading, values: layout.categories) { val in
+                // Nhãn danh mục ở trục trái, ngoài vùng vẽ, căn giữa theo thanh (như Power BI).
+                AxisValueLabel(centered: true) {
                     if let str = val.as(String.self) {
                         Text(str)
                             .font(.system(size: layout.categoryFontSize))
@@ -1033,7 +1064,7 @@ struct CartesianChartView: View {
                     y: .value("Value", col.value)
                 )
                 .position(by: .value("Series", col.series))
-                .foregroundStyle(col.color.opacity(col.highlightValue != nil ? 0.4 : col.opacity))
+                .foregroundStyle(col.color.opacity(layout.hasHighlights ? 0.4 : col.opacity))
                 .annotation(position: .top, alignment: .center) {
                     if let label = col.dataLabel {
                         Text(label)
@@ -1046,7 +1077,8 @@ struct CartesianChartView: View {
                 if let hl = col.highlightValue {
                     BarMark(
                         x: .value("Category", col.category),
-                        y: .value("Value", hl)
+                        yStart: .value("Start", 0.0),
+                        yEnd: .value("Value", hl)
                     )
                     .position(by: .value("Series", col.series))
                     .foregroundStyle(col.color)
@@ -1071,7 +1103,7 @@ struct CartesianChartView: View {
                     yStart: .value("Y0", seg.y0),
                     yEnd: .value("Y1", seg.y1)
                 )
-                .foregroundStyle(seg.color.opacity(seg.highlightValue != nil ? 0.4 : seg.opacity))
+                .foregroundStyle(seg.color.opacity(layout.hasHighlights ? 0.4 : seg.opacity))
                 .annotation(position: .overlay, alignment: .center) {
                     if let label = seg.dataLabel {
                         Text(label)
@@ -1141,7 +1173,8 @@ struct CartesianChartView: View {
         .chartXAxis {
             if layout.isScalarAxis {
                 AxisMarks(position: .bottom, values: layout.scalarXTicks) { val in
-                    AxisValueLabel {
+                    // Nhãn năm bắt đầu tại vạch đầu năm, không bị cắt ở mép trái.
+                    AxisValueLabel(anchor: .topLeading) {
                         if let str = val.as(String.self), let yr = layout.scalarXLabels[str] {
                             Text(yr)
                                 .font(.system(size: layout.categoryFontSize))
@@ -1166,7 +1199,7 @@ struct CartesianChartView: View {
                     y: .value("Value", col.value)
                 )
                 .position(by: .value("Series", col.series))
-                .foregroundStyle(col.color.opacity(col.highlightValue != nil ? 0.4 : col.opacity))
+                .foregroundStyle(col.color.opacity(layout.hasHighlights ? 0.4 : col.opacity))
                 .annotation(position: .top, alignment: .center) {
                     if let label = col.dataLabel {
                         Text(label)
@@ -1179,7 +1212,8 @@ struct CartesianChartView: View {
                 if let hl = col.highlightValue {
                     BarMark(
                         x: .value("Category", col.category),
-                        y: .value("Value", hl)
+                        yStart: .value("Start", 0.0),
+                        yEnd: .value("Value", hl)
                     )
                     .position(by: .value("Series", col.series))
                     .foregroundStyle(col.color)
@@ -1219,7 +1253,7 @@ struct CartesianChartView: View {
                     yStart: .value("Y0", seg.y0),
                     yEnd: .value("Y1", seg.y1)
                 )
-                .foregroundStyle(seg.color.opacity(seg.highlightValue != nil ? 0.4 : seg.opacity))
+                .foregroundStyle(seg.color.opacity(layout.hasHighlights ? 0.4 : seg.opacity))
                 .annotation(position: .overlay, alignment: .center) {
                     if let label = seg.dataLabel {
                         Text(label)
@@ -1267,9 +1301,17 @@ struct CartesianChartView: View {
     
     // MARK: - Axis Marks Components
     
+    /// Nhãn danh mục không đủ chỗ nằm ngang thì xoay dọc (D1 "Rủi ro thấu chi": 2013-01 … xoay dọc).
+    private var rotateCategoryLabels: Bool {
+        guard plotWidth > 0, !layout.categories.isEmpty else { return false }
+        let longest = layout.categories.map(\.count).max() ?? 0
+        let estimated = CGFloat(longest) * layout.categoryFontSize * 0.6 + 8
+        return estimated * CGFloat(layout.categories.count) > plotWidth
+    }
+
     private var categoryAxisMarks: some AxisContent {
         AxisMarks(position: .bottom, values: layout.categories) { val in
-            AxisValueLabel {
+            AxisValueLabel(orientation: rotateCategoryLabels ? .verticalReversed : .horizontal) {
                 if let str = val.as(String.self) {
                     Text(str)
                         .font(.system(size: layout.categoryFontSize))
