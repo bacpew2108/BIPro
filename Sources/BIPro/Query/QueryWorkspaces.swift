@@ -1,3 +1,4 @@
+import DAXEngine
 import PBIXKit
 import SwiftUI
 
@@ -10,8 +11,19 @@ struct DAXQueryWorkspace: View {
     @State private var resultsHeight: CGFloat = 300
     @State private var dragStartHeight: CGFloat?
     @State private var showDataPane = true
+    @State private var diagnostics: [EditorDiagnostic] = []
+    @State private var completionModel: CompletionModel?
+
+    private struct TabValidationKey: Equatable {
+        let tabId: UUID
+        let text: String
+    }
 
     var body: some View {
+        let currentTab = state.daxQueries.indices.contains(state.daxSelection) ? state.daxQueries[state.daxSelection] : nil
+        let currentText = currentTab?.text ?? ""
+        let currentTabId = currentTab?.id ?? UUID()
+
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 QueryTabBar(state: state)
@@ -19,12 +31,20 @@ struct DAXQueryWorkspace: View {
                 GeometryReader { geo in
                     VStack(spacing: 0) {
                         if resultsLayout != .expanded {
-                            CodeEditor(text: $state.daxQueries[state.daxSelection].text, language: .dax,
-                                       measures: state.workspace.metadata?.measures ?? [],
-                                       selection: $state.daxEditorSelection, cursorRequest: $state.daxCursorRequest)
+                            if state.daxQueries.indices.contains(state.daxSelection) {
+                                CodeEditor(
+                                    text: $state.daxQueries[state.daxSelection].text,
+                                    language: .dax,
+                                    measures: state.workspace.metadata?.measures ?? [],
+                                    diagnostics: diagnostics,
+                                    completionModel: completionModel,
+                                    selection: $state.daxEditorSelection,
+                                    cursorRequest: $state.daxCursorRequest
+                                )
                                 .frame(maxHeight: .infinity)
                                 .hairline(.bottom)
                                 .transition(.opacity)
+                            }
                         }
                         QueryResultsView(state: state, layout: $resultsLayout)
                             .frame(height: resultsFrameHeight(total: geo.size.height))
@@ -50,6 +70,53 @@ struct DAXQueryWorkspace: View {
         .animation(.easeInOut(duration: 0.2), value: resultsLayout)
         .animation(.easeInOut(duration: 0.2), value: showDataPane)
         .background(Color.white)
+        .onAppear {
+            updateCompletionModel()
+        }
+        .task(id: state.workspace.metadata?.userTables.map(\.name)) {
+            updateCompletionModel()
+        }
+        .task(id: TabValidationKey(tabId: currentTabId, text: currentText)) {
+            guard state.workspace.metadata != nil else {
+                diagnostics = []
+                return
+            }
+            do {
+                // Chờ khoảng 500 ms (debounce)
+                try await Task.sleep(nanoseconds: 500_000_000)
+                let workspace = state.workspace
+                let errors = try await Task.detached(priority: .userInitiated) {
+                    let engine = try workspace.daxEngine()
+                    return engine.validate(currentText)
+                }.value
+                // Văn bản đã đổi trong lúc kiểm thì lượt này bị huỷ: bỏ kết quả cũ để không gạch sai chỗ.
+                guard !Task.isCancelled else { return }
+                diagnostics = EditorDiagnostics.from(errors: errors, text: currentText)
+            } catch {
+                if Task.isCancelled { return }
+                diagnostics = []
+            }
+        }
+    }
+
+    private func updateCompletionModel() {
+        guard let meta = state.workspace.metadata else {
+            completionModel = nil
+            return
+        }
+        let tables = meta.userTables.map(\.name)
+        var columnsByTable: [String: [String]] = [:]
+        var measuresByTable: [String: [ModelMetadata.Measure]] = [:]
+        for t in tables {
+            columnsByTable[t] = state.workspace.columns(of: t).map(\.name)
+            measuresByTable[t] = state.workspace.measures(of: t)
+        }
+        completionModel = CompletionModel(
+            functions: FunctionRegistry.all.map(\.name),
+            tables: tables,
+            columnsByTable: columnsByTable,
+            measuresByTable: measuresByTable
+        )
     }
 
     /// Chiều cao vùng kết quả: chỉ thanh tiêu đề khi thu xuống, cả vùng khi phóng to, còn lại theo người dùng kéo.
