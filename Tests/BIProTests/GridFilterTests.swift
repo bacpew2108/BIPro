@@ -184,7 +184,7 @@ import DAXEngine
         #expect(hitSorted.contains(arrowPoint))
     }
 
-    @Test func kichThuocVaViTriVeIconVaMuiTen() {
+    @MainActor @Test func kichThuocVaViTriVeIconVaMuiTen() {   // tạo NSTableHeaderCell: AppKit phải chạy trên main thread
         let colRect = NSRect(x: 0, y: 0, width: 100, height: 24)
 
         // Icon lọc: 12 pt, sát mép phải ô tiêu đề
