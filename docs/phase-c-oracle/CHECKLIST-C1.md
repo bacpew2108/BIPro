@@ -30,6 +30,11 @@ Visual không có tiêu đề (slicer, card): Performance analyzer ghi tên theo
 
 Ở mỗi trang D1, D2, D3: Start recording → **Refresh visuals** → copy query của **mọi visual trong bảng dưới**. Lưu vào `~/Downloads/bipro-c1/pa/`.
 
+**Slicer dạng Dropdown** (cả 17 slicer của Nhom6) có thể không có nút Copy query khi bấm Refresh visuals: [SUY ĐOÁN] lúc dropdown còn đóng, Power BI chưa tải danh sách giá trị. Thử lần lượt:
+1. Bấm Clear, rồi **bấm mở dropdown** của slicer. Một dòng mới hiện ra trong Performance analyzer; bấm ▸ của dòng đó, nếu thấy "DAX query" thì Copy query.
+2. Nếu vẫn không có: mở ▸ dòng của slicer và ghi vào `ghichu.txt` các dòng con thấy được (ví dụ chỉ có "Visual display", "Other"). Đây cũng là một quan sát có ích.
+3. Bỏ qua các slicer còn lại, làm tiếp các visual khác. **Không** đổi kiểu slicer trong file.
+
 Card: mỗi trang chỉ cần 2 card, là card số đầu tiên bên trái ("Tiền vào", "Tổng giải ngân", "Tổng khách hàng") và card "Δ Label" ngay dưới nó.
 
 ### D1 · Giao dịch
