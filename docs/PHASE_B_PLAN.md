@@ -6,25 +6,37 @@
 >
 > **Test trong Power BI Desktop (VM Windows 11) do bạn tự làm tay.** Mình chuẩn bị file `.dax` và checklist. Bạn chạy, Copy kết quả rồi lưu thành `.tsv`.
 
-## Tiếp tục từ đây (cập nhật 2026-11-02, sau buổi 3)
+## Tiếp tục từ đây (cập nhật 2026-11-02, sau UI2/UI3)
 
-**Trạng thái: engine đạt tiêu chí §0.** **30/30 golden khớp Power BI**: G0, G1, G2, G3, G4, G5, G6a–f, T1–T5. Ba buổi test tay đã xong.
-- Buổi 3: G6f1 và G6f2 khớp ngay.
-- T5 làm lộ quy tắc cuối tháng thật của DATEADD/SAMEPERIODLASTYEAR, đã sửa trong `TimeIntel.shiftSerials`: tháng nguồn có ≥ 2 ngày được chọn và có ngày cuối tháng thì kéo dài tới hết tháng đích; ngày cuối tháng đứng một mình thì không kéo dài.
-- `swift test` 588 pass; test nặng 31/31 (130 s, chủ yếu do G6f2).
-- Bằng chứng: `docs/phase-b-evidence/BUOI1.md`, `BUOI2.md` (có mục buổi 3).
+**Engine:** đạt tiêu chí §0. **30/30 golden khớp Power BI** (G0–G6, T1–T5), sau 3 buổi test tay.
+- Hiệu năng sau tối ưu lan truyền (chỉ xét bảng tổ tiên của bảng đích trên đồ thị quan hệ):
+  - G6f2: 117 s → 8,8 s;
+  - 119 measure Nhom6: 21 s → 10,6 s;
+  - test nặng: 130 s → 23,5 s.
+- `validate()` kiểm cả lỗi tên/bind mà không đánh giá, để làm gạch chân lỗi. Không báo nhầm trên 30 golden.
 
-**Việc còn lại của Phase B** (không cần VM):
-1. UI2/UI3 của DAX Query View:
-   - thanh trạng thái theo O6;
-   - tooltip measure theo O14;
-   - menu sắp xếp và lọc trên lưới theo O13;
-   - quick query theo `observe2/O8-query-*.dax`;
-   - gạch chân lỗi, tự hoàn thành, đổi tên tab.
-2. Tối ưu G6f2 (khoảng 117 s).
-3. O19 đã đối chiếu: BLANK đứng ngay trước 0, engine đã làm đúng.
+**DAX Query View:**
+- UI1 (chạy, huỷ, lưới, copy) xong.
+- UI2/UI3 đã merge vào `main`:
+  - thanh trạng thái O6;
+  - tooltip measure O14;
+  - thanh "Kết quả" ba trạng thái, kéo đổi chiều cao được;
+  - lọc/sắp xếp trên lưới theo O13, mở bằng icon;
+  - quick query O8, chạy luôn khi chọn;
+  - ô Dữ liệu có tab Bảng/Mô hình;
+  - menu chuột phải kiểu Power BI, menu con mở sang trái.
+- Đang làm (worker agy, worktree `ui4-editor`): gạch chân lỗi, tự hoàn thành, đổi tên tab.
 
-**Kế tiếp sau Phase B:** Phase C (truy vấn visual). Đặc tả đầu vào là 8 truy vấn Performance Analyzer `observe2/PA-*`; danh sách hàm còn thiếu có trong BUOI2.md.
+**Còn lại của Phase B:**
+1. Review và merge `ui4-editor`.
+2. Người dùng, khi tiện mở VM: copy văn bản Power BI sinh ra cho "Define new measure" và "Define all measures in this model". Hiện hai lệnh này đang làm theo [SUY ĐOÁN].
+
+**Sau Phase B:** Phase C (truy vấn visual). Đặc tả là 8 truy vấn Performance Analyzer trong `docs/phase-b-evidence/observe2/PA-*`. Danh sách hàm còn thiếu có trong BUOI2.md.
+
+**Cách làm việc:** git `main`, remote `github.com/bacpew2108/PowerBINative` (private).
+- Theo CLAUDE.md, việc lớn được giao cho agy qua Orca: mỗi việc một worktree, tối đa 2 worker.
+- Lệnh agy: `agy -p "$(cat brief)" --mode accept-edits --settings <allow-list>`. Danh sách lệnh được phép nằm trong scratchpad `briefs/agy-settings.json`.
+- agy chạy headless nên một lệnh bị từ chối là dừng cả phiên. Phải ghi danh sách lệnh được phép vào brief.
 
 ## 0. Mục tiêu và tiêu chí xong
 

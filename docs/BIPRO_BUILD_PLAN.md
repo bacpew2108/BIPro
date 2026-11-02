@@ -151,7 +151,7 @@ BI Pro (SwiftUI + AppKit, macOS 15+)
 - [x] ColumnStore + quan hệ (lọc một chiều/hai chiều, active/inactive, `USERELATIONSHIP`, blank row).
 - [x] DAX lexer/parser/binder/evaluator; **43 hàm** mà 119 measure Nhom6 cần (đo lại, kế hoạch cũ ghi khoảng 40), gồm `CALCULATE`, `REMOVEFILTERS`, `KEEPFILTERS`, `ALLSELECTED`, `TREATAS`, `ISFILTERED`, `SAMEPERIODLASTYEAR`.
 - [x] Truy vấn: `EVALUATE`, `DEFINE MEASURE/VAR`, `SUMMARIZECOLUMNS`, `ORDER BY`, `TOPN`, `ROW`.
-- [ ] DAX Query View theo `dax_query_view` (không có ô AI). Đã có UI1 (chạy, huỷ, lưới, Copy/CSV, lỗi có vị trí); còn UI2/UI3 (gạch chân lỗi, tự hoàn thành, tab, quick queries).
+- [ ] DAX Query View theo `dax_query_view` (không có ô AI). Xong UI1, UI2/UI3 (trạng thái, tooltip, lọc lưới, quick queries, ô Dữ liệu Bảng/Mô hình, menu chuột phải); đang làm gạch chân lỗi, tự hoàn thành, đổi tên tab.
 - [x] Oracle: golden từ DAX Query View của Power BI Desktop (bạn chạy tay trong VM), cộng oracle tự động (sqlite, cột tính toán đã lưu, test thuộc tính, bộ tí hon). Không dùng pbixray; DAX Studio chỉ dùng nếu bạn tự cài.
 - **Xong khi:** 119 measure Nhom6 khớp golden G0–G3, G5, G6.
 - **Trạng thái (2026-11-02):** **engine đạt tiêu chí xong**: 30/30 golden khớp Power BI (G0–G6, T1–T5; 3 buổi test tay). Còn UI2/UI3 của DAX Query View. Chi tiết: mục "Tiếp tục từ đây" đầu `PHASE_B_PLAN.md`.
