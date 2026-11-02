@@ -132,8 +132,21 @@ import Testing
         #expect(NumberDisplay.text(DataCell(.integer(20_000))) == "20K")
     }
 
+    /// Đúng như card D1 trong page-D1.png (buổi C1): định dạng "$#,0" và đơn vị tự động.
+    @Test func cardD1KhopPowerBI() {
+        #expect(NumberDisplay.text(DataCell(.double(3_227_472_424.5), formatString: "\\$#,0")) == "$3bn")
+        #expect(NumberDisplay.text(DataCell(.double(197_151_288.7), formatString: "\\$#,0")) == "$197M")
+        #expect(NumberDisplay.text(DataCell(.double(43_811.6572), formatString: "\\$#,0")) == "$44K")
+        // labelDisplayUnits = 1 (Không): "Số giao dịch" 1,056,320.
+        #expect(NumberDisplay.text(DataCell(.integer(1_056_320), formatString: "#,0"), units: DisplayUnits.none) == "1,056,320")
+        // D2 (xf-D2.png): labelPrecision = 1 giữ số 0 cuối.
+        #expect(NumberDisplay.text(DataCell(.double(33_000_000), formatString: "\\$#,0"), precision: 1) == "$33.0M")
+        #expect(NumberDisplay.decimalPlaces(of: "$#,0.00;($#,0.00)") == 2)
+        #expect(NumberDisplay.decimalPlaces(of: "") == nil)
+    }
+
     @Test func giuKyHieuTienTeVaPhanTram() {
-        #expect(NumberDisplay.text(DataCell(.double(3_227_472_424.5), formatString: "\\$#,0")) == "$3.23bn")
+        #expect(NumberDisplay.text(DataCell(.double(3_227_472_424.5), formatString: "\\$#,0.00")) == "$3.23bn")
         #expect(NumberDisplay.text(DataCell(.double(0.1363636), formatString: "0%")) == "14%")
         #expect(NumberDisplay.text(DataCell(.double(2_619_276), formatString: "\\$#,0"), units: DisplayUnits.none) == "$2,619,276")
     }

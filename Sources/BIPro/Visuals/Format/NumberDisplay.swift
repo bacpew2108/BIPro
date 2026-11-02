@@ -59,7 +59,23 @@ enum NumberDisplay {
         }
         let scaled = number / divisor(unit)
         let (prefix, suffixText) = affixes(of: pattern)
-        return prefix + decimal(scaled, precision: precision ?? 2, trimZeros: precision == nil) + suffix(unit) + suffixText
+        // [C1, page-D1.png] Độ chính xác "tự động" = số chữ số thập phân của định dạng measure:
+        // "$#,0" → $3bn, $197M, $44K; precision đặt sẵn thì giữ số 0 cuối ($33.0M). Không có định dạng: tối đa 2, bỏ số 0 cuối [SUY ĐOÁN].
+        if let precision {
+            return prefix + decimal(scaled, precision: precision) + suffix(unit) + suffixText
+        }
+        if let places = decimalPlaces(of: pattern) {
+            return prefix + decimal(scaled, precision: places) + suffix(unit) + suffixText
+        }
+        return prefix + decimal(scaled, precision: 2, trimZeros: true) + suffix(unit) + suffixText
+    }
+
+    /// Số chữ số sau dấu chấm trong phần đầu của mẫu số ("$#,0.00" → 2, "#,0" → 0). nil khi mẫu rỗng hoặc không phải mẫu số.
+    static func decimalPlaces(of pattern: String) -> Int? {
+        let section = pattern.split(separator: ";", omittingEmptySubsequences: false).first.map(String.init) ?? ""
+        guard section.contains(where: { $0 == "0" || $0 == "#" }) else { return nil }
+        guard let dot = section.firstIndex(of: ".") else { return 0 }
+        return section[section.index(after: dot)...].prefix { $0 == "0" || $0 == "#" }.count
     }
 
     /// Định dạng theo `formatString` của ô, không đổi đơn vị (bảng, tooltip).
