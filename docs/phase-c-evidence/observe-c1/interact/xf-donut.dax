@@ -1,0 +1,38 @@
+// DAX Query
+DEFINE
+	VAR __H0FilterTable = 
+		TREATAS({"35-49"}, 'Fact_Loan'[age_group_at_loan])
+
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			ROLLUPADDISSUBTOTAL('Dim_Loan_Profile'[purpose], "IsGrandTotalRowTotal"),
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Loan_Amount2", 'Fact_Loan'[Loan Amount],
+			"Fact_LoanLoan_Amount2", CALCULATE('Fact_Loan'[Loan Amount], KEEPFILTERS(__H0FilterTable)),
+			"Weighted_Avg_Term", IGNORE('Fact_Loan'[Weighted Avg Term]),
+			"Fact_LoanWeighted_Avg_Term", IGNORE(CALCULATE('Fact_Loan'[Weighted Avg Term], KEEPFILTERS(__H0FilterTable))),
+			"Loan_Count2", IGNORE('Fact_Loan'[Loan Count]),
+			"Fact_LoanLoan_Count2", IGNORE(CALCULATE('Fact_Loan'[Loan Count], KEEPFILTERS(__H0FilterTable)))
+		)
+
+	VAR __DS0BodyLimited = 
+		TOPN(1002, __DS0Core, [IsGrandTotalRowTotal], 0, 'Dim_Loan_Profile'[purpose], 1)
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	[IsGrandTotalRowTotal] DESC, 'Dim_Loan_Profile'[purpose]

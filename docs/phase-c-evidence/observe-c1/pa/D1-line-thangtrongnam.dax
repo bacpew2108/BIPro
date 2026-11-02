@@ -1,0 +1,63 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[month_name],
+			'Dim_Date'[month_num],
+			'Dim_Date'[year],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Trans_Amount", 'Fact_Transaction'[Trans Amount]
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(
+			201,
+			SUMMARIZE(__DS0Core, 'Dim_Date'[month_name], 'Dim_Date'[month_num]),
+			'Dim_Date'[month_num],
+			1,
+			'Dim_Date'[month_name],
+			1
+		)
+
+	VAR __DS0SecondaryBase = 
+		SUMMARIZE(__DS0Core, 'Dim_Date'[year])
+
+	VAR __DS0Secondary = 
+		TOPN(62, __DS0SecondaryBase, 'Dim_Date'[year], 1)
+
+	VAR __DS0BodyLimited = 
+		NATURALLEFTOUTERJOIN(
+			__DS0PrimaryWindowed,
+			SUBSTITUTEWITHINDEX(
+				__DS0Core,
+				"ColumnIndex",
+				__DS0Secondary,
+				'Dim_Date'[year],
+				ASC
+			)
+		)
+
+EVALUATE
+	__DS0Secondary
+
+ORDER BY
+	'Dim_Date'[year]
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_Date'[month_num], 'Dim_Date'[month_name], [ColumnIndex]

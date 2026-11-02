@@ -1,0 +1,34 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_CRM_Issue'[issue],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Complaints", 'Fact_CRM_Complaint'[Complaints],
+			"Pareto_Cum__", 'Fact_CRM_Complaint'[Pareto Cum %],
+			"v_Pareto_Cum___FormatString", IGNORE('Fact_CRM_Complaint'[_Pareto Cum % FormatString]),
+			"Pareto_80__Line", 'Fact_CRM_Complaint'[Pareto 80% Line],
+			"Pareto_Color", IGNORE('Fact_CRM_Complaint'[Pareto Color])
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(1001, __DS0Core, [Complaints], 0, 'Dim_CRM_Issue'[issue], 1)
+
+EVALUATE
+	__DS0PrimaryWindowed
+
+ORDER BY
+	[Complaints] DESC, 'Dim_CRM_Issue'[issue]

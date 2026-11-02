@@ -1,0 +1,71 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __ScopedCoreI0 = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[year_month],
+			'Dim_CRM_Channel_Response'[submitted_via],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Complaints", 'Fact_CRM_Complaint'[Complaints],
+			"Channel_Share__", IGNORE('Fact_CRM_Complaint'[Channel Share %]),
+			"v_Channel_Share___FormatString", IGNORE('Fact_CRM_Complaint'[_Channel Share % FormatString])
+		)
+
+	VAR __ScopedCoreDM0 = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[year_month],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Complaints_MA3", 'Fact_CRM_Complaint'[Complaints MA3]
+		)
+
+	VAR __DS0Core = 
+		NATURALLEFTOUTERJOIN(
+			__ScopedCoreI0,
+			__ScopedCoreDM0
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(201, SUMMARIZE(__DS0Core, 'Dim_Date'[year_month]), 'Dim_Date'[year_month], 1)
+
+	VAR __DS0SecondaryBase = 
+		SUMMARIZE(__DS0Core, 'Dim_CRM_Channel_Response'[submitted_via])
+
+	VAR __DS0Secondary = 
+		TOPN(62, __DS0SecondaryBase, 'Dim_CRM_Channel_Response'[submitted_via], 1)
+
+	VAR __DS0BodyLimited = 
+		NATURALLEFTOUTERJOIN(
+			__DS0PrimaryWindowed,
+			SUBSTITUTEWITHINDEX(
+				__DS0Core,
+				"ColumnIndex",
+				__DS0Secondary,
+				'Dim_CRM_Channel_Response'[submitted_via],
+				ASC
+			)
+		)
+
+EVALUATE
+	__DS0Secondary
+
+ORDER BY
+	'Dim_CRM_Channel_Response'[submitted_via]
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_Date'[year_month], [ColumnIndex]

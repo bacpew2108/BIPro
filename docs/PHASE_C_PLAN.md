@@ -25,7 +25,9 @@
 - **Tài liệu công khai:** `docs/phase-c-research/notes.md`. Quan sát từ file và PA: `docs/phase-c-evidence/C1.md`.
 - **Checklist buổi C1:** `docs/phase-c-oracle/CHECKLIST-C1.md`, chờ bạn làm.
 
-**Tiếp theo:** đợt 1, gồm E1 ‖ R1 ‖ R2 (worker agy); lead làm E2 rồi Q. Đợt này không cần chờ buổi C1. Q cần O-C1 để so đủ các visual, nhưng có thể bắt đầu với 8 truy vấn PA đã có.
+**Buổi C1 xong** (2026-11-02): 64 truy vấn, 11 kết quả, 9 ảnh; quan sát ở `docs/phase-c-evidence/C1.md` §2. Engine chạy được 0/64; danh sách việc của E1 ở C1.md §2.5.
+
+**Tiếp theo:** đợt 1, gồm E1 ‖ R1 ‖ R2 (worker agy); lead làm E2 rồi Q, so builder với 64 truy vấn C1.
 
 ## 0. Mục tiêu và tiêu chí xong
 

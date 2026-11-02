@@ -1,0 +1,64 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Client'[age_group_current],
+			'Dim_Client'[age_group_order],
+			'Dim_Client'[sex],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Complaints_per_1000_Clients", 'Fact_CRM_Complaint'[Complaints per 1000 Clients],
+			"Complaints", IGNORE('Fact_CRM_Complaint'[Complaints])
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(
+			201,
+			SUMMARIZE(__DS0Core, 'Dim_Client'[age_group_current], 'Dim_Client'[age_group_order]),
+			'Dim_Client'[age_group_order],
+			1,
+			'Dim_Client'[age_group_current],
+			1
+		)
+
+	VAR __DS0SecondaryBase = 
+		SUMMARIZE(__DS0Core, 'Dim_Client'[sex])
+
+	VAR __DS0Secondary = 
+		TOPN(62, __DS0SecondaryBase, 'Dim_Client'[sex], 1)
+
+	VAR __DS0BodyLimited = 
+		NATURALLEFTOUTERJOIN(
+			__DS0PrimaryWindowed,
+			SUBSTITUTEWITHINDEX(
+				__DS0Core,
+				"ColumnIndex",
+				__DS0Secondary,
+				'Dim_Client'[sex],
+				ASC
+			)
+		)
+
+EVALUATE
+	__DS0Secondary
+
+ORDER BY
+	'Dim_Client'[sex]
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_Client'[age_group_order], 'Dim_Client'[age_group_current], [ColumnIndex]

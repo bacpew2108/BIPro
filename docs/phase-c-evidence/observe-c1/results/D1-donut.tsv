@@ -1,0 +1,4 @@
+Dim_Trans_Type[trans_type]	[IsGrandTotalRowTotal]	[Trans_Amount]	[v__Trans_Amount]	[v___Trans_Amount_FormatString]	[Trans_Count2]
+	true	6257793560.3	1	0%	1056320
+Credit	false	3227472424.5	0.5157524602561792	0%	405083
+Debit	false	3030321135.8	0.4842475397438208	0%	651237

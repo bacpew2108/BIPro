@@ -1,0 +1,2 @@
+không
+card tiêu đề chính không hiện query. thay vào đó là subtitle và card số giao dịch.

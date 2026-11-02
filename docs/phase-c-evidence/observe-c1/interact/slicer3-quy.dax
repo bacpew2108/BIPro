@@ -1,0 +1,23 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(SUMMARIZE(VALUES('Dim_Date'), 'Dim_Date'[year], 'Dim_Date'[quarter_name])),
+			AND(
+				NOT('Dim_Date'[year] IN {9999}),
+				('Dim_Date'[year], 'Dim_Date'[quarter_name]) IN {(2016, "Q1")}
+			)
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+EVALUATE
+	SUMMARIZECOLUMNS(
+		__DS0FilterTable,
+		__DS0FilterTable2,
+		"Total_Credit_Inflow", IGNORE('Fact_Transaction'[Total_Credit_Inflow])
+	)

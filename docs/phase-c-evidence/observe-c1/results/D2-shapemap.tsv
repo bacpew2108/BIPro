@@ -1,0 +1,52 @@
+Dim_District[state_name]	[Loan_Amount2]	[Bad_Debt_Ratio_Count]	[v_Bad_Debt_Ratio_Count_FormatString]	[Top_Branches_Text]	[Branch_NPL_Color]
+Alabama			0.0%		
+Alaska			0.0%		
+Arizona	11698512	0.12	0%	Phoenix, AZ $11.7M (NPL 12%)	#C0392B
+Arkansas			0.0%		
+California	4299864	0.15789473684210525	0%	Los Angeles, CA $2.8M (NPL 21%) · San Diego, CA $1.5M (NPL 0%)	#C0392B
+Colorado			0.0%		
+Connecticut			0.0%		
+Delaware			0.0%		
+District Of Columbia			0.0%		
+Florida			0.0%		
+Georgia			0.0%		
+Hawaii			0.0%		
+Idaho			0.0%		
+Illinois			0.0%		
+Indiana			0.0%		
+Iowa			0.0%		
+Kansas	318780	0	0.0%	Wichita, KS $0.3M (NPL 0%)	#F0A36B
+Kentucky			0.0%		
+Louisiana			0.0%		
+Maine			0.0%		
+Maryland			0.0%		
+Massachusetts	8044812	0.12727272727272726	0%	Quincy, MA $8.0M (NPL 13%)	#C0392B
+Michigan			0.0%		
+Minnesota			0.0%		
+Mississippi			0.0%		
+Missouri			0.0%		
+Montana			0.0%		
+Nebraska			0.0%		
+Nevada			0.0%		
+New Hampshire			0.0%		
+New Jersey	513096	0	0.0%	Newark, NJ $0.5M (NPL 0%)	#F0A36B
+New Mexico	4040724	0.14285714285714285	0%	Albuquerque, NM $4.0M (NPL 14%)	#C0392B
+New York	74345952	0.10650887573964497	0%	New York City, NY $74.3M (NPL 11%)	#F0A36B
+North Carolina			0.0%		
+North Dakota			0.0%		
+Ohio			0.0%		
+Oklahoma			0.0%		
+Oregon			0.0%		
+Pennsylvania			0.0%		
+Rhode Island			0.0%		
+South Carolina			0.0%		
+South Dakota			0.0%		
+Tennessee			0.0%		
+Texas			0.0%		
+Utah			0.0%		
+Vermont			0.0%		
+Virginia			0.0%		
+Washington			0.0%		
+West Virginia			0.0%		
+Wisconsin			0.0%		
+Wyoming			0.0%		

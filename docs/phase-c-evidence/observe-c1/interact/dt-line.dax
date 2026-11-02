@@ -1,0 +1,35 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		TREATAS({"New Mexico"}, 'Dim_District'[state_name])
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable3 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[year_month],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			__DS0FilterTable3,
+			"D4_Trans_Amount", 'Dim_District'[D4 Trans Amount],
+			"D4_Trans_Count", IGNORE('Dim_District'[D4 Trans Count])
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(1001, __DS0Core, 'Dim_Date'[year_month], 1)
+
+EVALUATE
+	__DS0PrimaryWindowed
+
+ORDER BY
+	'Dim_Date'[year_month]

@@ -1,0 +1,33 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		CALCULATETABLE(
+			SUMMARIZE(
+				VALUES('Dim_Client'),
+				'Dim_Client'[age_group_current],
+				'Dim_Client'[age_group_order]
+			),
+			KEEPFILTERS(__DS0FilterTable),
+			KEEPFILTERS(__DS0FilterTable2)
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(101, __DS0Core, 'Dim_Client'[age_group_order], 1, 'Dim_Client'[age_group_current], 1)
+
+EVALUATE
+	__DS0PrimaryWindowed
+
+ORDER BY
+	'Dim_Client'[age_group_order], 'Dim_Client'[age_group_current]

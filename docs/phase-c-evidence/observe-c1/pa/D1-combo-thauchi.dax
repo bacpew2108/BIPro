@@ -1,0 +1,36 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[year_month],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Neg_Balance_Trans", 'Fact_Transaction'[Neg Balance Trans],
+			"Avg_Account_Balance", 'Fact_Transaction'[Avg_Account_Balance],
+			"Overdraft_Rate", IGNORE('Fact_Transaction'[Overdraft Rate]),
+			"v_Overdraft_Rate_FormatString", IGNORE('Fact_Transaction'[_Overdraft Rate FormatString]),
+			"Sanction_Interest", IGNORE('Fact_Transaction'[Sanction Interest]),
+			"Sanction_Count", IGNORE('Fact_Transaction'[Sanction Count]),
+			"Neg_Trans_Alert_Color", IGNORE('Fact_Transaction'[Neg Trans Alert Color])
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(1001, __DS0Core, 'Dim_Date'[year_month], 1)
+
+EVALUATE
+	__DS0PrimaryWindowed
+
+ORDER BY
+	'Dim_Date'[year_month]

@@ -1,0 +1,6 @@
+Dim_Loan_Profile[purpose]	[IsGrandTotalRowTotal]	[Loan_Amount2]	[Weighted_Avg_Term]	[Loan_Count2]
+	true	103261740	44.31106692565901	682
+Car	false	500700	27.02811264230078	30
+Debt_Consolidation	false	2992644	24.78947178481637	75
+Home	false	97894260	45.41463068416881	537
+Home_Improvement	false	1874136	22.456837710817144	40

@@ -1,0 +1,152 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[year],
+			'Dim_Loan_Profile'[status_vn],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Loan_Count2", 'Fact_Loan'[Loan Count]
+		)
+
+	VAR __DS0PrimaryBase = 
+		SUMMARIZE(__DS0Core, 'Dim_Date'[year])
+
+	VAR __DS0SecondaryBase = 
+		SUMMARIZE(__DS0Core, 'Dim_Loan_Profile'[status_vn])
+
+	VAR __DS0IntersectionCount = CALCULATE(COUNTROWS(__DS0Core))
+
+	VAR __DS0PrimaryCount = CALCULATE(COUNTROWS(__DS0PrimaryBase))
+
+	VAR __DS0SecondaryCount = CALCULATE(COUNTROWS(__DS0SecondaryBase))
+
+	VAR __DS0SpaceCount = (__DS0PrimaryCount * __DS0SecondaryCount)
+
+	VAR __DS0SparseFactor = MIN(5, DIVIDE(__DS0SpaceCount, __DS0IntersectionCount))
+
+	VAR __DS0TargetIntersectionCount = CEILING(3500 * __DS0SparseFactor, 1)
+
+	VAR __DS0InitTargetPrimaryCount = 
+		IF(
+			__DS0IntersectionCount <= 3500,
+			IF(
+				__DS0SpaceCount <= __DS0TargetIntersectionCount,
+				3500,
+				FLOOR(
+					SQRT(__DS0TargetIntersectionCount * DIVIDE(__DS0PrimaryCount, __DS0SecondaryCount)),
+					1
+				)
+			),
+			IF(
+				AND(__DS0PrimaryCount > 800, __DS0SecondaryCount > 60),
+				CEILING(DIVIDE(__DS0TargetIntersectionCount, 60), 1),
+				IF(
+					__DS0SecondaryCount > 60,
+					__DS0PrimaryCount,
+					CEILING(DIVIDE(__DS0TargetIntersectionCount, __DS0SecondaryCount), 1)
+				)
+			)
+		)
+
+	VAR __DS0InitTargetSecondaryCount = 
+		IF(
+			__DS0IntersectionCount <= 3500,
+			IF(
+				__DS0SpaceCount <= __DS0TargetIntersectionCount,
+				3500,
+				FLOOR(
+					DIVIDE(__DS0TargetIntersectionCount, FLOOR(
+						SQRT(__DS0TargetIntersectionCount * DIVIDE(__DS0PrimaryCount, __DS0SecondaryCount)),
+						1
+					)),
+					1
+				)
+			),
+			IF(
+				AND(__DS0PrimaryCount > 800, __DS0SecondaryCount > 60),
+				60,
+				IF(
+					__DS0SecondaryCount > 60,
+					CEILING(DIVIDE(__DS0TargetIntersectionCount, __DS0PrimaryCount), 1),
+					__DS0SecondaryCount
+				)
+			)
+		)
+
+	VAR __DS0MinPrimaryCount = MIN(10, __DS0PrimaryCount)
+
+	VAR __DS0MinSecondaryCount = MIN(10, __DS0SecondaryCount)
+
+	VAR __DS0TargetPrimaryCount = 
+		IF(
+			__DS0InitTargetPrimaryCount < __DS0MinPrimaryCount,
+			__DS0MinPrimaryCount,
+			IF(
+				__DS0InitTargetSecondaryCount < __DS0MinSecondaryCount,
+				CEILING(DIVIDE(__DS0TargetIntersectionCount, __DS0MinSecondaryCount), 1),
+				__DS0InitTargetPrimaryCount
+			)
+		)
+
+	VAR __DS0TargetSecondaryCount = 
+		IF(
+			__DS0InitTargetPrimaryCount < __DS0MinPrimaryCount,
+			CEILING(DIVIDE(__DS0TargetIntersectionCount, __DS0MinPrimaryCount), 1),
+			IF(
+				__DS0InitTargetSecondaryCount < __DS0MinSecondaryCount,
+				__DS0MinSecondaryCount,
+				__DS0InitTargetSecondaryCount
+			)
+		)
+
+	VAR __DS0Primary = 
+		SAMPLE(__DS0TargetPrimaryCount + 2, __DS0PrimaryBase, 'Dim_Date'[year], 1)
+
+	VAR __DS0Secondary = 
+		TOPN(__DS0TargetSecondaryCount + 1, __DS0SecondaryBase, 'Dim_Loan_Profile'[status_vn], 1)
+
+	VAR __DS0BodyLimited = 
+		NATURALLEFTOUTERJOIN(
+			__DS0Primary,
+			SUBSTITUTEWITHINDEX(
+				__DS0Core,
+				"ColumnIndex",
+				__DS0Secondary,
+				'Dim_Loan_Profile'[status_vn],
+				ASC
+			)
+		)
+
+EVALUATE
+	ROW(
+		"DS0IntersectionCount", __DS0IntersectionCount,
+		"DS0PrimaryCount", __DS0PrimaryCount,
+		"DS0TargetPrimaryCount", __DS0TargetPrimaryCount,
+		"DS0SecondaryCount", __DS0SecondaryCount,
+		"DS0TargetSecondaryCount", __DS0TargetSecondaryCount
+	)
+
+EVALUATE
+	__DS0Secondary
+
+ORDER BY
+	'Dim_Loan_Profile'[status_vn]
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_Date'[year], [ColumnIndex]

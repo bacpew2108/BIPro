@@ -1,0 +1,21 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+EVALUATE
+	SUMMARIZECOLUMNS(
+		__DS0FilterTable,
+		__DS0FilterTable2,
+		"Total_Credit_Inflow_Δ_Color", IGNORE('Fact_Transaction'[Total_Credit_Inflow Δ Color]),
+		"Total_Credit_Inflow_Δ_Label", IGNORE('Fact_Transaction'[Total_Credit_Inflow Δ Label])
+	)

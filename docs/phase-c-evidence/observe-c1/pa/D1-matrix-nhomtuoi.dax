@@ -1,0 +1,89 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			ROLLUPADDISSUBTOTAL(
+				ROLLUPGROUP('Dim_Client'[age_group_current], 'Dim_Client'[age_group_order]), "IsGrandTotalRowTotal"
+			),
+			ROLLUPADDISSUBTOTAL('Dim_Account'[branch_region], "IsGrandTotalColumnTotal"),
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Trans_per_Client", 'Fact_Transaction'[Trans per Client]
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(
+			102,
+			SUMMARIZE(
+				__DS0Core,
+				'Dim_Client'[age_group_current],
+				'Dim_Client'[age_group_order],
+				[IsGrandTotalRowTotal]
+			),
+			[IsGrandTotalRowTotal],
+			0,
+			'Dim_Client'[age_group_order],
+			1,
+			'Dim_Client'[age_group_current],
+			1
+		)
+
+	VAR __DS0SecondaryBase = 
+		SUMMARIZE(__DS0Core, 'Dim_Account'[branch_region], [IsGrandTotalColumnTotal])
+
+	VAR __DS0Secondary = 
+		TOPN(102, __DS0SecondaryBase, [IsGrandTotalColumnTotal], 1, 'Dim_Account'[branch_region], 1)
+
+	VAR __DS0BodyLimited = 
+		NATURALLEFTOUTERJOIN(
+			__DS0PrimaryWindowed,
+			SUBSTITUTEWITHINDEX(
+				__DS0Core,
+				"ColumnIndex",
+				__DS0Secondary,
+				[IsGrandTotalColumnTotal],
+				ASC,
+				'Dim_Account'[branch_region],
+				ASC
+			)
+		)
+
+	VAR __DS0CoreNoInstanceFiltersNoTotals = 
+		FILTER(
+			KEEPFILTERS(__DS0Core),
+			AND([IsGrandTotalRowTotal] = FALSE, [IsGrandTotalColumnTotal] = FALSE)
+		)
+
+EVALUATE
+	GROUPBY(
+		__DS0CoreNoInstanceFiltersNoTotals,
+		"MinTrans_per_Client", MINX(CURRENTGROUP(), [Trans_per_Client]),
+		"MaxTrans_per_Client", MAXX(CURRENTGROUP(), [Trans_per_Client])
+	)
+
+EVALUATE
+	__DS0Secondary
+
+ORDER BY
+	[IsGrandTotalColumnTotal], 'Dim_Account'[branch_region]
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	[IsGrandTotalRowTotal] DESC,
+	'Dim_Client'[age_group_order],
+	'Dim_Client'[age_group_current],
+	[ColumnIndex]

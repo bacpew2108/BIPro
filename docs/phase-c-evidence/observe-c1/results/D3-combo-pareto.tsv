@@ -1,0 +1,39 @@
+Dim_CRM_Issue[issue]	[Complaints]	[Pareto_Cum__]	[v_Pareto_Cum___FormatString]	[Pareto_80__Line]	[Pareto_Color]
+Account opening, closing, or management	5884	0.25124898586617705	0%	0.8	#6A1B9A
+Deposits and withdrawals	3788	0.4129979930825398	0%	0.8	#6A1B9A
+Problems caused by my funds being low	2041	0.5001494513002264	0%	0.8	#6A1B9A
+Billing disputes	1560	0.5667620308296683	0%	0.8	#6A1B9A
+Making/receiving payments, sending money	1246	0.6199666937102353	0%	0.8	#6A1B9A
+Using a debit or ATM card	1132	0.6683035142405739	0%	0.8	#6A1B9A
+Other	978	0.7100644775609548	0%	0.8	#6A1B9A
+Identity theft / Fraud / Embezzlement	841	0.7459754899867629	0%	0.8	#6A1B9A
+Closing/Cancelling account	834	0.7815875998121183	0%	0.8	#6A1B9A
+APR or interest rate	493	0.8026388829582818	0%	0.8	#6A1B9A
+Customer service / Customer relations	373	0.8185661215252573	0%	0.8	#CE93D8
+Other fee	347	0.8333831504334088	0%	0.8	#CE93D8
+Transaction issue	346	0.848157478970067	0%	0.8	#CE93D8
+Late fee	344	0.8628464067637388	0%	0.8	#CE93D8
+Credit card protection / Debt protection	318	0.8764251248985866	0%	0.8	#CE93D8
+Delinquent account	314	0.8898330415474615	0%	0.8	#CE93D8
+Rewards	290	0.9022161492804988	0%	0.8	#CE93D8
+Credit reporting	270	0.9137452495836714	0%	0.8	#CE93D8
+Billing statement	262	0.9249327469148981	0%	0.8	#CE93D8
+Credit line increase/decrease	253	0.9357359409026859	0%	0.8	#CE93D8
+Payoff process	218	0.9450446218882105	0%	0.8	#CE93D8
+Credit determination	203	0.9537127973013365	0%	0.8	#CE93D8
+Advertising and marketing	192	0.9619112686280371	0%	0.8	#CE93D8
+Balance transfer	139	0.9678466202655963	0%	0.8	#CE93D8
+Collection debt dispute	135	0.9736111704171826	0%	0.8	#CE93D8
+Unsolicited issuance of credit card	119	0.9786925146248773	0%	0.8	#CE93D8
+Collection practices	92	0.9826209488022546	0%	0.8	#CE93D8
+Forbearance / Workout plans	61	0.9852256714633417	0%	0.8	#CE93D8
+Privacy	48	0.9872752892950168	0%	0.8	#CE93D8
+Bankruptcy	43	0.9891114052692258	0%	0.8	#CE93D8
+Arbitration	40	0.9908194201289551	0%	0.8	#CE93D8
+Cash advance	39	0.9924847346171912	0%	0.8	#CE93D8
+Cash advance fee	36	0.9940219479909476	0%	0.8	#CE93D8
+Application processing delay	34	0.9954737606217174	0%	0.8	#CE93D8
+Balance transfer fee	32	0.9968401725095009	0%	0.8	#CE93D8
+Sale of account	31	0.998163884025791	0%	0.8	#CE93D8
+Convenience checks	26	0.9992740936846151	0%	0.8	#CE93D8
+Overlimit fee	17	1	0%	0.8	#CE93D8

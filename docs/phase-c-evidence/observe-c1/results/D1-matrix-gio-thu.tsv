@@ -1,0 +1,77 @@
+#RESULT 1
+[MinTrans_Count__k_]	[MaxTrans_Count__k_]
+15.863	17.806
+#RESULT 2
+Dim_Date[day_name]	Dim_Date[day_of_week]
+Monday	1
+Tuesday	2
+Wednesday	3
+Thursday	4
+Friday	5
+Saturday	6
+Sunday	7
+#RESULT 3
+Fact_Transaction[trans_hour]	[Trans_Count__k_]	[Peak_Hour_Font_Color]	[Peak_Hour_Top10_Icon]	[ColumnIndex]
+8	16.205	#1A1A1A		0
+8	16.504	#1A1A1A		1
+8	17.246	#1A1A1A		2
+8	16.197	#1A1A1A		3
+8	16.379	#1A1A1A		4
+8	16.979	#1A1A1A		5
+8	15.863	#1A1A1A		6
+9	16.421	#1A1A1A		0
+9	16.564	#1A1A1A		1
+9	17.522	#1A1A1A		2
+9	16.641	#1A1A1A		3
+9	17.007	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	4
+9	16.891	#1A1A1A		5
+9	16.301	#FFFFFF		6
+10	16.892	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	0
+10	16.799	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	1
+10	17.755	#FFFFFF		2
+10	16.453	#1A1A1A		3
+10	16.735	#1A1A1A		4
+10	17.2	#FFFFFF		5
+10	15.887	#1A1A1A		6
+11	16.46	#1A1A1A		0
+11	16.645	#1A1A1A		1
+11	17.751	#FFFFFF		2
+11	16.779	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	3
+11	16.993	#FFFFFF		4
+11	16.869	#1A1A1A		5
+11	16.245	#1A1A1A		6
+12	16.49	#1A1A1A		0
+12	16.631	#1A1A1A		1
+12	17.349	#1A1A1A		2
+12	16.546	#1A1A1A		3
+12	16.985	#FFFFFF		4
+12	17.021	#1A1A1A		5
+12	15.912	#1A1A1A		6
+13	16.471	#1A1A1A		0
+13	16.381	#1A1A1A		1
+13	17.687	#1A1A1A		2
+13	16.51	#1A1A1A		3
+13	16.776	#1A1A1A		4
+13	17	#1A1A1A		5
+13	16.326	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	6
+14	16.194	#1A1A1A		0
+14	16.664	#1A1A1A		1
+14	17.689	#1A1A1A		2
+14	16.764	#FFFFFF		3
+14	16.725	#1A1A1A		4
+14	17.168	#FFFFFF		5
+14	16.046	#1A1A1A		6
+15	16.484	#1A1A1A		0
+15	16.729	#1A1A1A		1
+15	17.419	#1A1A1A		2
+15	16.511	#1A1A1A		3
+15	16.771	#1A1A1A		4
+15	17.211	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	5
+15	16.204	#1A1A1A		6
+16	16.521	#1A1A1A		0
+16	16.748	#FFFFFF		1
+16	17.806	#FFFFFF	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	2
+16	16.583	#1A1A1A		3
+16	16.955	#FFFFFF		4
+16	16.894	#1A1A1A		5
+16	16.126	#1A1A1A		6

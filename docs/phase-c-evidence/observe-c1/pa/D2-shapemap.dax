@@ -1,0 +1,39 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		FILTER(
+			KEEPFILTERS(
+				SUMMARIZECOLUMNS(
+					'Dim_District'[state_name],
+					__DS0FilterTable,
+					__DS0FilterTable2,
+					"Loan_Amount2", IGNORE('Fact_Loan'[Loan Amount]),
+					"Bad_Debt_Ratio_Count", IGNORE('Fact_Loan'[Bad_Debt_Ratio_Count]),
+					"v_Bad_Debt_Ratio_Count_FormatString", IGNORE('Fact_Loan'[_Bad_Debt_Ratio_Count FormatString]),
+					"Top_Branches_Text", IGNORE('Fact_Loan'[Top Branches Text]),
+					"Branch_NPL_Color", IGNORE('Fact_Loan'[Branch NPL Color])
+				)
+			),
+			NOT(ISBLANK('Dim_District'[state_name]))
+		)
+
+	VAR __DS0BodyLimited = 
+		TOPN(3502, __DS0Core, 'Dim_District'[state_name], 1)
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_District'[state_name]
