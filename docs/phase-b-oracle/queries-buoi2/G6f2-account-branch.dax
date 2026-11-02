@@ -1,0 +1,36 @@
+// G6f2-account-branch | Trang D4 theo chi nhánh của tài khoản (Dim_Account). Chạy, Copy kết quả, dán vào G6f2-account-branch.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_Account'[branch_city],
+	"D4 Trans Count", 'Dim_District'[D4 Trans Count],
+	"D4 Trans Count · ISBLANK", ISBLANK ( 'Dim_District'[D4 Trans Count] ),
+	"D4 Trans Amount", 'Dim_District'[D4 Trans Amount],
+	"D4 Trans Amount · ISBLANK", ISBLANK ( 'Dim_District'[D4 Trans Amount] ),
+	"D4 Active Accounts", 'Dim_District'[D4 Active Accounts],
+	"D4 Active Accounts · ISBLANK", ISBLANK ( 'Dim_District'[D4 Active Accounts] ),
+	"D4 Overdraft Rate", 'Dim_District'[D4 Overdraft Rate],
+	"D4 Overdraft Rate · ISBLANK", ISBLANK ( 'Dim_District'[D4 Overdraft Rate] ),
+	"D4 Complaints", 'Dim_District'[D4 Complaints],
+	"D4 Complaints · ISBLANK", ISBLANK ( 'Dim_District'[D4 Complaints] ),
+	"D4 SLA_Timely_Rate", 'Dim_District'[D4 SLA_Timely_Rate],
+	"D4 SLA_Timely_Rate · ISBLANK", ISBLANK ( 'Dim_District'[D4 SLA_Timely_Rate] ),
+	"D4 Dispute_Rate", 'Dim_District'[D4 Dispute_Rate],
+	"D4 Dispute_Rate · ISBLANK", ISBLANK ( 'Dim_District'[D4 Dispute_Rate] ),
+	"D4 Avg_Days_To_Company", 'Dim_District'[D4 Avg_Days_To_Company],
+	"D4 Avg_Days_To_Company · ISBLANK", ISBLANK ( 'Dim_District'[D4 Avg_Days_To_Company] ),
+	"D4 Timely Color", 'Dim_District'[D4 Timely Color],
+	"D4 Timely Color · ISBLANK", ISBLANK ( 'Dim_District'[D4 Timely Color] ),
+	"NPL Avg (Selected)", 'Fact_Loan'[NPL Avg (Selected)],
+	"NPL Avg (Selected) · ISBLANK", ISBLANK ( 'Fact_Loan'[NPL Avg (Selected)] ),
+	"Branch NPL Color", 'Fact_Loan'[Branch NPL Color],
+	"Branch NPL Color · ISBLANK", ISBLANK ( 'Fact_Loan'[Branch NPL Color] ),
+	"Branch NPL Label", 'Dim_District'[Branch NPL Label],
+	"Branch NPL Label · ISBLANK", ISBLANK ( 'Dim_District'[Branch NPL Label] ),
+	"Branch Title", 'Dim_District'[Branch Title],
+	"Branch Title · ISBLANK", ISBLANK ( 'Dim_District'[Branch Title] ),
+	"Branch Subtitle", 'Dim_District'[Branch Subtitle],
+	"Branch Subtitle · ISBLANK", ISBLANK ( 'Dim_District'[Branch Subtitle] ),
+	"Top Branches Text", 'Fact_Loan'[Top Branches Text],
+	"Top Branches Text · ISBLANK", ISBLANK ( 'Fact_Loan'[Top Branches Text] )
+)
+ORDER BY 'Dim_Account'[branch_city]

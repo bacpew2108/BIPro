@@ -1,0 +1,976 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Sales Report — Query Editor Edited</title>
+<!-- Google Fonts: Inter & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            primary: '#005ab3',
+            'primary-dark': '#00468d',
+            'primary-light': '#e8f2fc',
+            surface: '#fcf8fb',
+            'surface-alt': '#f3f4f6',
+            'border-subtle': '#e2e5eb',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    * {
+      box-sizing: border-box;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #1e1e24;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Fixed Container 1280x1024 exact frame */
+    #app-window {
+      width: 1280px;
+      height: 1024px;
+      max-width: 1280px;
+      max-height: 1024px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0,0,0,0.12);
+      border-radius: 10px;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f1f3f7;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #c5cbd5;
+      border-radius: 3px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #9aa1b0;
+    }
+    .ribbon-btn {
+      display: flex;
+      align-items: center;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: #374151;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+      transition: background-color 0.1s;
+      white-space: nowrap;
+    }
+    .ribbon-btn:hover {
+      background-color: #e9edf3;
+      color: #111827;
+    }
+    .ribbon-btn-lg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #1f2937;
+      transition: background-color 0.1s;
+    }
+    .ribbon-btn-lg:hover {
+      background-color: #e9edf3;
+    }
+  </style>
+</head>
+<body class="select-none">
+<!-- macOS Window Frame -->
+<div id="app-window">
+<!-- 1. Window Header / macOS Chrome Bar (Height: 40px) -->
+<header class="h-10 bg-[#f6f7f9] border-b border-[#e5e7eb] flex items-center justify-between px-3 shrink-0">
+<!-- Traffic lights & Brand -->
+<div class="flex items-center gap-2 w-48">
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] inline-block shadow-sm"></span>
+<span class="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] inline-block shadow-sm"></span>
+<span class="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] inline-block shadow-sm"></span>
+</div>
+<span class="ml-2 text-[11px] font-bold text-gray-500 tracking-wider">LUMEN</span>
+</div>
+<!-- Window Title -->
+<div class="flex items-center gap-1.5 text-xs text-gray-700 font-medium">
+<span class="font-semibold text-gray-800">Sales Report — Query Editor</span>
+<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-600 font-normal">Edited</span>
+</div>
+<!-- Search & Profile Avatar -->
+<div class="flex items-center gap-3 w-60 justify-end">
+<div class="flex items-center bg-white border border-gray-300 rounded px-2 py-0.5 text-xs text-gray-400 gap-1 w-36 shadow-sm">
+<span class="material-symbols-outlined text-[14px]">search</span>
+<span class="text-[11px] text-gray-500">Search ribbon</span>
+</div>
+<div class="w-6 h-6 rounded-full bg-[#005ab3] flex items-center justify-center text-white text-[12px] font-semibold">
+          JD
+        </div>
+</div>
+</header>
+<!-- 2. Ribbon Tabs Bar (Height: 30px) -->
+<div class="h-[30px] bg-[#f0f2f5] border-b border-[#dfe3e8] px-2 flex items-center shrink-0">
+<nav class="flex items-center space-x-0.5 text-[12px]">
+<button class="px-3 py-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 font-medium">File</button>
+<button class="relative px-3 py-1 font-semibold text-[#005ab3] bg-white rounded-t border-t-2 border-t-[#005ab3] border-x border-[#dfe3e8] shadow-xs">Home</button>
+<button class="px-3 py-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 font-medium">Transform</button>
+<button class="px-3 py-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 font-medium">Add Column</button>
+<button class="px-3 py-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 font-medium">View</button>
+<button class="px-3 py-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 font-medium">Tools</button>
+<button class="px-3 py-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 font-medium">Help</button>
+</nav>
+</div>
+<!-- 3. Ribbon Controls Strip (Height: 96px) -->
+<div class="h-24 bg-[#f8f9fa] border-b border-[#d8dde3] px-2 py-1 flex items-stretch divide-x divide-gray-200 shrink-0">
+<!-- Group: Close -->
+<div class="flex flex-col justify-between px-2 min-w-[70px]">
+<div class="flex items-center justify-center flex-1">
+<button class="ribbon-btn-lg group w-full py-1">
+<div class="w-8 h-8 rounded bg-[#005ab3] flex items-center justify-center text-white shadow-sm mb-0.5 group-hover:bg-[#00468d]">
+<span class="material-symbols-outlined text-[20px]">save</span>
+</div>
+<div class="flex items-center text-[11px] font-medium leading-none text-gray-800">
+<span class="">Close &amp; Apply</span>
+<span class="text-[10px] ml-0.5 text-gray-500">▾</span>
+</div>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Close</div>
+</div>
+<!-- Group: New Query -->
+<div class="flex flex-col justify-between px-2">
+<div class="flex items-center gap-1 flex-1">
+<button class="ribbon-btn-lg py-1 px-1.5">
+<span class="material-symbols-outlined text-[20px] text-[#005ab3] mb-0.5">add_circle</span>
+<span class="text-[11px] leading-tight text-center text-gray-800">New<br>Source ▾</span>
+</button>
+<button class="ribbon-btn-lg py-1 px-1.5">
+<span class="material-symbols-outlined text-[20px] text-gray-600 mb-0.5">history</span>
+<span class="text-[11px] leading-tight text-center text-gray-800">Recent<br>Sources ▾</span>
+</button>
+<button class="ribbon-btn-lg py-1 px-1.5">
+<span class="material-symbols-outlined text-[20px] text-gray-600 mb-0.5">edit_square</span>
+<span class="text-[11px] leading-tight text-center text-gray-800">Enter<br>Data</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">New Query</div>
+</div>
+<!-- Group: Query -->
+<div class="flex flex-col justify-between px-2">
+<div class="flex flex-col justify-center gap-0.5 flex-1">
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-[#005ab3] mr-1.5">refresh</span>
+<span class="">Refresh Preview ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-gray-600 mr-1.5">code_blocks</span>
+<span class="">Advanced Editor</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-gray-600 mr-1.5">tune</span>
+<span class="">Properties</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Query</div>
+</div>
+<!-- Group: Manage Columns -->
+<div class="flex flex-col justify-between px-2">
+<div class="flex flex-col justify-center gap-1 flex-1">
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-[#005ab3] mr-1.5">view_column</span>
+<span class="">Choose Columns ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-rose-600 mr-1.5">delete_sweep</span>
+<span class="">Remove Columns ▾</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Manage Columns</div>
+</div>
+<!-- Group: Reduce Rows -->
+<div class="flex flex-col justify-between px-2">
+<div class="flex flex-col justify-center gap-1 flex-1">
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-emerald-600 mr-1.5">table_rows_narrow</span>
+<span class="">Keep Rows ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-rose-600 mr-1.5">filter_alt_off</span>
+<span class="">Remove Rows ▾</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Reduce Rows</div>
+</div>
+<!-- Group: Sort -->
+<div class="flex flex-col justify-between px-2">
+<div class="flex flex-col justify-center gap-1 flex-1">
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-sky-600 mr-1.5">arrow_upward</span>
+<span class="">Sort Ascending (A→Z)</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[15px] text-sky-600 mr-1.5">arrow_downward</span>
+<span class="">Sort Descending (Z→A)</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Sort</div>
+</div>
+<!-- Group: Transform -->
+<div class="flex flex-col justify-between px-2">
+<div class="grid grid-cols-2 gap-x-2 gap-y-0.5 flex-1 items-center">
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-indigo-600 mr-1">call_split</span>
+<span class="">Split Column ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-indigo-600 mr-1">table_chart</span>
+<span class="">Use First Row as Headers ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-indigo-600 mr-1">hub</span>
+<span class="">Group By</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-gray-600 mr-1">find_replace</span>
+<span class="">Replace Values</span>
+</button>
+<button class="ribbon-btn col-span-2">
+<span class="material-symbols-outlined text-[14px] text-gray-600 mr-1">category</span>
+<span class="">Data Type ▾</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Transform</div>
+</div>
+<!-- Group: Combine -->
+<div class="flex flex-col justify-between px-2">
+<div class="flex flex-col justify-center gap-0.5 flex-1">
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-[#005ab3] mr-1.5">merge</span>
+<span class="">Merge Queries ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-[#005ab3] mr-1.5">alt_route</span>
+<span class="">Append Queries ▾</span>
+</button>
+<button class="ribbon-btn">
+<span class="material-symbols-outlined text-[14px] text-gray-600 mr-1.5">library_books</span>
+<span class="">Combine Files</span>
+</button>
+</div>
+<div class="text-[9px] uppercase tracking-wider text-center text-gray-400 font-semibold pb-0.5">Combine</div>
+</div>
+</div>
+<!-- 4. Formula Bar (Height: 34px) -->
+<div class="h-[34px] bg-[#f3f4f6] border-b border-[#d8dde3] px-3 flex items-center gap-2 shrink-0">
+<div class="flex items-center gap-1.5 text-gray-500">
+<span class="font-bold italic text-sm text-[#005ab3] select-none">fx</span>
+<button class="hover:text-emerald-600 flex items-center justify-center p-0.5 rounded"><span class="material-symbols-outlined text-[15px]">check</span></button>
+<button class="hover:text-rose-600 flex items-center justify-center p-0.5 rounded"><span class="material-symbols-outlined text-[15px]">close</span></button>
+</div>
+<!-- Monospace JetBrains Mono Expression -->
+<div class="flex-1 bg-white border border-[#c5cbd5] rounded px-2 py-0.5 text-[11px] font-mono overflow-x-auto whitespace-nowrap text-gray-800 shadow-inner flex items-center leading-none">
+<span class="text-blue-700 font-semibold mr-1">=</span>
+<span class="text-[#005ab3] font-semibold">Table.TransformColumnTypes</span>
+<span class="text-gray-900">(</span>
+<span class="text-amber-800">#"Promoted Headers"</span>
+<span class="text-gray-900">, {</span>
+<span class="text-gray-900">{</span><span class="text-red-700">"OrderID"</span><span class="text-gray-900">, </span><span class="text-purple-700">type text</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"OrderDate"</span><span class="text-gray-900">, </span><span class="text-purple-700">type date</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"CustomerID"</span><span class="text-gray-900">, </span><span class="text-purple-700">type text</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"ProductID"</span><span class="text-gray-900">, </span><span class="text-purple-700">type text</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"Region"</span><span class="text-gray-900">, </span><span class="text-purple-700">type text</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"Quantity"</span><span class="text-gray-900">, </span><span class="text-purple-700">Int64.Type</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"Revenue"</span><span class="text-gray-900">, </span><span class="text-purple-700">type number</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"Cost"</span><span class="text-gray-900">, </span><span class="text-purple-700">type number</span><span class="text-gray-900">}, </span>
+<span class="text-gray-900">{</span><span class="text-red-700">"Profit"</span><span class="text-gray-900">, </span><span class="text-purple-700">type number</span><span class="text-gray-900">}</span>
+<span class="text-gray-900">})</span>
+</div>
+<button class="text-gray-400 hover:text-gray-700">
+<span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<!-- 5. Main Middle Work Area: Left Pane + Center Data Grid + Right Pane -->
+<div class="flex-1 flex overflow-hidden">
+<!-- 5A. Left Queries Pane (Width: 200px) -->
+<aside class="w-[200px] bg-[#f9fafb] border-r border-[#d8dde3] flex flex-col shrink-0 select-none">
+<div class="h-8 px-2.5 border-b border-gray-200 flex items-center justify-between text-xs font-semibold text-gray-700 bg-[#f3f4f6]">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-gray-500">account_tree</span>
+<span class="">Queries [6]</span>
+</div>
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined text-[16px]">dock_to_left</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-1.5 custom-scroll text-[12px]">
+<!-- Folder: Staging -->
+<div class="mb-1">
+<div class="flex items-center gap-1 px-1.5 py-1 text-gray-600 font-semibold cursor-pointer hover:bg-gray-200/50 rounded">
+<span class="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[15px] text-amber-600">folder</span>
+<span class="">Staging</span>
+</div>
+<div class="ml-4 pl-1 space-y-0.5 border-l border-gray-200 mt-0.5">
+<div class="flex items-center gap-1.5 px-2 py-1 text-gray-700 rounded hover:bg-gray-200/60 cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-gray-500">table_chart</span>
+<span class="">Raw_Sales</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-gray-400 italic rounded hover:bg-gray-200/60 cursor-pointer">
+<span class="material-symbols-outlined text-[14px] opacity-60">table_chart</span>
+<span class="">Raw_Customers</span>
+</div>
+</div>
+</div>
+<!-- Folder: Final -->
+<div>
+<div class="flex items-center gap-1 px-1.5 py-1 text-gray-600 font-semibold cursor-pointer hover:bg-gray-200/50 rounded">
+<span class="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[15px] text-amber-600">folder</span>
+<span class="">Final</span>
+</div>
+<div class="ml-4 pl-1 space-y-0.5 border-l border-gray-200 mt-0.5">
+<!-- Selected Query -->
+<div class="flex items-center justify-between px-2 py-1 bg-[#005ab3] text-white rounded font-medium shadow-xs cursor-pointer">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-white">table_chart</span>
+<span class="">Sales_Transactions</span>
+</div>
+<span class="material-symbols-outlined text-[13px]">check</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-gray-700 rounded hover:bg-gray-200/60 cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-gray-500">table_chart</span>
+<span class="">Customers_Dim</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 text-gray-700 rounded hover:bg-gray-200/60 cursor-pointer">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-gray-500">table_chart</span>
+<span class="">Product_Catalog</span>
+</div>
+<span class="material-symbols-outlined text-[14px] text-amber-600" title="Warning">warning</span>
+</div>
+<div class="flex items-center gap-1.5 px-2 py-1 text-gray-700 rounded hover:bg-gray-200/60 cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-gray-500">table_chart</span>
+<span class="">Calendar</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- 5B. Center Data Grid Viewport (Flex 1) -->
+<main class="flex-1 min-w-0 flex flex-col bg-white overflow-hidden border-r border-[#d8dde3]">
+<!-- Query Subtitle / Context Header -->
+<div class="h-7 px-3 bg-[#f8f9fa] border-b border-[#e2e5eb] flex items-center justify-between shrink-0 text-xs">
+<div class="flex items-center gap-2">
+<span class="font-semibold text-gray-800">Sales_Transactions</span>
+<span class="bg-blue-50 text-[#005ab3] px-1.5 py-0.2 rounded text-[10px] font-medium border border-blue-200">Active Selection</span>
+</div>
+<div class="flex items-center gap-2 text-gray-400">
+<button class="hover:text-gray-700"><span class="material-symbols-outlined text-[15px]">filter_alt</span></button>
+<button class="hover:text-gray-700"><span class="material-symbols-outlined text-[15px]">view_week</span></button>
+<button class="hover:text-gray-700"><span class="material-symbols-outlined text-[15px]">fullscreen</span></button>
+</div>
+</div>
+<!-- Table Container with scrolling -->
+<div class="flex-1 overflow-auto custom-scroll bg-white">
+<table class="w-full border-collapse text-left border-spacing-0 table-fixed">
+<thead class="sticky top-0 bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.06)] z-10">
+<tr class="text-[11px] font-semibold text-gray-700 divide-x divide-gray-200 border-b border-gray-300">
+<!-- Row Index header (36px) -->
+<th class="w-[36px] min-w-[36px] max-w-[36px] px-1 py-1 text-center font-normal text-gray-500 bg-[#eaecef]">#</th>
+<!-- OrderID (70px) -->
+<th class="w-[70px] min-w-[70px] max-w-[70px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-blue-100 text-[#005ab3] font-bold shrink-0">123</span>
+<span class="truncate">OrderID</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-full h-full"></div></div>
+</th>
+<!-- OrderDate (95px) -->
+<th class="w-[95px] min-w-[95px] max-w-[95px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="material-symbols-outlined text-[12px] text-purple-600 shrink-0">calendar_today</span>
+<span class="truncate">OrderDate</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-[96%] h-full"></div><div class="bg-gray-400 w-[4%] h-full"></div></div>
+</th>
+<!-- CustomerID (95px) -->
+<th class="w-[95px] min-w-[95px] max-w-[95px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-amber-100 text-amber-700 font-bold shrink-0">ABC</span>
+<span class="truncate">CustomerID</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-full h-full"></div></div>
+</th>
+<!-- ProductID (80px) -->
+<th class="w-[80px] min-w-[80px] max-w-[80px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-amber-100 text-amber-700 font-bold shrink-0">ABC</span>
+<span class="truncate">ProductID</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-full h-full"></div></div>
+</th>
+<!-- Region (110px) -->
+<th class="w-[110px] min-w-[110px] max-w-[110px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-amber-100 text-amber-700 font-bold shrink-0">ABC</span>
+<span class="truncate">Region</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-[92%] h-full"></div><div class="bg-gray-400 w-[8%] h-full"></div></div>
+</th>
+<!-- Quantity (70px) -->
+<th class="w-[70px] min-w-[70px] max-w-[70px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-blue-100 text-[#005ab3] font-bold shrink-0">123</span>
+<span class="truncate">Quantity</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-full h-full"></div></div>
+</th>
+<!-- Revenue (90px) -->
+<th class="w-[90px] min-w-[90px] max-w-[90px] px-1.5 py-1 bg-[#eef6ff]">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-emerald-100 text-emerald-800 font-bold shrink-0">$</span>
+<span class="text-[#005ab3] font-bold truncate">Revenue</span>
+</div>
+<span class="text-blue-500 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-[92%] h-full"></div><div class="bg-rose-500 w-[8%] h-full"></div></div>
+</th>
+<!-- Cost (80px) -->
+<th class="w-[80px] min-w-[80px] max-w-[80px] px-1.5 py-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-emerald-100 text-emerald-800 font-bold shrink-0">$</span>
+<span class="truncate">Cost</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-full h-full"></div></div>
+</th>
+<!-- Profit (80px) -->
+<th class="w-[80px] min-w-[80px] max-w-[80px] px-1.5 py-1 bg-[#f9fafb]">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 overflow-hidden truncate">
+<span class="font-mono text-[9px] px-1 rounded bg-emerald-100 text-emerald-800 font-bold shrink-0">$</span>
+<span class="font-semibold text-gray-800 truncate">Profit</span>
+</div>
+<span class="text-gray-400 text-[10px] shrink-0 ml-0.5">▾</span>
+</div>
+<div class="w-full h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden flex"><div class="bg-emerald-500 w-full h-full"></div></div>
+</th>
+</tr>
+</thead>
+<!-- Table Rows: 28 Rows cleanly styled with exact height ~27px filling viewport cleanly -->
+<tbody class="text-[12px] divide-y divide-gray-150">
+<!-- Row 1 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">1</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10248</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-01</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-8491</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-011</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">12</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 440.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 351.50</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 88.50</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">2</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10249</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-01</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-2901</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-042</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe West</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">4</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,820.50</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,400.40</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 420.10</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">3</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10250</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-02</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-1192</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-009</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Asia Pacific</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">25</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 750.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 554.60</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 195.40</td>
+</tr>
+<!-- Row 4: With Error Cell in Revenue -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-red-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">4</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10251</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-02</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-4033</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-078</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">1</td>
+<!-- Error cell -->
+<td class="px-2 bg-red-100/70 border-r border-gray-100 truncate">
+<span class="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-red-200/80 px-1.5 py-0.5 rounded leading-none">
+<span class="text-[12px] leading-none">⚠</span> Error
+</span>
+</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 12.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-400 italic truncate">null</td>
+</tr>
+<!-- Row 5: Null Region -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">5</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10252</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-03</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-9821</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-033</td>
+<td class="px-2 text-gray-400 italic border-r border-gray-100 truncate">null</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">8</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 320.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 258.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 62.00</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">6</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10253</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-03</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-3310</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-102</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Latin America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">14</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,440.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,129.20</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 310.80</td>
+</tr>
+<!-- Row 7: Null OrderDate -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">7</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10254</td>
+<td class="px-2 text-gray-400 italic border-r border-gray-100 truncate">null</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-6721</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-019</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe West</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">3</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 95.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 72.60</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 22.40</td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">8</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10255</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-04</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-5519</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-004</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe North</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">19</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 2,300.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,610.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 690.00</td>
+</tr>
+<!-- Row 9 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">9</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10256</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-05</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-8802</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-041</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">2</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 110.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 79.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 31.00</td>
+</tr>
+<!-- Row 10: Null Revenue -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">10</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10257</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-05</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-1049</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-088</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Asia Pacific</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">7</td>
+<td class="px-2 text-gray-400 italic bg-blue-50/30 border-r border-gray-100 truncate">null</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 85.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-400 italic truncate">null</td>
+</tr>
+<!-- Row 11 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">11</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10258</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-06</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-7741</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-025</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">30</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 4,120.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 2,880.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 1,240.00</td>
+</tr>
+<!-- Row 12 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">12</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10259</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-06</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-3904</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-014</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe West</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">6</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 580.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 406.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 174.00</td>
+</tr>
+<!-- Row 13 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">13</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10260</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-07</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-5120</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-055</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">18</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 2,160.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,512.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 648.00</td>
+</tr>
+<!-- Row 14 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">14</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10261</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-07</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-6893</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-012</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Asia Pacific</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">5</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 490.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 343.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 147.00</td>
+</tr>
+<!-- Row 15 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">15</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10262</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-08</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-1442</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-064</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Latin America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">22</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,980.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,386.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 594.00</td>
+</tr>
+<!-- Row 16 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">16</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10263</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-08</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-9011</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-003</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe North</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">11</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 825.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 577.50</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 247.50</td>
+</tr>
+<!-- Row 17 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">17</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10264</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-09</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-3819</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-082</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe West</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">16</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 2,640.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,848.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 792.00</td>
+</tr>
+<!-- Row 18 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">18</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10265</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-09</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-7230</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-091</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">9</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,080.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 756.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 324.00</td>
+</tr>
+<!-- Row 19 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">19</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10266</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-10</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-4512</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-017</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Asia Pacific</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">13</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,495.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,046.50</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 448.50</td>
+</tr>
+<!-- Row 20 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">20</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10267</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-10</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-6105</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-038</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Latin America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">7</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 630.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 441.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 189.00</td>
+</tr>
+<!-- Row 21 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">21</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10268</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-11</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-8334</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-049</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe North</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">28</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 3,640.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 2,548.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 1,092.00</td>
+</tr>
+<!-- Row 22 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">22</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10269</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-11</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-2098</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-067</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">15</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,875.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,312.50</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 562.50</td>
+</tr>
+<!-- Row 23 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">23</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10270</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-12</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-1044</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-021</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Asia Pacific</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">20</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 2,400.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,680.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 720.00</td>
+</tr>
+<!-- Row 24 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">24</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10271</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-12</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-5511</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-099</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe West</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">8</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 960.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 672.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 288.00</td>
+</tr>
+<!-- Row 25 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">25</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10272</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-13</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-7822</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-031</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">North America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">17</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,530.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 1,071.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 459.00</td>
+</tr>
+<!-- Row 26 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">26</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10273</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-13</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-4190</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-053</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Latin America</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">9</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 720.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 504.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 216.00</td>
+</tr>
+<!-- Row 27 -->
+<tr class="hover:bg-blue-50/40 h-[27px]">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">27</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10274</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-14</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-1903</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-085</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Europe North</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">12</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 1,200.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 840.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 360.00</td>
+</tr>
+<!-- Row 28 -->
+<tr class="hover:bg-blue-50/40 h-[27px] bg-gray-50/30">
+<td class="text-center font-mono text-[10px] text-gray-500 bg-[#f8f9fa] border-r border-gray-200 truncate">28</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">10275</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">2024-03-14</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">CUST-6321</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">PRD-016</td>
+<td class="px-2 text-gray-700 border-r border-gray-100 truncate">Asia Pacific</td>
+<td class="px-2 font-mono text-[11px] text-gray-800 border-r border-gray-100 truncate">24</td>
+<td class="px-2 font-mono text-[11px] text-emerald-800 font-medium bg-blue-50/30 border-r border-gray-100 truncate">$ 2,880.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 border-r border-gray-100 truncate">$ 2,016.00</td>
+<td class="px-2 font-mono text-[11px] text-gray-700 truncate">$ 864.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</main>
+<!-- 5C. Right Query Settings Pane (Width: 220px) -->
+<aside class="w-[220px] bg-[#f9fafb] flex flex-col shrink-0 select-none">
+<div class="h-8 px-2.5 border-b border-gray-200 flex items-center justify-between text-xs font-semibold text-gray-700 bg-[#f3f4f6]">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-gray-500">settings_applications</span>
+<span class="">Query Settings</span>
+</div>
+<button class="text-gray-400 hover:text-gray-600">
+<span class="material-symbols-outlined text-[16px]">dock_to_right</span>
+</button>
+</div>
+<div class="p-2.5 flex-1 overflow-y-auto custom-scroll space-y-4">
+<!-- Section 1: Properties -->
+<div>
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">PROPERTIES</span>
+<div class="text-[11px] text-gray-500 mb-0.5">Name</div>
+<div class="bg-white border border-gray-300 rounded px-2 py-1 text-xs font-medium text-gray-800 shadow-xs">
+              Sales_Transactions
+            </div>
+</div>
+<!-- Section 2: Applied Steps -->
+<div>
+<span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">APPLIED STEPS</span>
+<nav class="space-y-0.5 text-xs">
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Source</span>
+<span class="material-symbols-outlined text-[14px] text-gray-400 hover:text-gray-600">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Navigation</span>
+<span class="material-symbols-outlined text-[14px] text-gray-400 hover:text-gray-600">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Promoted Headers</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Changed Type</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Filtered Rows</span>
+<span class="material-symbols-outlined text-[14px] text-gray-400 hover:text-gray-600">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Added Custom</span>
+<span class="material-symbols-outlined text-[14px] text-gray-400 hover:text-gray-600">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Merged Queries</span>
+<span class="material-symbols-outlined text-[14px] text-gray-400 hover:text-gray-600">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-gray-700 hover:bg-gray-200/60 cursor-pointer">
+<span class="">Expanded Customers</span>
+</div>
+<!-- Active Highlighted Step -->
+<div class="flex items-center justify-between px-2 py-1 rounded bg-[#005ab3] text-white font-medium shadow-xs cursor-pointer">
+<span class="">Removed Columns</span>
+<button class="hover:text-red-200 p-0.5 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+</nav>
+</div>
+</div>
+</aside>
+</div>
+<!-- 6. Bottom Status Bar (Height: 32px) -->
+<footer class="h-8 bg-[#f3f4f6] border-t border-[#d8dde3] px-3 flex items-center justify-between shrink-0 text-[11px] select-none text-gray-600">
+<!-- Left side: Columns, Rows & Profiling Info -->
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-xs"></span>
+<span class="font-semibold text-gray-800">9 COLUMNS</span>
+<span class="text-gray-400">·</span>
+<span class="font-semibold text-gray-800">999+ ROWS</span>
+<span class="text-gray-400">·</span>
+<span class="text-gray-500">Column profiling based on top 1,000 rows</span>
+</div>
+<!-- Center: Download status -->
+<div class="flex items-center gap-1.5 font-medium text-gray-600">
+<span class="text-emerald-600 font-bold">✔</span>
+<span class="">PREVIEW DOWNLOADED AT 11:45 AM</span>
+</div>
+<!-- Right: Actions -->
+<div class="flex items-center gap-2">
+<button class="px-2 py-0.5 rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-[11px] font-medium transition-colors shadow-xs">
+          Profiler Details
+        </button>
+<button class="px-3 py-0.5 rounded bg-[#005ab3] hover:bg-[#00468d] text-white text-[11px] font-semibold transition-colors shadow-xs">
+          Apply Steps
+        </button>
+</div>
+</footer>
+</div>
+
+
+</body></html>

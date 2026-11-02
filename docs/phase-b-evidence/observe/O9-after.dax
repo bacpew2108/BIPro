@@ -1,0 +1,6 @@
+EVALUATE
+	SUMMARIZECOLUMNS(
+		'Dim_Date'[year],
+		"trans", 'Fact_Transaction'[Trans Count]
+	)
+	ORDER BY 'Dim_Date'[year]

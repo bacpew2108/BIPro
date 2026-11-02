@@ -1,0 +1,6 @@
+// O4c | Chuỗi dài để chạm 15 MB: 16 dòng x 1.000.000 ký tự, tổng khoảng 16 MB dữ liệu chuỗi. Nặng, chỉ chạy một lần
+EVALUATE
+ADDCOLUMNS (
+	GENERATESERIES ( 1, 16 ),
+	"s", REPT ( "x", 1000000 )
+)

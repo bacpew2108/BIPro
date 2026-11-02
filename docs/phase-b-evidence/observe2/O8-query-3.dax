@@ -1,0 +1,16 @@
+DEFINE
+    MEASURE 'Fact_Transaction'[Trans Amount] = SUM ( Fact_Transaction[amount] )
+    /// Tổng tiền vào = Σ amount với trans_type = Credit (OLAP v4)
+    MEASURE 'Fact_Transaction'[Total_Credit_Inflow] = CALCULATE ( [Trans Amount], KEEPFILTERS ( Dim_Trans_Type[trans_type] = "Credit" ) )
+    /// Tổng tiền ra = Σ amount với trans_type = Debit (OLAP v4)
+    MEASURE 'Fact_Transaction'[Total_Debit_Outflow] = CALCULATE ( [Trans Amount], KEEPFILTERS ( Dim_Trans_Type[trans_type] = "Debit" ) )
+    /// Dòng tiền ròng = Tiền vào − Tiền ra
+    MEASURE 'Fact_Transaction'[Net_Cashflow] = [Total_Credit_Inflow] - [Total_Debit_Outflow]
+
+EVALUATE
+    SUMMARIZECOLUMNS(
+        "Trans Amount", [Trans Amount],
+        "Total_Credit_Inflow", [Total_Credit_Inflow],
+        "Total_Debit_Outflow", [Total_Debit_Outflow],
+        "Net_Cashflow", [Net_Cashflow]
+    )

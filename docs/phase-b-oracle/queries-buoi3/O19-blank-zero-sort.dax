@@ -1,0 +1,4 @@
+// O19 | BLANK cạnh số 0 khi sắp xếp. Chạy, Copy kết quả, dán vào O19-blank-zero-sort.tsv
+EVALUATE
+ADDCOLUMNS ( { 1, 0, BLANK (), -1 }, "k", [Value] )
+ORDER BY [Value]

@@ -1,0 +1,814 @@
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Tổng Số Khách Hàng] =
+DISTINCTCOUNT(dim_customer[customer_id])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Khách Hàng Có Mua] =
+DISTINCTCOUNT(fact_order_items[customer_id])
+
+-- dim_customer
+MEASURE 'dim_customer'[Doanh Thu TB Mỗi Khách] =
+DIVIDE(
+    [Tổng Doanh Thu],
+    [Khách Hàng Có Mua],
+    0
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Số Khách Mua Lại] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[customer_id]),
+        CALCULATE(DISTINCTCOUNT(fact_order_items[order_id])) > 1
+    )
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Tỷ Lệ Khách Hàng Mua Lại] =
+DIVIDE(
+    [Số Khách Mua Lại],
+    [Khách Hàng Có Mua],
+    0
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Tổng Tồn Kho] =
+SUM(fact_inventory[stock_on_hand])
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Tỷ Lệ Hết Hàng] =
+DIVIDE(
+    SUM(fact_inventory[stockout_flag]),
+    COUNTROWS(fact_inventory),
+    0
+)
+
+-- dim_customer  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'dim_customer'[Fill Rate TB] =
+AVERAGE(fact_inventory[fill_rate])
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Tỷ Lệ Tồn Kho Quá Mức] =
+DIVIDE(
+    SUM(fact_inventory[overstock_flag]),
+    COUNTROWS(fact_inventory),
+    0
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Số Sản Phẩm Cần Đặt Lại] =
+CALCULATE(
+    DISTINCTCOUNT(fact_inventory[product_id]),
+    fact_inventory[reorder_flag] = 1
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Số Ngày Tồn Kho TB] =
+AVERAGE(fact_inventory[days_of_supply])
+
+-- dim_customer  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'dim_customer'[Sell Through Rate TB] =
+AVERAGE(fact_inventory[sell_through_rate])
+
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Chênh Lệch Doanh Thu YoY] =
+[Tổng Doanh Thu] - [Doanh Thu Năm Trước]
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Fill Rate] =
+AVERAGE(fact_inventory[fill_rate])
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Sell-through Rate] =
+AVERAGE(fact_inventory[sell_through_rate])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Số Đơn Giao Trễ] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[order_id]),
+        CALCULATE(MAX(fact_order_items[delivery_days])) > 5
+    )
+)
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Mục Tiêu Sell-through Rate] =
+0.10
+
+-- dim_customer
+MEASURE 'dim_customer'[Màu Fill Rate] =
+SWITCH(
+    TRUE(),
+    [Fill Rate] >= 0.95, "#27AE60",
+    [Fill Rate] >= 0.90, "#F39C12",
+    "#C0392B"
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Màu Stockout Rate] =
+SWITCH(
+    TRUE(),
+    [Tỷ Lệ Hết Hàng] <= 0.50, "#27AE60",   -- <= 50%: tương đối thấp trong bộ dữ liệu này
+    [Tỷ Lệ Hết Hàng] <= 0.75, "#F39C12",   -- 50% - 75%: cần theo dõi
+    "#C0392B"                              -- > 75%: rủi ro cao
+)
+
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Total Traffic] =
+SUM(fact_web_traffic[sessions])
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Bounce Rate] =
+AVERAGE(fact_web_traffic[bounce_rate])*100
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Paying Customers] =
+CALCULATE(
+    DISTINCTCOUNT(fact_order_items[customer_id]),
+    fact_order_items[order_status] IN {"paid", "delivered"}
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Avg Rating] =
+AVERAGE(fact_reviews[rating])
+
+-- dim_customer
+MEASURE 'dim_customer'[Avg Rating Hiển Thị] =
+FORMAT([Avg Rating], "0.00") & "/5"
+
+-- dim_customer
+MEASURE 'dim_customer'[Purchase Frequency] =
+DIVIDE(
+    DISTINCTCOUNT(fact_order_items[order_id]),
+    [Paying Customerss]
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Repeat Customers] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[customer_id]),
+        CALCULATE(DISTINCTCOUNT(fact_order_items[order_id])) > 1
+    )
+)
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Repeat Purchase Rate] =
+DIVIDE([Repeat Customers], [Paying Customerss])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Total Orders Overall] =
+CALCULATE(
+    DISTINCTCOUNT(fact_order_items[order_id]), 
+    ALL(fact_returns)
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Returned Orders] =
+DISTINCTCOUNT(fact_returns[order_id])
+
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Refund Amount] =
+SUM(fact_returns[refund_amount])
+
+-- dim_customer  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'dim_customer'[Return Rate] =
+-- Bước 1: Tính số đơn bị trả của ĐÚNG cái lý do ở dòng đó
+VAR SoDonTheoLyDo = DISTINCTCOUNT(fact_returns[order_id])
+
+-- Bước 2: Tính TỔNG đơn hàng bán ra (Mẫu số chung cho cả bảng)
+VAR TongDonBanRa = 
+    CALCULATE(
+        DISTINCTCOUNT(fact_order_items[order_id]), 
+        REMOVEFILTERS(fact_returns) -- Chỉ lờ đi bộ lọc của bảng Hoàn trả để giữ mẫu số chuẩn
+    )
+
+-- Bước 3: Chia ra tỉ lệ
+RETURN 
+DIVIDE(SoDonTheoLyDo, TongDonBanRa, 0)
+
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Total Orders] =
+DISTINCTCOUNT(fact_order_items[order_id])
+
+-- dim_customer
+MEASURE 'dim_customer'[Cảnh báo CR] =
+IF(
+    [Tỷ lệ chuyển đổi] < AVERAGEX(ALL(dim_date[Year]), [Tỷ lệ chuyển đổi]),
+    "Thấp hơn trung bình",
+    "Ổn định"
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Mức CR] =
+VAR AvgCR =
+    AVERAGEX(
+        ALL(dim_date),
+        [Tỷ lệ chuyển đổi]
+    )
+RETURN
+SWITCH(
+    TRUE(),
+    [Tỷ lệ chuyển đổi] < AvgCR*0.9, "🔴 Thấp",
+    [Tỷ lệ chuyển đổi] < AvgCR, "🟡 Trung bình",
+    "🟢 Tốt"
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Review Count] =
+COUNTROWS(fact_reviews)
+
+-- dim_customer
+MEASURE 'dim_customer'[Measure 2] =
+
+
+-- dim_customer
+MEASURE 'dim_customer'[Rating Status] =
+SWITCH(
+    TRUE(),
+    [Avg Rating] < 3, "Cảnh báo thấp",
+    [Avg Rating] < 4, "Trung bình",
+    "Tốt"
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Selected Channel] =
+SELECTEDVALUE(dim_customer[acquisition_channel], "Tất cả kênh")
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Non-buyers] =
+[Tổng Số Khách Hàng] - [Paying Customerss]
+
+-- dim_customer
+MEASURE 'dim_customer'[Non-buyer Rate] =
+DIVIDE([Non-buyers], [Tổng Số Khách Hàng])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Paying Customerss] =
+DISTINCTCOUNT(fact_order_items[customer_id])
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Customer Conversion Rate] =
+DIVIDE([Paying Customerss], [Tổng Số Khách Hàng])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Avg Stock On Hand] =
+AVERAGEX(
+    VALUES(fact_inventory[snapshot_date]),
+    CALCULATE(SUM(fact_inventory[stock_on_hand]))
+)
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Stockout Rate] =
+AVERAGE(fact_inventory[stockout_flag])
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[Overstock Rate] =
+AVERAGE(fact_inventory[overstock_flag])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Total Inventory] =
+SUM(fact_inventory[stock_on_hand])
+
+-- dim_customer  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'dim_customer'[Inventory Imbalance Gap] =
+[Overstock Rate] - [Stockout Rate]
+
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Avg Days of Supply] =
+AVERAGE(fact_inventory[days_of_supply])
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Latest Inventory] =
+VAR LatestDate =
+    MAX(fact_inventory[snapshot_date])
+RETURN
+CALCULATE(
+    SUM(fact_inventory[stock_on_hand]),
+    fact_inventory[snapshot_date] = LatestDate
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[On Time Orders] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[order_id]),
+        CALCULATE(MAX(fact_order_items[delivery_days])) <= 5
+    )
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Delivered Orders] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[order_id]),
+        NOT ISBLANK(CALCULATE(MAX(fact_order_items[delivery_days])))
+    )
+)
+
+-- dim_customer  [format: 0%;-0%;0%]
+MEASURE 'dim_customer'[OTD Rate] =
+DIVIDE(
+    CALCULATE(
+        [Tổng số đơn],
+        fact_order_items[Trạng thái giao hàng] = "Đúng hạn"
+    ),
+    CALCULATE(
+        [Tổng số đơn],
+        REMOVEFILTERS(fact_order_items[Trạng thái giao hàng])
+    )
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Tổng tồn kho TB] =
+AVERAGE(fact_inventory[stock_on_hand])
+
+-- dim_customer
+MEASURE 'dim_customer'[Year] =
+YEAR(fact_inventory[snapshot_date])
+
+-- dim_customer  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'dim_customer'[Tỷ lệ giao trễ] =
+1 - [OTD Rate]
+
+-- dim_customer
+MEASURE 'dim_customer'[Trạng thái giao hàng] =
+IF(
+    fact_order_items[delivery_days] <= 6,
+    "Đúng hạn",
+    "Trễ hạn"
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Tổng số đơn] =
+DISTINCTCOUNT(fact_order_items[order_id])
+
+-- dim_customer
+MEASURE 'dim_customer'[Nhóm thời gian giao hàng] =
+SWITCH(
+    TRUE(),
+    fact_order_items[delivery_days] <= 4, "Giao nhanh",
+    fact_order_items[delivery_days] <= 6, "Đúng hạn sát ngưỡng",
+    fact_order_items[delivery_days] <= 8, "Trễ nhẹ",
+    "Trễ nặng"
+)
+
+-- dim_customer  [format: #,0]
+MEASURE 'dim_customer'[Tồn kho TB theo thời gian] =
+AVERAGEX(
+    VALUES(fact_inventory[snapshot_date]),
+    CALCULATE(SUM(fact_inventory[stock_on_hand]))
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Measure 3] =
+
+
+-- dim_customer
+MEASURE 'dim_customer'[Cảnh báo Hết hàng] =
+SWITCH(
+    TRUE(),
+    [Tỷ lệ Hết Hàng] >= 0.65, "Nguy hiểm",
+    [Tỷ lệ Hết Hàng] >= 0.50, "Cảnh báo",
+    "Ổn định"
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Cảnh báo OTD] =
+SWITCH(
+    TRUE(),
+    [OTD Rate] < 0.60, "Nguy hiểm",
+    [OTD Rate] < 0.80, "Cảnh báo",
+    "Tốt"
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Cảnh báo Bán ra] =
+SWITCH(
+    TRUE(),
+    [Sell-through Rate] < 0.12, "Bán chậm",
+    [Sell-through Rate] < 0.18, "Trung bình",
+    "Tốt"
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Quarter] =
+"Q" & QUARTER(fact_inventory[snapshot_date])
+
+-- dim_customer
+MEASURE 'dim_customer'[Điểm rủi ro tồn kho] =
+[Tỷ Lệ Tồn Kho Quá Mức] * 0.4
+    + [Tỷ lệ Hết Hàng] * 0.3
+    + (1 - [Sell-through Rate]) * 0.3
+
+-- dim_customer
+MEASURE 'dim_customer'[ThoiGianGiaoTB_Text] =
+FORMAT([Thời Gian Giao Hàng TB], "0") & " ngày"
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Thay Đổi Doanh Thu] =
+VAR Growth = [% Thay Đổi Doanh Thu]
+RETURN
+IF(
+    Growth >= 0,
+    "▲ " & FORMAT(Growth, "0.00%"),
+    "▼ " & FORMAT(Growth, "0.00%")
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Đơn Hàng Kỳ Trước] =
+CALCULATE(
+    [Tổng Số Đơn Hàng],
+    DATEADD(dim_date[date_key],-1,MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Measure 4] =
+
+
+-- dim_customer
+MEASURE 'dim_customer'[% Đơn Hàng] =
+DIVIDE(
+[Tổng Số Đơn Hàng]-[Đơn Hàng Kỳ Trước],
+[Đơn Hàng Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Đơn Hàng] =
+VAR x=[% Đơn Hàng]
+RETURN
+IF(
+x>=0,
+"▲ "&FORMAT(x,"0.00%"),
+"▼ "&FORMAT(ABS(x),"0.00%")
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[LN Gộp Kỳ Trước] =
+CALCULATE(
+[Tổng Lợi Nhuận Gộp],
+DATEADD(dim_date[date_key],-1,MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% LN Gộp] =
+DIVIDE(
+[Tổng Lợi Nhuận Gộp]-[LN Gộp Kỳ Trước],
+[LN Gộp Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text LN Gộp] =
+VAR x=[% LN Gộp]
+RETURN
+IF(
+x>=0,
+"▲ "&FORMAT(x,"0.00%"),
+"▼ "&FORMAT(ABS(x),"0.00%")
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Biên LN Gộp Kỳ Trước] =
+CALCULATE(
+[Biên Lợi Nhuận Gộp (%)],
+DATEADD(dim_date[date_key],-1,MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% Biến Động Margin] =
+DIVIDE(
+[Biên Lợi Nhuận Gộp (%)]-[Biên LN Gộp Kỳ Trước],
+[Biên LN Gộp Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Margin] =
+VAR x=[% Biến Động Margin]
+RETURN
+IF(
+x>=0,
+"▲ "&FORMAT(x,"0.00%"),
+"▼ "&FORMAT(ABS(x),"0.00%")
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[AOV Kỳ Trước] =
+CALCULATE(
+[Giá Trị Đơn Hàng Trung Bình],
+DATEADD(dim_date[date_key],-1,MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% AOV] =
+DIVIDE(
+[Giá Trị Đơn Hàng Trung Bình]-[AOV Kỳ Trước],
+[AOV Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text AOV] =
+VAR x=[% AOV]
+RETURN
+IF(
+x>=0,
+"▲ "&FORMAT(x,"0.00%"),
+"▼ "&FORMAT(ABS(x),"0.00%")
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Lượt Truy Cập Kỳ Trước] =
+CALCULATE(
+    [Total Traffic],
+    DATEADD(dim_date[date_key], -1, MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% Lượt Truy Cập] =
+DIVIDE(
+    [Total Traffic] - [Lượt Truy Cập Kỳ Trước],
+    [Lượt Truy Cập Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Thay Đổi Lượt Truy Cập] =
+VAR x = [% Lượt Truy Cập]
+RETURN
+IF(
+    x >= 0,
+    "▲ " & FORMAT(x, "0.00%"),
+    "▼ " & FORMAT(ABS(x), "0.00%")
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Conversion Kỳ Trước] =
+CALCULATE(
+    [Tỷ lệ chuyển đổi],
+    DATEADD(dim_date[date_key], -1, MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% Conversion] =
+DIVIDE(
+    [Tỷ lệ chuyển đổi] - [Conversion Kỳ Trước],
+    [Conversion Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Bounce Kỳ Trước] =
+CALCULATE(
+    [Bounce Rate],
+    DATEADD(dim_date[date_key], -1, MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% Bounce] =
+DIVIDE(
+    [Bounce Rate] - [Bounce Kỳ Trước],
+    [Bounce Kỳ Trước]
+)
+
+-- dim_customer  [format: 0]
+MEASURE 'dim_customer'[Khách Mua Kỳ Trước] =
+CALCULATE(
+    [Khách Hàng Có Mua],
+    DATEADD(dim_date[date_key], -1, MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% Khách Mua] =
+DIVIDE(
+    [Khách Hàng Có Mua] - [Khách Mua Kỳ Trước],
+    [Khách Mua Kỳ Trước]
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Thay Đổi TL Chuyển Đổi] =
+VAR x = [% Conversion]
+RETURN
+IF(
+    x >= 0,
+    "▲ " & FORMAT(x, "0.00%"),
+    "▼ " & FORMAT(ABS(x), "0.00%")
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Thay Đổi TL Thoát Trang] =
+VAR x = [% Bounce]
+RETURN
+IF(
+    x >= 0,
+    "▲ " & FORMAT(x, "0.00%"),
+    "▼ " & FORMAT(ABS(x), "0.00%")
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Thay Đổi Khách Mua] =
+VAR x = [% Khách Mua]
+RETURN
+IF(
+    x >= 0,
+    "▲ " & FORMAT(x, "0.00%"),
+    "▼ " & FORMAT(ABS(x), "0.00%")
+)
+
+-- dim_customer  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'dim_customer'[Tỷ Lệ Đáp Ứng Đơn] =
+AVERAGE(fact_inventory[fill_rate])
+
+-- dim_customer
+MEASURE 'dim_customer'[Tỷ Lệ Đáp Ứng Đơn Kỳ Trước] =
+CALCULATE(
+    [Tỷ Lệ Đáp Ứng Đơn],
+    DATEADD(dim_date[date_key], -1, MONTH)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[% Fill Rate] =
+VAR CurrentValue = [Tỷ Lệ Đáp Ứng Đơn]
+VAR PreviousValue = [Tỷ Lệ Đáp Ứng Đơn Kỳ Trước]
+RETURN
+IF(
+    ISBLANK(PreviousValue) || PreviousValue = 0,
+    0,
+    DIVIDE(CurrentValue - PreviousValue, PreviousValue)
+)
+
+-- dim_customer
+MEASURE 'dim_customer'[Text Fill Rate] =
+VAR x = [% Fill Rate]
+RETURN
+IF(
+    ABS(x) < 0.001,
+    BLANK(),
+    IF(
+        x >= 0,
+        "▲ " & FORMAT(x, "0.00%"),
+        "▼ " & FORMAT(ABS(x), "0.00%")
+    )
+)
+
+-- dim_product
+MEASURE 'dim_product'[Số Đơn Trung Bình Mỗi Khách] =
+DIVIDE(
+    [Tổng Số Đơn Hàng],
+    [Khách Hàng Có Mua],
+    0
+)
+
+-- dim_product
+MEASURE 'dim_product'[Doanh Thu Sản Phẩm] =
+SUM(fact_order_items[line_revenue])
+
+-- dim_product
+MEASURE 'dim_product'[Lợi Nhuận Gộp Sản Phẩm] =
+SUM(fact_order_items[line_gross_profit])
+
+-- fact_inventory  [format: 0]
+MEASURE 'fact_inventory'[Total Units Sold] =
+SUM(fact_inventory[units_sold])
+
+-- fact_order_items  [format: #,0]
+MEASURE 'fact_order_items'[Tổng Doanh Thu] =
+SUM(fact_order_items[line_revenue])
+
+-- fact_order_items  [format: 0]
+MEASURE 'fact_order_items'[Tổng Số Lượng Bán] =
+SUM(fact_order_items[quantity])
+
+-- fact_order_items
+MEASURE 'fact_order_items'[Tổng Giá Vốn] =
+SUM(fact_order_items[line_cogs])
+
+-- fact_order_items  [format: #,0]
+MEASURE 'fact_order_items'[Tổng Lợi Nhuận Gộp] =
+SUM(fact_order_items[line_gross_profit])
+
+-- fact_order_items  [format: 0%;-0%;0%]
+MEASURE 'fact_order_items'[Biên Lợi Nhuận Gộp (%)] =
+DIVIDE(
+    [Tổng Lợi Nhuận Gộp],
+    [Tổng Doanh Thu]
+)
+
+-- fact_order_items  [format: #,0]
+MEASURE 'fact_order_items'[Tổng Số Đơn Hàng] =
+DISTINCTCOUNT(fact_order_items[order_id])
+
+-- fact_order_items  [format: #,0\ "₫";-#,0\ "₫";#,0\ "₫"]
+MEASURE 'fact_order_items'[Giá Trị Đơn Hàng Trung Bình] =
+DIVIDE(
+    [Tổng Doanh Thu],
+    [Tổng Số Đơn Hàng]
+)
+
+-- fact_order_items
+MEASURE 'fact_order_items'[Doanh Thu Năm Trước] =
+CALCULATE(
+    [Tổng Doanh Thu],
+    SAMEPERIODLASTYEAR(dim_date[date_key])
+)
+
+-- fact_order_items
+MEASURE 'fact_order_items'[Doanh Thu Trung Bình Mỗi Khách] =
+DIVIDE(
+    [Tổng Doanh Thu],
+    [Khách Hàng Có Mua],
+    0
+)
+
+-- fact_order_items  [format: 0]
+MEASURE 'fact_order_items'[Tổng Người Mua] =
+DISTINCTCOUNT(fact_order_items[customer_id])
+
+-- fact_order_items  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'fact_order_items'[Tỷ lệ chuyển đổi] =
+DIVIDE([Total Orders], [Total Traffic])
+
+-- fact_order_items  [format: 0]
+MEASURE 'fact_order_items'[Tổng Sản Lượng Bán] =
+SUM(fact_inventory[units_sold])
+
+-- fact_order_items
+MEASURE 'fact_order_items'[Tồn Kho Trung Bình] =
+AVERAGE(fact_inventory[stock_on_hand])
+
+-- fact_order_items  [format: #,0.00]
+MEASURE 'fact_order_items'[Vòng Quay Hàng Tồn Kho] =
+DIVIDE(
+    [Tổng Sản Lượng Bán],
+    [Tồn Kho Trung Bình],
+    0
+)
+
+-- fact_order_items  [format: 0.00]
+MEASURE 'fact_order_items'[Thời Gian Giao Hàng TB] =
+AVERAGE(fact_order_items[delivery_days])
+
+-- fact_order_items  [format: 0]
+MEASURE 'fact_order_items'[Số đơn giao đúng hạn] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[order_id]),
+        CALCULATE(MAX(fact_order_items[delivery_days])) <= 6
+    )
+)
+
+-- fact_order_items  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'fact_order_items'[Tỷ Lệ Giao Hàng Đúng Hạn] =
+DIVIDE(
+    [Số đơn giao đúng hạn],
+    [Tổng Số Đơn Hàng],
+    0
+)
+
+-- fact_order_items  [format: 0]
+MEASURE 'fact_order_items'[Tổng số đơn giao] =
+COUNTROWS(
+    FILTER(
+        VALUES(fact_order_items[order_id]),
+        NOT ISBLANK(CALCULATE(MAX(fact_order_items[delivery_days])))
+    )
+)
+
+-- fact_returns  [format: 0]
+MEASURE 'fact_returns'[Tổng Chi Phí Hoàn Trả] =
+SUM(fact_returns[refund_amount])
+
+-- fact_returns  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'fact_returns'[Tỷ Lệ Hoàn Trả] =
+DIVIDE(
+    [Tổng Số Đơn Hoàn Trả],
+    [Tổng Số Đơn Hàng],
+    0
+)
+
+-- fact_returns
+MEASURE 'fact_returns'[Measure] =
+
+
+-- fact_returns  [format: 0]
+MEASURE 'fact_returns'[Tổng Số Đơn Hoàn Trả] =
+DISTINCTCOUNT(fact_returns[order_id])
+
+-- fact_reviews
+MEASURE 'fact_reviews'[Điểm Đánh Giá Trung Bình] =
+AVERAGE(fact_reviews[rating])
+
+-- fact_web_traffic
+MEASURE 'fact_web_traffic'[Doanh Thu Kỳ Trước] =
+CALCULATE(
+    [Tổng Doanh Thu],
+    DATEADD(dim_date[date_key], -1, MONTH)
+)
+
+-- fact_web_traffic
+MEASURE 'fact_web_traffic'[% Thay Đổi Doanh Thu] =
+VAR CurrentRevenue = [Tổng Doanh Thu]
+VAR PreviousRevenue = [Doanh Thu Kỳ Trước]
+RETURN
+IF(
+    ISBLANK(PreviousRevenue) || PreviousRevenue = 0,
+    0,
+    DIVIDE(CurrentRevenue - PreviousRevenue, PreviousRevenue)
+)
+

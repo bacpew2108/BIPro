@@ -1,0 +1,8 @@
+DEFINE
+    /// Dòng tiền ròng = Tiền vào − Tiền ra
+    MEASURE 'Fact_Transaction'[Net_Cashflow] = [Total_Credit_Inflow] - [Total_Debit_Outflow]
+
+EVALUATE
+    SUMMARIZECOLUMNS(
+        "Net_Cashflow", [Net_Cashflow]
+    )

@@ -1,0 +1,14 @@
+// G6a-issue-pareto | Pareto theo vấn đề khiếu nại. Chạy, Copy kết quả, dán vào G6a-issue-pareto.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_CRM_Issue'[issue],
+	"Complaints", 'Fact_CRM_Complaint'[Complaints],
+	"Complaints · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints] ),
+	"Pareto Cum %", 'Fact_CRM_Complaint'[Pareto Cum %],
+	"Pareto Cum % · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Pareto Cum %] ),
+	"Pareto Color", 'Fact_CRM_Complaint'[Pareto Color],
+	"Pareto Color · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Pareto Color] ),
+	"Pareto 80% Line", 'Fact_CRM_Complaint'[Pareto 80% Line],
+	"Pareto 80% Line · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Pareto 80% Line] )
+)
+ORDER BY 'Dim_CRM_Issue'[issue]

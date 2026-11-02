@@ -1,0 +1,5 @@
+// O11 | Chạy vùng chọn. Bôi đen CHỈ khối EVALUATE thứ hai (dòng 5) rồi bấm Run. Xem Power BI chạy riêng vùng chọn hay cả tab.
+
+EVALUATE ROW ( "khoi", "thứ nhất" )
+
+EVALUATE ROW ( "khoi", "thứ hai" )

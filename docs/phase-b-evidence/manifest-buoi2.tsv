@@ -1,0 +1,18 @@
+file	sha1_dax	số dòng
+G4-inactive.dax	3f49849387ecbc66efbe7f1241affc5e1aee0f41	8				
+G5-month.dax	ea199c2c7ac9a0c8c7133dc040ba59b494497305	96				
+G6a-issue-pareto.dax	e3f9b820795388f6981678dd22ecdc81758de2e1	38				
+G6b-channel.dax	a81b5163bd061191d5a61065201c5364737464e6	6					
+G6c-channel-response.dax	f3626e364e82e34f735668f61947226f39cee129	42				
+G6d-trans-type.dax	c566288ee2964469a58ee865b1b7e90a8925f6de	6				
+G6e-heatmap.dax	54e6909c0d9caaf4ef71bc5b63f028a20ca50b96	70					
+G6f1-district.dax	8a783cbd83fa4e38d0687e8558fe7c907cf80193					
+G6f2-account-branch.dax	3a2e4f7769b9705c32c4d62fac0525e35f6cb7ae					
+T1-blank-arith.dax	d89c29a7a39af5b639f5387301eec3689693d754	1				
+T2-time-edges.dax	9208826c76ad303b385ae52de12f60a23d1bdcd1	1					
+T3-context.dax	bb4f5e1be8fe7370b010290dbf31b82703f8cc2b	2			
+T4-count-empty.dax	36cf7ef77928f42d719b92a2c89587b0e5e920f2	1				
+G2-region__FT.dax	e9727fa13f024bd842a1a4cd0e420db7e612c84c	5				
+G2-region__LN.dax	fbc0e616c95c3b8ae7a1de537e5603bf980dfbf9	5					
+G2-region__CR.dax	868e7242a294dae94fc9fda31a5dcdbae63f4d8b	5				
+G2-region__DIM.dax	6003afb08190220642050042405984e7e19437a3	5				

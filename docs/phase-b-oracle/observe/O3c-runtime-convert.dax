@@ -1,0 +1,3 @@
+// O3c | CÓ CHỦ ĐÍCH LỖI: lỗi lúc chạy, không phải lỗi cú pháp. CONVERT chuỗi "a" thành số nguyên
+EVALUATE
+ROW ( "x", CONVERT ( "a", INTEGER ) )

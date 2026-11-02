@@ -1,0 +1,154 @@
+-- DimDate  [format: 0]
+MEASURE 'DimDate'[Active Days] =
+DATEDIFF(
+    MIN(DimDate[Date]),
+    MAX(DimDate[Date]),
+    DAY
+)
+
+-- FactLoan  [format: 0]
+MEASURE 'FactLoan'[Loan Count] =
+COUNT(FactLoan[loan_id])
+
+-- FactLoan
+MEASURE 'FactLoan'[Avg Loan Amount] =
+DIVIDE( SUM(FactLoan[amount]), [Loan Count])
+
+-- FactLoan  [format: 0]
+MEASURE 'FactLoan'[Total Loan Amount] =
+SUM(FactLoan[amount])
+
+-- FactLoan  [format: 0]
+MEASURE 'FactLoan'[Risky Loans] =
+CALCULATE(
+    COUNT(FactLoan[loan_id]),
+    FactLoan[status] <> 4
+)
+
+-- FactLoan  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactLoan'[Risky Loan Rate] =
+DIVIDE(
+    [Risky Loans],
+    [Loan Count],
+    0
+)
+
+-- FactLoan  [format: 0]
+MEASURE 'FactLoan'[Total Loan Amount Prev] =
+CALCULATE(
+    [Total Loan Amount],
+    DATEADD(DimDate[date], -1, YEAR)
+)
+
+-- FactLoan  [format: #,0.00%;-#,0.00%;#,0.00%]
+MEASURE 'FactLoan'[Total Loan Amount Growth %] =
+DIVIDE(
+    [Total Loan Amount] - [Total Loan Amount Prev],
+    [Total Loan Amount Prev]
+)
+
+-- FactLoan  [format: 0]
+MEASURE 'FactLoan'[Loan Count Prev] =
+CALCULATE(
+    [Loan Count],
+    DATEADD(DimDate[date], -1, YEAR)
+)
+
+-- FactLoan  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactLoan'[Loan Count Growth %] =
+DIVIDE(
+    [Loan Count] - [Loan Count Prev],
+    [Loan Count Prev]
+)
+
+-- FactReview
+MEASURE 'FactReview'[Avg Accounts per Customer] =
+DIVIDE(
+    DISTINCTCOUNT(DimAccount[account_id]),
+   
+DISTINCTCOUNT(DimClient[client_id])
+,
+    0
+)
+
+-- FactReview
+MEASURE 'FactReview'[Điểm hài lòng trung bình] =
+AVERAGE(FactReview[cplt_crm_review.stars])
+
+-- FactReview  [format: 0]
+MEASURE 'FactReview'[Timely Complaints] =
+CALCULATE(
+    COUNTROWS(FactReview),
+    FactReview[timely_response] = 1
+)
+
+-- FactReview  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactReview'[Tỷ lệ phản hồi đúng hạn] =
+DIVIDE([Timely Complaints], COUNTROWS(FactReview))
+
+-- FactReview  [format: 0]
+MEASURE 'FactReview'[Unhappy Complaints] =
+CALCULATE(
+    COUNT(FactReview[Complaint_id]),
+    FactReview[cplt_crm_review.stars] <= 2
+)
+
+-- FactReview
+MEASURE 'FactReview'[Unhappy Rate] =
+DIVIDE([Unhappy Complaints], COUNT(FactReview[Complaint_id]))
+
+-- FactTransaction  [format: 0]
+MEASURE 'FactTransaction'[Transaction Count] =
+COUNT(FactTransaction[trans_id])
+
+-- FactTransaction  [format: 0]
+MEASURE 'FactTransaction'[Total Transaction Amount] =
+SUM(FactTransaction[amount])
+
+-- FactTransaction
+MEASURE 'FactTransaction'[Avg Transaction Amount] =
+DIVIDE(
+    [Total Transaction Amount],
+    [Transaction Count]
+)
+
+-- FactTransaction  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactTransaction'[Transaction YoY Growth] =
+DIVIDE(
+    [Transaction Count] - CALCULATE([Transaction Count], SAMEPERIODLASTYEAR(DimDate[Date])),
+    CALCULATE([Transaction Count], SAMEPERIODLASTYEAR(DimDate[Date]))
+)
+
+-- FactTransaction  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactTransaction'[Total Amount YoY Growth (%)] =
+DIVIDE(
+    [Total Transaction Amount] - CALCULATE(
+    [Total Transaction Amount],
+    SAMEPERIODLASTYEAR(DimDate[Date])
+),
+    CALCULATE(
+    [Total Transaction Amount],
+    SAMEPERIODLASTYEAR(DimDate[Date])
+)
+)
+
+-- FactTransaction  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactTransaction'[Avg Amount YoY Growth (%)] =
+DIVIDE(
+    [Avg Transaction Amount] - CALCULATE(
+    [Avg Transaction Amount],
+    SAMEPERIODLASTYEAR(DimDate[Date])
+),
+    CALCULATE(
+    [Avg Transaction Amount],
+    SAMEPERIODLASTYEAR(DimDate[Date])
+)
+)
+
+-- FactTransaction  [format: 0.00%;-0.00%;0.00%]
+MEASURE 'FactTransaction'[VIP Transaction Ratio (%)] =
+DIVIDE(
+    CALCULATE([Transaction Count], FactTransaction[Account Segment] = "VIP / Corporate"),
+    [Transaction Count]
+)
+

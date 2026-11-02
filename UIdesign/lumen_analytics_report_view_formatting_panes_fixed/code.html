@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@400..600&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;overflow:hidden;}body{overscroll-behavior:none;}* {box-sizing: border-box;}}::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#c0c6d6;border-radius:4px;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"on-primary-container":"#fefcff","on-background":"#1b1b1d","surface-container":"#f0edef","outline":"#717786","inverse-surface":"#303032","tertiary-fixed":"#ffdbcb","secondary-fixed":"#e2dfff","secondary-container":"#6462ec","background":"#fcf8fb","on-secondary-container":"#fffbff","on-error-container":"#93000a","error-container":"#ffdad6","secondary-fixed-dim":"#c2c1ff","on-secondary-fixed-variant":"#332dbc","on-tertiary-fixed-variant":"#793100","primary-fixed":"#d6e3ff","surface-variant":"#e4e2e4","on-primary-fixed":"#001b3e","on-tertiary-fixed":"#341100","surface-bright":"#fcf8fb","surface-container-high":"#eae7ea","on-surface-variant":"#414754","inverse-primary":"#aac7ff","surface":"#fcf8fb","on-primary-fixed-variant":"#00468d","inverse-on-surface":"#f3f0f2","on-tertiary":"#ffffff","surface-tint":"#005db8","on-secondary-fixed":"#0c006b","primary":"#005ab3","surface-container-lowest":"#ffffff","surface-container-highest":"#e4e2e4","outline-variant":"#c0c6d6","on-tertiary-container":"#fffbff","surface-container-low":"#f6f3f5","tertiary-fixed-dim":"#ffb691","tertiary-container":"#c25300","on-primary":"#ffffff","surface-dim":"#dcd9dc","on-surface":"#1b1b1d","on-secondary":"#ffffff","primary-fixed-dim":"#aac7ff","tertiary":"#9a4100","error":"#ba1a1a","secondary":"#4a47d2","primary-container":"#0073e0","on-error":"#ffffff"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xl":"24px","gutter":"12px","space-xs":"4px","space-sm":"8px","space-md":"12px","space-lg":"16px","margin":"16px"},"fontFamily":{"data-mono":["JetBrains Mono","monospace"],"body-md":["Inter","system-ui","sans-serif"],"label-md":["Inter","system-ui","sans-serif"],"display":["Inter","system-ui","sans-serif"],"label-sm":["Inter","system-ui","sans-serif"],"body-lg":["Inter","system-ui","sans-serif"],"headline-sm":["Inter","system-ui","sans-serif"],"headline-lg":["Inter","system-ui","sans-serif"],"headline-md":["Inter","system-ui","sans-serif"],"metric-display":["Inter","system-ui","sans-serif"],"body-sm":["Inter","system-ui","sans-serif"]},"fontSize":{"data-mono":["11px",{"lineHeight":"15px","letterSpacing":"0em","fontWeight":"400"}],"body-md":["13px",{"lineHeight":"18px","letterSpacing":"-0.003em","fontWeight":"400"}],"label-md":["11px",{"lineHeight":"14px","letterSpacing":"0.01em","fontWeight":"500"}],"display":["28px",{"lineHeight":"34px","letterSpacing":"-0.018em","fontWeight":"600"}],"label-sm":["10px",{"lineHeight":"13px","letterSpacing":"0.02em","fontWeight":"500"}],"body-lg":["14px",{"lineHeight":"20px","letterSpacing":"-0.005em","fontWeight":"400"}],"headline-sm":["13px",{"lineHeight":"18px","letterSpacing":"-0.006em","fontWeight":"600"}],"headline-lg":["20px",{"lineHeight":"26px","letterSpacing":"-0.015em","fontWeight":"600"}],"headline-md":["15px",{"lineHeight":"20px","letterSpacing":"-0.01em","fontWeight":"600"}],"metric-display":["24px",{"lineHeight":"28px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0em","fontWeight":"400"}]}}}}</script></head><body class="bg-[#1b1b1d] font-body-md text-body-md text-on-surface select-none antialiased flex items-center justify-center min-h-screen"><div class="w-[1280px] h-[1024px] max-h-[1024px] min-h-[1024px] bg-surface flex flex-col overflow-hidden shadow-2xl relative">
+<!-- TOP CHROME: macOS Window Titlebar (~40px) -->
+<header class="h-10 shrink-0 bg-surface-container-low/95 border-b border-outline-variant/30 flex items-center justify-between px-space-md select-none z-30">
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="w-3 h-3 rounded-full bg-[#FF5F57] inline-block shadow-sm cursor-pointer"></span>
+<span class="w-3 h-3 rounded-full bg-[#FEBC2E] inline-block shadow-sm cursor-pointer"></span>
+<span class="w-3 h-3 rounded-full bg-[#28C840] inline-block shadow-sm cursor-pointer"></span>
+</div>
+<div class="flex items-center gap-space-xs px-space-xs py-0.5 rounded hover:bg-surface-container-high transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-primary text-[18px]">insert_drive_file</span>
+<span class="font-headline-sm text-[13px] text-on-surface font-semibold">Sales Report.lumen</span>
+<span class="font-label-sm text-[10px] px-1.5 py-0.2 rounded bg-surface-container text-on-surface-variant font-medium">Edited</span>
+<span class="material-symbols-outlined text-outline text-[16px]">expand_more</span>
+</div>
+</div>
+<div class="flex-1 max-w-sm mx-auto">
+<div class="flex items-center gap-space-xs bg-surface-container-high/70 hover:bg-surface-container-high px-space-md py-0.5 rounded-full text-on-surface-variant shadow-inner transition-all border border-outline-variant/20">
+<span class="material-symbols-outlined text-[15px] text-outline">search</span>
+<span class="flex-1 font-body-sm text-[11px] text-outline select-none">Search report, metrics, actions...</span>
+<kbd class="font-data-mono text-[9px] px-1 py-0.2 rounded bg-surface text-on-surface-variant shadow-sm border border-outline-variant/30">⌘K</kbd>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="flex items-center gap-space-xs px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors font-label-md text-[11px]">
+<span class="material-symbols-outlined text-[15px] text-on-surface-variant">share</span>
+<span>Collaborate</span>
+</button>
+<button class="flex items-center gap-space-xs px-3 py-1 rounded bg-primary-container hover:bg-primary text-on-primary font-label-md text-[11px] font-medium shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[15px]">cloud_upload</span>
+<span>Publish</span>
+</button>
+<div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[16px]">person</span>
+</div>
+</div>
+</header>
+<!-- TOP RIBBON: Tabs (32px) + Tool Bar (64px) = 96px total -->
+<div class="shrink-0 bg-surface-container-low border-b border-outline-variant/30 select-none z-20">
+<div class="h-8 px-space-md bg-surface-container-low flex items-center justify-between border-b border-outline-variant/20">
+<nav class="flex items-center gap-1 font-label-md text-[11px]">
+<a class="px-space-md py-1 rounded transition-colors bg-surface-container-lowest text-primary shadow-sm font-semibold" href="#">Home</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">Insert</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">Modeling</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">View</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">Optimize</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" href="#">Help</a>
+<span class="w-px h-3 bg-outline-variant mx-1"></span>
+<a class="px-space-md py-1 rounded text-secondary hover:text-on-surface hover:bg-secondary-fixed/50 transition-colors font-medium" href="#">Format</a>
+<a class="px-space-md py-1 rounded text-secondary hover:text-on-surface hover:bg-secondary-fixed/50 transition-colors font-medium" href="#">Data / Drill</a>
+</nav>
+</div>
+<div class="h-16 px-space-md bg-surface-container-lowest flex items-center justify-between gap-space-lg shadow-[0_1px_4px_rgba(0,0,0,0.03)] overflow-x-auto">
+<div class="flex items-center gap-space-lg">
+<div class="flex flex-col items-center justify-between h-12 pr-space-md border-r border-outline-variant/20">
+<div class="flex items-center gap-1">
+<button class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[17px]">content_paste</span></button>
+<button class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[17px]">content_cut</span></button>
+<button class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[17px]">content_copy</span></button>
+<button class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[17px]">format_paint</span></button>
+</div>
+<span class="font-label-sm text-[10px] text-outline">Clipboard</span>
+</div>
+<div class="flex flex-col items-center justify-between h-12 px-space-md border-r border-outline-variant/20">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px] text-primary">database</span><span>Get Data</span><span class="material-symbols-outlined text-[13px]">arrow_drop_down</span></button>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px] text-tertiary">table_view</span><span>Excel</span></button>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px] text-secondary">dns</span><span>SQL</span></button>
+<button class="px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]">Enter Data</button>
+</div>
+<span class="font-label-sm text-[10px] text-outline">Data</span>
+</div>
+<div class="flex flex-col items-center justify-between h-12 px-space-md border-r border-outline-variant/20">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px]">manufacturing</span><span>Transform Data</span></button>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px]">refresh</span><span>Refresh</span></button>
+</div>
+<span class="font-label-sm text-[10px] text-outline">Queries</span>
+</div>
+<div class="flex flex-col items-center justify-between h-12 px-space-md border-r border-outline-variant/20">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px] text-primary">bar_chart</span><span>New Visual</span></button>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px]">title</span><span>Text Box</span></button>
+</div>
+<span class="font-label-sm text-[10px] text-outline">Insert</span>
+</div>
+<div class="flex flex-col items-center justify-between h-12 px-space-md">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px] text-secondary">calculate</span><span>New Measure</span></button>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-[11px]"><span class="material-symbols-outlined text-[17px]">flash_on</span><span>Quick Measure</span></button>
+</div>
+<span class="font-label-sm text-[10px] text-outline">Calculations</span>
+</div>
+</div>
+<div>
+<button class="flex items-center gap-space-xs px-space-md py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary font-label-md text-label-md transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-secondary">auto_awesome</span>
+<span>Copilot</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MAIN WORKSPACE ROW: Exactly 852px tall (1024 - 40 - 96 - 36) -->
+<div class="h-[852px] max-h-[852px] flex overflow-hidden bg-surface-container select-none">
+<!-- LEFT PERSISTENT ICON RAIL (w-12, 48px) -->
+<aside class="w-12 shrink-0 h-full bg-surface-container-low border-r border-outline-variant/30 flex flex-col items-center justify-between py-space-sm z-10">
+<div class="flex flex-col items-center gap-2">
+<a class="w-8 h-8 rounded-lg flex items-center justify-center bg-primary-container text-on-primary-container shadow-sm" href="#" title="Report Canvas"><span class="material-symbols-outlined text-[19px]">view_quilt</span></a>
+<a class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Data View"><span class="material-symbols-outlined text-[19px]">table_chart</span></a>
+<a class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="Model View"><span class="material-symbols-outlined text-[19px]">schema</span></a>
+<a class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="DAX Query"><span class="material-symbols-outlined text-[19px]">code</span></a>
+<a class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#" title="TMDL View"><span class="material-symbols-outlined text-[19px]">terminal</span></a>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Settings"><span class="material-symbols-outlined text-[19px]">settings</span></button>
+</div>
+</aside>
+<!-- COLLAPSED FILTERS STRIP (w-9, 36px) -->
+<div class="w-9 shrink-0 h-full flex flex-col items-center justify-between py-space-sm bg-surface-container-low border-r border-outline-variant/30 select-none">
+<div class="flex flex-col items-center gap-space-sm">
+<button class="w-7 h-7 rounded flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Expand Filters">
+<span class="material-symbols-outlined text-[16px]">filter_alt</span>
+</button>
+<span class="font-label-sm text-[10px] text-outline [writing-mode:vertical-rl] rotate-180 tracking-wider font-semibold">FILTERS (3)</span>
+</div>
+<button class="w-7 h-7 rounded flex items-center justify-center text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Filters Settings">
+<span class="material-symbols-outlined text-[15px]">tune</span>
+</button>
+</div>
+<!-- CENTER REPORT CANVAS VIEWPORT (flex-1, h-full, scrollable) -->
+<main class="flex-1 h-full min-w-0 bg-[#e5e5ea]/50 p-3 overflow-y-auto overflow-x-hidden relative flex flex-col items-center">
+<div class="absolute inset-0 opacity-[0.035] pointer-events-none" style="background-image: radial-gradient(#005ab3 1px, transparent 1px); background-size: 16px 16px;"></div>
+<!-- REPORT CANVAS SHEET -->
+<div class="w-full max-w-[690px] bg-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] p-3.5 flex flex-col gap-3 relative transition-all border border-outline-variant/20 mb-2">
+<!-- Report Header -->
+<header class="flex flex-col gap-2 pb-2 border-b border-surface-container mb-1 shrink-0">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="text-[15px] font-semibold text-on-surface tracking-tight whitespace-nowrap">Sales Performance Dashboard</span>
+<span class="material-symbols-outlined text-[16px] text-primary shrink-0" title="Certified Model">verified</span>
+</div>
+<span class="font-data-mono text-[10px] text-outline mt-0.5">Updated: Today at 08:42 AM PST</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">Fiscal Year</span>
+<div class="flex items-center bg-surface-container-high p-0.5 rounded-lg shadow-inner">
+<button class="px-2 py-0.5 rounded font-label-md text-[11px] text-on-surface-variant hover:text-on-surface transition-all">2024</button>
+<button class="px-2 py-0.5 rounded font-label-md text-[11px] text-on-surface-variant hover:text-on-surface transition-all">2025</button>
+<button class="px-2 py-0.5 rounded font-label-md text-[11px] bg-primary-container text-on-primary font-medium shadow-sm transition-all">2026</button>
+</div>
+<div class="w-px h-3.5 bg-outline-variant/40 mx-0.5"></div>
+<button class="p-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-colors" title="Canvas Filter Options"><span class="material-symbols-outlined text-[14px]">tune</span></button>
+</div>
+</div>
+</header>
+<!-- 2x2 KPI GRID -->
+<div class="grid grid-cols-4 gap-2 shrink-0">
+<div class="bg-surface-container-low rounded-lg p-2 flex flex-col justify-between hover:bg-surface-container transition-colors shadow-sm border border-outline-variant/10">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-sm text-[9px] uppercase tracking-wider font-medium truncate">Total Revenue</span>
+<span class="material-symbols-outlined text-[14px] text-primary shrink-0">payments</span>
+</div>
+<div class="mt-1 flex items-baseline justify-between gap-1">
+<span class="font-metric-display text-[16px] text-on-surface tracking-tight font-bold">$4.2M</span>
+<span class="inline-flex items-center px-1 py-0.2 rounded-full text-label-sm text-[9px] font-semibold bg-emerald-100 text-emerald-800 shrink-0">▲ 12.4%</span>
+</div>
+<span class="font-label-sm text-[9px] text-outline mt-0.5 truncate">vs. LY ($3.74M)</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2 flex flex-col justify-between hover:bg-surface-container transition-colors shadow-sm border border-outline-variant/10">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-sm text-[9px] uppercase tracking-wider font-medium truncate">Orders Count</span>
+<span class="material-symbols-outlined text-[14px] text-secondary shrink-0">shopping_cart</span>
+</div>
+<div class="mt-1 flex items-baseline justify-between gap-1">
+<span class="font-metric-display text-[16px] text-on-surface tracking-tight font-bold">18,430</span>
+<span class="inline-flex items-center px-1 py-0.2 rounded-full text-label-sm text-[9px] font-semibold bg-emerald-100 text-emerald-800 shrink-0">▲ 5.2%</span>
+</div>
+<span class="font-label-sm text-[9px] text-outline mt-0.5 truncate">Target: 104%</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2 flex flex-col justify-between hover:bg-surface-container transition-colors shadow-sm border border-outline-variant/10">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-sm text-[9px] uppercase tracking-wider font-medium truncate">Avg Order Value</span>
+<span class="material-symbols-outlined text-[14px] text-tertiary shrink-0">receipt_long</span>
+</div>
+<div class="mt-1 flex items-baseline justify-between gap-1">
+<span class="font-metric-display text-[16px] text-on-surface tracking-tight font-bold">$228.10</span>
+<span class="inline-flex items-center px-1 py-0.2 rounded-full text-label-sm text-[9px] font-semibold bg-emerald-100 text-emerald-800 shrink-0">▲ 3.1%</span>
+</div>
+<span class="font-label-sm text-[9px] text-outline mt-0.5 truncate">+$6.80 vs Q4</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2 flex flex-col justify-between hover:bg-surface-container transition-colors shadow-sm border border-outline-variant/10">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-sm text-[9px] uppercase tracking-wider font-medium truncate">Gross Margin</span>
+<span class="material-symbols-outlined text-[14px] text-error shrink-0">pie_chart</span>
+</div>
+<div class="mt-1 flex items-baseline justify-between gap-1">
+<span class="font-metric-display text-[16px] text-on-surface tracking-tight font-bold">23.5%</span>
+<span class="inline-flex items-center px-1 py-0.2 rounded-full text-label-sm text-[9px] font-semibold bg-emerald-100 text-emerald-800 shrink-0">▲ 3.1%</span>
+</div>
+<span class="font-label-sm text-[9px] text-outline mt-0.5 truncate">Threshold: 22%</span>
+</div>
+</div>
+<!-- ACTIVE VISUAL: Revenue by Month (FY 2026) -->
+<article class="w-full bg-surface-container-lowest rounded-lg p-2 shadow-md relative bg-gradient-to-b from-primary-fixed/10 via-transparent to-transparent border border-outline-variant/20 shrink-0">
+<div class="absolute inset-0 rounded-lg pointer-events-none shadow-[0_0_0_1.5px_#005ab3] z-20"></div>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute -top-1 -left-1 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute -top-1 left-1/2 -translate-x-1/2 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute -top-1 -right-1 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute top-1/2 -right-1 -translate-y-1/2 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute -bottom-1 -right-1 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute -bottom-1 left-1/2 -translate-x-1/2 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-sm rounded-full absolute -bottom-1 -left-1 z-30 pointer-events-none ring-1 ring-primary"></span>
+<span class="w-2 h-2 bg-surface-container-lowest shadow-full absolute top-1/2 -left-1 -translate-y-1/2 z-30 pointer-events-none ring-1 ring-primary"></span>
+<div class="flex items-center justify-between pb-0.5">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-[12px] text-on-surface font-semibold">Revenue by Month (FY 2026)</span>
+<span class="text-label-sm text-[9px] px-1 py-0.2 rounded bg-primary-fixed text-on-primary-fixed font-medium">Active Slicer Sync</span>
+</div>
+<div class="flex items-center gap-0.5 bg-surface-container-low px-1 py-0.5 rounded shadow-sm">
+<button class="p-0.5 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Drill Down"><span class="material-symbols-outlined text-[13px]">arrow_downward</span></button>
+<button class="p-0.5 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Drill Up"><span class="material-symbols-outlined text-[13px]">arrow_upward</span></button>
+<button class="p-0.5 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Focus Mode"><span class="material-symbols-outlined text-[13px]">open_in_full</span></button>
+<button class="p-0.5 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Pin Visual"><span class="material-symbols-outlined text-[13px]">push_pin</span></button>
+<button class="p-0.5 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="More Options"><span class="material-symbols-outlined text-[13px]">more_horiz</span></button>
+</div>
+</div>
+<div class="w-full h-28 pt-0.5 relative">
+<svg aria-label="Revenue by Month Chart" class="w-full h-full overflow-visible font-label-sm" style="font-family: 'Inter', system-ui, sans-serif;" viewbox="0 0 660 112">
+<line stroke="#E4E2E4" stroke-dasharray="3 3" x1="45" x2="640" y1="10" y2="10"></line>
+<line stroke="#E4E2E4" stroke-dasharray="3 3" x1="45" x2="640" y1="35" y2="35"></line>
+<line stroke="#E4E2E4" stroke-dasharray="3 3" x1="45" x2="640" y1="60" y2="60"></line>
+<line stroke="#E4E2E4" stroke-dasharray="3 3" x1="45" x2="640" y1="85" y2="85"></line>
+<line stroke="#C0C6D6" stroke-width="1.2" x1="45" x2="640" y1="98" y2="98"></line>
+<text class="font-data-mono text-[8px]" fill="#717786" text-anchor="end" x="38" y="13">$500k</text>
+<text class="font-data-mono text-[8px]" fill="#717786" text-anchor="end" x="38" y="38">$375k</text>
+<text class="font-data-mono text-[8px]" fill="#717786" text-anchor="end" x="38" y="63">$250k</text>
+<text class="font-data-mono text-[8px]" fill="#717786" text-anchor="end" x="38" y="88">$125k</text>
+<text class="font-data-mono text-[8px]" fill="#717786" text-anchor="end" x="38" y="100">$0</text>
+<!-- Jan -->
+<rect fill="#6462ec" fill-opacity="0.25" height="40" rx="2" width="15" x="56" y="58"></rect>
+<rect fill="#0073e0" height="50" rx="2" width="15" x="73" y="48"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="72" y="108">Jan</text>
+<!-- Feb -->
+<rect fill="#6462ec" fill-opacity="0.25" height="35" rx="2" width="15" x="105" y="63"></rect>
+<rect fill="#0073e0" height="45" rx="2" width="15" x="122" y="53"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="121" y="108">Feb</text>
+<!-- Mar -->
+<rect fill="#6462ec" fill-opacity="0.25" height="46" rx="2" width="15" x="154" y="52"></rect>
+<rect fill="#0073e0" height="58" rx="2" width="15" x="171" y="40"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="170" y="108">Mar</text>
+<!-- Apr -->
+<rect fill="#6462ec" fill-opacity="0.25" height="38" rx="2" width="15" x="203" y="60"></rect>
+<rect fill="#0073e0" height="50" rx="2" width="15" x="220" y="48"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="219" y="108">Apr</text>
+<!-- May -->
+<rect fill="#6462ec" fill-opacity="0.25" height="42" rx="2" width="15" x="252" y="56"></rect>
+<rect fill="#0073e0" height="55" rx="2" width="15" x="269" y="43"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="268" y="108">May</text>
+<!-- Jun -->
+<rect fill="#6462ec" fill-opacity="0.25" height="54" rx="2" width="15" x="301" y="44"></rect>
+<rect fill="#0073e0" height="68" rx="2" width="15" x="318" y="30"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="317" y="108">Jun</text>
+<!-- Jul -->
+<rect fill="#6462ec" fill-opacity="0.25" height="49" rx="2" width="15" x="350" y="49"></rect>
+<rect fill="#0073e0" height="62" rx="2" width="15" x="367" y="36"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="366" y="108">Jul</text>
+<!-- Aug -->
+<rect fill="#6462ec" fill-opacity="0.25" height="52" rx="2" width="15" x="399" y="46"></rect>
+<rect fill="#0073e0" height="65" rx="2" width="15" x="416" y="33"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="415" y="108">Aug</text>
+<!-- Sep -->
+<rect fill="#6462ec" fill-opacity="0.25" height="59" rx="2" width="15" x="448" y="39"></rect>
+<rect fill="#0073e0" height="73" rx="2" width="15" x="465" y="25"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="464" y="108">Sep</text>
+<!-- Oct (Peak) -->
+<rect fill="#6462ec" fill-opacity="0.25" height="62" rx="2" width="15" x="497" y="36"></rect>
+<rect fill="#005ab3" height="78" rx="2" width="15" x="514" y="20"></rect>
+<text class="text-[8px] font-bold" fill="#005ab3" text-anchor="middle" x="513" y="108">Oct</text>
+<!-- Nov -->
+<rect fill="#6462ec" fill-opacity="0.25" height="66" rx="2" width="15" x="546" y="32"></rect>
+<rect fill="#0073e0" height="80" rx="2" width="15" x="563" y="18"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="562" y="108">Nov</text>
+<!-- Dec -->
+<rect fill="#6462ec" fill-opacity="0.25" height="70" rx="2" width="15" x="595" y="28"></rect>
+<rect fill="#0073e0" height="83" rx="2" width="15" x="612" y="15"></rect>
+<text class="text-[8px]" fill="#717786" text-anchor="middle" x="611" y="108">Dec</text>
+<!-- Oct Peak Callout -->
+<g transform="translate(460, 2)">
+<rect fill="#1b1b1d" fill-opacity="0.92" height="16" rx="3" width="102"></rect>
+<text class="font-data-mono text-[8px]" fill="#ffffff" x="5" y="11">Oct: $442,100</text>
+<text class="text-[7px] font-bold" fill="#86efac" x="76" y="11">▲8%</text>
+</g>
+</svg>
+</div>
+<div class="flex items-center justify-between pt-1 text-on-surface-variant font-label-sm text-[10px] border-t border-surface-container">
+<div class="flex items-center gap-space-md">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-primary-container inline-block"></span> 2026 Actual</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-secondary-container/40 inline-block"></span> 2025 Prior Year</span>
+</div>
+<span class="font-data-mono text-[9px] text-outline">Sum of Amount by MonthName</span>
+</div>
+</article>
+<!-- REORGANIZED SECTION 1: Revenue by Category (FULL WIDTH ROW) -->
+<article class="bg-surface-container-lowest rounded-lg p-2.5 shadow-sm border border-outline-variant/10 flex flex-col gap-1.5 shrink-0">
+<div class="flex items-center justify-between pb-1 border-b border-surface-container">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-[12px] font-semibold text-on-surface">Revenue by Category</span>
+<span class="text-label-sm text-[9px] text-outline font-data-mono">(FY 2026)</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[14px]">more_vert</span></button>
+</div>
+<div class="flex items-center justify-between gap-4 px-2 py-0.5">
+<div class="flex items-center justify-center relative shrink-0">
+<svg class="w-20 h-20 -rotate-90" viewbox="0 0 160 160">
+<circle cx="80" cy="80" fill="none" r="58" stroke="#6462ec" stroke-dasharray="72.8 364.4" stroke-dashoffset="0" stroke-width="18"></circle>
+<circle cx="80" cy="80" fill="none" r="58" stroke="#0073e0" stroke-dasharray="116.6 364.4" stroke-dashoffset="-72.8" stroke-width="18"></circle>
+<circle cx="80" cy="80" fill="none" r="58" stroke="#005ab3" stroke-dasharray="175 364.4" stroke-dashoffset="-189.4" stroke-width="18"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+<span class="font-headline-md text-[13px] font-bold text-on-surface leading-tight">$4.2M</span>
+<span class="font-label-sm text-[8px] text-outline uppercase tracking-wider font-semibold">Total ARR</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<div class="flex items-center justify-between px-2 py-1 rounded bg-surface-container-low border border-outline-variant/10 text-[11px]">
+<div class="flex items-center gap-1.5 font-medium text-on-surface min-w-[90px]">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span>Enterprise</span>
+</div>
+<span class="font-metric-display text-[12px] font-bold text-on-surface">$2.02M</span>
+<span class="font-data-mono text-[10px] text-outline">48% of ARR</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded bg-surface-container-low border border-outline-variant/10 text-[11px]">
+<div class="flex items-center gap-1.5 font-medium text-on-surface min-w-[90px]">
+<span class="w-2 h-2 rounded-full bg-primary-container shrink-0"></span>
+<span>Mid-Market</span>
+</div>
+<span class="font-metric-display text-[12px] font-bold text-on-surface">$1.34M</span>
+<span class="font-data-mono text-[10px] text-outline">32% of ARR</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded bg-surface-container-low border border-outline-variant/10 text-[11px]">
+<div class="flex items-center gap-1.5 font-medium text-on-surface min-w-[90px]">
+<span class="w-2 h-2 rounded-full bg-secondary-container shrink-0"></span>
+<span>SMB Tier</span>
+</div>
+<span class="font-metric-display text-[12px] font-bold text-on-surface">$0.84M</span>
+<span class="font-data-mono text-[10px] text-outline">20% of ARR</span>
+</div>
+</div>
+</div>
+</article>
+<!-- REORGANIZED SECTION 2: Top Products & Regional Matrix SIDE-BY-SIDE (2 COLUMNS) -->
+<div class="grid grid-cols-2 gap-2.5 items-stretch shrink-0">
+<!-- Visual 1: Top Products by Volume -->
+<article class="bg-surface-container-lowest rounded-lg p-2.5 shadow-sm border border-outline-variant/10 flex flex-col justify-between">
+<div class="flex items-center justify-between pb-1 border-b border-surface-container mb-1.5">
+<span class="font-headline-sm text-[11px] font-semibold text-on-surface">Top Products by Volume</span>
+<span class="material-symbols-outlined text-[14px] text-outline">leaderboard</span>
+</div>
+<div class="flex flex-col gap-1.5 font-body-sm">
+<div class="flex flex-col gap-0.5">
+<div class="flex justify-between font-label-sm text-[10px]">
+<span class="text-on-surface font-medium truncate">Lumen Enterprise</span>
+<span class="font-data-mono text-outline font-semibold">$1,240,000</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 92%;"></div>
+</div>
+</div>
+<div class="flex flex-col gap-0.5">
+<div class="flex justify-between font-label-sm text-[10px]">
+<span class="text-on-surface font-medium truncate">Cloud Connect</span>
+<span class="font-data-mono text-outline font-semibold">$940,200</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-primary-container rounded-full" style="width: 74%;"></div>
+</div>
+</div>
+<div class="flex flex-col gap-0.5">
+<div class="flex justify-between font-label-sm text-[10px]">
+<span class="text-on-surface font-medium truncate">Warehouse Sync</span>
+<span class="font-data-mono text-outline font-semibold">$620,400</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
+<div class="h-full bg-secondary-container rounded-full" style="width: 58%;"></div>
+</div>
+</div>
+</div>
+</article>
+<!-- Visual 2: Regional Matrix -->
+<article class="bg-surface-container-lowest rounded-lg p-2.5 shadow-sm border border-outline-variant/10 flex flex-col justify-between">
+<div class="flex items-center justify-between pb-1 border-b border-surface-container mb-1">
+<span class="font-headline-sm text-[11px] font-semibold text-on-surface">Regional Matrix</span>
+<span class="text-label-sm text-[9px] text-outline font-data-mono">Q1-Q3 FY26</span>
+</div>
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left font-label-sm text-[10px]">
+<thead>
+<tr class="text-on-surface-variant border-b border-surface-container text-[9px]">
+<th class="py-0.5 font-semibold">Territory</th>
+<th class="py-0.5 font-semibold text-right">Q1</th>
+<th class="py-0.5 font-semibold text-right">Q2</th>
+<th class="py-0.5 font-semibold text-right">Total</th>
+<th class="py-0.5 font-semibold text-right">Margin</th>
+</tr>
+</thead>
+<tbody class="font-data-mono divide-y divide-surface-container-low text-[9px]">
+<tr class="hover:bg-surface-container-low">
+<td class="py-0.5 font-semibold text-on-surface">NA</td>
+<td class="py-0.5 text-right text-outline">$640k</td>
+<td class="py-0.5 text-right text-outline">$710k</td>
+<td class="py-0.5 text-right font-semibold text-on-surface">$1.35M</td>
+<td class="py-0.5 text-right"><span class="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[8px] font-semibold">26.2%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low">
+<td class="py-0.5 font-semibold text-on-surface">EMEA</td>
+<td class="py-0.5 text-right text-outline">$420k</td>
+<td class="py-0.5 text-right text-outline">$460k</td>
+<td class="py-0.5 text-right font-semibold text-on-surface">$880k</td>
+<td class="py-0.5 text-right"><span class="px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 text-[8px] font-semibold">24.1%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low">
+<td class="py-0.5 font-semibold text-on-surface">APAC</td>
+<td class="py-0.5 text-right text-outline">$310k</td>
+<td class="py-0.5 text-right text-outline">$355k</td>
+<td class="py-0.5 text-right font-semibold text-on-surface">$665k</td>
+<td class="py-0.5 text-right"><span class="px-1 py-0.2 rounded bg-amber-50 text-amber-800 text-[8px] font-semibold">21.8%</span></td>
+</tr>
+<tr class="hover:bg-surface-container-low">
+<td class="py-0.5 font-semibold text-on-surface">LATAM</td>
+<td class="py-0.5 text-right text-outline">$120k</td>
+<td class="py-0.5 text-right text-outline">$140k</td>
+<td class="py-0.5 text-right font-semibold text-on-surface">$260k</td>
+<td class="py-0.5 text-right"><span class="px-1 py-0.2 rounded bg-rose-50 text-rose-700 text-[8px] font-semibold">19.4%</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</article>
+</div>
+</div>
+</main>
+<!-- RIGHT SIDE: DOCKED INSPECTOR PANES - ALL STRETCHING 100% HEIGHT TO BOTTOM -->
+<aside class="flex h-full shrink-0 bg-surface-container-low border-l border-outline-variant/30 text-on-surface divide-x divide-outline-variant/30 overflow-hidden">
+<!-- PANE 1: VISUALIZATIONS - FORMAT TAB ACTIVE (240px) -->
+<div class="w-[235px] flex flex-col h-full bg-surface-container-low select-none">
+<!-- Visualizations Top Tab Switcher -->
+<div class="flex items-center justify-between border-b border-outline-variant/30 px-space-sm pt-space-xs pb-1 shrink-0 bg-surface-container-low">
+<div class="flex items-center gap-1.5">
+<button class="pb-1 text-on-surface-variant hover:text-on-surface font-label-md text-[11px] flex items-center gap-1 transition-colors" title="Build Visual">
+<span class="material-symbols-outlined text-[15px]">bar_chart</span>
+<span>Build</span>
+</button>
+<button class="pb-1 text-primary border-b-2 border-primary font-label-md text-[11px] font-semibold flex items-center gap-1" title="Format Visual (Active)">
+<span class="material-symbols-outlined text-[15px]">brush</span>
+<span>Format</span>
+</button>
+<button class="pb-1 text-on-surface-variant hover:text-on-surface font-label-md text-[11px] flex items-center gap-1 transition-colors" title="Analytics">
+<span class="material-symbols-outlined text-[15px]">analytics</span>
+</button>
+</div>
+<div class="flex items-center gap-0.5 text-on-surface-variant">
+<button class="p-0.5 rounded hover:bg-surface-container hover:text-on-surface" title="Visual Options"><span class="material-symbols-outlined text-[14px]">more_vert</span></button>
+<button class="p-0.5 rounded hover:bg-surface-container hover:text-on-surface" title="Collapse Pane"><span class="material-symbols-outlined text-[14px]">chevron_right</span></button>
+</div>
+</div>
+<!-- Sub-tabs: Visual & General -->
+<div class="px-space-sm pt-1.5 pb-1 shrink-0 flex items-center gap-1 bg-surface-container-low">
+<div class="grid grid-cols-2 p-0.5 w-full bg-surface-container-high rounded-lg">
+<button class="py-0.5 rounded-md bg-surface-container-lowest text-primary shadow-sm font-label-md text-[10px] font-semibold text-center transition-all">Visual</button>
+<button class="py-0.5 rounded-md text-on-surface-variant hover:text-on-surface font-label-md text-[10px] font-medium text-center transition-all">General</button>
+</div>
+</div>
+<!-- Search Format Options Input -->
+<div class="px-space-sm pb-1.5 shrink-0">
+<div class="flex items-center gap-1 bg-surface px-1.5 py-0.5 rounded shadow-inner text-on-surface border border-outline-variant/20">
+<span class="material-symbols-outlined text-[12px] text-outline">search</span>
+<input class="w-full bg-transparent border-none outline-none font-label-sm text-[10px] placeholder-outline" placeholder="Search format options" type="text"/>
+</div>
+</div>
+<!-- Scrollable Format Accordion List (Flex-1) -->
+<div class="flex-1 overflow-y-auto px-space-sm flex flex-col gap-1.5 pb-space-sm">
+<!-- Accordion: X-axis -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-1.5 bg-surface hover:bg-surface-container cursor-pointer transition-colors">
+<div class="flex items-center gap-1 font-label-md text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-primary">expand_more</span>
+<span>X-axis</span>
+</div>
+<button class="w-6 h-3.5 bg-primary rounded-full relative transition-colors focus:outline-none">
+<span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span>
+</button>
+</div>
+<div class="p-1.5 pt-0 flex flex-col gap-1.5 font-label-sm text-[10px] text-on-surface-variant border-t border-outline-variant/20 bg-surface-container-lowest/50">
+<div class="flex items-center justify-between pt-1">
+<span>Type</span>
+<span class="px-1 py-0.2 rounded bg-surface-container text-on-surface font-medium">Categorical</span>
+</div>
+<div class="flex items-center justify-between">
+<span>Font</span>
+<span class="px-1 py-0.2 rounded bg-surface-container text-on-surface font-medium">Inter, 10pt</span>
+</div>
+<div class="flex items-center justify-between">
+<span>Color</span>
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded bg-[#717786] border border-outline-variant/40 inline-block"></span>
+<span class="font-data-mono text-[9px]">#717786</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Accordion: Y-axis -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-1.5 bg-surface hover:bg-surface-container cursor-pointer transition-colors">
+<div class="flex items-center gap-1 font-label-md text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-primary">expand_more</span>
+<span>Y-axis</span>
+</div>
+<button class="w-6 h-3.5 bg-primary rounded-full relative transition-colors focus:outline-none">
+<span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span>
+</button>
+</div>
+<div class="p-1.5 pt-0 flex flex-col gap-1.5 font-label-sm text-[10px] text-on-surface-variant border-t border-outline-variant/20 bg-surface-container-lowest/50">
+<div class="flex items-center justify-between pt-1">
+<span>Range</span>
+<span class="px-1 py-0.2 rounded bg-surface-container text-on-surface font-medium">Auto (0 - 500k)</span>
+</div>
+<div class="flex items-center justify-between">
+<span>Display units</span>
+<span class="px-1 py-0.2 rounded bg-surface-container text-on-surface font-medium">Auto</span>
+</div>
+</div>
+</div>
+<!-- Accordion: Legend -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-1.5 bg-surface hover:bg-surface-container cursor-pointer transition-colors">
+<div class="flex items-center gap-1 font-label-md text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-outline">chevron_right</span>
+<span>Legend</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-[9px] text-outline font-medium">Top Left</span>
+<button class="w-6 h-3.5 bg-primary rounded-full relative focus:outline-none">
+<span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span>
+</button>
+</div>
+</div>
+</div>
+<!-- Accordion: Gridlines -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-1.5 bg-surface hover:bg-surface-container cursor-pointer transition-colors">
+<div class="flex items-center gap-1 font-label-md text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-primary">expand_more</span>
+<span>Gridlines</span>
+</div>
+<button class="w-6 h-3.5 bg-primary rounded-full relative focus:outline-none">
+<span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span>
+</button>
+</div>
+<div class="p-1.5 pt-0 flex flex-col gap-1 font-label-sm text-[10px] text-on-surface-variant border-t border-outline-variant/20 bg-surface-container-lowest/50">
+<div class="flex items-center justify-between pt-1">
+<span>Horizontal</span>
+<span class="px-1 py-0.2 rounded bg-surface-container text-on-surface font-medium">Dotted, 1px</span>
+</div>
+</div>
+</div>
+<!-- Accordion: Columns -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-1.5 bg-surface hover:bg-surface-container cursor-pointer transition-colors">
+<div class="flex items-center gap-1 font-label-md text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-primary">expand_more</span>
+<span>Columns</span>
+</div>
+<span class="text-[9px] text-primary font-medium">3 Series</span>
+</div>
+<div class="p-1.5 pt-0 flex flex-col gap-1 font-label-sm text-[10px] text-on-surface-variant border-t border-outline-variant/20 bg-surface-container-lowest/50">
+<div class="flex items-center justify-between pt-1">
+<span>Primary Actual</span>
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded bg-[#0A84FF] inline-block"></span>
+<span class="font-data-mono text-[9px]">#0A84FF</span>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span>Prior Year</span>
+<div class="flex items-center gap-1">
+<span class="w-3 h-3 rounded bg-[#5AC8FA] inline-block"></span>
+<span class="font-data-mono text-[9px]">#5AC8FA</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Accordion: Data labels -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-sm">
+<div class="flex items-center justify-between p-1.5 bg-surface hover:bg-surface-container cursor-pointer transition-colors">
+<div class="flex items-center gap-1 font-label-md text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-primary">expand_more</span>
+<span>Data labels</span>
+</div>
+<button class="w-6 h-3.5 bg-primary rounded-full relative focus:outline-none">
+<span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span>
+</button>
+</div>
+<div class="p-1.5 pt-0 flex flex-col gap-1 font-label-sm text-[10px] text-on-surface-variant border-t border-outline-variant/20 bg-surface-container-lowest/50">
+<div class="flex items-center justify-between pt-1">
+<span>Position</span>
+<span class="px-1 py-0.2 rounded bg-surface-container text-on-surface font-medium">Outside end</span>
+</div>
+</div>
+</div>
+<!-- General Properties Preview -->
+<div class="bg-surface rounded-lg border border-outline-variant/30 p-1.5 flex flex-col gap-1 text-[10px]">
+<div class="flex items-center justify-between text-on-surface font-medium">
+<span>Title</span>
+<button class="w-6 h-3.5 bg-primary rounded-full relative focus:outline-none"><span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span></button>
+</div>
+<div class="flex items-center justify-between text-on-surface font-medium">
+<span>Effects</span>
+<button class="w-6 h-3.5 bg-primary rounded-full relative focus:outline-none"><span class="w-2.5 h-2.5 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></span></button>
+</div>
+</div>
+</div>
+<!-- Bottom Format Status -->
+<div class="h-6 shrink-0 bg-surface-container border-t border-outline-variant/20 flex items-center justify-between px-space-sm text-outline font-label-sm text-[10px]">
+<span>Clustered Column Chart</span>
+<span class="font-data-mono text-[9px] hover:text-on-surface cursor-pointer">Default</span>
+</div>
+</div>
+<!-- PANE 2: SELECTION PANE (180px) -->
+<div class="w-[175px] flex flex-col h-full bg-surface-container-low select-none">
+<div class="flex items-center justify-between pb-1 border-b border-outline-variant/20 px-space-sm pt-space-xs shrink-0">
+<div class="flex items-center gap-1 font-headline-sm text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[15px] text-primary">layers</span>
+<span>Selection</span>
+</div>
+<div class="flex items-center gap-0.5 text-on-surface-variant">
+<button class="hover:text-on-surface" title="More Options"><span class="material-symbols-outlined text-[13px]">more_vert</span></button>
+<button class="hover:text-on-surface" title="Collapse Pane"><span class="material-symbols-outlined text-[14px]">chevron_right</span></button>
+</div>
+</div>
+<div class="px-space-sm py-1 flex items-center justify-between text-outline font-label-sm text-[10px] border-b border-outline-variant/10 shrink-0">
+<span class="uppercase font-semibold tracking-wider text-[9px]">Layer Order</span>
+<div class="flex items-center gap-1">
+<button class="hover:text-on-surface flex items-center gap-0.5" title="Show All"><span class="material-symbols-outlined text-[12px]">visibility</span><span>All</span></button>
+<span class="text-outline-variant">|</span>
+<button class="hover:text-on-surface flex items-center gap-0.5" title="Hide All"><span class="material-symbols-outlined text-[12px]">visibility_off</span></button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-space-xs py-1 flex flex-col gap-0.5 font-label-sm text-[10px]">
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[12px] text-outline">drag_indicator</span>
+<span class="material-symbols-outlined text-[13px] text-tertiary">folder</span>
+<span class="font-medium truncate">KPI Header Group</span>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline hover:text-on-surface">visibility</span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded bg-primary/10 text-primary border border-primary/20 cursor-pointer group shadow-sm">
+<div class="flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[12px] text-primary">drag_indicator</span>
+<span class="material-symbols-outlined text-[13px] text-primary">bar_chart</span>
+<span class="font-semibold truncate">Revenue by Month</span>
+</div>
+<span class="material-symbols-outlined text-[13px] text-primary">visibility</span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[12px] text-outline">drag_indicator</span>
+<span class="material-symbols-outlined text-[13px] text-secondary">donut_small</span>
+<span class="truncate">Revenue by Category</span>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline hover:text-on-surface">visibility</span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[12px] text-outline">drag_indicator</span>
+<span class="material-symbols-outlined text-[13px] text-outline">leaderboard</span>
+<span class="truncate">Top Products</span>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline hover:text-on-surface">visibility</span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[12px] text-outline">drag_indicator</span>
+<span class="material-symbols-outlined text-[13px] text-outline">grid_on</span>
+<span class="truncate">Regional Matrix</span>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline hover:text-on-surface">visibility</span>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[12px] text-outline">drag_indicator</span>
+<span class="material-symbols-outlined text-[13px] text-outline">tune</span>
+<span class="truncate">Year Slicer</span>
+</div>
+<span class="material-symbols-outlined text-[13px] text-outline hover:text-on-surface">visibility</span>
+</div>
+</div>
+<div class="h-6 shrink-0 bg-surface-container border-t border-outline-variant/20 flex items-center justify-center text-outline font-label-sm text-[10px]">
+        6 Objects on Canvas
+      </div>
+</div>
+<!-- PANE 3: BOOKMARKS PANE (155px) -->
+<div class="w-[155px] flex flex-col h-full bg-surface-container-low select-none">
+<div class="flex items-center justify-between pb-1 border-b border-outline-variant/20 px-space-sm pt-space-xs shrink-0">
+<div class="flex items-center gap-1 font-headline-sm text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[15px] text-tertiary">bookmark</span>
+<span>Bookmarks</span>
+</div>
+<button class="hover:text-on-surface text-on-surface-variant" title="Collapse Bookmarks">
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+</button>
+</div>
+<div class="px-space-sm py-1 flex items-center justify-between gap-1 border-b border-outline-variant/10 shrink-0">
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-surface hover:bg-surface-container text-on-surface font-label-sm text-[10px] font-medium shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[12px] text-primary">add</span>
+<span>Add</span>
+</button>
+<button class="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-surface hover:bg-surface-container text-on-surface font-label-sm text-[10px] font-medium shadow-sm transition-colors" title="View Slide Show">
+<span class="material-symbols-outlined text-[12px] text-secondary">play_arrow</span>
+<span>View</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto px-space-xs py-1 flex flex-col gap-0.5 font-label-sm text-[10px]">
+<div class="flex items-center justify-between px-1.5 py-1 rounded bg-surface text-on-surface font-medium border border-primary/30 shadow-sm cursor-pointer group">
+<div class="flex items-center gap-1 truncate text-primary font-semibold">
+<span class="material-symbols-outlined text-[12px]">check</span>
+<span class="truncate">Default view</span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined text-[12px]">more_vert</span></button>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate pl-2">
+<span class="material-symbols-outlined text-[13px] text-outline">bookmark_border</span>
+<span class="truncate">2026 only</span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined text-[12px]">more_vert</span></button>
+</div>
+<div class="flex items-center justify-between px-1.5 py-1 rounded hover:bg-surface text-on-surface cursor-pointer group transition-colors">
+<div class="flex items-center gap-1 truncate pl-2">
+<span class="material-symbols-outlined text-[13px] text-outline">bookmark_border</span>
+<span class="truncate">Top products</span>
+</div>
+<button class="text-outline hover:text-on-surface"><span class="material-symbols-outlined text-[12px]">more_vert</span></button>
+</div>
+</div>
+<div class="h-6 shrink-0 bg-surface-container border-t border-outline-variant/20 flex items-center justify-center text-outline font-label-sm text-[10px]">
+        3 Bookmarks
+      </div>
+</div>
+<!-- PANE 4: DATA (FIELDS PANE - 165px) -->
+<div class="w-[165px] flex flex-col h-full bg-surface-container-low select-none">
+<div class="flex flex-col p-space-sm gap-1.5 shrink-0">
+<div class="flex items-center justify-between pb-1 border-b border-outline-variant/20">
+<div class="flex items-center gap-1 font-headline-sm text-[11px] font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[15px] text-secondary">database</span>
+<span>Data</span>
+</div>
+<div class="flex items-center gap-0.5 text-on-surface-variant">
+<button class="hover:text-on-surface" title="Collapse All"><span class="material-symbols-outlined text-[13px]">unfold_less</span></button>
+<button class="hover:text-on-surface" title="More"><span class="material-symbols-outlined text-[13px]">more_vert</span></button>
+</div>
+</div>
+<div class="flex items-center gap-1 bg-surface px-1.5 py-0.5 rounded shadow-inner text-on-surface border border-outline-variant/20">
+<span class="material-symbols-outlined text-[12px] text-outline">search</span>
+<input class="w-full bg-transparent border-none outline-none font-label-sm text-[10px] placeholder-outline" placeholder="Search data..." type="text"/>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-space-sm flex flex-col gap-1 font-body-sm text-[10px]">
+<div class="flex items-center gap-1 py-0.5 px-1 rounded bg-surface cursor-pointer text-on-surface font-semibold text-label-sm">
+<span class="material-symbols-outlined text-[12px] text-primary">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[13px] text-primary">table_chart</span>
+<span>Sales</span>
+</div>
+<div class="flex flex-col pl-3.5 gap-1 text-[10px]">
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3 h-3 accent-primary rounded" type="checkbox"/>
+<span class="font-data-mono text-[9px] text-secondary font-bold">Σ</span>
+<span>Amount</span>
+</label>
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3 h-3 accent-primary rounded" type="checkbox"/>
+<span class="material-symbols-outlined text-[11px] text-tertiary">event</span>
+<span>Date</span>
+</label>
+<label class="flex items-center gap-1.5 cursor-pointer text-outline">
+<input class="w-3 h-3 accent-primary rounded" type="checkbox"/>
+<span class="material-symbols-outlined text-[11px]">key</span>
+<span>CustomerID</span>
+</label>
+</div>
+<div class="flex items-center gap-1 py-0.5 px-1 rounded hover:bg-surface cursor-pointer text-on-surface text-[10px]">
+<span class="material-symbols-outlined text-[12px] text-outline">arrow_right</span>
+<span class="material-symbols-outlined text-[13px] text-outline">table_chart</span>
+<span>Customers</span>
+</div>
+<div class="flex items-center gap-1 py-0.5 px-1 rounded hover:bg-surface cursor-pointer text-on-surface text-[10px]">
+<span class="material-symbols-outlined text-[12px] text-outline">arrow_right</span>
+<span class="material-symbols-outlined text-[13px] text-outline">table_chart</span>
+<span>Products</span>
+</div>
+</div>
+<div class="h-6 shrink-0 bg-surface-container border-t border-outline-variant/20 flex items-center justify-between text-outline px-space-sm text-[10px]">
+<span>5 Tables</span>
+<span class="material-symbols-outlined text-[12px]">sync</span>
+</div>
+</div>
+</aside>
+</div>
+<!-- BOTTOM BAR: Page Tabs & Canvas Controls (Exactly h-9, 36px) -->
+<footer class="h-9 shrink-0 bg-surface-container-low border-t border-outline-variant/30 px-space-md flex items-center justify-between select-none z-30">
+<div class="flex items-center gap-1 overflow-x-auto">
+<nav class="flex items-center gap-1">
+<a class="px-space-md py-1 rounded bg-surface-container-lowest text-on-surface font-label-sm text-[11px] font-semibold shadow-sm border border-outline-variant/20" href="#">Overview</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" href="#">Sales by Region</a>
+<a class="px-space-md py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" href="#">Customers</a>
+</nav>
+<button class="w-5 h-5 rounded flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface ml-1" title="Add page">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+<div class="flex items-center gap-space-md text-on-surface-variant">
+<span class="font-label-sm text-[11px]">Page 1 of 3</span>
+<div class="flex items-center gap-1 bg-surface-container px-space-xs py-0.5 rounded border border-outline-variant/20">
+<button class="w-4 h-4 flex items-center justify-center rounded hover:bg-surface-container-high"><span class="material-symbols-outlined text-[12px]">remove</span></button>
+<span class="font-label-sm text-[11px] px-1 font-data-mono">100%</span>
+<button class="w-4 h-4 flex items-center justify-center rounded hover:bg-surface-container-high"><span class="material-symbols-outlined text-[12px]">add</span></button>
+</div>
+<button class="w-5 h-5 rounded flex items-center justify-center hover:bg-surface-container-high text-on-surface-variant" title="Fit to page">
+<span class="material-symbols-outlined text-[14px]">aspect_ratio</span>
+</button>
+</div>
+</footer>
+</div>
+</body></html>

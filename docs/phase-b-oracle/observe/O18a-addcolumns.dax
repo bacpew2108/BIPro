@@ -1,0 +1,4 @@
+// O18a | BLANK trong sắp xếp: ADDCOLUMNS rồi ORDER BY
+EVALUATE
+ADDCOLUMNS ( { 1, BLANK (), -1 }, "k", [Value] )
+ORDER BY [Value]

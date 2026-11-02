@@ -1,0 +1,3 @@
+// O12 | NẶNG, chỉ dùng để thử Cancel. Chạy, đợi đến khi đang chạy rồi bấm Cancel. Không cần chờ kết quả
+EVALUATE
+CROSSJOIN ( 'Fact_Transaction', 'Fact_Loan' )

@@ -1,0 +1,3 @@
+Dim_CRM_Issue[product]	[SLA_Timely_Rate]	[v_SLA_Timely_Rate_FormatString]	[Relief_Rate]	[v_Relief_Rate_FormatString]	[Dispute_Rate]	[v_Dispute_Rate_FormatString]	[Avg_Days_To_Company]	[Complaints]
+Bank account or service	0.9891420055354482	0%	0.36753956426087575	0%	0.17243427892469923	0%	2.4848679514632406	14091
+Credit card	0.9766295025728988	0%	0.2981346483704974	0%	0.23818567757792425	0%	2.8372572420527287	9328

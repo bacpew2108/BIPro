@@ -1,0 +1,6 @@
+                    
+                    Correlation Id: undefined
+                    Error Details: Query (3, 17) The syntax for ')' is incorrect. (// O3d | CÓ CHỦ ĐÍCH LỖI: dòng 3 bắt đầu bằng đúng một ký tự tab, sau đó là lỗi cú pháp (')' thừa)
+EVALUATE
+	ROW ( "x", 1 + )
+).

@@ -1,0 +1,2 @@
+[countrows(empty)]	[countrows(empty) · ISBLANK]	[distinctcount 2011]	[distinctcount 2011 · ISBLANK]	[count 2011]	[count 2011 · ISBLANK]	[countrows 2011]	[countrows 2011 · ISBLANK]	[sum 2011]	[sum 2011 · ISBLANK]	[distinctcount client_region]	[distinctcount client_region · ISBLANK]	[countrows Dim_Client]	[countrows Dim_Client · ISBLANK]
+	true		true		true		true		true	5	false	5370	false

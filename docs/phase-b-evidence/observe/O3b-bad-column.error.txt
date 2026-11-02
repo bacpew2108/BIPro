@@ -1,0 +1,3 @@
+                    
+                    Correlation Id: undefined
+                    Error Details: Query (4, 2) Column 'yearx' in table 'Dim_Date' cannot be found or may not be used in this expression.

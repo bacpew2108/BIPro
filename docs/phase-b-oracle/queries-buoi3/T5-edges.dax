@@ -1,0 +1,8 @@
+// T5-edges | Hai điểm còn suy đoán sau buổi 2. Chạy, Copy kết quả, dán vào T5-edges.tsv
+EVALUATE
+ROW (
+	"spl(15-28/02/2017) COUNT", COUNTROWS ( SAMEPERIODLASTYEAR ( FILTER ( VALUES ( 'Dim_Date'[full_date] ), 'Dim_Date'[full_date] >= DATE ( 2017, 2, 15 ) && 'Dim_Date'[full_date] <= DATE ( 2017, 2, 28 ) ) ) ),
+	"spl(15-28/02/2017) MAX", MAXX ( SAMEPERIODLASTYEAR ( FILTER ( VALUES ( 'Dim_Date'[full_date] ), 'Dim_Date'[full_date] >= DATE ( 2017, 2, 15 ) && 'Dim_Date'[full_date] <= DATE ( 2017, 2, 28 ) ) ), 'Dim_Date'[full_date] ),
+	"dateadd(01/03-30/04/2017,-1M) COUNT", COUNTROWS ( DATEADD ( FILTER ( VALUES ( 'Dim_Date'[full_date] ), 'Dim_Date'[full_date] >= DATE ( 2017, 3, 1 ) && 'Dim_Date'[full_date] <= DATE ( 2017, 4, 30 ) ), -1, MONTH ) ),
+	"dateadd(01/03-30/04/2017,-1M) MAX", MAXX ( DATEADD ( FILTER ( VALUES ( 'Dim_Date'[full_date] ), 'Dim_Date'[full_date] >= DATE ( 2017, 3, 1 ) && 'Dim_Date'[full_date] <= DATE ( 2017, 4, 30 ) ), -1, MONTH ), 'Dim_Date'[full_date] )
+)

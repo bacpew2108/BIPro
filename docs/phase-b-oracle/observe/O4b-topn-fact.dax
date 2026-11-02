@@ -1,0 +1,3 @@
+// O4b | Giới hạn dòng hiển thị: 100.000 dòng của Fact_Transaction (11 cột). Dự kiến bị cắt
+EVALUATE
+TOPN ( 100000, 'Fact_Transaction' )

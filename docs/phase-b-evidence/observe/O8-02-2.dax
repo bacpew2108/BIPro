@@ -1,0 +1,17 @@
+//Dim_Date_2
+[Table]	[Column]	[Count]	[Distinct Values]	[Null Count]	[Min]	[Max]	[Median]	[Mean]	[Standard Deviation]	[Zeros]	[Evens]	[Odds]	[P25]	[P75]	[Range in Days]	[Range in Months]	[Range in Years]
+Dim_Date	date_key	2922	2922	0	20110101	20181231	20145666	20145664.6002738	22914.048601513	0	1432	1490	20123448.5	20161230.75	N/A	N/A	N/A
+Dim_Date	full_date	2922	2922	0	1/1/2011	12/31/2018	N/A	N/A	N/A	0	N/A	N/A	N/A	N/A	2921	95	7
+Dim_Date	day_of_month	2922	31	0	1	31	16	15.7296372347707	8.80009204060721	0	1432	1490	8	23	N/A	N/A	N/A
+Dim_Date	day_name	2922	7	0	Friday	Wednesday	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A
+Dim_Date	day_of_week	2922	7	0	1	7	4	4.00068446269678	2.00085527837341	0	1252	1670	2	6	N/A	N/A	N/A
+Dim_Date	is_weekend	2922	2	0	False	True	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A
+Dim_Date	week_of_year	2922	54	0	0	53	26	26.1964407939767	15.0678279709418	22	1464	1458	13	39	N/A	N/A	N/A
+Dim_Date	month_num	2922	12	0	1	12	7	6.52292950034223	3.44870318173178	0	1450	1472	4	10	N/A	N/A	N/A
+Dim_Date	month_name	2922	12	0	April	September	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A
+Dim_Date	quarter_num	2922	4	0	1	4	3	2.50855578370979	1.11708254416348	0	1464	1458	2	4	N/A	N/A	N/A
+Dim_Date	quarter_name	2922	4	0	Q1	Q4	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A
+Dim_Date	year	2922	8	0	2011	2018	2014.5	2014.49965776865	2.29113845504056	0	1462	1460	2012.25	2016	N/A	N/A	N/A
+Dim_Date	year_month	2922	96	0	2011-01	2018-12	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A	N/A
+Dim_Date	MonthIndex	2922	96	0	24133	24228	24180.5	24180.5188227242	27.7097838930364	0	1450	1472	24156.25	24204	N/A	N/A	N/A
+Dim_Date	month_start	2922	96	0	1/1/2011	12/1/2018	N/A	N/A	N/A	0	N/A	N/A	N/A	N/A	2891	95	7

@@ -1,0 +1,25 @@
+// T3-context | ALLSELECTED, ISFILTERED, HASONEVALUE, SELECTEDVALUE dưới bộ lọc năm {2016, 2017}. Chạy, Copy kết quả, dán vào T3-context.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_Date'[year],
+	TREATAS ( { 2016, 2017 }, 'Dim_Date'[year] ),
+	"Trans Count", 'Fact_Transaction'[Trans Count],
+	"Trans Count · ISBLANK", ISBLANK ( 'Fact_Transaction'[Trans Count] ),
+	"allselected", CALCULATE ( 'Fact_Transaction'[Trans Count], ALLSELECTED ( 'Dim_Date'[year] ) ),
+	"allselected · ISBLANK", ISBLANK ( CALCULATE ( 'Fact_Transaction'[Trans Count], ALLSELECTED ( 'Dim_Date'[year] ) ) ),
+	"all", CALCULATE ( 'Fact_Transaction'[Trans Count], ALL ( 'Dim_Date'[year] ) ),
+	"all · ISBLANK", ISBLANK ( CALCULATE ( 'Fact_Transaction'[Trans Count], ALL ( 'Dim_Date'[year] ) ) ),
+	"isfiltered year", ISFILTERED ( 'Dim_Date'[year] ),
+	"isfiltered year · ISBLANK", ISBLANK ( ISFILTERED ( 'Dim_Date'[year] ) ),
+	"isfiltered month", ISFILTERED ( 'Dim_Date'[month_num] ),
+	"isfiltered month · ISBLANK", ISBLANK ( ISFILTERED ( 'Dim_Date'[month_num] ) ),
+	"hasonevalue year", HASONEVALUE ( 'Dim_Date'[year] ),
+	"hasonevalue year · ISBLANK", ISBLANK ( HASONEVALUE ( 'Dim_Date'[year] ) ),
+	"selectedvalue year", SELECTEDVALUE ( 'Dim_Date'[year], -1 ),
+	"selectedvalue year · ISBLANK", ISBLANK ( SELECTEDVALUE ( 'Dim_Date'[year], -1 ) ),
+	"keepfilters 2017", CALCULATE ( 'Fact_Transaction'[Trans Count], KEEPFILTERS ( 'Dim_Date'[year] = 2017 ) ),
+	"keepfilters 2017 · ISBLANK", ISBLANK ( CALCULATE ( 'Fact_Transaction'[Trans Count], KEEPFILTERS ( 'Dim_Date'[year] = 2017 ) ) ),
+	"override 2017", CALCULATE ( 'Fact_Transaction'[Trans Count], 'Dim_Date'[year] = 2017 ),
+	"override 2017 · ISBLANK", ISBLANK ( CALCULATE ( 'Fact_Transaction'[Trans Count], 'Dim_Date'[year] = 2017 ) )
+)
+ORDER BY 'Dim_Date'[year]

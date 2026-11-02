@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sales Report — Query Editor (Merge Queries)</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      user-select: none;
+    }
+    .font-mono-val {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c5c5c5;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f6f8] text-[#1b1b1d] h-screen w-screen relative overflow-hidden flex flex-col font-sans">
+<!-- ==================== BACKGROUND: FULL COMPLETE QUERY EDITOR INTERFACE ==================== -->
+<div class="absolute inset-0 flex flex-col h-full w-full pointer-events-none select-none z-0">
+<!-- 1. macOS Title Bar -->
+<header class="h-10 w-full bg-[#f3f3f5] border-b border-[#e2e2e5] flex items-center justify-between px-3 shrink-0">
+<!-- Traffic lights & Brand -->
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>
+<div class="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></div>
+<div class="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></div>
+</div>
+<span class="ml-3 text-[11px] font-semibold tracking-wider text-[#6e6e78] uppercase">LUMEN</span>
+</div>
+<!-- Center Title -->
+<div class="flex items-center gap-2">
+<span class="text-[13px] font-semibold text-[#1f1f23]">Sales Report — Query Editor</span>
+<span class="text-[10px] font-medium text-[#6e6e78] px-1.5 py-0.5 rounded bg-[#e8e8ec]">Edited</span>
+</div>
+<!-- Right Search Ribbon & Profile -->
+<div class="flex items-center gap-3">
+<div class="flex items-center bg-[#ffffff] border border-[#dcdce0] rounded-md px-2.5 py-1 gap-1.5 text-[#6e6e78] text-[11px] w-48 shadow-2xs">
+<span class="material-symbols-outlined text-[15px]">search</span>
+<span>Search ribbon</span>
+</div>
+<div class="w-6 h-6 rounded-full bg-[#005ab3] flex items-center justify-center text-white text-[12px] font-semibold">
+<span class="material-symbols-outlined text-[14px]">person</span>
+</div>
+</div>
+</header>
+<!-- 2. Home Ribbon & Action Groups -->
+<div class="bg-[#fafafc] border-b border-[#e2e2e5] shrink-0">
+<!-- Top Ribbon Tabs -->
+<div class="flex items-center px-2 gap-1 border-b border-[#ebebee] text-[12px]">
+<button class="px-3 py-1 font-medium text-[#5c5c64] hover:text-[#1b1b1d]">File</button>
+<button class="px-3 py-1 font-semibold text-[#005ab3] border-b-2 border-[#005ab3] -mb-[1px] bg-white">Home</button>
+<button class="px-3 py-1 font-medium text-[#5c5c64] hover:text-[#1b1b1d]">Transform</button>
+<button class="px-3 py-1 font-medium text-[#5c5c64] hover:text-[#1b1b1d]">Add Column</button>
+<button class="px-3 py-1 font-medium text-[#5c5c64] hover:text-[#1b1b1d]">View</button>
+<button class="px-3 py-1 font-medium text-[#5c5c64] hover:text-[#1b1b1d]">Tools</button>
+<button class="px-3 py-1 font-medium text-[#5c5c64] hover:text-[#1b1b1d]">Help</button>
+</div>
+<!-- Action Toolbar Ribbon Groups -->
+<div class="h-16 flex items-center px-3 gap-3 overflow-x-hidden text-[11px] text-[#44444a]">
+<!-- Group: Close & Apply -->
+<div class="flex items-center gap-1.5 pr-3 border-r border-[#e5e5ea]">
+<div class="flex flex-col items-center justify-center px-1.5 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#005ab3] text-[20px]">save</span>
+<span class="text-[10px] mt-0.5">Close &amp; Apply</span>
+</div>
+</div>
+<!-- Group: New Query -->
+<div class="flex items-center gap-1 pr-3 border-r border-[#e5e5ea]">
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">database</span>
+<span class="text-[10px] mt-0.5">New Source</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">tune</span>
+<span class="text-[10px] mt-0.5">Recent Sources</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">edit_note</span>
+<span class="text-[10px] mt-0.5">Enter Data</span>
+</div>
+</div>
+<!-- Group: Manage Columns / Reduce Rows -->
+<div class="flex items-center gap-1 pr-3 border-r border-[#e5e5ea]">
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">view_column</span>
+<span class="text-[10px] mt-0.5">Choose Columns</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#ba1a1a] text-[#ba1a1a]">
+<span class="material-symbols-outlined text-[20px]">delete_sweep</span>
+<span class="text-[10px] mt-0.5">Remove Rows</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">swap_vert</span>
+<span class="text-[10px] mt-0.5">Sort</span>
+</div>
+</div>
+<!-- Group: Combine (Highlighted Merge Queries) -->
+<div class="flex items-center gap-1 pr-3 border-r border-[#e5e5ea]">
+<div class="flex flex-col items-center justify-center px-2.5 py-1 rounded bg-[#d6e3ff]/60 border border-[#005ab3]/30 text-[#005ab3]">
+<span class="material-symbols-outlined text-[20px]">merge_type</span>
+<span class="text-[10px] font-semibold mt-0.5">Merge Queries</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">call_merge</span>
+<span class="text-[10px] mt-0.5">Append Queries</span>
+</div>
+</div>
+<!-- Group: Transform Tools -->
+<div class="flex items-center gap-1">
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">group_work</span>
+<span class="text-[10px] mt-0.5">Group By</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2 py-1 rounded hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[#1b1b1d] text-[20px]">refresh</span>
+<span class="text-[10px] mt-0.5">Refresh All</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 3. Formula / M-Code Bar -->
+<div class="h-8 w-full bg-[#f4f4f6] border-b border-[#e2e2e5] flex items-center px-3 gap-2 text-[12px] shrink-0">
+<div class="flex items-center px-1.5 py-0.5 bg-[#e5e5ea] rounded text-[#005ab3] font-bold font-mono-val text-[11px]">
+        fx
+      </div>
+<div class="h-3.5 w-[1px] bg-[#d0d0d5]"></div>
+<div class="flex-1 font-mono-val text-[11px] text-[#222226] truncate">
+        = Table.NestedJoin(#"Changed Type", {"CustomerID"}, Customers, {"CustomerID"}, "Customers", JoinKind.LeftOuter)
+      </div>
+<span class="material-symbols-outlined text-[16px] text-[#248a3d]">check</span>
+</div>
+<!-- 4. Main Workspace Layout (Left Sidebar, Central Grid, Right Sidebar) -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Sidebar: Queries [6] Tree -->
+<aside class="w-60 bg-[#f9f9fb] border-r border-[#e2e2e5] flex flex-col shrink-0">
+<div class="h-8 px-3 border-b border-[#e2e2e5] flex items-center justify-between bg-[#f0f0f3]">
+<div class="flex items-center gap-1.5 text-[12px] font-semibold text-[#1b1b1d]">
+<span class="material-symbols-outlined text-[16px] text-[#6e6e78]">schema</span>
+<span>Queries [6]</span>
+</div>
+<span class="material-symbols-outlined text-[15px] text-[#6e6e78]">dock_to_left</span>
+</div>
+<div class="p-2 flex flex-col gap-1 overflow-y-auto text-[12px]">
+<!-- Staging folder -->
+<div>
+<div class="flex items-center gap-1 px-1.5 py-1 text-[#6e6e78] font-semibold">
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+<span class="material-symbols-outlined text-[15px] text-[#9a4100]">folder</span>
+<span>Staging</span>
+</div>
+<div class="pl-5 flex flex-col gap-0.5 mt-0.5">
+<div class="flex items-center gap-2 px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[15px]">table_chart</span>
+<span>Raw_Sales</span>
+</div>
+<div class="flex items-center gap-2 px-2 py-1 rounded text-[#8e8e93] italic hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[15px] opacity-70">table_chart</span>
+<span>Raw_Customers</span>
+</div>
+</div>
+</div>
+<!-- Final folder -->
+<div class="mt-1">
+<div class="flex items-center gap-1 px-1.5 py-1 text-[#6e6e78] font-semibold">
+<span class="material-symbols-outlined text-[15px]">expand_more</span>
+<span class="material-symbols-outlined text-[15px] text-[#9a4100]">folder</span>
+<span>Final</span>
+</div>
+<div class="pl-5 flex flex-col gap-0.5 mt-0.5">
+<div class="flex items-center justify-between px-2 py-1 rounded bg-[#005ab3] text-white font-medium shadow-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px]">table_chart</span>
+<span>Sales_Transactions</span>
+</div>
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<div class="flex items-center gap-2 px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[15px]">table_chart</span>
+<span>Customers_Dim</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[15px]">table_chart</span>
+<span>Product_Catalog</span>
+</div>
+<span class="material-symbols-outlined text-[14px] text-[#9a4100]">warning</span>
+</div>
+<div class="flex items-center gap-2 px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span class="material-symbols-outlined text-[15px]">table_chart</span>
+<span>Calendar</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Central Data Grid: 20+ Populated Rows across 9 Columns -->
+<main class="flex-1 bg-white flex flex-col overflow-hidden">
+<div class="flex-1 overflow-auto">
+<table class="w-full border-collapse font-mono-val text-[11px] text-[#222226]">
+<!-- Column Headers (9 Columns) -->
+<thead class="sticky top-0 bg-[#f4f4f7] border-b border-[#d8d8de] z-10 font-sans">
+<tr class="text-left text-[#4b4b54] text-[11px] font-semibold divide-x divide-[#e2e2e6]">
+<th class="py-1.5 px-2 w-10 text-center bg-[#eaebee]">#</th>
+<th class="py-1.5 px-3 min-w-[100px]"><span class="text-[#717786] font-mono-val text-[10px] mr-1">123</span>OrderID</th>
+<th class="py-1.5 px-3 min-w-[100px]"><span class="material-symbols-outlined text-[12px] text-[#717786] align-middle mr-1">calendar_today</span>OrderDate</th>
+<th class="py-1.5 px-3 min-w-[110px] bg-[#d6e3ff]/50 text-[#005ab3]"><span class="material-symbols-outlined text-[12px] text-[#005ab3] align-middle mr-1">key</span>CustomerID</th>
+<th class="py-1.5 px-3 min-w-[100px]"><span class="text-[#717786] font-mono-val text-[10px] mr-1">ABC</span>ProductID</th>
+<th class="py-1.5 px-3 min-w-[100px]"><span class="material-symbols-outlined text-[12px] text-[#717786] align-middle mr-1">public</span>Region</th>
+<th class="py-1.5 px-3 min-w-[80px] text-right"><span class="text-[#717786] font-mono-val text-[10px] mr-1">123</span>Quantity</th>
+<th class="py-1.5 px-3 min-w-[100px] text-right"><span class="text-[#717786] font-mono-val text-[10px] mr-1">$</span>Revenue</th>
+<th class="py-1.5 px-3 min-w-[90px] text-right"><span class="text-[#717786] font-mono-val text-[10px] mr-1">$</span>Cost</th>
+<th class="py-1.5 px-3 min-w-[90px] text-right"><span class="text-[#717786] font-mono-val text-[10px] mr-1">$</span>Profit</th>
+</tr>
+</thead>
+<!-- 20+ Rows Sample Data -->
+<tbody class="divide-y divide-[#ececef]">
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">1</td><td class="py-1 px-3">SO-10928</td><td class="py-1 px-3">2024-02-14</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-84021</td><td class="py-1 px-3">PRD-004</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">3</td><td class="py-1 px-3 text-right">$410.00</td><td class="py-1 px-3 text-right">$240.00</td><td class="py-1 px-3 text-right font-medium">$170.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">2</td><td class="py-1 px-3">SO-10929</td><td class="py-1 px-3">2024-02-14</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-19204</td><td class="py-1 px-3">PRD-812</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">1</td><td class="py-1 px-3 text-right">$1,299.00</td><td class="py-1 px-3 text-right">$850.00</td><td class="py-1 px-3 text-right font-medium">$449.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">3</td><td class="py-1 px-3">SO-10930</td><td class="py-1 px-3">2024-02-15</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-04918</td><td class="py-1 px-3">PRD-109</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">6</td><td class="py-1 px-3 text-right">$540.00</td><td class="py-1 px-3 text-right">$310.00</td><td class="py-1 px-3 text-right font-medium">$230.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">4</td><td class="py-1 px-3">SO-10931</td><td class="py-1 px-3">2024-02-15</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-39210</td><td class="py-1 px-3">PRD-003</td><td class="py-1 px-3 font-sans">APAC</td><td class="py-1 px-3 text-right">2</td><td class="py-1 px-3 text-right">$89.00</td><td class="py-1 px-3 text-right">$45.00</td><td class="py-1 px-3 text-right font-medium">$44.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">5</td><td class="py-1 px-3">SO-10932</td><td class="py-1 px-3">2024-02-16</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-58322</td><td class="py-1 px-3">PRD-077</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">4</td><td class="py-1 px-3 text-right bg-[#ffebee] text-[#ba1a1a] font-bold">Error</td><td class="py-1 px-3 text-right">$420.00</td><td class="py-1 px-3 text-right font-medium text-[#ba1a1a]">—</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">6</td><td class="py-1 px-3">SO-10933</td><td class="py-1 px-3">2024-02-16</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-10492</td><td class="py-1 px-3">PRD-088</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">5</td><td class="py-1 px-3 text-right">$1,600.00</td><td class="py-1 px-3 text-right">$980.00</td><td class="py-1 px-3 text-right font-medium">$620.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">7</td><td class="py-1 px-3">SO-10934</td><td class="py-1 px-3">2024-02-17</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-84021</td><td class="py-1 px-3">PRD-012</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">2</td><td class="py-1 px-3 text-right">$680.00</td><td class="py-1 px-3 text-right">$410.00</td><td class="py-1 px-3 text-right font-medium">$270.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">8</td><td class="py-1 px-3">SO-10935</td><td class="py-1 px-3">2024-02-17</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-00914</td><td class="py-1 px-3">PRD-040</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">12</td><td class="py-1 px-3 text-right">$4,110.00</td><td class="py-1 px-3 text-right">$2,800.00</td><td class="py-1 px-3 text-right font-medium">$1,310.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">9</td><td class="py-1 px-3">SO-10936</td><td class="py-1 px-3">2024-02-18</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-19204</td><td class="py-1 px-3">PRD-004</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">1</td><td class="py-1 px-3 text-right">$136.00</td><td class="py-1 px-3 text-right">$80.00</td><td class="py-1 px-3 text-right font-medium">$56.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">10</td><td class="py-1 px-3">SO-10937</td><td class="py-1 px-3">2024-02-18</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-66291</td><td class="py-1 px-3">PRD-201</td><td class="py-1 px-3 font-sans">LATAM</td><td class="py-1 px-3 text-right">7</td><td class="py-1 px-3 text-right">$895.00</td><td class="py-1 px-3 text-right">$550.00</td><td class="py-1 px-3 text-right font-medium">$345.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">11</td><td class="py-1 px-3">SO-10938</td><td class="py-1 px-3">2024-02-19</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-77402</td><td class="py-1 px-3">PRD-305</td><td class="py-1 px-3 font-sans">APAC</td><td class="py-1 px-3 text-right">3</td><td class="py-1 px-3 text-right">$2,450.00</td><td class="py-1 px-3 text-right">$1,600.00</td><td class="py-1 px-3 text-right font-medium">$850.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">12</td><td class="py-1 px-3">SO-10939</td><td class="py-1 px-3">2024-02-19</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-04918</td><td class="py-1 px-3">PRD-012</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">4</td><td class="py-1 px-3 text-right">$1,360.00</td><td class="py-1 px-3 text-right">$820.00</td><td class="py-1 px-3 text-right font-medium">$540.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">13</td><td class="py-1 px-3">SO-10940</td><td class="py-1 px-3">2024-02-20</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-84021</td><td class="py-1 px-3">PRD-812</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">2</td><td class="py-1 px-3 text-right">$2,598.00</td><td class="py-1 px-3 text-right">$1,700.00</td><td class="py-1 px-3 text-right font-medium">$898.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">14</td><td class="py-1 px-3">SO-10941</td><td class="py-1 px-3">2024-02-20</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-29481</td><td class="py-1 px-3">PRD-009</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">8</td><td class="py-1 px-3 text-right">$960.00</td><td class="py-1 px-3 text-right">$600.00</td><td class="py-1 px-3 text-right font-medium">$360.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">15</td><td class="py-1 px-3">SO-10942</td><td class="py-1 px-3">2024-02-21</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-19204</td><td class="py-1 px-3">PRD-400</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">3</td><td class="py-1 px-3 text-right">$450.00</td><td class="py-1 px-3 text-right">$270.00</td><td class="py-1 px-3 text-right font-medium">$180.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">16</td><td class="py-1 px-3">SO-10943</td><td class="py-1 px-3">2024-02-21</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-38102</td><td class="py-1 px-3">PRD-088</td><td class="py-1 px-3 font-sans">APAC</td><td class="py-1 px-3 text-right">9</td><td class="py-1 px-3 text-right">$2,880.00</td><td class="py-1 px-3 text-right">$1,764.00</td><td class="py-1 px-3 text-right font-medium">$1,116.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">17</td><td class="py-1 px-3">SO-10944</td><td class="py-1 px-3">2024-02-22</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-84021</td><td class="py-1 px-3">PRD-109</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">1</td><td class="py-1 px-3 text-right">$90.00</td><td class="py-1 px-3 text-right">$52.00</td><td class="py-1 px-3 text-right font-medium">$38.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">18</td><td class="py-1 px-3">SO-10945</td><td class="py-1 px-3">2024-02-22</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-91024</td><td class="py-1 px-3">PRD-004</td><td class="py-1 px-3 font-sans">LATAM</td><td class="py-1 px-3 text-right">5</td><td class="py-1 px-3 text-right">$680.00</td><td class="py-1 px-3 text-right">$400.00</td><td class="py-1 px-3 text-right font-medium">$280.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">19</td><td class="py-1 px-3">SO-10946</td><td class="py-1 px-3">2024-02-23</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-04918</td><td class="py-1 px-3">PRD-077</td><td class="py-1 px-3 font-sans">EMEA</td><td class="py-1 px-3 text-right">2</td><td class="py-1 px-3 text-right">$298.00</td><td class="py-1 px-3 text-right">$180.00</td><td class="py-1 px-3 text-right font-medium">$118.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">20</td><td class="py-1 px-3">SO-10947</td><td class="py-1 px-3">2024-02-23</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-44109</td><td class="py-1 px-3">PRD-003</td><td class="py-1 px-3 font-sans">APAC</td><td class="py-1 px-3 text-right">4</td><td class="py-1 px-3 text-right">$178.00</td><td class="py-1 px-3 text-right">$90.00</td><td class="py-1 px-3 text-right font-medium">$88.00</td></tr>
+<tr class="hover:bg-[#f6f8fc] divide-x divide-[#efeff2]"><td class="py-1 px-2 text-center text-[#8e8e93] bg-[#f8f8fa]">21</td><td class="py-1 px-3">SO-10948</td><td class="py-1 px-3">2024-02-24</td><td class="py-1 px-3 bg-[#e8f0fe] font-medium text-[#005ab3]">CUST-84021</td><td class="py-1 px-3">PRD-040</td><td class="py-1 px-3 font-sans">North America</td><td class="py-1 px-3 text-right">8</td><td class="py-1 px-3 text-right">$2,740.00</td><td class="py-1 px-3 text-right">$1,720.00</td><td class="py-1 px-3 text-right font-medium">$1,020.00</td></tr>
+</tbody>
+</table>
+</div>
+</main>
+<!-- Right Sidebar: Query Settings & Applied Steps -->
+<aside class="w-64 bg-[#f9f9fb] border-l border-[#e2e2e5] flex flex-col shrink-0">
+<div class="h-8 px-3 border-b border-[#e2e2e5] flex items-center justify-between bg-[#f0f0f3]">
+<div class="flex items-center gap-1.5 text-[12px] font-semibold text-[#1b1b1d]">
+<span class="material-symbols-outlined text-[16px] text-[#6e6e78]">tune</span>
+<span>Query Settings</span>
+</div>
+<span class="material-symbols-outlined text-[15px] text-[#6e6e78]">dock_to_right</span>
+</div>
+<div class="p-3 flex flex-col gap-3 overflow-y-auto text-[12px]">
+<div>
+<span class="text-[10px] font-semibold text-[#6e6e78] uppercase tracking-wider">Properties</span>
+<div class="mt-1 bg-white border border-[#d8d8de] px-2.5 py-1 rounded text-[#1b1b1d] font-medium">
+              Sales_Transactions
+            </div>
+</div>
+<div>
+<span class="text-[10px] font-semibold text-[#6e6e78] uppercase tracking-wider">Applied Steps</span>
+<div class="flex flex-col gap-0.5 mt-1">
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Source</span><span class="material-symbols-outlined text-[14px] text-[#8e8e93]">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Navigation</span><span class="material-symbols-outlined text-[14px] text-[#8e8e93]">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Promoted Headers</span><span></span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Changed Type</span><span></span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Filtered Rows</span><span class="material-symbols-outlined text-[14px] text-[#8e8e93]">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Added Custom</span><span class="material-symbols-outlined text-[14px] text-[#8e8e93]">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Merged Queries</span><span class="material-symbols-outlined text-[14px] text-[#8e8e93]">settings</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded text-[#414754] hover:bg-[#eaebee]">
+<span>Expanded Customers</span><span></span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded bg-[#e8f0fe] text-[#005ab3] font-semibold">
+<span>Removed Columns</span><span class="material-symbols-outlined text-[14px] text-[#005ab3]">close</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- 5. Bottom Status Bar -->
+<footer class="h-6 w-full bg-[#f3f3f5] border-t border-[#e2e2e5] flex items-center justify-between px-3 text-[11px] text-[#6e6e78] shrink-0 font-sans">
+<div class="flex items-center gap-3">
+<span>9 columns, 18,430 rows</span>
+<span class="text-[#c0c0c6]">|</span>
+<span>Column profiling based on top 1,000 rows</span>
+</div>
+<div class="flex items-center gap-3 font-mono-val">
+<span class="text-[#248a3d] font-sans font-medium flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-[#248a3d]"></span> Evaluation ready
+        </span>
+</div>
+</footer>
+</div>
+<!-- ==================== 40% BLACK DIM OVERLAY ==================== -->
+<div class="fixed inset-0 bg-black/40 z-20 flex items-center justify-center p-4">
+<!-- ==================== DIALOG WINDOW: SOLID WHITE OPAQUE MODAL ==================== -->
+<section class="w-full max-w-[840px] bg-white rounded-2xl shadow-2xl border border-[#d8d8de] flex flex-col overflow-hidden text-[#1b1b1d] font-sans">
+<!-- Dialog Header -->
+<div class="px-6 pt-5 pb-4 flex items-start justify-between border-b border-[#f0f0f3]">
+<div class="flex items-start gap-3">
+<span class="w-8 h-8 rounded-lg bg-[#e8f0fe] flex items-center justify-center text-[#005ab3] shrink-0">
+<span class="material-symbols-outlined text-[20px]">merge_type</span>
+</span>
+<div class="flex flex-col">
+<h1 class="text-[17px] font-semibold text-[#1b1b1d] tracking-tight">Merge Queries</h1>
+<p class="text-[12px] text-[#6e6e78] mt-0.5">
+              Select tables and matching columns to create an enriched tabular projection.
+            </p>
+</div>
+</div>
+<button class="w-7 h-7 rounded-md flex items-center justify-center text-[#6e6e78] hover:bg-[#f0f0f4] transition-colors" title="Help" type="button">
+<span class="material-symbols-outlined text-[18px]">help</span>
+</button>
+</div>
+<!-- Dialog Body Content -->
+<div class="p-6 flex flex-col gap-5 max-h-[calc(100vh-180px)] overflow-y-auto">
+<!-- SECTION 1: Top Table (PRIMARY SOURCE) -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="text-[11px] font-semibold text-[#6e6e78] tracking-wider uppercase">Primary Source</span>
+<div class="flex items-center gap-1.5 bg-[#f0f2f5] border border-[#e2e4e8] px-2.5 py-0.5 rounded-full text-[12px] text-[#1b1b1d] font-medium">
+<span class="material-symbols-outlined text-[14px] text-[#005ab3]">table_chart</span>
+<span>Sales_Transactions</span>
+<span class="text-[#6e6e78] font-mono-val text-[11px]">(18,430 rows)</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-[12px] font-medium text-[#005ab3]">
+<span class="material-symbols-outlined text-[15px]">check_circle</span>
+<span>1 Column Selected</span>
+</div>
+</div>
+<!-- Top Table Preview Grid -->
+<div class="w-full border border-[#e2e4e8] rounded-lg overflow-hidden bg-white shadow-2xs">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse text-[11px]">
+<thead>
+<tr class="bg-[#f6f7f9] border-b border-[#e2e4e8] text-[#555a64] font-semibold">
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1 font-mono-val text-[10px]">
+<span class="text-[#717786]">123</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">OrderID</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#717786]">calendar_today</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">OrderDate</span>
+</div>
+</th>
+<!-- Active Key Column 1 -->
+<th class="py-2 px-3 whitespace-nowrap bg-[#d6e3ff]/70 text-[#005ab3] border-x border-[#005ab3]/20">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#005ab3]">key</span>
+<span class="font-sans font-bold text-[11px] uppercase tracking-wide text-[#005ab3]">CustomerID</span>
+</div>
+<span class="bg-[#005ab3] text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold tracking-normal">KEY 1</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1 font-mono-val text-[10px]">
+<span class="text-[#717786]">ABC</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">ProductID</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap text-right">
+<div class="flex items-center justify-end gap-1 font-mono-val text-[10px]">
+<span class="text-[#717786]">123</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">Quantity</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap text-right">
+<div class="flex items-center justify-end gap-1 font-mono-val text-[10px]">
+<span class="text-[#717786]">$</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">Revenue</span>
+</div>
+</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#eceef2] font-mono-val text-[#1b1b1d]">
+<tr class="hover:bg-[#f9fafc] transition-colors">
+<td class="py-2 px-3">SO-10928</td>
+<td class="py-2 px-3 text-[#6e6e78]">2024-02-14</td>
+<td class="py-2 px-3 bg-[#e8f0fe] font-semibold text-[#005ab3] border-x border-[#005ab3]/20">CUST-84021</td>
+<td class="py-2 px-3">PRD-004</td>
+<td class="py-2 px-3 text-right">3</td>
+<td class="py-2 px-3 text-right font-medium">$410.00</td>
+</tr>
+<tr class="hover:bg-[#f9fafc] transition-colors">
+<td class="py-2 px-3">SO-10929</td>
+<td class="py-2 px-3 text-[#6e6e78]">2024-02-14</td>
+<td class="py-2 px-3 bg-[#e8f0fe] font-semibold text-[#005ab3] border-x border-[#005ab3]/20">CUST-19204</td>
+<td class="py-2 px-3">PRD-812</td>
+<td class="py-2 px-3 text-right">1</td>
+<td class="py-2 px-3 text-right font-medium">$1,299.00</td>
+</tr>
+<tr class="hover:bg-[#f9fafc] transition-colors">
+<td class="py-2 px-3">SO-10930</td>
+<td class="py-2 px-3 text-[#6e6e78]">2024-02-15</td>
+<td class="py-2 px-3 bg-[#e8f0fe] font-semibold text-[#005ab3] border-x border-[#005ab3]/20">CUST-04918</td>
+<td class="py-2 px-3">PRD-109</td>
+<td class="py-2 px-3 text-right">6</td>
+<td class="py-2 px-3 text-right font-medium">$540.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- SECTION 2: Bottom Table (JOIN SECONDARY TABLE) -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="text-[11px] font-semibold text-[#6e6e78] tracking-wider uppercase">Join Secondary Table</span>
+<div class="flex items-center gap-1 text-[12px] font-medium text-[#005ab3]">
+<span class="material-symbols-outlined text-[15px]">check_circle</span>
+<span>1 Column Selected</span>
+</div>
+</div>
+<!-- Secondary Table Dropdown Selector -->
+<div class="w-full">
+<div class="flex items-center justify-between bg-white border border-[#d4d6dc] hover:border-[#a8abb5] px-3 py-2 rounded-lg shadow-2xs cursor-pointer transition-all">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-[#9a4100]">folder_open</span>
+<span class="font-semibold text-[13px] text-[#1b1b1d]">Customers</span>
+<span class="text-[11px] text-[#5c616d] bg-[#f0f1f5] px-2 py-0.5 rounded font-mono-val">Final.Customers_Dim</span>
+</div>
+<div class="flex items-center gap-1.5 text-[#6e6e78]">
+<span class="font-mono-val text-[11px] text-[#5c616d]">18,500 rows</span>
+<span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+</div>
+<!-- Bottom Table Preview Grid -->
+<div class="w-full border border-[#e2e4e8] rounded-lg overflow-hidden bg-white shadow-2xs mt-0.5">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse text-[11px]">
+<thead>
+<tr class="bg-[#f6f7f9] border-b border-[#e2e4e8] text-[#555a64] font-semibold">
+<!-- Active Key Column 2 -->
+<th class="py-2 px-3 whitespace-nowrap bg-[#d6e3ff]/70 text-[#005ab3] border-r border-[#005ab3]/20">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#005ab3]">key</span>
+<span class="font-sans font-bold text-[11px] uppercase tracking-wide text-[#005ab3]">CustomerID</span>
+</div>
+<span class="bg-[#005ab3] text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold tracking-normal">KEY 2</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1 font-mono-val text-[10px]">
+<span class="text-[#717786]">ABC</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">CustomerName</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1 font-mono-val text-[10px]">
+<span class="text-[#717786]">ABC</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">Segment</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#717786]">public</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">Country</span>
+</div>
+</th>
+<th class="py-2 px-3 whitespace-nowrap">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-[#717786]">location_city</span>
+<span class="font-sans font-semibold text-[11px] uppercase tracking-wide">City</span>
+</div>
+</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#eceef2] font-mono-val text-[#1b1b1d]">
+<tr class="hover:bg-[#f9fafc] transition-colors">
+<td class="py-2 px-3 bg-[#e8f0fe] font-semibold text-[#005ab3] border-r border-[#005ab3]/20">CUST-84021</td>
+<td class="py-2 px-3 font-sans font-medium text-[#1b1b1d]">Apex Dynamics Inc.</td>
+<td class="py-2 px-3 font-sans"><span class="px-2 py-0.5 bg-[#f0f1f5] rounded text-[10px] text-[#414754] font-medium">Enterprise</span></td>
+<td class="py-2 px-3 font-sans text-[#5c616d]">United States</td>
+<td class="py-2 px-3 font-sans text-[#5c616d]">Seattle</td>
+</tr>
+<tr class="hover:bg-[#f9fafc] transition-colors">
+<td class="py-2 px-3 bg-[#e8f0fe] font-semibold text-[#005ab3] border-r border-[#005ab3]/20">CUST-19204</td>
+<td class="py-2 px-3 font-sans font-medium text-[#1b1b1d]">Helios Nordic AB</td>
+<td class="py-2 px-3 font-sans"><span class="px-2 py-0.5 bg-[#f0f1f5] rounded text-[10px] text-[#414754] font-medium">Mid-Market</span></td>
+<td class="py-2 px-3 font-sans text-[#5c616d]">Sweden</td>
+<td class="py-2 px-3 font-sans text-[#5c616d]">Stockholm</td>
+</tr>
+<tr class="hover:bg-[#f9fafc] transition-colors">
+<td class="py-2 px-3 bg-[#e8f0fe] font-semibold text-[#005ab3] border-r border-[#005ab3]/20">CUST-04918</td>
+<td class="py-2 px-3 font-sans font-medium text-[#1b1b1d]">Vanguard Global Logistics</td>
+<td class="py-2 px-3 font-sans"><span class="px-2 py-0.5 bg-[#f0f1f5] rounded text-[10px] text-[#414754] font-medium">Enterprise</span></td>
+<td class="py-2 px-3 font-sans text-[#5c616d]">Germany</td>
+<td class="py-2 px-3 font-sans text-[#5c616d]">Frankfurt</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- SECTION 3: Join Kind & Match Distribution Tile -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 pt-1">
+<!-- Join Kind Selector -->
+<div class="md:col-span-8 flex flex-col gap-1.5">
+<label class="text-[11px] font-semibold text-[#6e6e78] uppercase tracking-wider">Join Kind</label>
+<div class="flex items-center justify-between bg-white border border-[#d4d6dc] hover:border-[#a8abb5] px-3.5 py-2.5 rounded-lg shadow-2xs cursor-pointer transition-all">
+<div class="flex items-center gap-2.5">
+<span class="w-2.5 h-2.5 rounded-full bg-[#005ab3]"></span>
+<div class="flex items-center gap-1.5">
+<span class="text-[13px] font-semibold text-[#1b1b1d]">Left Outer</span>
+<span class="text-[12px] text-[#6e6e78]">(all from first, matching from second)</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-[#6e6e78]">unfold_more</span>
+</div>
+</div>
+<!-- Match Distribution Sparkline Tile -->
+<div class="md:col-span-4 bg-[#f8f9fa] border border-[#e2e4e8] rounded-lg p-2.5 flex flex-col justify-between shadow-2xs">
+<div class="flex items-center justify-between text-[11px]">
+<span class="text-[#6e6e78] font-medium">Card Match Density</span>
+<span class="text-[#005ab3] font-bold font-mono-val">98.2%</span>
+</div>
+<!-- Micro SVG bar graphic -->
+<div class="h-6 w-full flex items-end gap-1 pt-1.5">
+<div class="flex-1 bg-[#aac7ff] h-2 rounded-t-xs"></div>
+<div class="flex-1 bg-[#aac7ff] h-3 rounded-t-xs"></div>
+<div class="flex-1 bg-[#aac7ff] h-4 rounded-t-xs"></div>
+<div class="flex-1 bg-[#70a5f9] h-5 rounded-t-xs"></div>
+<div class="flex-1 bg-[#005ab3] h-6 rounded-t-xs"></div>
+<div class="flex-1 bg-[#005ab3] h-6 rounded-t-xs"></div>
+<div class="flex-1 bg-[#005ab3] h-5 rounded-t-xs"></div>
+<div class="w-2 bg-[#ba1a1a] h-2 rounded-t-xs" title="Unmatched rows (1.8%)"></div>
+</div>
+</div>
+</div>
+<!-- SECTION 4: Fuzzy Matching Configuration -->
+<div class="bg-[#f8f9fa] border border-[#e2e4e8] rounded-lg p-3 flex flex-col gap-2 shadow-2xs">
+<label class="flex items-center gap-2.5 cursor-pointer">
+<input class="w-4 h-4 rounded text-[#005ab3] border-[#c0c4ce] focus:ring-0 cursor-pointer accent-[#005ab3]" id="fuzzyToggle" type="checkbox"/>
+<span class="text-[13px] font-medium text-[#1b1b1d]">
+              Use fuzzy matching to perform the merge
+            </span>
+</label>
+<!-- Expandable Fuzzy Options -->
+<button class="flex items-center gap-1 text-[#6e6e78] hover:text-[#1b1b1d] transition-colors text-[11px] font-medium w-fit pl-6" onclick="document.getElementById('fuzzyOptions').classList.toggle('hidden'); document.getElementById('fuzzyCaret').classList.toggle('rotate-90')" type="button">
+<span class="material-symbols-outlined text-[15px] transition-transform duration-150" id="fuzzyCaret">arrow_right</span>
+<span>Fuzzy matching options</span>
+</button>
+<div class="hidden flex-col gap-2 pl-6 pt-1 text-[11px] text-[#555a64]" id="fuzzyOptions">
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-1">
+<span>Similarity threshold (0.00 – 1.00)</span>
+<input class="bg-white border border-[#d8d8de] px-2 py-1 rounded text-[#1b1b1d] font-mono-val text-[11px] focus:outline-none focus:border-[#005ab3]" type="text" value="0.80"/>
+</div>
+<div class="flex flex-col gap-1">
+<span>Maximum number of matches</span>
+<input class="bg-white border border-[#d8d8de] px-2 py-1 rounded text-[#1b1b1d] font-mono-val text-[11px] focus:outline-none focus:border-[#005ab3]" type="text" value="1"/>
+</div>
+</div>
+<label class="flex items-center gap-2 pt-1 cursor-pointer">
+<input class="w-3.5 h-3.5 rounded text-[#005ab3] accent-[#005ab3]" type="checkbox"/>
+<span>Match by combining text parts (Token-based)</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Dialog Footer -->
+<footer class="px-6 py-4 bg-[#f8f9fa] border-t border-[#e8eaee] flex flex-col sm:flex-row items-center justify-between gap-3">
+<!-- Validation Status Indicator -->
+<div class="flex items-center gap-2 text-[#1b1b1d]">
+<div class="w-5 h-5 rounded-full bg-[#248a3d]/15 flex items-center justify-center text-[#248a3d]">
+<span class="material-symbols-outlined text-[15px] font-bold">check</span>
+</div>
+<p class="text-[12px] text-[#1b1b1d]">
+            The selection matches <span class="font-semibold font-mono-val text-[#1b1b1d]">18,102</span> of <span class="font-semibold font-mono-val text-[#1b1b1d]">18,430</span> rows from the first table. <span class="text-[#6e6e78] font-mono-val font-medium">(98.2%)</span>
+</p>
+</div>
+<!-- Action Push Buttons -->
+<div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+<button class="px-4 py-1.5 rounded-lg bg-white border border-[#d0d3da] hover:bg-[#f2f3f6] active:bg-[#e8e9ee] text-[#1b1b1d] text-[13px] font-medium shadow-2xs transition-all" type="button">
+            Cancel
+          </button>
+<button class="px-5 py-1.5 rounded-lg bg-[#005ab3] hover:bg-[#004a94] active:bg-[#003d7a] text-white text-[13px] font-semibold shadow-xs transition-all flex items-center gap-1.5" type="button">
+<span>OK</span>
+<span class="text-[11px] opacity-75 font-mono-val">↵</span>
+</button>
+</div>
+</footer>
+</section>
+</div>
+</body></html>

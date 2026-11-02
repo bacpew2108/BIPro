@@ -1,0 +1,6 @@
+// O3b | CÓ CHỦ ĐÍCH LỖI: cột không tồn tại 'Dim_Date'[yearx] ở dòng 4
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_Date'[yearx],
+	"n", COUNTROWS ( 'Fact_Transaction' )
+)

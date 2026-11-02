@@ -1,0 +1,43 @@
+Dim_CRM_Channel_Response[submitted_via]	Dim_CRM_Channel_Response[company_response]	[Complaints]	[Complaints · ISBLANK]	[Response Share in Channel %]	[Response Share in Channel % · ISBLANK]
+Email	Closed with explanation	1	false	0.125	false
+Email	Closed with relief	4	false	0.5	false
+Email	Closed without relief	3	false	0.375	false
+Fax	Closed	1	false	0.003355704697986577	false
+Fax	Closed with explanation	215	false	0.7214765100671141	false
+Fax	Closed with monetary relief	55	false	0.18456375838926176	false
+Fax	Closed with non-monetary relief	20	false	0.06711409395973154	false
+Fax	Closed with relief	5	false	0.016778523489932886	false
+Fax	Closed without relief	1	false	0.003355704697986577	false
+Fax	In progress	1	false	0.003355704697986577	false
+Phone	Closed	37	false	0.014776357827476038	false
+Phone	Closed with explanation	1649	false	0.6585463258785943	false
+Phone	Closed with monetary relief	439	false	0.17531948881789136	false
+Phone	Closed with non-monetary relief	194	false	0.07747603833865814	false
+Phone	Closed with relief	85	false	0.03394568690095846	false
+Phone	Closed without relief	84	false	0.03354632587859425	false
+Phone	In progress	13	false	0.005191693290734824	false
+Phone	Untimely response	3	false	0.0011980830670926517	false
+Postal mail	Closed	10	false	0.009337068160597572	false
+Postal mail	Closed with explanation	780	false	0.7282913165266106	false
+Postal mail	Closed with monetary relief	136	false	0.12698412698412698	false
+Postal mail	Closed with non-monetary relief	94	false	0.08776844070961717	false
+Postal mail	Closed with relief	20	false	0.018674136321195144	false
+Postal mail	Closed without relief	17	false	0.015873015873015872	false
+Postal mail	In progress	12	false	0.011204481792717087	false
+Postal mail	Untimely response	2	false	0.0018674136321195146	false
+Referral	Closed	99	false	0.015706806282722512	false
+Referral	Closed with explanation	3711	false	0.5887672536887196	false
+Referral	Closed with monetary relief	1462	false	0.23195303823576074	false
+Referral	Closed with non-monetary relief	437	false	0.069332064096462	false
+Referral	Closed with relief	295	false	0.04680310963033476	false
+Referral	Closed without relief	255	false	0.0404569252736792	false
+Referral	In progress	31	false	0.004918292876408059	false
+Referral	Untimely response	13	false	0.0020625099159130573	false
+Web	Closed	119	false	0.0089913109180204	false
+Web	Closed with explanation	7981	false	0.6030222893842085	false
+Web	Closed with monetary relief	3175	false	0.2398942198715527	false
+Web	Closed with non-monetary relief	1189	false	0.0898375519455988	false
+Web	Closed with relief	350	false	0.026445032111824706	false
+Web	Closed without relief	312	false	0.023573857196826597	false
+Web	In progress	95	false	0.007177937287495277	false
+Web	Untimely response	14	false	0.0010578012844729883	false

@@ -1,0 +1,25 @@
+EVALUATE
+	SELECTCOLUMNS(
+		TOPN(
+			100,
+			'Dim_Date',
+			'Dim_Date'[full_date],
+			ASC
+		),
+		'Dim_Date'[date_key],
+		'Dim_Date'[full_date],
+		'Dim_Date'[day_of_month],
+		'Dim_Date'[day_name],
+		'Dim_Date'[day_of_week],
+		'Dim_Date'[is_weekend],
+		'Dim_Date'[week_of_year],
+		'Dim_Date'[month_num],
+		'Dim_Date'[month_name],
+		'Dim_Date'[quarter_num],
+		'Dim_Date'[quarter_name],
+		'Dim_Date'[year],
+		'Dim_Date'[year_month],
+		'Dim_Date'[MonthIndex],
+		'Dim_Date'[month_start]
+	)
+	ORDER BY 'Dim_Date'[full_date] ASC

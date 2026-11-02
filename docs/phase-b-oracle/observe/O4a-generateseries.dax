@@ -1,0 +1,3 @@
+// O4a | Giới hạn dòng hiển thị: 1.200.000 dòng. Ghi số dòng hiển thị và thông báo cắt (nếu có)
+EVALUATE
+GENERATESERIES ( 1, 1200000 )

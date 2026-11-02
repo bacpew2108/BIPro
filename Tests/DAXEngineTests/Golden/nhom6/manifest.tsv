@@ -1,0 +1,31 @@
+file	sha1_dax	ngày	phiên bản Power BI (Help → About)	Windows regional format	số dòng	ghi chú lỗi
+G0-total__FT.dax	809268c0d1ff8a982dd95c35dde82ec161ecf2ab	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+G0-total__LN.dax	5bbb37439655d67da72f3d5ba83ead6900981bed	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+G0-total__CR.dax	b9a2e66dadf49be81f35655270681ec1de2a4731	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+G0-total__DIM.dax	0487c6bf0694d547f356e16cb2cbdca8227c6771	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+G1-year__FT.dax	a6b1e67a36d94c7885d9f18a801b69dadc884944	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G1-year__LN.dax	b8c7b6546edc1fe7db31a14609860598c393c377	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G1-year__CR.dax	c924929e9804cc47d8c868e16ef3c9351933a9ba	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G1-year__DIM.dax	a6c188083e4f3d6e401cbf9b34414c888ff1581c	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G2-region__FT.dax	e9727fa13f024bd842a1a4cd0e420db7e612c84c	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	5	
+G2-region__LN.dax	fbc0e616c95c3b8ae7a1de537e5603bf980dfbf9	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	5	
+G2-region__CR.dax	868e7242a294dae94fc9fda31a5dcdbae63f4d8b	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	5	
+G2-region__DIM.dax	6003afb08190220642050042405984e7e19437a3	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	5	
+G3-rf-year__FT.dax	9e114ce92d82396111f7a0fe0e24a444332b815c	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G3-rf-year__LN.dax	3039ec1801b359ba6d0c78b94e367417b563e085	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G3-rf-year__CR.dax	aa47a071a6ccc2d40f4f03ce8df126e350335416	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G3-rf-year__DIM.dax	786dd30acdd3a44d0be0e3271a59e4d0ac2d0279	2026-11-01	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G4-inactive.dax	3f49849387ecbc66efbe7f1241affc5e1aee0f41	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	8	
+G5-month.dax	ea199c2c7ac9a0c8c7133dc040ba59b494497305	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	96	
+G6a-issue-pareto.dax	e3f9b820795388f6981678dd22ecdc81758de2e1	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	38	
+G6b-channel.dax	a81b5163bd061191d5a61065201c5364737464e6	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	6	
+G6c-channel-response.dax	f3626e364e82e34f735668f61947226f39cee129	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	42	
+G6d-trans-type.dax	c566288ee2964469a58ee865b1b7e90a8925f6de	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	6	
+G6e-heatmap.dax	54e6909c0d9caaf4ef71bc5b63f028a20ca50b96	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	70	
+T1-blank-arith.dax	d89c29a7a39af5b639f5387301eec3689693d754	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+T2-time-edges.dax	9208826c76ad303b385ae52de12f60a23d1bdcd1	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+T3-context.dax	bb4f5e1be8fe7370b010290dbf31b82703f8cc2b	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	2	
+T4-count-empty.dax	36cf7ef77928f42d719b92a2c89587b0e5e920f2	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	
+G6f1-district.dax	8040f3f9bdaeb4781272ec696fb10c0348b9e65a	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	77	buổi 3 (queries-buoi3/)
+G6f2-account-branch.dax	a1653bad2a800200f8a1f16e6045b67acfa4c830	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	76	buổi 3 (queries-buoi3/)
+T5-edges.dax	4f3fc8829f8f6d7e8ae3a4f4722d765d022d6348	2026-11-02	2.159.883.0 64-bit (October 2026)	United States (en-US)	1	buổi 3 (queries-buoi3/)

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sales Report.lumen - Model View</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      }
+      body {
+        overscroll-behavior: none;
+      }
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .canvas-dots {
+      background-color: #f8fafc;
+      background-image: radial-gradient(#cbd5e1 1.15px, transparent 1.15px);
+      background-size: 16px 16px;
+    }
+  </style>
+</head>
+<body class="w-[1280px] h-[1024px] max-h-[1024px] overflow-hidden flex flex-col bg-[#f8fafc] text-slate-800 antialiased select-none">
+<!-- 1. Window Titlebar (macOS Style, Height: 44px) -->
+<header class="h-11 w-full bg-white/95 border-b border-slate-200 px-4 flex items-center justify-between z-50 shrink-0">
+<!-- Left: Traffic Lights & Document Title -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-[#FF5F57] inline-block border border-black/10"></span>
+<span class="w-3 h-3 rounded-full bg-[#FEBC2E] inline-block border border-black/10"></span>
+<span class="w-3 h-3 rounded-full bg-[#28C840] inline-block border border-black/10"></span>
+</div>
+<div class="h-4 w-px bg-slate-200"></div>
+<button class="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 transition-colors text-slate-800 text-[13px] font-semibold" type="button">
+<span>Sales Report.lumen - Model View</span>
+<span class="text-[11px] font-normal text-slate-400">Edited</span>
+<span class="material-symbols-outlined text-[16px] text-slate-400">arrow_drop_down</span>
+</button>
+</div>
+<!-- Center: Quick Command / Search -->
+<div class="flex-1 max-w-sm mx-4">
+<div class="w-full flex items-center bg-slate-100/90 rounded-md px-2.5 py-1 text-slate-400 border border-slate-200/60 focus-within:border-blue-500 focus-within:bg-white transition-all">
+<span class="material-symbols-outlined text-[16px] mr-1.5 text-slate-400">search</span>
+<input class="w-full bg-transparent border-none p-0 text-[12px] text-slate-700 outline-none placeholder:text-slate-400" placeholder="Search report, metrics, actions..." type="text"/>
+<kbd class="font-mono-code text-[10px] bg-white text-slate-500 px-1 py-0.5 rounded border border-slate-200 shadow-xs">⌘K</kbd>
+</div>
+</div>
+<!-- Right: Collaboration & Actions -->
+<div class="flex items-center gap-2.5">
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[17px] text-slate-500">group_add</span>
+<span>Collaborate</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0066cc] text-white hover:bg-[#0055b3] text-[12px] font-semibold shadow-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">ios_share</span>
+<span>Publish</span>
+</button>
+<div class="w-7 h-7 rounded-full bg-[#0066cc] text-white flex items-center justify-center font-medium text-[12px] ml-1 shadow-xs ring-2 ring-blue-100">
+<span class="material-symbols-outlined text-[16px]">person</span>
+</div>
+</div>
+</header>
+<!-- 2. Ribbon Menu Bar (Height: 32px) -->
+<nav class="h-8 w-full bg-[#f8fafc] border-b border-slate-200/90 px-4 flex items-center gap-1 shrink-0 z-40 text-[12px]">
+<a class="px-3 py-1 text-slate-600 hover:text-slate-900 rounded font-medium transition-colors" href="#">Home</a>
+<a class="px-3 py-1 text-slate-600 hover:text-slate-900 rounded font-medium transition-colors" href="#">Insert</a>
+<a aria-current="page" class="px-3 py-1 bg-white text-blue-600 font-semibold rounded shadow-xs border border-slate-200/70" href="#">Modeling</a>
+<a class="px-3 py-1 text-slate-600 hover:text-slate-900 rounded font-medium transition-colors" href="#">View</a>
+<a class="px-3 py-1 text-slate-600 hover:text-slate-900 rounded font-medium transition-colors" href="#">Optimize</a>
+<a class="px-3 py-1 text-slate-600 hover:text-slate-900 rounded font-medium transition-colors" href="#">Help</a>
+</nav>
+<!-- 3. Modeling Ribbon Action Bar (Height: 68px) -->
+<section class="h-[68px] w-full bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-40">
+<div class="flex items-center gap-3">
+<!-- Group: Data -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors border border-transparent hover:border-slate-200" type="button">
+<span class="material-symbols-outlined text-[18px] text-[#0066cc]">cloud_download</span>
+<span>Get data</span>
+<span class="material-symbols-outlined text-[14px] text-slate-400 -ml-0.5">arrow_drop_down</span>
+</button>
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-slate-500">build</span>
+<span>Transform</span>
+</button>
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-slate-500">sync</span>
+<span>Refresh</span>
+</button>
+</div>
+<span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Data</span>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<!-- Group: Relationships -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200/80 text-[12px] font-semibold transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-blue-600">hub</span>
+<span>Manage relationships</span>
+</button>
+</div>
+<span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Relationships</span>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<!-- Group: Calculations -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-indigo-600">calculate</span>
+<span>New measure</span>
+</button>
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-indigo-500">view_agenda</span>
+<span>New calc group</span>
+</button>
+</div>
+<span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Calculations</span>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<!-- Group: Security -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-slate-500">admin_panel_settings</span>
+<span>Manage roles</span>
+</button>
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-slate-500">visibility</span>
+<span>View as</span>
+</button>
+</div>
+<span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Security</span>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<!-- Group: Intelligence -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[12px] font-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-amber-600">psychology_alt</span>
+<span>Q&amp;A setup</span>
+</button>
+</div>
+<span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mt-0.5">Intelligence</span>
+</div>
+</div>
+<!-- Copilot Action Button -->
+<div>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-[12px] shadow-sm hover:opacity-95 transition-all" type="button">
+<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+<span>Model Copilot</span>
+</button>
+</div>
+</section>
+<!-- 4. Main Body: Rail + Canvas + Inspector (flex-1 stretch) -->
+<div class="flex-1 flex overflow-hidden min-h-0 relative">
+<!-- Left Vertical Rail (Width: 48px) -->
+<aside class="w-12 bg-slate-50 border-r border-slate-200 flex flex-col justify-between items-center py-2.5 shrink-0 z-30">
+<div class="flex flex-col items-center gap-1.5 w-full">
+<!-- Logo Stamp -->
+<div class="w-7 h-7 rounded bg-blue-600 text-white font-bold flex items-center justify-center text-[13px] mb-2 shadow-xs">
+          L
+        </div>
+<a class="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors" href="#" title="Report Canvas">
+<span class="material-symbols-outlined text-[20px]">bar_chart</span>
+</a>
+<a class="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors" href="#" title="Table View">
+<span class="material-symbols-outlined text-[20px]">table_chart</span>
+</a>
+<!-- Active Model View -->
+<a aria-current="page" class="w-8 h-8 rounded-md flex items-center justify-center bg-blue-600 text-white shadow-xs transition-colors" href="#" title="Model View">
+<span class="material-symbols-outlined text-[20px]">hub</span>
+</a>
+<a class="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors" href="#" title="DAX Query View">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+</a>
+</div>
+<div class="flex flex-col items-center w-full">
+<a class="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition-colors" href="#" title="Settings">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</a>
+</div>
+</aside>
+<!-- Center Canvas Area (flex-1 flex flex-col relative h-full min-h-0 bg-[#f8fafc]) -->
+<main class="flex-1 flex flex-col relative h-full min-h-0 bg-[#f8fafc] overflow-hidden">
+<!-- Interactive Canvas Workspace (~750px height) -->
+<div class="flex-1 relative overflow-hidden canvas-dots select-none min-h-0" id="modeling-canvas">
+<!-- SVG Connector Layer -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-10" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<filter height="140%" id="glow-blue" width="140%" x="-20%" y="-20%">
+<fedropshadow dx="0" dy="0" flood-color="#2563eb" flood-opacity="0.35" stddeviation="3"></fedropshadow>
+</filter>
+</defs>
+<!-- 1. Customers [x:242, y:120] to Sales [x:260, y:280] (Active Selected Blue) -->
+<!-- Customers PK is at left:32+210=242, top:24+98=122; Sales FK CustomerID is at left:260, top:210+98=308 -->
+<path d="M 242 122 C 255 122, 240 308, 260 308" fill="none" filter="url(#glow-blue)" stroke="#2563eb" stroke-width="2.5"></path>
+<polygon fill="#2563eb" points="252,210 248,220 256,220" transform="rotate(30 252 215)"></polygon>
+<!-- Label 1 on Customers -->
+<circle cx="236" cy="122" fill="#ffffff" r="7" stroke="#2563eb" stroke-width="1.5"></circle>
+<text fill="#2563eb" font-family="Inter, sans-serif" font-size="10" font-weight="700" text-anchor="middle" x="236" y="125.5">1</text>
+<!-- Label * on Sales -->
+<circle cx="268" cy="308" fill="#ffffff" r="7" stroke="#2563eb" stroke-width="1.5"></circle>
+<text fill="#2563eb" font-family="Inter, sans-serif" font-size="12" font-weight="700" text-anchor="middle" x="268" y="312">*</text>
+<!-- 2. Sales [x:490, y:330] to Products [x:750, y:122] (Gray/Slate) -->
+<path d="M 490 330 C 620 330, 620 122, 750 122" fill="none" stroke="#94a3b8" stroke-width="1.5"></path>
+<polygon fill="#94a3b8" points="620,226 616,234 624,234" transform="rotate(-65 620 230)"></polygon>
+<!-- Label * on Sales -->
+<circle cx="498" cy="330" fill="#ffffff" r="6.5" stroke="#94a3b8" stroke-width="1.2"></circle>
+<text fill="#64748b" font-family="Inter, sans-serif" font-size="11" font-weight="700" text-anchor="middle" x="498" y="334">*</text>
+<!-- Label 1 on Products -->
+<circle cx="742" cy="122" fill="#ffffff" r="6.5" stroke="#94a3b8" stroke-width="1.2"></circle>
+<text fill="#64748b" font-family="Inter, sans-serif" font-size="9" font-weight="700" text-anchor="middle" x="742" y="125.5">1</text>
+<!-- 3. Sales [x:260, y:352] to Stores [x:242, y:590] (Gray/Slate) -->
+<path d="M 260 352 C 220 352, 260 590, 242 590" fill="none" stroke="#94a3b8" stroke-width="1.5"></path>
+<polygon fill="#94a3b8" points="248,470 244,478 252,478" transform="rotate(-15 248 474)"></polygon>
+<!-- Label * on Sales -->
+<circle cx="268" cy="352" fill="#ffffff" r="6.5" stroke="#94a3b8" stroke-width="1.2"></circle>
+<text fill="#64748b" font-family="Inter, sans-serif" font-size="11" font-weight="700" text-anchor="middle" x="268" y="356">*</text>
+<!-- Label 1 on Stores -->
+<circle cx="236" cy="590" fill="#ffffff" r="6.5" stroke="#94a3b8" stroke-width="1.2"></circle>
+<text fill="#64748b" font-family="Inter, sans-serif" font-size="9" font-weight="700" text-anchor="middle" x="236" y="593.5">1</text>
+<!-- 4. Sales [x:490, y:285] to Calendar [x:750, y:580] (Bi-directional, Gray/Slate) -->
+<path d="M 490 285 C 620 285, 620 580, 750 580" fill="none" stroke="#94a3b8" stroke-width="1.5"></path>
+<!-- Bi-directional Indicator Badge -->
+<g transform="translate(620, 432)">
+<rect fill="#ffffff" height="18" rx="4" stroke="#cbd5e1" stroke-width="1" width="18" x="-9" y="-9"></rect>
+<text fill="#0284c7" font-family="Inter, sans-serif" font-size="10" font-weight="700" text-anchor="middle" x="0" y="3.5">⇄</text>
+</g>
+<!-- Label * on Sales -->
+<circle cx="498" cy="285" fill="#ffffff" r="6.5" stroke="#94a3b8" stroke-width="1.2"></circle>
+<text fill="#64748b" font-family="Inter, sans-serif" font-size="11" font-weight="700" text-anchor="middle" x="498" y="289">*</text>
+<!-- Label 1 on Calendar -->
+<circle cx="742" cy="580" fill="#ffffff" r="6.5" stroke="#94a3b8" stroke-width="1.2"></circle>
+<text fill="#64748b" font-family="Inter, sans-serif" font-size="9" font-weight="700" text-anchor="middle" x="742" y="583.5">1</text>
+</svg>
+<!-- Table 1: Customers (Top-Left) -->
+<div class="absolute top-6 left-8 w-[210px] bg-white rounded-lg shadow-sm border border-slate-200 z-20">
+<div class="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5 text-slate-800 font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[15px] text-blue-600">table_chart</span>
+<span>Customers</span>
+</div>
+<div class="flex items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">expand_less</span>
+</div>
+</div>
+<!-- Filter input inside card -->
+<div class="px-2 py-1 bg-slate-50/50 border-b border-slate-100">
+<div class="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 text-[10px]">
+<span class="material-symbols-outlined text-[12px]">search</span>
+<input class="w-full bg-transparent outline-none text-[11px] text-slate-700" placeholder="Find column..." type="text"/>
+</div>
+</div>
+<!-- Columns -->
+<div class="py-0.5 text-[12px] text-slate-700">
+<!-- PK Row (Highlighted Blue) -->
+<div class="flex items-center justify-between px-2.5 py-1 bg-blue-50 text-blue-700 font-medium">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-blue-600">key</span>
+<span class="font-mono-code text-[11px] font-semibold">CustomerID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-blue-600 tracking-wider">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">badge</span>
+<span>CustomerName</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">category</span>
+<span>Segment</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">mail</span>
+<span>Email</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">location_city</span>
+<span>City</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">map</span>
+<span>State</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50 rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-slate-400">public</span>
+<span>Country</span>
+</div>
+</div>
+</div>
+<!-- Table 2: Products (Top-Right) -->
+<div class="absolute top-6 right-8 w-[210px] bg-white rounded-lg shadow-sm border border-slate-200 z-20">
+<div class="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5 text-slate-800 font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[15px] text-blue-600">inventory_2</span>
+<span>Products</span>
+</div>
+<div class="flex items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">expand_less</span>
+</div>
+</div>
+<div class="py-0.5 text-[12px] text-slate-700">
+<div class="flex items-center justify-between px-2.5 py-1 hover:bg-slate-50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-amber-600">key</span>
+<span class="font-mono-code text-[11px] font-medium">ProductID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">label</span>
+<span>ProductName</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">folder</span>
+<span>Category</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">subtitles</span>
+<span>Subcategory</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">attach_money</span>
+<span>UnitPrice</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">price_change</span>
+<span>UnitCost</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50 rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-slate-400">check_circle</span>
+<span>Status</span>
+</div>
+</div>
+</div>
+<!-- Table 3: Sales (Fact Table - CENTER) -->
+<div class="absolute top-[210px] left-[260px] w-[230px] bg-white rounded-lg shadow-md border border-blue-200 z-20">
+<div class="px-2.5 py-1.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5 text-slate-900 font-semibold text-[13px]">
+<span class="material-symbols-outlined text-[16px] text-blue-600">point_of_sale</span>
+<span>Sales</span>
+</div>
+<div class="flex items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">expand_less</span>
+</div>
+</div>
+<div class="px-2 py-1 bg-slate-50/60 border-b border-slate-100">
+<div class="flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 text-[10px]">
+<span class="material-symbols-outlined text-[12px]">search</span>
+<input class="w-full bg-transparent outline-none text-[11px] text-slate-700" placeholder="Filter columns..." type="text"/>
+</div>
+</div>
+<div class="py-0.5 text-[12px] text-slate-700">
+<div class="flex items-center justify-between px-2.5 py-0.5 hover:bg-slate-50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-amber-600">key</span>
+<span class="font-mono-code text-[11px]">OrderID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-slate-400">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-indigo-500">calendar_today</span>
+<span>OrderDate</span>
+</div>
+<!-- FK CustomerID Selected -->
+<div class="flex items-center justify-between px-2.5 py-0.5 bg-blue-50 text-blue-700 font-medium">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-blue-600">key</span>
+<span class="font-mono-code text-[11px] font-semibold">CustomerID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-blue-600">FK</span>
+</div>
+<div class="flex items-center justify-between px-2.5 py-0.5 hover:bg-slate-50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-amber-600">key</span>
+<span class="font-mono-code text-[11px]">ProductID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-slate-400">FK</span>
+</div>
+<div class="flex items-center justify-between px-2.5 py-0.5 hover:bg-slate-50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-amber-600">key</span>
+<span class="font-mono-code text-[11px]">StoreID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-slate-400">FK</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">public</span>
+<span>Region</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-blue-600">functions</span>
+<span>Quantity</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-blue-600">functions</span>
+<span>Revenue</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-blue-600">functions</span>
+<span>Cost</span>
+</div>
+<div class="flex items-center justify-between px-2.5 py-0.5 hover:bg-slate-50 rounded-b-lg">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-indigo-600">calculate</span>
+<span class="font-medium text-slate-800">Profit</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-indigo-600">DAX</span>
+</div>
+</div>
+</div>
+<!-- Table 4: Stores (Bottom-Left) -->
+<div class="absolute bottom-10 left-8 w-[210px] bg-white rounded-lg shadow-sm border border-slate-200 z-20">
+<div class="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5 text-slate-800 font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[15px] text-blue-600">storefront</span>
+<span>Stores</span>
+</div>
+<div class="flex items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">expand_less</span>
+</div>
+</div>
+<div class="py-0.5 text-[12px] text-slate-700">
+<div class="flex items-center justify-between px-2.5 py-1 hover:bg-slate-50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-amber-600">key</span>
+<span class="font-mono-code text-[11px] font-medium">StoreID</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">store</span>
+<span>StoreName</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">location_city</span>
+<span>City</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">map</span>
+<span>State</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">domain</span>
+<span>StoreType</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">straighten</span>
+<span>SquareFeet</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50 rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-slate-400">check_circle</span>
+<span>Status</span>
+</div>
+</div>
+</div>
+<!-- Table 5: Calendar (Bottom-Right) -->
+<div class="absolute bottom-10 right-8 w-[210px] bg-white rounded-lg shadow-sm border border-slate-200 z-20">
+<div class="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5 text-slate-800 font-semibold text-[12px]">
+<span class="material-symbols-outlined text-[15px] text-indigo-600">date_range</span>
+<span>Calendar</span>
+</div>
+<div class="flex items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-slate-600">expand_less</span>
+</div>
+</div>
+<div class="py-0.5 text-[12px] text-slate-700">
+<div class="flex items-center justify-between px-2.5 py-1 hover:bg-slate-50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-indigo-600">calendar_today</span>
+<span class="font-mono-code text-[11px] font-medium">Date</span>
+</div>
+<span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">calendar_view_day</span>
+<span>Year</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">pie_chart</span>
+<span>Quarter</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">calendar_month</span>
+<span>Month</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">tag</span>
+<span>Day</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50">
+<span class="material-symbols-outlined text-[13px] text-slate-400">date_range</span>
+<span>WeekOfYear</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 hover:bg-slate-50 rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-slate-400">toggle_on</span>
+<span>IsWeekend</span>
+</div>
+</div>
+</div>
+<!-- Floating 'Relationship properties' dialog (Positioned near bottom-center) -->
+<div class="absolute bottom-12 left-[280px] w-[300px] bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-30">
+<div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
+<div class="flex items-center gap-1.5 text-slate-900 font-semibold text-[13px]">
+<span class="material-symbols-outlined text-[16px] text-blue-600">tune</span>
+<span>Relationship properties</span>
+</div>
+<button class="text-slate-400 hover:text-slate-600 flex items-center" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Mappings summary -->
+<div class="bg-slate-50 rounded-lg p-2.5 mb-3 border border-slate-100 space-y-1 text-[11px]">
+<div class="flex items-center justify-between">
+<span class="text-slate-500 font-medium">From:</span>
+<span class="font-mono-code font-semibold text-blue-700">Sales.CustomerID <span class="text-slate-500 font-normal">(Many)</span></span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-slate-500 font-medium">To:</span>
+<span class="font-mono-code font-semibold text-blue-700">Customers.CustomerID <span class="text-slate-500 font-normal">(One)</span></span>
+</div>
+</div>
+<!-- Cardinality & Direction -->
+<div class="grid grid-cols-2 gap-2 text-[11px] mb-3">
+<div>
+<span class="block text-[10px] text-slate-400 font-medium uppercase tracking-wider">Cardinality</span>
+<span class="font-semibold text-slate-800">Many to one (*:1)</span>
+</div>
+<div>
+<span class="block text-[10px] text-slate-400 font-medium uppercase tracking-wider">Cross-filter</span>
+<span class="font-semibold text-slate-800">Single</span>
+</div>
+</div>
+<!-- Active Toggle -->
+<div class="flex items-center justify-between pt-2.5 border-t border-slate-100 mb-3">
+<span class="text-[11px] font-medium text-slate-700">Make this relationship active</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+</label>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center justify-end gap-2">
+<button class="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded transition-colors" type="button">
+              Edit
+            </button>
+<button class="px-3.5 py-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-xs transition-colors" type="button">
+              Done
+            </button>
+</div>
+</div>
+</div>
+<!-- Bottom Layout Tabs Bar (Height: 32px / h-8) -->
+<div class="h-8 w-full bg-white border-t border-slate-200 px-3 flex items-center justify-between z-30 shrink-0">
+<!-- Left: Layout Tabs -->
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold text-[11px] border border-blue-200" type="button">
+            All tables
+          </button>
+<button class="px-2.5 py-0.5 rounded text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-[11px] font-medium transition-colors" type="button">
+            Sales layout
+          </button>
+<button class="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Add layout" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+<!-- Right: Layout Tools & Zoom -->
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">auto_fix_high</span>
+<span>Reset layout</span>
+</button>
+<div class="h-3 w-px bg-slate-200"></div>
+<button class="text-slate-500 hover:text-slate-800 transition-colors flex items-center" title="Fit to screen" type="button">
+<span class="material-symbols-outlined text-[15px]">fit_screen</span>
+</button>
+<!-- Zoom Slider -->
+<div class="flex items-center gap-1 text-slate-500 text-[11px]">
+<button class="w-4 h-4 flex items-center justify-center hover:text-slate-800" type="button">
+<span class="material-symbols-outlined text-[12px]">remove</span>
+</button>
+<input class="w-16 h-1 bg-slate-200 rounded appearance-none cursor-pointer accent-blue-600" max="150" min="50" type="range" value="85"/>
+<button class="w-4 h-4 flex items-center justify-center hover:text-slate-800" type="button">
+<span class="material-symbols-outlined text-[12px]">add</span>
+</button>
+<span class="font-mono-code text-[11px] text-slate-700 w-7 text-right font-medium">85%</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Inspector Pane (w-[260px] bg-white border-l border-slate-200) -->
+<aside class="w-[260px] bg-white border-l border-slate-200 flex flex-col shrink-0 h-full z-30">
+<!-- Segmented Header: Tables | Model -->
+<div class="p-2 border-b border-slate-100">
+<div class="flex items-center bg-slate-100 p-0.5 rounded-lg text-[12px]">
+<button class="flex-1 py-1 rounded text-slate-600 hover:text-slate-900 font-medium text-center transition-colors" type="button">
+            Tables
+          </button>
+<button class="flex-1 py-1 rounded bg-white text-slate-900 font-semibold text-center shadow-xs" type="button">
+            Model
+          </button>
+</div>
+</div>
+<!-- Search Model Input -->
+<div class="px-2.5 py-1.5 border-b border-slate-100">
+<div class="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200 text-slate-400 text-[11px] focus-within:bg-white focus-within:border-blue-500">
+<span class="material-symbols-outlined text-[14px]">search</span>
+<input class="w-full bg-transparent outline-none text-[12px] text-slate-700 placeholder:text-slate-400" placeholder="Search model..." type="text"/>
+</div>
+</div>
+<!-- Semantic Model Tree View -->
+<div class="flex-1 px-1.5 py-1 overflow-y-auto space-y-0.5 text-[12px]">
+<!-- Root: Semantic Model -->
+<div class="flex items-center gap-1 px-1.5 py-1 font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[14px] text-slate-500">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[15px] text-blue-600">account_tree</span>
+<span>Semantic model</span>
+</div>
+<!-- Tables Node -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-slate-400">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-slate-500">table_chart</span>
+<span>Tables (5)</span>
+</div>
+<!-- Relationships Node (Expanded) -->
+<div class="pl-4 space-y-0.5">
+<div class="flex items-center gap-1 px-1 py-1 font-semibold text-slate-800">
+<span class="material-symbols-outlined text-[14px] text-slate-500">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[14px] text-blue-600">hub</span>
+<span>Relationships (4)</span>
+</div>
+<!-- Relationship item 1 (Selected Blue) -->
+<div class="pl-3 flex items-center gap-1.5 px-2 py-1 rounded bg-blue-600 text-white font-medium text-[11px] shadow-xs">
+<span class="material-symbols-outlined text-[13px] text-white">sync_alt</span>
+<span class="truncate">Sales ↔ Customers (*:1)</span>
+</div>
+<!-- Relationship item 2 -->
+<div class="pl-3 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[11px] cursor-pointer">
+<span class="material-symbols-outlined text-[13px] text-slate-400">sync_alt</span>
+<span class="truncate">Sales ↔ Products (*:1)</span>
+</div>
+<!-- Relationship item 3 -->
+<div class="pl-3 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[11px] cursor-pointer">
+<span class="material-symbols-outlined text-[13px] text-slate-400">sync_alt</span>
+<span class="truncate">Sales ↔ Stores (*:1)</span>
+</div>
+<!-- Relationship item 4 -->
+<div class="pl-3 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 text-slate-700 text-[11px] cursor-pointer">
+<span class="material-symbols-outlined text-[13px] text-indigo-500">sync</span>
+<span class="truncate">Sales ↔ Calendar (*:1, Both)</span>
+</div>
+</div>
+<!-- Measures Node -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-slate-400">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-indigo-600">calculate</span>
+<span>Measures (14)</span>
+</div>
+<!-- Calculation Groups -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-slate-400">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-indigo-500">view_agenda</span>
+<span>Calculation groups (1)</span>
+</div>
+<!-- Roles -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-slate-400">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-slate-500">admin_panel_settings</span>
+<span>Roles (2)</span>
+</div>
+<!-- Perspectives -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-slate-400">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-slate-500">preview</span>
+<span>Perspectives (0)</span>
+</div>
+<!-- Cultures -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded cursor-pointer">
+<span class="material-symbols-outlined text-[14px] text-slate-400">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-slate-500">translate</span>
+<span>Cultures (1)</span>
+</div>
+</div>
+<!-- Model Status Footer -->
+<div class="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+<span>Model Tree Ready</span>
+<span class="flex items-center gap-1 text-blue-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+          Synchronized
+        </span>
+</div>
+</aside>
+</div>
+<!-- 5. Bottom Engine Status Bar (Height: 24px / h-6) -->
+<footer class="h-6 bg-[#f1f5f9] border-t border-slate-200 flex items-center justify-between px-3 text-[11px] text-slate-500 shrink-0 z-50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#28C840] inline-block ring-2 ring-emerald-100"></span>
+<span>VertiPaq Engine: Idle (1,248,390 rows loaded)</span>
+</div>
+<div class="flex items-center gap-2 font-medium">
+<span>5 Tables · 4 Relations</span>
+<span class="text-slate-300">|</span>
+<span class="flex items-center gap-1 text-emerald-600 font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+        Valid
+      </span>
+</div>
+</footer>
+<script>
+    // Micro-interaction for zoom feedback in Model View
+    const zoomSlider = document.querySelector('input[type="range"]');
+    const zoomText = document.querySelector('.font-mono-code.w-7');
+    if (zoomSlider && zoomText) {
+      zoomSlider.addEventListener('input', (e) => {
+        zoomText.textContent = e.target.value + '%';
+      });
+    }
+  </script>
+</body></html>

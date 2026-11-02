@@ -1,0 +1,10 @@
+// G6b-channel | Tỷ trọng theo kênh gửi. Chạy, Copy kết quả, dán vào G6b-channel.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_CRM_Channel_Response'[submitted_via],
+	"Complaints", 'Fact_CRM_Complaint'[Complaints],
+	"Complaints · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints] ),
+	"Channel Share %", 'Fact_CRM_Complaint'[Channel Share %],
+	"Channel Share % · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Channel Share %] )
+)
+ORDER BY 'Dim_CRM_Channel_Response'[submitted_via]

@@ -1,0 +1,6 @@
+// O3e | CÓ CHỦ ĐÍCH LỖI: hai lỗi cột trong cùng truy vấn, ở dòng 4 và dòng 5
+EVALUATE
+ROW (
+	"a", 'Dim_Date'[yearx],
+	"b", 'Dim_Date'[monthx]
+)

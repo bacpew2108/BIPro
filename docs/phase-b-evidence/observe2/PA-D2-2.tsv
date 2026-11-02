@@ -1,0 +1,5 @@
+Fact_Loan[age_group_at_loan]	Fact_Loan[age_group_at_loan_order]	[Bad_Debt_Ratio_Count]	[v_Bad_Debt_Ratio_Count_FormatString]	[Bad_Debt_Ratio_Value]	[v_Bad_Debt_Ratio_Value_FormatString]	[Bad_Debt_Loans]	[Loan_Count2]	[NPL_Group_Color]
+<25	1	0.13636363636363635	0%	0.1881770967769385	0%	18	132	#C0392B
+25-34	2	0.08383233532934131	0%	0.1271969017255879	0%	14	167	#E65100
+35-49	3	0.1145374449339207	0%	0.14246748238773063	0%	26	227	#C0392B
+50-64	4	0.11538461538461539	0%	0.15599505667412694	0%	18	156	#C0392B

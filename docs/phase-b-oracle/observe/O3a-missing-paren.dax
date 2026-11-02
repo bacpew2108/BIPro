@@ -1,0 +1,3 @@
+// O3a | CÓ CHỦ ĐÍCH LỖI: thiếu dấu đóng ngoặc ở cuối dòng 3. Ghi vị trí và nội dung lỗi báo về
+EVALUATE
+ROW ( "a", 1 + 2

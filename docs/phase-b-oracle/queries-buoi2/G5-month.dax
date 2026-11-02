@@ -1,0 +1,19 @@
+// G5-month | Theo tháng: MonthIndex và year_month. Chạy, Copy kết quả, dán vào G5-month.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_Date'[MonthIndex],
+	'Dim_Date'[year_month],
+	"Complaints", 'Fact_CRM_Complaint'[Complaints],
+	"Complaints · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints] ),
+	"Complaints MA3", 'Fact_CRM_Complaint'[Complaints MA3],
+	"Complaints MA3 · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints MA3] ),
+	"Trans Count", 'Fact_Transaction'[Trans Count],
+	"Trans Count · ISBLANK", ISBLANK ( 'Fact_Transaction'[Trans Count] ),
+	"Neg Balance Trans", 'Fact_Transaction'[Neg Balance Trans],
+	"Neg Balance Trans · ISBLANK", ISBLANK ( 'Fact_Transaction'[Neg Balance Trans] ),
+	"Neg Trans PM", 'Fact_Transaction'[Neg Trans PM],
+	"Neg Trans PM · ISBLANK", ISBLANK ( 'Fact_Transaction'[Neg Trans PM] ),
+	"Loan Amount", 'Fact_Loan'[Loan Amount],
+	"Loan Amount · ISBLANK", ISBLANK ( 'Fact_Loan'[Loan Amount] )
+)
+ORDER BY 'Dim_Date'[MonthIndex], 'Dim_Date'[year_month]

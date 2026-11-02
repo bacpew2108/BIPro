@@ -1,0 +1,11 @@
+// G6d-trans-type | Tỷ trọng số tiền theo loại giao dịch. Chạy, Copy kết quả, dán vào G6d-trans-type.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_Trans_Type'[trans_type],
+	'Dim_Trans_Type'[operation],
+	"Trans Amount", 'Fact_Transaction'[Trans Amount],
+	"Trans Amount · ISBLANK", ISBLANK ( 'Fact_Transaction'[Trans Amount] ),
+	"% Trans Amount", 'Fact_Transaction'[% Trans Amount],
+	"% Trans Amount · ISBLANK", ISBLANK ( 'Fact_Transaction'[% Trans Amount] )
+)
+ORDER BY 'Dim_Trans_Type'[trans_type], 'Dim_Trans_Type'[operation]

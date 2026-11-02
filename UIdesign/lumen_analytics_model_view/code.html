@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-primary-container": "#fefcff", "tertiary-fixed-dim": "#ffb691", "primary": "#005ab3", "inverse-primary": "#aac7ff", "primary-fixed": "#d6e3ff", "on-surface": "#1b1b1d", "surface-container-high": "#eae7ea", "secondary": "#4a47d2", "surface-tint": "#005db8", "error": "#ba1a1a", "surface": "#fcf8fb", "on-error-container": "#93000a", "surface-container-low": "#f6f3f5", "surface-container-lowest": "#ffffff", "inverse-on-surface": "#f3f0f2", "tertiary-container": "#c25300", "background": "#fcf8fb", "on-secondary-container": "#fffbff", "on-surface-variant": "#414754", "on-primary-fixed": "#001b3e", "secondary-fixed-dim": "#c2c1ff", "surface-container": "#f0edef", "on-tertiary-container": "#fffbff", "primary-fixed-dim": "#aac7ff", "on-secondary-fixed": "#0c006b", "error-container": "#ffdad6", "secondary-container": "#6462ec", "inverse-surface": "#303032", "on-error": "#ffffff", "on-secondary-fixed-variant": "#332dbc", "on-primary-fixed-variant": "#00468d", "tertiary-fixed": "#ffdbcb", "on-background": "#1b1b1d", "on-primary": "#ffffff", "on-secondary": "#ffffff", "on-tertiary-fixed": "#341100", "surface-dim": "#dcd9dc", "on-tertiary": "#ffffff", "surface-container-highest": "#e4e2e4", "surface-variant": "#e4e2e4", "outline": "#717786", "tertiary": "#9a4100", "surface-bright": "#fcf8fb", "secondary-fixed": "#e2dfff", "on-tertiary-fixed-variant": "#793100", "primary-container": "#0073e0", "outline-variant": "#c0c6d6" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-xs": "4px", "space-lg": "16px", "gutter": "12px", "margin": "16px", "space-md": "12px", "space-xl": "24px", "space-sm": "8px" }, "fontFamily": { "label-md": [ "Inter" ], "body-md": [ "Inter" ], "body-sm": [ "Inter" ], "display": [ "Inter" ], "headline-sm": [ "Inter" ], "headline-lg": [ "Inter" ], "headline-md": [ "Inter" ], "metric-display": [ "Inter" ], "body-lg": [ "Inter" ], "label-sm": [ "Inter" ], "data-mono": [ "JetBrains Mono" ] }, "fontSize": { "label-md": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.01em", "fontWeight": "500" } ], "body-md": [ "13px", { "lineHeight": "18px", "letterSpacing": "-0.003em", "fontWeight": "400" } ], "body-sm": [ "12px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "400" } ], "display": [ "28px", { "lineHeight": "34px", "letterSpacing": "-0.018em", "fontWeight": "600" } ], "headline-sm": [ "13px", { "lineHeight": "18px", "letterSpacing": "-0.006em", "fontWeight": "600" } ], "headline-lg": [ "20px", { "lineHeight": "26px", "letterSpacing": "-0.015em", "fontWeight": "600" } ], "headline-md": [ "15px", { "lineHeight": "20px", "letterSpacing": "-0.01em", "fontWeight": "600" } ], "metric-display": [ "24px", { "lineHeight": "28px", "letterSpacing": "-0.02em", "fontWeight": "700" } ], "body-lg": [ "14px", { "lineHeight": "20px", "letterSpacing": "-0.005em", "fontWeight": "400" } ], "label-sm": [ "10px", { "lineHeight": "13px", "letterSpacing": "0.02em", "fontWeight": "500" } ], "data-mono": [ "11px", { "lineHeight": "15px", "letterSpacing": "0em", "fontWeight": "400" } ] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface select-none antialiased"><aside class="fixed left-0 top-0 h-full w-14 bg-surface-container-low/90 backdrop-blur-xl z-50 flex flex-col justify-between items-center py-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col items-center gap-space-lg w-full"><div class="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container-high text-primary font-headline-md text-headline-md">L</div><nav class="flex flex-col items-center gap-space-sm w-full px-space-xs" data-active-classes="bg-primary-container text-on-primary-container shadow-sm"><a class="flex items-center justify-center w-10 h-10 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="report-view" href="#" title="Report Canvas"><span class="material-symbols-outlined text-[20px]">bar_chart</span></a><a class="flex items-center justify-center w-10 h-10 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="data-table" href="#" title="Table View"><span class="material-symbols-outlined text-[20px]">table_chart</span></a><a aria-current="page" class="flex items-center justify-center w-10 h-10 rounded-lg transition-colors bg-primary-container text-on-primary-container shadow-sm" data-path="data-model" href="#" title="Model View"><span class="material-symbols-outlined text-[20px]">hub</span></a><a class="flex items-center justify-center w-10 h-10 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="dax-query" href="#" title="DAX Query View"><span class="material-symbols-outlined text-[20px]">terminal</span></a><a class="flex items-center justify-center w-10 h-10 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="tmdl-code" href="#" title="TMDL Script View"><span class="material-symbols-outlined text-[20px]">code</span></a></nav></div><div class="flex flex-col items-center gap-space-sm w-full px-space-xs"><a class="flex items-center justify-center w-10 h-10 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="app-settings" href="#" title="Application Preferences"><span class="material-symbols-outlined text-[20px]">settings</span></a></div></aside><div class="pl-14"><header class="fixed top-0 left-14 right-0 z-40 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-12 w-full px-space-lg flex items-center justify-between"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-[7px] pl-space-xs"><span class="w-3 h-3 rounded-full bg-[#FF5F57] inline-block"></span><span class="w-3 h-3 rounded-full bg-[#FEBC2E] inline-block"></span><span class="w-3 h-3 rounded-full bg-[#28C840] inline-block"></span></div><button class="flex items-center gap-space-xs px-space-sm py-[2px] rounded-lg hover:bg-surface-container-high text-on-surface transition-colors" type="button"><span class="font-headline-sm text-headline-sm">Sales Report.lumen</span><span class="font-label-sm text-label-sm text-on-surface-variant">Edited</span><span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_drop_down</span></button></div><div class="flex items-center justify-center flex-1 max-w-md mx-space-lg"><div class="relative w-full flex items-center bg-surface-container-high/60 rounded-lg px-space-sm py-1"><span class="material-symbols-outlined text-[16px] text-on-surface-variant mr-space-xs">search</span><span class="font-body-sm text-body-sm text-on-surface-variant flex-1">Search report, metrics, actions...</span><kbd class="font-data-mono text-data-mono bg-surface-container-lowest text-on-surface-variant px-space-xs py-[1px] rounded shadow-[0_1px_2px_rgba(0,0,0,0.06)]">⌘K</kbd></div></div><div class="flex items-center gap-space-md"><button class="flex items-center gap-space-xs px-space-md py-1 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">group_add</span><span class="font-label-md text-label-md">Collaborate</span></button><button class="flex items-center gap-space-xs px-space-md py-1 rounded-lg bg-primary-container text-on-primary-container hover:opacity-95 shadow-sm transition-all" type="button"><span class="material-symbols-outlined text-[16px]">ios_share</span><span class="font-label-md text-label-md font-semibold">Publish</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><div class="h-9 w-full px-space-lg bg-surface-container-low/60 flex items-center"><nav class="flex items-center gap-space-xs" data-active-classes="bg-surface-container-lowest text-on-surface shadow-sm font-semibold rounded-md"><a class="px-space-md py-1 text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" data-path="report-view" href="#">Home</a><a class="px-space-md py-1 text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" data-path="insert-elements" href="#">Insert</a><a aria-current="page" class="px-space-md py-1 transition-colors bg-surface-container-lowest text-on-surface shadow-sm font-semibold rounded-md" data-path="data-model" href="#">Modeling</a><a class="px-space-md py-1 text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" data-path="view-options" href="#">View</a><a class="px-space-md py-1 text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" data-path="performance-analyzer" href="#">Optimize</a><a class="px-space-md py-1 text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" data-path="help-documentation" href="#">Help</a></nav></div></header><main class="relative pt-[84px] pb-8 w-full bg-surface min-h-[calc(100vh-2rem)]"><div class="flex flex-col w-full text-on-surface select-none">
+<!-- Ribbon Toolbar -->
+<section class="w-full bg-surface-container-low/90 backdrop-blur-xl px-space-lg py-1 shadow-sm flex items-center justify-between gap-space-lg">
+<!-- Ribbon Left Groups -->
+<div class="flex items-center gap-space-lg flex-1 overflow-x-auto py-1">
+<!-- Group: Data -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-space-xs">
+<button class="group flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container-lowest hover:bg-surface-container-high transition-all text-on-surface shadow-xs" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">cloud_download</span>
+<span class="font-headline-sm text-headline-sm">Get data</span>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">arrow_drop_down</span>
+</button>
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">build</span>
+<span class="font-headline-sm text-headline-sm">Transform</span>
+</button>
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+<span class="font-headline-sm text-headline-sm">Refresh</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-widest mt-0.5">Data</span>
+</div>
+<div class="h-6 w-px bg-surface-container-highest"></div>
+<!-- Group: Relationships -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-space-xs">
+<button class="flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container-high text-primary font-medium transition-all shadow-xs" type="button">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span class="font-headline-sm text-headline-sm">Manage relationships</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-widest mt-0.5">Relationships</span>
+</div>
+<div class="h-6 w-px bg-surface-container-highest"></div>
+<!-- Group: Calculations -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-space-xs">
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">calculate</span>
+<span class="font-headline-sm text-headline-sm">New measure</span>
+</button>
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">view_agenda</span>
+<span class="font-headline-sm text-headline-sm">New calc group</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-widest mt-0.5">Calculations</span>
+</div>
+<div class="h-6 w-px bg-surface-container-highest"></div>
+<!-- Group: Security -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-space-xs">
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+<span class="font-headline-sm text-headline-sm">Manage roles</span>
+</button>
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">visibility</span>
+<span class="font-headline-sm text-headline-sm">View as</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-widest mt-0.5">Security</span>
+</div>
+<div class="h-6 w-px bg-surface-container-highest"></div>
+<!-- Group: Modeling / AI -->
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-space-xs">
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high transition-all text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[18px]">psychology_alt</span>
+<span class="font-headline-sm text-headline-sm">Q&amp;A setup</span>
+</button>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-widest mt-0.5">Intelligence</span>
+</div>
+</div>
+<!-- Copilot AI Trigger -->
+<div class="flex items-center pl-space-md">
+<button class="flex items-center gap-1.5 px-space-md py-1 rounded-full bg-gradient-to-r from-primary to-secondary text-on-primary shadow-sm hover:opacity-95 transition-all" type="button">
+<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+<span class="font-headline-sm text-headline-sm font-semibold">Model Copilot</span>
+</button>
+</div>
+</section>
+<!-- Main Viewport (Diagram Canvas + Inspector Panels) -->
+<div class="relative w-full flex flex-1 h-[calc(100vh-148px)] overflow-hidden">
+<!-- Center Diagram Workstation -->
+<div class="relative flex-1 h-full flex flex-col bg-surface-container-low overflow-hidden">
+<!-- Canvas Canvas Body -->
+<div class="relative flex-1 w-full h-full overflow-hidden" id="modeling-canvas" style="background-color: #f2f2f7; background-image: radial-gradient(rgba(0, 0, 0, 0.12) 1px, transparent 1px); background-size: 16px 16px;">
+<!-- Scaled Canvas Viewport Area -->
+<div class="relative w-full h-full min-w-[980px] min-h-[640px]">
+<!-- SVG Dynamic Connectors Layer -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-10" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<filter height="140%" id="active-line-glow" width="140%" x="-20%" y="-20%">
+<fedropshadow dx="0" dy="0" flood-color="#0073e0" flood-opacity="0.45" stddeviation="3"></fedropshadow>
+</filter>
+</defs>
+<!-- Line 1: Customers (CustomerID) to Sales (CustomerID) - SELECTED ACTIVE -->
+<!-- Customers right anchor [x: 295, y: 154] to Sales left anchor [x: 430, y: 224] -->
+<path d="M 295 154 C 360 154, 365 224, 430 224" fill="none" filter="url(#active-line-glow)" stroke="#0073e0" stroke-width="2.5"></path>
+<!-- Mid-line Single Direction Arrow (Points toward Sales) -->
+<polygon fill="#0073e0" points="364,186 360,192 368,192" transform="rotate(78 364 189)"></polygon>
+<!-- End point badges: Customers Side ('1') -->
+<circle cx="304" cy="154" fill="#ffffff" r="8" stroke="#0073e0" stroke-width="1.5"></circle>
+<text fill="#0073e0" font-family="Inter" font-size="10" font-weight="700" text-anchor="middle" x="304" y="157.5">1</text>
+<!-- End point badges: Sales Side ('*') -->
+<circle cx="421" cy="224" fill="#ffffff" r="8" stroke="#0073e0" stroke-width="1.5"></circle>
+<text fill="#0073e0" font-family="Inter" font-size="12" font-weight="700" text-anchor="middle" x="421" y="228">*</text>
+<!-- Line 2: Products (ProductID) to Sales (ProductID) -->
+<!-- Products left anchor [x: 725, y: 154] to Sales right anchor [x: 650, y: 246] -->
+<path d="M 725 154 C 685 154, 690 246, 650 246" fill="none" stroke="#717786" stroke-dasharray="0" stroke-width="1.5"></path>
+<polygon fill="#717786" points="685,198 681,204 689,204" transform="rotate(-67 685 200)"></polygon>
+<circle cx="716" cy="154" fill="#ffffff" r="7" stroke="#717786" stroke-width="1.2"></circle>
+<text fill="#414754" font-family="Inter" font-size="9" font-weight="700" text-anchor="middle" x="716" y="157.5">1</text>
+<circle cx="659" cy="246" fill="#ffffff" r="7" stroke="#717786" stroke-width="1.2"></circle>
+<text fill="#414754" font-family="Inter" font-size="10" font-weight="700" text-anchor="middle" x="659" y="249.5">*</text>
+<!-- Line 3: Stores (StoreID) to Sales (StoreID) -->
+<!-- Stores top/right anchor [x: 295, y: 446] to Sales bottom/left anchor [x: 430, y: 268] -->
+<path d="M 295 446 C 365 446, 360 268, 430 268" fill="none" stroke="#717786" stroke-width="1.5"></path>
+<polygon fill="#717786" points="360,354 356,360 364,360" transform="rotate(-72 360 357)"></polygon>
+<circle cx="304" cy="446" fill="#ffffff" r="7" stroke="#717786" stroke-width="1.2"></circle>
+<text fill="#414754" font-family="Inter" font-size="9" font-weight="700" text-anchor="middle" x="304" y="449.5">1</text>
+<circle cx="421" cy="268" fill="#ffffff" r="7" stroke="#717786" stroke-width="1.2"></circle>
+<text fill="#414754" font-family="Inter" font-size="10" font-weight="700" text-anchor="middle" x="421" y="271.5">*</text>
+<!-- Line 4: Calendar (Date) to Sales (OrderDate) - BI-DIRECTIONAL -->
+<!-- Calendar top/left anchor [x: 725, y: 446] to Sales right anchor [x: 650, y: 202] -->
+<path d="M 725 446 C 685 446, 690 202, 650 202" fill="none" stroke="#717786" stroke-width="1.5"></path>
+<!-- Bi-directional arrows badge in middle -->
+<g transform="translate(684, 320)">
+<rect fill="#ffffff" height="18" rx="4" stroke="#c0c6d6" stroke-width="1" width="18" x="-9" y="-9"></rect>
+<text fill="#005ab3" font-family="Inter" font-size="10" font-weight="700" text-anchor="middle" x="0" y="3.5">⇄</text>
+</g>
+<circle cx="716" cy="446" fill="#ffffff" r="7" stroke="#717786" stroke-width="1.2"></circle>
+<text fill="#414754" font-family="Inter" font-size="9" font-weight="700" text-anchor="middle" x="716" y="449.5">1</text>
+<circle cx="659" cy="202" fill="#ffffff" r="7" stroke="#717786" stroke-width="1.2"></circle>
+<text fill="#414754" font-family="Inter" font-size="10" font-weight="700" text-anchor="middle" x="659" y="205.5">*</text>
+</svg>
+<!-- Table 1: Customers (Top-Left Dimension) -->
+<div class="absolute left-16 top-16 w-56 bg-surface-container-lowest rounded-lg shadow-sm z-20 transition-all hover:shadow-md">
+<!-- Header -->
+<div class="px-space-sm py-1.5 bg-surface-container flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-primary">table_chart</span>
+<span class="font-headline-sm text-headline-sm">Customers</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+</div>
+<!-- Search field -->
+<div class="px-space-sm py-1 bg-surface-container-low/40">
+<div class="flex items-center gap-1 bg-surface-container-lowest px-1.5 py-0.5 rounded text-on-surface-variant text-[10px]">
+<span class="material-symbols-outlined text-[12px]">search</span>
+<input class="w-full bg-transparent outline-none font-body-sm text-[11px]" placeholder="Find column..." type="text"/>
+</div>
+</div>
+<!-- Fields List -->
+<div class="py-1">
+<!-- CustomerID: Active highlight -->
+<div class="flex items-center justify-between px-space-sm py-1 bg-primary-fixed text-primary font-medium text-body-sm">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-primary">key</span>
+<span class="font-data-mono text-data-mono font-medium">CustomerID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm font-semibold">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">badge</span>
+<span class="font-body-sm text-body-sm">CustomerName</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">category</span>
+<span class="font-body-sm text-body-sm">Segment</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">mail</span>
+<span class="font-body-sm text-body-sm">Email</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">location_city</span>
+<span class="font-body-sm text-body-sm">City</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">map</span>
+<span class="font-body-sm text-body-sm">State</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">pin_drop</span>
+<span class="font-body-sm text-body-sm">PostalCode</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">public</span>
+<span class="font-body-sm text-body-sm">Country</span>
+</div>
+</div>
+</div>
+<!-- Table 2: Products (Top-Right Dimension) -->
+<div class="absolute left-[725px] top-16 w-56 bg-surface-container-lowest rounded-lg shadow-sm z-20 transition-all hover:shadow-md">
+<div class="px-space-sm py-1.5 bg-surface-container flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-primary">inventory_2</span>
+<span class="font-headline-sm text-headline-sm">Products</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+</div>
+<div class="py-1">
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-tertiary">key</span>
+<span class="font-data-mono text-data-mono">ProductID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-on-surface-variant">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">label</span>
+<span class="font-body-sm text-body-sm">ProductName</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">folder</span>
+<span class="font-body-sm text-body-sm">Category</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">subtitles</span>
+<span class="font-body-sm text-body-sm">SubCategory</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">attach_money</span>
+<span class="font-body-sm text-body-sm">UnitPrice</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">price_change</span>
+<span class="font-body-sm text-body-sm">UnitCost</span>
+</div>
+</div>
+</div>
+<!-- Table 3: Center Fact Table (Sales) -->
+<div class="absolute left-[430px] top-28 w-56 bg-surface-container-lowest rounded-lg shadow-md z-30 transition-all">
+<!-- Header with highlight tint -->
+<div class="px-space-sm py-2 bg-primary-fixed/50 flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">point_of_sale</span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">Sales</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+</div>
+<!-- Search bar inside table -->
+<div class="px-space-sm py-1 bg-surface-container-low/40">
+<div class="flex items-center gap-1 bg-surface-container-lowest px-1.5 py-0.5 rounded text-on-surface-variant text-[10px]">
+<span class="material-symbols-outlined text-[12px]">search</span>
+<input class="w-full bg-transparent outline-none font-body-sm text-[11px]" placeholder="Filter columns..." type="text"/>
+</div>
+</div>
+<!-- Column Rows -->
+<div class="py-1">
+<!-- OrderID -->
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-tertiary">key</span>
+<span class="font-data-mono text-data-mono">OrderID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-on-surface-variant">PK</span>
+</div>
+<!-- OrderDate -->
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-secondary">calendar_today</span>
+<span class="font-body-sm text-body-sm">OrderDate</span>
+</div>
+<!-- CustomerID (HIGHLIGHTED) -->
+<div class="flex items-center justify-between px-space-sm py-1 bg-primary-fixed text-primary font-medium text-body-sm">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-primary">key</span>
+<span class="font-data-mono text-data-mono font-medium">CustomerID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm font-semibold">FK</span>
+</div>
+<!-- ProductID -->
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-tertiary">key</span>
+<span class="font-data-mono text-data-mono">ProductID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-on-surface-variant">FK</span>
+</div>
+<!-- StoreID -->
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-tertiary">key</span>
+<span class="font-data-mono text-data-mono">StoreID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-on-surface-variant">FK</span>
+</div>
+<!-- Region -->
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">public</span>
+<span class="font-body-sm text-body-sm">Region</span>
+</div>
+<!-- Quantity -->
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-primary">functions</span>
+<span class="font-body-sm text-body-sm">Quantity</span>
+</div>
+<!-- Revenue -->
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-primary">functions</span>
+<span class="font-body-sm text-body-sm">Revenue</span>
+</div>
+<!-- Cost -->
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-primary">functions</span>
+<span class="font-body-sm text-body-sm">Cost</span>
+</div>
+<!-- Profit -->
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low rounded-b-lg">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-secondary">calculate</span>
+<span class="font-body-sm text-body-sm font-medium">Profit</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-secondary font-semibold">DAX</span>
+</div>
+</div>
+</div>
+<!-- Table 4: Stores (Bottom-Left Dimension) -->
+<div class="absolute left-16 top-[408px] w-56 bg-surface-container-lowest rounded-lg shadow-sm z-20 transition-all hover:shadow-md">
+<div class="px-space-sm py-1.5 bg-surface-container flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-primary">storefront</span>
+<span class="font-headline-sm text-headline-sm">Stores</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+</div>
+<div class="py-1">
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-tertiary">key</span>
+<span class="font-data-mono text-data-mono">StoreID</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-on-surface-variant">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">store</span>
+<span class="font-body-sm text-body-sm">StoreName</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">domain</span>
+<span class="font-body-sm text-body-sm">StoreType</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">straighten</span>
+<span class="font-body-sm text-body-sm">SquareFeet</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">person</span>
+<span class="font-body-sm text-body-sm">Manager</span>
+</div>
+</div>
+</div>
+<!-- Table 5: Calendar (Bottom-Right Dimension) -->
+<div class="absolute left-[725px] top-[408px] w-56 bg-surface-container-lowest rounded-lg shadow-sm z-20 transition-all hover:shadow-md">
+<div class="px-space-sm py-1.5 bg-surface-container flex items-center justify-between rounded-t-lg">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-secondary">date_range</span>
+<span class="font-headline-sm text-headline-sm">Calendar</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">more_vert</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+</div>
+<div class="py-1">
+<div class="flex items-center justify-between px-space-sm py-1 hover:bg-surface-container-low">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[13px] text-secondary">calendar_today</span>
+<span class="font-body-sm text-body-sm font-medium">Date</span>
+</div>
+<span class="text-[9px] uppercase tracking-wider font-label-sm text-on-surface-variant">PK</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">calendar_view_day</span>
+<span class="font-body-sm text-body-sm">Year</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">pie_chart</span>
+<span class="font-body-sm text-body-sm">Quarter</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">calendar_month</span>
+<span class="font-body-sm text-body-sm">Month</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">tag</span>
+<span class="font-body-sm text-body-sm">WeekNumber</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">schedule</span>
+<span class="font-body-sm text-body-sm">DayOfWeek</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 text-on-surface hover:bg-surface-container-low rounded-b-lg">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">toggle_on</span>
+<span class="font-body-sm text-body-sm">IsWeekend</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Layout Bar & Canvas Controls -->
+<div class="h-10 w-full bg-surface-container-low px-space-md flex items-center justify-between shadow-xs z-30">
+<!-- Left: Layout Tabs -->
+<div class="flex items-center gap-1">
+<button class="flex items-center gap-1 px-space-md py-1 rounded bg-surface-container-lowest text-primary font-headline-sm text-headline-sm shadow-xs font-semibold" type="button">
+<span>All tables</span>
+</button>
+<button class="flex items-center gap-1 px-space-md py-1 rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface font-headline-sm text-headline-sm transition-colors" type="button">
+<span>Sales layout</span>
+</button>
+<button class="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="New layout page" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+</div>
+<!-- Center / Right Controls -->
+<div class="flex items-center gap-space-md">
+<button class="flex items-center gap-1 px-space-sm py-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">auto_fix_high</span>
+<span>Reset layout</span>
+</button>
+<div class="h-4 w-px bg-surface-container-highest"></div>
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Fit to screen" type="button">
+<span class="material-symbols-outlined text-[16px]">fit_screen</span>
+</button>
+<!-- Zoom Controls -->
+<div class="flex items-center gap-1 text-on-surface-variant">
+<button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<input class="w-20 h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary" max="150" min="50" type="range" value="85"/>
+<button class="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+<span class="font-data-mono text-data-mono text-on-surface w-9 text-right font-medium">85%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar Pane 1: Properties Inspector (280px) -->
+<aside class="w-[280px] h-full bg-surface-container-lowest flex flex-col shadow-[-1px_0_6px_rgba(0,0,0,0.03)] z-30">
+<!-- Pane Header -->
+<div class="h-10 px-space-md flex items-center justify-between bg-surface-container-low/50">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">tune</span>
+<span class="font-headline-sm text-headline-sm font-semibold">Properties</span>
+</div>
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface-variant" type="button">
+<span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<!-- Properties Form Area -->
+<div class="flex-1 p-space-md overflow-y-auto space-y-space-md">
+<!-- Contextual pill info -->
+<div class="bg-primary-fixed/30 rounded-lg p-space-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">route</span>
+<div>
+<span class="block font-label-sm text-label-sm text-primary font-semibold uppercase tracking-wider">Relationship Selected</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-medium">Sales ↔ Customers</span>
+</div>
+</div>
+<!-- Table 1 (From) -->
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant">From: Table 1 (Many side)</label>
+<div class="flex items-center justify-between bg-surface-container-low px-space-sm py-1.5 rounded text-on-surface font-body-sm text-body-sm">
+<span class="font-medium">Sales</span>
+<span class="font-data-mono text-data-mono text-primary font-semibold">CustomerID</span>
+</div>
+</div>
+<!-- Table 2 (To) -->
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant">To: Table 2 (One side)</label>
+<div class="flex items-center justify-between bg-surface-container-low px-space-sm py-1.5 rounded text-on-surface font-body-sm text-body-sm">
+<span class="font-medium">Customers</span>
+<span class="font-data-mono text-data-mono text-primary font-semibold">CustomerID</span>
+</div>
+</div>
+<!-- Cardinality Select -->
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant">Cardinality</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low text-on-surface px-space-sm py-1.5 rounded appearance-none font-body-sm text-body-sm outline-none cursor-pointer">
+<option selected="">Many to one (*:1)</option>
+<option>One to many (1:*)</option>
+<option>One to one (1:1)</option>
+<option>Many to many (*:*)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-on-surface-variant pointer-events-none">arrow_drop_down</span>
+</div>
+</div>
+<!-- Cross-filter Direction -->
+<div class="space-y-1">
+<label class="block font-label-md text-label-md text-on-surface-variant">Cross-filter direction</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low text-on-surface px-space-sm py-1.5 rounded appearance-none font-body-sm text-body-sm outline-none cursor-pointer">
+<option selected="">Single</option>
+<option>Both</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-on-surface-variant pointer-events-none">arrow_drop_down</span>
+</div>
+</div>
+<!-- Switch: Make relationship active -->
+<div class="flex items-center justify-between py-1">
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface">Make active</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Active in DAX model</span>
+</div>
+<!-- Toggle switch (ON) -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Checkbox: Referential Integrity -->
+<div class="flex items-start gap-2 py-1">
+<input class="mt-0.5 rounded text-primary focus:ring-0 cursor-pointer" id="ref-integ" type="checkbox"/>
+<label class="font-body-sm text-body-sm text-on-surface cursor-pointer select-none" for="ref-integ">
+            Assume referential integrity
+            <span class="block font-label-sm text-label-sm text-on-surface-variant">Optimizes DirectQuery joins</span>
+</label>
+</div>
+<!-- Checkbox: Security filter -->
+<div class="flex items-start gap-2 py-1 opacity-60">
+<input class="mt-0.5 rounded text-primary" disabled="" id="sec-filter" type="checkbox"/>
+<label class="font-body-sm text-body-sm text-on-surface-variant select-none" for="sec-filter">
+            Apply security filter in both directions
+          </label>
+</div>
+</div>
+<!-- Action Buttons at bottom of Inspector -->
+<div class="p-space-md bg-surface-container-low/40 flex items-center justify-end gap-space-sm">
+<button class="px-space-md py-1 rounded hover:bg-surface-container-high text-on-surface font-headline-sm text-headline-sm transition-colors" type="button">
+          Close
+        </button>
+<button class="px-space-md py-1 rounded bg-primary-container text-on-primary-container shadow-xs font-headline-sm text-headline-sm font-semibold hover:opacity-95 transition-all" type="button">
+          Apply changes
+        </button>
+</div>
+</aside>
+<!-- Right Sidebar Pane 2: Data & Model Tree Pane (260px) -->
+<aside class="w-[260px] h-full bg-surface-container-low flex flex-col shadow-[-1px_0_6px_rgba(0,0,0,0.03)] z-30">
+<!-- Top Segmented Switcher: Tables / Model -->
+<div class="p-space-xs bg-surface-container-low">
+<div class="flex items-center bg-surface-container-high/60 p-0.5 rounded-md">
+<button class="flex-1 py-1 rounded font-headline-sm text-headline-sm text-on-surface-variant hover:text-on-surface text-center transition-colors" type="button">
+            Tables
+          </button>
+<button class="flex-1 py-1 rounded bg-surface-container-lowest text-on-surface font-headline-sm text-headline-sm font-semibold text-center shadow-xs" type="button">
+            Model
+          </button>
+</div>
+</div>
+<!-- Search Box -->
+<div class="px-space-sm pb-space-xs">
+<div class="flex items-center gap-1 bg-surface-container-lowest px-2 py-1 rounded text-on-surface-variant text-[11px] shadow-xs">
+<span class="material-symbols-outlined text-[14px]">search</span>
+<input class="w-full bg-transparent outline-none font-body-sm text-[12px] text-on-surface" placeholder="Search model..." type="text"/>
+</div>
+</div>
+<!-- Hierarchical Model Tree View -->
+<div class="flex-1 px-space-xs py-1 overflow-y-auto space-y-0.5 font-body-sm text-body-sm">
+<!-- Root: Semantic Model -->
+<div class="flex items-center gap-1 px-1 py-0.5 font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[15px] text-primary">account_tree</span>
+<span>Semantic model</span>
+</div>
+<!-- Tables Node -->
+<div class="pl-4 flex items-center gap-1 px-1 py-0.5 text-on-surface-variant hover:text-on-surface cursor-pointer rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[14px]">arrow_right</span>
+<span class="material-symbols-outlined text-[14px]">table_chart</span>
+<span>Tables (5)</span>
+</div>
+<!-- Relationships Node (Expanded) -->
+<div class="pl-4 space-y-0.5">
+<div class="flex items-center gap-1 px-1 py-0.5 font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+<span class="material-symbols-outlined text-[14px] text-primary">hub</span>
+<span>Relationships (4)</span>
+</div>
+<!-- Relationship item 1 (SELECTED) -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 rounded bg-primary text-on-primary font-medium text-[11px] shadow-xs">
+<span class="material-symbols-outlined text-[13px] text-on-primary">sync_alt</span>
+<span class="truncate">Sales ↔ Customers (*:1)</span>
+</div>
+<!-- Relationship item 2 -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface text-[11px] cursor-pointer">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">sync_alt</span>
+<span class="truncate">Sales ↔ Products (*:1)</span>
+</div>
+<!-- Relationship item 3 -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface text-[11px] cursor-pointer">
+<span class="material-symbols-outlined text-[13px] text-on-surface-variant">sync_alt</span>
+<span class="truncate">Sales ↔ Stores (*:1)</span>
+</div>
+<!-- Relationship item 4 -->
+<div class="pl-4 flex items-center gap-1.5 px-2 py-1 rounded hover:bg-surface-container-high text-on-surface text-[11px] cursor-pointer">
+<span class="material-symbols-outlined text-[13px] text-secondary">sync</span>
+<span class="truncate">Sales ↔ Calendar (*:1, Both)</span>
+</div>
+</div>
+<!-- Measures Node -->
+<div class="pl-4 flex items-center gap-1 px-1 py-0.5 text-on-surface-variant hover:text-on-surface cursor-pointer rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[14px]">arrow_right</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">calculate</span>
+<span>Measures (14)</span>
+</div>
+<!-- Calculation Groups -->
+<div class="pl-4 flex items-center gap-1 px-1 py-0.5 text-on-surface-variant hover:text-on-surface cursor-pointer rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[14px]">arrow_right</span>
+<span class="material-symbols-outlined text-[14px]">view_agenda</span>
+<span>Calculation groups (1)</span>
+</div>
+<!-- Roles -->
+<div class="pl-4 flex items-center gap-1 px-1 py-0.5 text-on-surface-variant hover:text-on-surface cursor-pointer rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[14px]">arrow_right</span>
+<span class="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+<span>Roles (2)</span>
+</div>
+<!-- Perspectives -->
+<div class="pl-4 flex items-center gap-1 px-1 py-0.5 text-on-surface-variant hover:text-on-surface cursor-pointer rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[14px]">arrow_right</span>
+<span class="material-symbols-outlined text-[14px]">preview</span>
+<span>Perspectives (0)</span>
+</div>
+<!-- Cultures -->
+<div class="pl-4 flex items-center gap-1 px-1 py-0.5 text-on-surface-variant hover:text-on-surface cursor-pointer rounded hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-[14px]">arrow_right</span>
+<span class="material-symbols-outlined text-[14px]">translate</span>
+<span>Cultures (1)</span>
+</div>
+</div>
+<!-- Model Status Footer -->
+<div class="px-space-md py-1.5 bg-surface-container flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>5 Tables · 4 Relations</span>
+<span class="flex items-center gap-1 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
+          Valid
+        </span>
+</div>
+</aside>
+</div>
+</div>
+<script>
+  // Simple micro-interaction for zoom feedback in Model View
+  const zoomSlider = document.querySelector('input[type="range"]');
+  const zoomText = document.querySelector('.w-9.text-right');
+  if (zoomSlider && zoomText) {
+    zoomSlider.addEventListener('input', (e) => {
+      zoomText.textContent = e.target.value + '%';
+    });
+  }
+</script></main><footer class="fixed bottom-0 left-14 right-0 h-8 bg-surface-container-low/95 backdrop-blur-xl z-40 flex items-center justify-between px-space-md shadow-[0_-1px_6px_rgba(0,0,0,0.03)]"><div class="flex items-center gap-space-xs"><button class="flex items-center gap-space-xs px-space-sm py-[2px] rounded bg-surface-container-lowest text-on-surface shadow-xs font-label-sm text-label-sm" type="button"><span>Overview</span><span class="material-symbols-outlined text-[12px] text-on-surface-variant">close</span></button><button class="flex items-center gap-space-xs px-space-sm py-[2px] rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface font-label-sm text-label-sm transition-colors" type="button"><span>Regional Sales</span></button><button class="flex items-center gap-space-xs px-space-sm py-[2px] rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface font-label-sm text-label-sm transition-colors" type="button"><span>Cohort Analysis</span></button><button class="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[14px]">add</span></button></div><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm"><span class="w-2 h-2 rounded-full bg-[#28C840] inline-block"></span><span>VertiPaq Engine: Idle (1,248,390 rows loaded)</span></div><div class="flex items-center gap-space-xs"><button class="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[14px]">remove</span></button><span class="font-data-mono text-data-mono text-on-surface-variant px-space-xs">100%</span><button class="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[14px]">add</span></button><button class="flex items-center text-on-surface-variant hover:text-on-surface ml-space-xs" type="button"><span class="material-symbols-outlined text-[14px]">fit_screen</span></button></div></div></footer></div></body></html>

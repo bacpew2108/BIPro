@@ -1,0 +1,7 @@
+// O5 | Ba EVALUATE trong một tab. Cái thứ 2 CÓ CHỦ ĐÍCH LỖI (lỗi lúc chạy). Xem cái 1 và 3 có còn chạy không
+
+EVALUATE ROW ( "a", 1 )
+
+EVALUATE ROW ( "b", CONVERT ( "x", INTEGER ) )
+
+EVALUATE ROW ( "c", 3 )

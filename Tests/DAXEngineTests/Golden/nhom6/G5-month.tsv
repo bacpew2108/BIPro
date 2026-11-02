@@ -1,0 +1,97 @@
+Dim_Date[MonthIndex]	Dim_Date[year_month]	[Complaints]	[Complaints · ISBLANK]	[Complaints MA3]	[Complaints MA3 · ISBLANK]	[Trans Count]	[Trans Count · ISBLANK]	[Neg Balance Trans]	[Neg Balance Trans · ISBLANK]	[Neg Trans PM]	[Neg Trans PM · ISBLANK]	[Loan Amount]	[Loan Amount · ISBLANK]
+24133	2011-01		true		true		true		true		true		true
+24134	2011-02		true		true		true		true		true		true
+24135	2011-03		true		true		true		true		true		true
+24136	2011-04		true		true		true		true		true		true
+24137	2011-05		true		true		true		true		true		true
+24138	2011-06		true		true		true		true		true		true
+24139	2011-07		true		true		true		true		true		true
+24140	2011-08		true		true		true		true		true		true
+24141	2011-09		true		true		true		true		true		true
+24142	2011-10		true		true		true		true		true		true
+24143	2011-11		true		true		true		true		true		true
+24144	2011-12	164	false	54.666666666666664	false		true		true		true		true
+24145	2012-01	170	false	111.33333333333333	false		true		true		true		true
+24146	2012-02	160	false	164.66666666666666	false		true		true		true		true
+24147	2012-03	375	false	235	false		true		true		true		true
+24148	2012-04	387	false	307.3333333333333	false		true		true		true		true
+24149	2012-05	478	false	413.3333333333333	false		true		true		true		true
+24150	2012-06	452	false	439	false		true		true		true		true
+24151	2012-07	441	false	457	false		true		true		true		true
+24152	2012-08	368	false	420.3333333333333	false		true		true		true		true
+24153	2012-09	308	false	372.3333333333333	false		true		true		true		true
+24154	2012-10	409	false	361.6666666666667	false		true		true		true		true
+24155	2012-11	283	false	333.3333333333333	false		true		true		true		true
+24156	2012-12	291	false	327.6666666666667	false		true		true		true		true
+24157	2013-01	356	false	310	false	177	false		true		true		true
+24158	2013-02	320	false	322.3333333333333	false	395	false		true		true		true
+24159	2013-03	308	false	328	false	676	false		true		true		true
+24160	2013-04	309	false	312.3333333333333	false	913	false		true		true		true
+24161	2013-05	334	false	317	false	1306	false		true		true		true
+24162	2013-06	306	false	316.3333333333333	false	1880	false	5	false		true		true
+24163	2013-07	322	false	320.6666666666667	false	2399	false		true	5	false	389436	false
+24164	2013-08	299	false	309	false	2938	false		true		true	105804	false
+24165	2013-09	318	false	313	false	3441	false	5	false		true	590112	false
+24166	2013-10	321	false	312.6666666666667	false	3989	false		true	5	false	154416	false
+24167	2013-11	253	false	297.3333333333333	false	4422	false	2	false		true	218556	false
+24168	2013-12	247	false	273.6666666666667	false	5669	false	3	false	2	false	1160952	false
+24169	2014-01	314	false	271.3333333333333	false	9139	false	55	false	3	false	568836	false
+24170	2014-02	329	false	296.6666666666667	false	5601	false	13	false	55	false	775704	false
+24171	2014-03	306	false	316.3333333333333	false	6255	false	10	false	13	false	692580	false
+24172	2014-04	351	false	328.6666666666667	false	6549	false	3	false	10	false	381624	false
+24173	2014-05	324	false	327	false	7059	false	3	false	3	false	1440252	false
+24174	2014-06	311	false	328.6666666666667	false	7916	false	28	false	3	false	2072496	false
+24175	2014-07	294	false	309.6666666666667	false	7398	false	9	false	28	false	1766076	false
+24176	2014-08	315	false	306.6666666666667	false	7600	false	14	false	9	false	1366956	false
+24177	2014-09	304	false	304.3333333333333	false	7844	false	2	false	14	false	1101096	false
+24178	2014-10	331	false	316.6666666666667	false	8197	false	6	false	2	false	718308	false
+24179	2014-11	257	false	297.3333333333333	false	8275	false	19	false	6	false	873204	false
+24180	2014-12	324	false	304	false	9795	false	10	false	19	false	1622772	false
+24181	2015-01	305	false	295.3333333333333	false	15493	false	68	false	10	false	1588032	false
+24182	2015-02	332	false	320.3333333333333	false	8682	false	14	false	68	false	1468788	false
+24183	2015-03	372	false	336.3333333333333	false	9304	false	10	false	14	false	1176732	false
+24184	2015-04	405	false	369.6666666666667	false	9519	false	13	false	10	false	1154796	false
+24185	2015-05	424	false	400.3333333333333	false	9938	false	9	false	13	false	729720	false
+24186	2015-06	470	false	433	false	10930	false	17	false	9	false	1113300	false
+24187	2015-07	437	false	443.6666666666667	false	10431	false	9	false	17	false	909264	false
+24188	2015-08	452	false	453	false	10766	false	11	false	9	false	272664	false
+24189	2015-09	434	false	441	false	11013	false	12	false	11	false	620268	false
+24190	2015-10	430	false	438.6666666666667	false	11431	false	18	false	12	false	1625940	false
+24191	2015-11	419	false	427.6666666666667	false	11741	false	10	false	18	false	983784	false
+24192	2015-12	391	false	413.3333333333333	false	13774	false	25	false	10	false	1701084	false
+24193	2016-01	461	false	423.6666666666667	false	21405	false	60	false	25	false	699240	false
+24194	2016-02	368	false	406.6666666666667	false	12507	false	12	false	60	false	1290024	false
+24195	2016-03	445	false	424.6666666666667	false	13297	false	17	false	12	false	918696	false
+24196	2016-04	434	false	415.6666666666667	false	13754	false	21	false	17	false	1419384	false
+24197	2016-05	421	false	433.3333333333333	false	14308	false	6	false	21	false	1516044	false
+24198	2016-06	428	false	427.6666666666667	false	15885	false	53	false	6	false	1167792	false
+24199	2016-07	422	false	423.6666666666667	false	15500	false	20	false	53	false	1491996	false
+24200	2016-08	507	false	452.3333333333333	false	16299	false	14	false	20	false	2472924	false
+24201	2016-09	552	false	493.6666666666667	false	16883	false	16	false	14	false	1231956	false
+24202	2016-10	495	false	518	false	17538	false	16	false	16	false	2219376	false
+24203	2016-11	456	false	501	false	17943	false	24	false	16	false	2525580	false
+24204	2016-12	443	false	464.6666666666667	false	21460	false	30	false	24	false	1364664	false
+24205	2017-01	489	false	462.6666666666667	false	33060	false	154	false	30	false	1582800	false
+24206	2017-02	449	false	460.3333333333333	false	19202	false	44	false	154	false	2247396	false
+24207	2017-03	436	false	458	false	20491	false	46	false	44	false	1963524	false
+24208	2017-04	3	false	296	false	20922	false	37	false	46	false	1747236	false
+24209	2017-05		true	146.33333333333334	false	21686	false	36	false	37	false	2392476	false
+24210	2017-06		true	1	false	23832	false	71	false	36	false	3870972	false
+24211	2017-07		true		true	22481	false	63	false	71	false	2069856	false
+24212	2017-08		true		true	22979	false	50	false	63	false	3055176	false
+24213	2017-09		true		true	23324	false	59	false	50	false	3315156	false
+24214	2017-10		true		true	23995	false	58	false	59	false	2369496	false
+24215	2017-11		true		true	24168	false	71	false	58	false	2731116	false
+24216	2017-12		true		true	28269	false	84	false	71	false	3386160	false
+24217	2018-01		true		true	42940	false	184	false	84	false	3497844	false
+24218	2018-02		true		true	23995	false	84	false	184	false	2949144	false
+24219	2018-03		true		true	25341	false	97	false	84	false	1640652	false
+24220	2018-04		true		true	25297	false	92	false	97	false	2241948	false
+24221	2018-05		true		true	25634	false	116	false	92	false	1775316	false
+24222	2018-06		true		true	27833	false	150	false	116	false	2804064	false
+24223	2018-07		true		true	25582	false	128	false	150	false	2670276	false
+24224	2018-08		true		true	25622	false	147	false	128	false	1176876	false
+24225	2018-09		true		true	25450	false	130	false	147	false	2290812	false
+24226	2018-10		true		true	25689	false	135	false	130	false	1415112	false
+24227	2018-11		true		true	25341	false	165	false	135	false	1011396	false
+24228	2018-12		true		true	23553	false	106	false	165	false	1395708	false

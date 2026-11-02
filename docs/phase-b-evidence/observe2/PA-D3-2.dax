@@ -1,0 +1,37 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_CRM_Issue'[product],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"SLA_Timely_Rate", 'Fact_CRM_Complaint'[SLA_Timely_Rate],
+			"v_SLA_Timely_Rate_FormatString", IGNORE('Fact_CRM_Complaint'[_SLA_Timely_Rate FormatString]),
+			"Relief_Rate", 'Fact_CRM_Complaint'[Relief Rate],
+			"v_Relief_Rate_FormatString", IGNORE('Fact_CRM_Complaint'[_Relief Rate FormatString]),
+			"Dispute_Rate", 'Fact_CRM_Complaint'[Dispute_Rate],
+			"v_Dispute_Rate_FormatString", IGNORE('Fact_CRM_Complaint'[_Dispute_Rate FormatString]),
+			"Avg_Days_To_Company", IGNORE('Fact_CRM_Complaint'[Avg_Days_To_Company]),
+			"Complaints", IGNORE('Fact_CRM_Complaint'[Complaints])
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(1001, __DS0Core, 'Dim_CRM_Issue'[product], 1)
+
+EVALUATE
+	__DS0PrimaryWindowed
+
+ORDER BY
+	'Dim_CRM_Issue'[product]

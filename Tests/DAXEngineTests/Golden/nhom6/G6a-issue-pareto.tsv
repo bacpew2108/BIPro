@@ -1,0 +1,39 @@
+Dim_CRM_Issue[issue]	[Complaints]	[Complaints · ISBLANK]	[Pareto Cum %]	[Pareto Cum % · ISBLANK]	[Pareto Color]	[Pareto Color · ISBLANK]	[Pareto 80% Line]	[Pareto 80% Line · ISBLANK]
+Account opening, closing, or management	5884	false	0.25124898586617705	false	#6A1B9A	false	0.8	false
+Advertising and marketing	192	false	0.9619112686280371	false	#CE93D8	false	0.8	false
+Application processing delay	34	false	0.9954737606217174	false	#CE93D8	false	0.8	false
+APR or interest rate	493	false	0.8026388829582818	false	#6A1B9A	false	0.8	false
+Arbitration	40	false	0.9908194201289551	false	#CE93D8	false	0.8	false
+Balance transfer	139	false	0.9678466202655963	false	#CE93D8	false	0.8	false
+Balance transfer fee	32	false	0.9968401725095009	false	#CE93D8	false	0.8	false
+Bankruptcy	43	false	0.9891114052692258	false	#CE93D8	false	0.8	false
+Billing disputes	1560	false	0.5667620308296683	false	#6A1B9A	false	0.8	false
+Billing statement	262	false	0.9249327469148981	false	#CE93D8	false	0.8	false
+Cash advance	39	false	0.9924847346171912	false	#CE93D8	false	0.8	false
+Cash advance fee	36	false	0.9940219479909476	false	#CE93D8	false	0.8	false
+Closing/Cancelling account	834	false	0.7815875998121183	false	#6A1B9A	false	0.8	false
+Collection debt dispute	135	false	0.9736111704171826	false	#CE93D8	false	0.8	false
+Collection practices	92	false	0.9826209488022546	false	#CE93D8	false	0.8	false
+Convenience checks	26	false	0.9992740936846151	false	#CE93D8	false	0.8	false
+Credit card protection / Debt protection	318	false	0.8764251248985866	false	#CE93D8	false	0.8	false
+Credit determination	203	false	0.9537127973013365	false	#CE93D8	false	0.8	false
+Credit line increase/decrease	253	false	0.9357359409026859	false	#CE93D8	false	0.8	false
+Credit reporting	270	false	0.9137452495836714	false	#CE93D8	false	0.8	false
+Customer service / Customer relations	373	false	0.8185661215252573	false	#CE93D8	false	0.8	false
+Delinquent account	314	false	0.8898330415474615	false	#CE93D8	false	0.8	false
+Deposits and withdrawals	3788	false	0.4129979930825398	false	#6A1B9A	false	0.8	false
+Forbearance / Workout plans	61	false	0.9852256714633417	false	#CE93D8	false	0.8	false
+Identity theft / Fraud / Embezzlement	841	false	0.7459754899867629	false	#6A1B9A	false	0.8	false
+Late fee	344	false	0.8628464067637388	false	#CE93D8	false	0.8	false
+Making/receiving payments, sending money	1246	false	0.6199666937102353	false	#6A1B9A	false	0.8	false
+Other	978	false	0.7100644775609548	false	#6A1B9A	false	0.8	false
+Other fee	347	false	0.8333831504334088	false	#CE93D8	false	0.8	false
+Overlimit fee	17	false	1	false	#CE93D8	false	0.8	false
+Payoff process	218	false	0.9450446218882105	false	#CE93D8	false	0.8	false
+Privacy	48	false	0.9872752892950168	false	#CE93D8	false	0.8	false
+Problems caused by my funds being low	2041	false	0.5001494513002264	false	#6A1B9A	false	0.8	false
+Rewards	290	false	0.9022161492804988	false	#CE93D8	false	0.8	false
+Sale of account	31	false	0.998163884025791	false	#CE93D8	false	0.8	false
+Transaction issue	346	false	0.848157478970067	false	#CE93D8	false	0.8	false
+Unsolicited issuance of credit card	119	false	0.9786925146248773	false	#CE93D8	false	0.8	false
+Using a debit or ATM card	1132	false	0.6683035142405739	false	#6A1B9A	false	0.8	false

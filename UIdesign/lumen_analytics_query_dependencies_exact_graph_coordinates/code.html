@@ -1,0 +1,540 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-tint": "#005db8",
+        "on-secondary-fixed": "#0c006b",
+        "tertiary": "#9a4100",
+        "on-tertiary-fixed-variant": "#793100",
+        "surface-container": "#f0edef",
+        "outline": "#717786",
+        "primary-fixed-dim": "#aac7ff",
+        "primary": "#005ab3",
+        "inverse-surface": "#303032",
+        "on-background": "#1b1b1d",
+        "outline-variant": "#c0c6d6",
+        "on-primary": "#ffffff",
+        "surface-container-lowest": "#ffffff",
+        "primary-fixed": "#d6e3ff",
+        "surface-container-highest": "#e4e2e4",
+        "secondary-fixed-dim": "#c2c1ff",
+        "error": "#ba1a1a",
+        "on-surface-variant": "#414754",
+        "surface-dim": "#dcd9dc",
+        "inverse-on-surface": "#f3f0f2",
+        "on-secondary-fixed-variant": "#332dbc",
+        "inverse-primary": "#aac7ff",
+        "tertiary-fixed-dim": "#ffb691",
+        "on-error": "#ffffff",
+        "on-surface": "#1b1b1d",
+        "on-primary-fixed": "#001b3e",
+        "tertiary-fixed": "#ffdbcb",
+        "on-tertiary-container": "#fffbff",
+        "surface": "#fcf8fb",
+        "on-primary-fixed-variant": "#00468d",
+        "surface-container-low": "#f6f3f5",
+        "primary-container": "#0073e0",
+        "secondary": "#4a47d2",
+        "error-container": "#ffdad6",
+        "surface-container-high": "#eae7ea",
+        "tertiary-container": "#c25300",
+        "surface-bright": "#fcf8fb",
+        "on-primary-container": "#fefcff",
+        "secondary-fixed": "#e2dfff",
+        "on-tertiary-fixed": "#341100",
+        "on-error-container": "#93000a",
+        "background": "#fcf8fb",
+        "surface-variant": "#e4e2e4",
+        "on-secondary-container": "#fffbff",
+        "secondary-container": "#6462ec",
+        "on-secondary": "#ffffff",
+        "on-tertiary": "#ffffff"
+      },
+      borderRadius: {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "full": "9999px"
+      },
+      spacing: {
+        "space-sm": "8px",
+        "space-xl": "24px",
+        "space-lg": "16px",
+        "space-xs": "4px",
+        "space-md": "12px",
+        "gutter": "12px",
+        "margin": "16px"
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+        body: ["Inter", "system-ui", "sans-serif"]
+      }
+    }
+  }
+};</script></head><body class="bg-surface font-sans text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed overflow-x-hidden"><header class="fixed top-0 left-0 right-0 h-14 bg-surface/85 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex items-center justify-between px-margin select-none"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs"><span class="w-3 h-3 rounded-full bg-[#FF5F57] inline-block cursor-pointer shadow-sm"></span><span class="w-3 h-3 rounded-full bg-[#FEBC2E] inline-block cursor-pointer shadow-sm"></span><span class="w-3 h-3 rounded-full bg-[#28C840] inline-block cursor-pointer shadow-sm"></span></div><div class="h-4 w-px bg-outline-variant/40 ml-space-xs"></div><div class="flex items-center gap-space-xs text-on-surface-variant text-sm"><span class="font-semibold text-on-surface">Lumen Analytics</span><span class="text-outline text-xs">/</span><span class="text-on-surface-variant text-xs">Query Dependencies — Sales Report</span></div></div><div class="flex items-center gap-space-md"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-2.5 text-outline text-[16px]">search</span><input class="h-8 pl-8 pr-3 rounded-lg bg-surface-container-low text-xs text-on-surface placeholder:text-outline border border-outline-variant/30 focus:outline-none focus:bg-surface-container-lowest focus:ring-1 focus:ring-primary w-60 transition-all" placeholder="Filter nodes &amp; sources..." type="text"></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-medium text-xs text-on-primary shadow-sm ring-1 ring-primary/20">JD</div></div></header><aside class="fixed left-0 top-14 bottom-0 w-60 bg-surface-container-low/80 backdrop-blur-xl border-r border-outline-variant/30 z-40 flex flex-col justify-between py-4 select-none"><div class="px-3 flex flex-col gap-4"><div class="flex items-center justify-between px-2"><span class="text-[11px] font-semibold uppercase tracking-wider text-outline">Model Inspector</span><span class="material-symbols-outlined text-outline text-[16px] cursor-pointer hover:text-on-surface transition-colors">tune</span></div><nav class="flex flex-col gap-1"><a aria-current="page" class="flex items-center px-3 py-2 rounded-lg transition-colors bg-surface-container-high text-on-surface font-semibold text-xs shadow-xs" href="#"><span class="material-symbols-outlined mr-2.5 text-[18px] text-primary">schema</span>Dependency Graph</a><a class="flex items-center px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors text-xs font-medium" href="#"><span class="material-symbols-outlined mr-2.5 text-[18px]">database</span>Data Sources</a><a class="flex items-center px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors text-xs font-medium" href="#"><span class="material-symbols-outlined mr-2.5 text-[18px]">function</span>Calculations &amp; DAX</a><a class="flex items-center px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors text-xs font-medium" href="#"><span class="material-symbols-outlined mr-2.5 text-[18px]">vital_signs</span>Impact &amp; Performance</a></nav></div><div class="px-3"><div class="p-3 rounded-xl bg-surface-container/70 border border-outline-variant/30 flex flex-col gap-1"><div class="flex items-center gap-1.5 text-on-surface"><span class="material-symbols-outlined text-primary text-[16px]">sync</span><span class="text-xs font-semibold">Engine Ready</span></div><p class="text-[11px] text-on-surface-variant">14 nodes analyzed • DirectQuery</p></div></div></aside><div class="pl-60"><main class="relative pt-14 pb-14 min-h-screen w-full bg-[#f8fafc]"><div class="flex flex-col w-full select-none text-on-surface">
+<!-- TOP CONTEXT CONTROLS BAR -->
+<header class="w-full bg-surface-container-low/90 backdrop-blur-md px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant/30 z-20">
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">account_tree</span>
+<span class="font-semibold text-sm text-on-surface tracking-tight">Query Dependencies</span>
+</div>
+<div class="h-4 w-px bg-outline-variant/50"></div>
+<div class="relative">
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-surface-container-lowest hover:bg-surface-container border border-outline-variant/30 transition-colors shadow-xs text-xs font-medium text-on-surface" type="button">
+<span class="w-2 h-2 rounded-full bg-primary inline-block"></span>
+<span class="">All Queries (6)</span>
+<span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-1 rounded-lg text-xs bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-colors flex items-center gap-1 border border-outline-variant/20">
+<span class="material-symbols-outlined text-[13px]">filter_alt</span>
+<span class="">Source: All</span>
+</button>
+<button class="px-2.5 py-1 rounded-lg text-xs bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-colors flex items-center gap-1 border border-outline-variant/20">
+<span class="material-symbols-outlined text-[13px]">tag</span>
+<span class="">Tags (3)</span>
+</button>
+</div>
+</div>
+<!-- Center Legend Badges -->
+<div class="hidden xl:flex items-center gap-1 bg-surface-container/70 p-1 rounded-xl border border-outline-variant/30">
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-surface-container-lowest shadow-xs text-xs font-medium text-on-surface">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="">Data Sources</span>
+<span class="text-outline text-[11px] ml-0.5 font-medium">2</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-medium text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="">Staging</span>
+<span class="text-outline text-[11px] ml-0.5 font-medium">2</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-medium text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-[#0A84FF]"></span>
+<span class="">Final Queries</span>
+<span class="text-outline text-[11px] ml-0.5 font-medium">4</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-medium text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-[#10b981]"></span>
+<span class="">Model</span>
+<span class="text-outline text-[11px] ml-0.5 font-medium">1</span>
+</div>
+</div>
+<!-- Right Toolbar Actions -->
+<div class="flex items-center gap-2">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-2 text-outline text-[15px]">search</span>
+<input class="h-7 pl-7 pr-3 rounded-lg bg-surface-container text-xs text-on-surface placeholder:text-outline border border-outline-variant/20 focus:outline-none focus:bg-surface-container-lowest focus:ring-1 focus:ring-primary w-40 transition-all" placeholder="Search lineage... ⌘F" type="text">
+</div>
+<button class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors text-xs font-medium text-on-surface border border-outline-variant/30" type="button">
+<span class="material-symbols-outlined text-[15px] text-outline">file_download</span>
+<span class="">Export</span>
+<span class="material-symbols-outlined text-[12px] text-outline">expand_more</span>
+</button>
+<div class="flex items-center gap-1 bg-surface-container p-0.5 rounded-lg border border-outline-variant/30">
+<button class="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface px-2 py-0.5 rounded transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">view_column</span>
+<span class="">Stage Columns</span>
+</button>
+<div class="h-3 w-px bg-outline-variant/40"></div>
+<button class="flex items-center gap-1 text-xs text-[#0A84FF] font-semibold px-2 py-0.5 rounded transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">route</span>
+<span class="">Highlight Upstream &amp; Downstream</span>
+</button>
+</div>
+<button class="flex items-center gap-1 px-3 py-1 rounded-lg bg-[#0A84FF] text-white hover:bg-primary-container transition-colors text-xs font-medium shadow-xs" type="button">
+<span class="material-symbols-outlined text-[15px]">auto_fix_high</span>
+<span class="">Auto-arrange</span>
+</button>
+</div>
+</header>
+<!-- INTERACTIVE CANVAS WORKSPACE -->
+<section class="relative w-full h-[760px] overflow-hidden bg-[#F6F7F9]" id="graphCanvas"><!-- Dot Grid Canvas Pattern -->
+<div class="absolute inset-0 opacity-[0.4] pointer-events-none" style="background-image: radial-gradient(#94a3b8 1px, transparent 1px); background-size: 20px 20px;"></div>
+<!-- 4 COLUMN HEADERS (aligned at x = 30, 280, 530, 790) -->
+<div class="absolute top-0 left-0 right-0 h-10 border-b border-outline-variant/30 bg-surface/70 backdrop-blur-sm z-10 flex items-center pointer-events-none">
+<div class="absolute left-[30px] w-[200px] flex items-center gap-2">
+<span class="text-[11px] font-semibold uppercase tracking-wider text-outline">01 · DATA SOURCES</span>
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+</div>
+<div class="absolute left-[280px] w-[200px] flex items-center gap-2">
+<span class="text-[11px] font-semibold uppercase tracking-wider text-outline">02 · STAGING QUERIES</span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<div class="absolute left-[530px] w-[200px] flex items-center gap-2">
+<span class="text-[11px] font-semibold uppercase tracking-wider text-outline">03 · FINAL QUERIES</span>
+<span class="w-2 h-2 rounded-full bg-[#0A84FF]"></span>
+</div>
+<div class="absolute left-[790px] w-[200px] flex items-center gap-2">
+<span class="text-[11px] font-semibold uppercase tracking-wider text-outline">04 · SEMANTIC MODEL</span>
+<span class="w-2 h-2 rounded-full bg-[#10b981]"></span>
+</div>
+</div>
+<!-- SVG CONNECTOR PATHS LAYER
+  Canvas size viewbox 0 0 1100 700
+  Dots:
+  - sales_2026.xlsx: (30, 120), right dot = (230, 165)
+  - SQL Server: (30, 400), right dot = (230, 445)
+  - Raw_Sales: (280, 120), left dot = (280, 165), right dot = (480, 165)
+  - Raw_Customers: (280, 400), left dot = (280, 445), right dot = (480, 445)
+  - Sales: (530, 40), left dot = (530, 85), right dot = (730, 85), bottom dot = (630, 130)
+  - Customers: (530, 200), left dot = (530, 245), right dot = (730, 245), top dot = (630, 200)
+  - Products: (530, 380), left dot = (530, 425), right dot = (730, 425)
+  - Calendar: (530, 540), left dot = (530, 585), right dot = (730, 585)
+  - Data model: (790, 290), left dot = (790, 335)
+-->
+<svg class="absolute inset-0 w-full h-full pointer-events-none z-10" id="lineageSvg" viewBox="0 0 1100 700"><defs>
+<!-- Active Arrowhead (#0A84FF) with refx positioned flush -->
+<marker id="arrow-active" markerHeight="6" markerWidth="6" orient="auto" refX="4" refY="3" viewBox="0 0 6 6">
+<path d="M 0 0 L 6 3 L 0 6 Z" fill="#0A84FF"></path>
+</marker>
+<!-- Faded Gray Arrowhead with refx positioned flush -->
+<marker id="arrow-faded" markerHeight="6" markerWidth="6" orient="auto" refX="4" refY="3" viewBox="0 0 6 6">
+<path d="M 0 0 L 6 3 L 0 6 Z" fill="#94a3b8"></path>
+</marker>
+</defs>
+<!-- FADED CONNECTIONS (40% Opacity) -->
+<g class="opacity-40">
+<!-- SQL Server (230, 445) to Products (530, 425) -->
+<path d="M 230 445 C 330 515, 430 500, 530 425" fill="none" marker-end="url(#arrow-faded)" stroke="#94a3b8" stroke-width="2"></path>
+<!-- Customers (730, 245) to Data model (790, 335) -->
+<path d="M 730 245 C 755 245, 765 335, 790 335" fill="none" marker-end="url(#arrow-faded)" stroke="#94a3b8" stroke-width="2"></path>
+<!-- Products (730, 425) to Data model (790, 335) -->
+<path d="M 730 425 C 755 425, 765 335, 790 335" fill="none" marker-end="url(#arrow-faded)" stroke="#94a3b8" stroke-width="2"></path>
+<!-- Calendar (730, 585) to Data model (790, 335) -->
+<path d="M 730 585 C 760 585, 765 335, 790 335" fill="none" marker-end="url(#arrow-faded)" stroke="#94a3b8" stroke-width="2"></path>
+</g>
+<!-- ACTIVE HIGHLIGHTED CONNECTIONS (#0A84FF, stroke-width 2px) -->
+<g>
+<!-- sales_2026.xlsx (230, 165) to Raw_Sales (280, 165) -->
+<path d="M 230 165 L 280 165" fill="none" marker-end="url(#arrow-active)" stroke="#0A84FF" stroke-width="2"></path>
+<!-- SQL Server (230, 445) to Raw_Customers (280, 445) -->
+<path d="M 230 445 L 280 445" fill="none" marker-end="url(#arrow-active)" stroke="#0A84FF" stroke-width="2"></path>
+<!-- Raw_Sales (480, 165) to Sales (530, 85) -->
+<path d="M 480 165 C 505 165, 505 85, 530 85" fill="none" marker-end="url(#arrow-active)" stroke="#0A84FF" stroke-width="2"></path>
+<!-- Raw_Customers (480, 445) to Customers (530, 245) -->
+<path d="M 480 445 C 505 445, 505 245, 530 245" fill="none" marker-end="url(#arrow-active)" stroke="#0A84FF" stroke-width="2"></path>
+<!-- Customers top (630, 200) to Sales bottom (630, 130) vertical merge connection -->
+<path d="M 630 200 L 630 130" fill="none" marker-end="url(#arrow-active)" stroke="#0A84FF" stroke-dasharray="3 3" stroke-width="2"></path>
+<!-- Sales (730, 85) to Data model (790, 335) terminating flush on left connector port -->
+<path d="M 730 85 C 755 85, 765 335, 790 335" fill="none" marker-end="url(#arrow-active)" stroke="#0A84FF" stroke-width="2"></path>
+</g></svg>
+<!-- MERGE PILL OVERLAY (between Customers top and Sales bottom: x=605, y=155) -->
+<div class="absolute left-[605px] top-[155px] z-30 pointer-events-none">
+<div class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container-lowest border border-[#0A84FF] text-[#0A84FF] shadow-xs text-[10px] font-semibold tracking-wide">
+<span class="material-symbols-outlined text-[11px]">call_merge</span>
+<span class="">Merge</span>
+</div>
+</div>
+<!-- ================= DOM CARDS LAYER (All cards exactly 200px wide, 90px tall) ================= -->
+<div class="relative w-full h-full z-20 pointer-events-auto">
+<!-- Card: sales_2026.xlsx (30, 120, 200x90) -->
+<div class="absolute left-[30px] top-[120px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-emerald-50 text-[#107c41] flex items-center justify-center border border-emerald-100 shrink-0">
+<span class="material-symbols-outlined text-[18px]">table_view</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface truncate">sales_2026.xlsx</span>
+<span class="text-[10px] text-outline">Excel Workbook</span>
+</div>
+</div>
+<span class="w-2 h-2 rounded-full bg-[#28C840] shadow-xs mt-1 shrink-0" title="Ready"></span>
+</div>
+<div class="flex items-center justify-between text-[10px] text-on-surface-variant bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20">
+<span class="truncate">Local File · 4.2 MB</span>
+<span class="text-[#107c41] font-semibold">Ready</span>
+</div>
+<!-- Connector Dots (left, right) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-outline-variant/40 shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+</div>
+<!-- Card: SQL Server (dw-prod-01) (30, 400, 200x90) -->
+<div class="absolute left-[30px] top-[400px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-blue-50 text-primary flex items-center justify-center border border-blue-100 shrink-0">
+<span class="material-symbols-outlined text-[18px]">database</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface truncate">SQL Server (dw-prod-01)</span>
+<span class="text-[10px] text-outline">Azure SQL / TDS</span>
+</div>
+</div>
+<span class="w-2 h-2 rounded-full bg-[#28C840] shadow-xs mt-1 shrink-0" title="Ready"></span>
+</div>
+<div class="flex items-center justify-between text-[10px] text-on-surface-variant bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20">
+<span class="truncate text-outline">10.0.4.12:1433</span>
+<span class="text-primary font-semibold text-[10px] bg-primary/10 px-1 rounded">DirectQuery</span>
+</div>
+<!-- Connector Dots (left, right) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-outline-variant/40 shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+</div>
+<!-- Card: Raw_Sales (280, 120, 200x90) -->
+<div class="absolute left-[280px] top-[120px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-indigo-50 text-secondary flex items-center justify-center border border-indigo-100 shrink-0">
+<span class="material-symbols-outlined text-[18px]">transform</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface truncate">Raw_Sales</span>
+<span class="text-[10px] text-outline">Staging query</span>
+</div>
+</div>
+<span class="px-1.5 py-0.5 rounded text-[9px] bg-surface-container font-medium text-on-surface-variant border border-outline-variant/30">8 steps</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20 text-on-surface-variant">
+<span class="">Buffer: In-Memory</span>
+<span class="font-semibold text-on-surface">18,430 rows</span>
+</div>
+<!-- Connector Dots (left, right) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+</div>
+<!-- Card: Raw_Customers (280, 400, 200x90) -->
+<div class="absolute left-[280px] top-[400px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-surface-container text-outline flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">visibility_off</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface italic truncate">Raw_Customers</span>
+<span class="text-[10px] text-outline">Query (Load Disabled)</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[15px]">info</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20 text-on-surface-variant">
+<span class="">Staging Transform</span>
+<span class="text-outline font-medium">No Direct Load</span>
+</div>
+<!-- Connector Dots (left, right) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+</div>
+<!-- Card: Sales (530, 40, 200x90) - Active Selection -->
+<div class="absolute left-[530px] top-[40px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 shadow-xl transition-all cursor-pointer border-2 border-[#0A84FF] ring-4 ring-[#0A84FF]/15 z-30 flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-[#0A84FF]/10 text-[#0A84FF] flex items-center justify-center font-bold shrink-0">
+<span class="material-symbols-outlined text-[18px]">insights</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1">
+<span class="font-bold text-xs text-on-surface truncate">Sales</span>
+<span class="w-1.5 h-1.5 rounded-full bg-[#0A84FF] animate-pulse"></span>
+</div>
+<span class="text-[9px] text-[#0A84FF] font-semibold">Active Selection</span>
+</div>
+</div>
+<span class="px-1.5 py-0.5 rounded-full text-[9px] bg-[#0A84FF] text-white font-semibold shadow-xs">Merged</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/80 px-2 py-1 rounded-md border border-outline-variant/20">
+<span class="text-outline text-[9px]">Schema Profile:</span>
+<span class="font-medium text-[9px]">9 Cols · 18,430 Rows</span>
+</div>
+<!-- Connector Dots (left, right, bottom) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-[#0A84FF] border-2 border-surface-container-lowest shadow-sm"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-[#0A84FF] border-2 border-surface-container-lowest shadow-sm"></span>
+<span class="absolute left-1/2 -translate-x-1/2 -bottom-1.5 w-3 h-3 rounded-full bg-[#0A84FF] border-2 border-surface-container-lowest shadow-xs"></span>
+</div>
+<!-- Card: Customers (530, 200, 200x90) -->
+<div class="absolute left-[530px] top-[200px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">group</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface truncate">Customers</span>
+<span class="text-[10px] text-outline">Dimension</span>
+</div>
+</div>
+<span class="px-1.5 py-0.5 rounded text-[9px] bg-surface-container font-medium text-on-surface-variant border border-outline-variant/30">7 Attributes</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20 text-on-surface-variant">
+<span class="">Entities</span>
+<span class="font-semibold text-on-surface">1,240 entities</span>
+</div>
+<!-- Connector Dots (left, right, top) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-slate-300 shadow-xs"></span>
+<span class="absolute left-1/2 -translate-x-1/2 -top-1.5 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-[#0A84FF] shadow-xs"></span>
+</div>
+<!-- Card: Products (530, 380, 200x90) - Faded 40% -->
+<div class="absolute left-[530px] top-[380px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs transition-all cursor-pointer opacity-40 hover:opacity-75 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">category</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface truncate">Products</span>
+<span class="text-[10px] text-outline">Dimension</span>
+</div>
+</div>
+<span class="px-1.5 py-0.5 rounded text-[9px] bg-surface-container font-medium text-on-surface-variant border border-outline-variant/30">Items</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20 text-on-surface-variant">
+<span class="">ProductHierarchy</span>
+<span class="font-medium text-on-surface">348 items</span>
+</div>
+<!-- Connector Dots (left, right) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-slate-300 shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-slate-300 shadow-xs"></span>
+</div>
+<!-- Card: Calendar (530, 540, 200x90) - Faded 40% -->
+<div class="absolute left-[530px] top-[540px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-outline-variant/40 shadow-xs transition-all cursor-pointer opacity-40 hover:opacity-75 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-surface-container text-on-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-semibold text-xs text-on-surface truncate">Calendar</span>
+<span class="text-[10px] text-outline truncate max-w-[100px]" title="Query (generated in M)">Query (generated in M)</span>
+</div>
+</div>
+<span class="px-1.5 py-0.5 rounded text-[9px] bg-surface-container font-medium text-on-surface-variant border border-outline-variant/30">Auto</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/70 rounded-md px-2 py-1 border border-outline-variant/20 text-on-surface-variant">
+<span class="">2024-01-01</span>
+<span class="font-semibold text-on-surface">820 rows</span>
+</div>
+<!-- Connector Dots (left, right) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-slate-300 shadow-xs"></span>
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-slate-300 shadow-xs"></span>
+</div>
+<!-- Card: Data model (790, 290, 200x90) - Semantic Model, fully visible -->
+<div class="absolute left-[790px] top-[290px] w-[200px] h-[90px] rounded-xl bg-surface-container-lowest p-2.5 border border-emerald-300 ring-2 ring-emerald-500/20 shadow-lg hover:shadow-xl transition-all cursor-pointer group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-lg bg-emerald-50 text-[#10b981] flex items-center justify-center border border-emerald-100 shrink-0 shadow-xs">
+<span class="material-symbols-outlined text-[18px]">view_in_ar</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-bold text-xs text-on-surface truncate">Data model</span>
+<span class="text-[10px] text-outline truncate">4 tables loaded</span>
+</div>
+</div>
+<span class="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-50 text-[#10b981] border border-emerald-200 shrink-0">Model</span>
+</div>
+<div class="flex items-center justify-between text-[10px] bg-surface-container-low/80 px-2 py-1 rounded-md border border-outline-variant/20">
+<span class="text-outline text-[9px]">Semantic Star Schema</span>
+<span class="text-[#10b981] font-semibold flex items-center gap-0.5 text-[9px]">
+<span class="material-symbols-outlined text-[11px]">check_circle</span> Ready
+      </span>
+</div>
+<!-- Left Port Dot (Highlighted Blue for Sales connection) -->
+<span class="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-[#0A84FF] border-2 border-surface-container-lowest shadow-sm"></span>
+<!-- Right Port Dot -->
+<span class="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-surface-container-lowest border-2 border-slate-300 shadow-xs"></span>
+</div>
+</div>
+<!-- BOTTOM-RIGHT SELECTION SUMMARY PILL -->
+<div class="absolute bottom-5 right-6 z-40 bg-surface-container-lowest/95 backdrop-blur-md px-3.5 py-2 rounded-xl shadow-lg border border-outline-variant/30 flex items-center gap-3">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-[#0A84FF] animate-pulse"></span>
+<div class="flex flex-col">
+<span class="text-xs font-semibold text-on-surface">Selected: Sales (Query)</span>
+<span class="text-[11px] text-outline">Upstream: 5 nodes · Downstream: 1 node</span>
+</div>
+</div>
+<button class="w-5 h-5 rounded-md hover:bg-surface-container flex items-center justify-center text-outline hover:text-on-surface transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div></section>
+</div></main></div>
+<!-- BOTTOM TOOLBAR (SINGLE HORIZONTAL BAR, NO OVERLAPPING ITEMS) -->
+<footer class="fixed bottom-0 left-60 right-0 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/30 shadow-[0_-1px_8px_rgba(0,0,0,0.03)] z-30 flex items-center justify-between px-6 select-none h-12"><!-- Left Group: Layout + Hierarchy segments + Stats -->
+<div class="flex items-center gap-2.5 shrink-0 whitespace-nowrap">
+  <div class="flex items-center gap-1.5">
+    <span class="text-xs text-outline font-medium">Layout:</span>
+    <button class="flex items-center gap-1 px-2 py-1 rounded-lg bg-surface-container-lowest hover:bg-surface-container transition-colors shadow-xs text-xs font-medium text-on-surface border border-outline-variant/30" type="button">
+      <span class="material-symbols-outlined text-primary text-[15px]">arrow_right_alt</span>
+      <span class="">Left to right</span>
+      <span class="material-symbols-outlined text-[13px] text-outline">expand_more</span>
+    </button>
+  </div>
+  <div class="h-4 w-px bg-outline-variant/30"></div>
+  <div class="flex items-center gap-0.5 bg-surface-container-low p-0.5 rounded-lg border border-outline-variant/30 shadow-xs">
+    <button class="px-2 py-1 rounded-md text-xs text-on-surface bg-surface-container-lowest shadow-xs font-semibold" type="button">Hierarchy</button>
+    <button class="px-2 py-1 rounded-md text-xs text-on-surface-variant hover:text-on-surface transition-colors font-medium" type="button">Organic</button>
+    <button class="px-2 py-1 rounded-md text-xs text-on-surface-variant hover:text-on-surface transition-colors font-medium" type="button">Radial</button>
+  </div>
+  <div class="h-4 w-px bg-outline-variant/30"></div>
+  <span class="text-xs text-on-surface-variant font-medium select-none">9 nodes · 10 dependencies</span>
+</div>
+
+<!-- Right Group: Refresh, Zoom, Fit to View, Close -->
+<div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+  <button class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors text-xs font-medium text-on-surface border border-outline-variant/30 shadow-xs" id="refreshGraphBtn" type="button">
+    <span class="material-symbols-outlined text-[14px]">refresh</span>
+    <span class="">Refresh graph</span>
+  </button>
+  <div class="h-4 w-px bg-outline-variant/30"></div>
+  <div class="flex items-center gap-0.5 bg-surface-container-low px-1 py-0.5 rounded-lg border border-outline-variant/30 shadow-xs">
+    <button class="p-1 text-on-surface-variant hover:text-on-surface rounded flex items-center transition-colors" id="zoomOutBtn" type="button">
+      <span class="material-symbols-outlined text-[15px]">remove</span>
+    </button>
+    <span class="text-xs font-semibold text-on-surface px-1 w-9 text-center select-none" id="zoomReadout">100%</span>
+    <button class="p-1 text-on-surface-variant hover:text-on-surface rounded flex items-center transition-colors" id="zoomInBtn" type="button">
+      <span class="material-symbols-outlined text-[15px]">add</span>
+    </button>
+  </div>
+  <button class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-colors text-xs font-medium border border-outline-variant/30 shadow-xs" id="zoomResetBtn" type="button">
+    <span class="material-symbols-outlined text-[15px]">fit_screen</span>
+    <span class="">Fit to View</span>
+  </button>
+  <button class="px-3.5 py-1.5 rounded-lg bg-[#0A84FF] hover:bg-primary-container text-white transition-colors text-xs font-semibold shadow-xs" type="button">
+    Close
+  </button>
+</div></footer>
+<script>
+  (function initControls() {
+    let currentZoom = 100;
+    const zoomReadout = document.getElementById('zoomReadout');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+    const refreshBtn = document.getElementById('refreshGraphBtn');
+
+    if (zoomInBtn && zoomOutBtn && zoomReadout) {
+      zoomInBtn.addEventListener('click', () => {
+        if (currentZoom < 180) {
+          currentZoom += 10;
+          zoomReadout.textContent = currentZoom + '%';
+        }
+      });
+      zoomOutBtn.addEventListener('click', () => {
+        if (currentZoom > 50) {
+          currentZoom -= 10;
+          zoomReadout.textContent = currentZoom + '%';
+        }
+      });
+      zoomResetBtn && zoomResetBtn.addEventListener('click', () => {
+        currentZoom = 100;
+        zoomReadout.textContent = '100%';
+      });
+    }
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        const icon = refreshBtn.querySelector('.material-symbols-outlined');
+        if (icon) {
+          icon.classList.add('animate-spin');
+          setTimeout(() => icon.classList.remove('animate-spin'), 650);
+        }
+      });
+    }
+  })();
+</script>
+
+
+</body></html>

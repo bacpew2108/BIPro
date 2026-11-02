@@ -1,0 +1,18 @@
+// T4-count-empty | Đếm trên tập rỗng và DISTINCTCOUNT có BLANK. Chạy, Copy kết quả, dán vào T4-count-empty.tsv
+EVALUATE
+ROW (
+	"countrows(empty)", COUNTROWS ( FILTER ( 'Dim_Date', FALSE () ) ),
+	"countrows(empty) · ISBLANK", ISBLANK ( COUNTROWS ( FILTER ( 'Dim_Date', FALSE () ) ) ),
+	"distinctcount 2011", CALCULATE ( DISTINCTCOUNT ( 'Fact_Transaction'[account_key] ), 'Dim_Date'[year] = 2011 ),
+	"distinctcount 2011 · ISBLANK", ISBLANK ( CALCULATE ( DISTINCTCOUNT ( 'Fact_Transaction'[account_key] ), 'Dim_Date'[year] = 2011 ) ),
+	"count 2011", CALCULATE ( COUNT ( 'Fact_Transaction'[amount] ), 'Dim_Date'[year] = 2011 ),
+	"count 2011 · ISBLANK", ISBLANK ( CALCULATE ( COUNT ( 'Fact_Transaction'[amount] ), 'Dim_Date'[year] = 2011 ) ),
+	"countrows 2011", CALCULATE ( COUNTROWS ( 'Fact_Transaction' ), 'Dim_Date'[year] = 2011 ),
+	"countrows 2011 · ISBLANK", ISBLANK ( CALCULATE ( COUNTROWS ( 'Fact_Transaction' ), 'Dim_Date'[year] = 2011 ) ),
+	"sum 2011", CALCULATE ( SUM ( 'Fact_Transaction'[amount] ), 'Dim_Date'[year] = 2011 ),
+	"sum 2011 · ISBLANK", ISBLANK ( CALCULATE ( SUM ( 'Fact_Transaction'[amount] ), 'Dim_Date'[year] = 2011 ) ),
+	"distinctcount client_region", DISTINCTCOUNT ( 'Dim_Client'[client_region] ),
+	"distinctcount client_region · ISBLANK", ISBLANK ( DISTINCTCOUNT ( 'Dim_Client'[client_region] ) ),
+	"countrows Dim_Client", COUNTROWS ( 'Dim_Client' ),
+	"countrows Dim_Client · ISBLANK", ISBLANK ( COUNTROWS ( 'Dim_Client' ) )
+)

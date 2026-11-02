@@ -1,0 +1,3 @@
+// O18b | BLANK trong TOPN
+EVALUATE
+TOPN ( 1, { 1, BLANK (), -1 }, [Value], ASC )

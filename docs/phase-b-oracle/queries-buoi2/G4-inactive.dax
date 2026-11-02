@@ -1,0 +1,27 @@
+// G4-inactive | Quan hệ inactive sent_date_key qua USERELATIONSHIP, theo năm. Chạy, Copy kết quả, dán vào G4-inactive.tsv
+DEFINE
+	MEASURE 'Fact_CRM_Complaint'[Complaints (gửi)] = CALCULATE ( 'Fact_CRM_Complaint'[Complaints], USERELATIONSHIP ( 'Fact_CRM_Complaint'[sent_date_key], 'Dim_Date'[date_key] ) )
+	MEASURE 'Fact_CRM_Complaint'[Avg_Days_To_Company (gửi)] = CALCULATE ( 'Fact_CRM_Complaint'[Avg_Days_To_Company], USERELATIONSHIP ( 'Fact_CRM_Complaint'[sent_date_key], 'Dim_Date'[date_key] ) )
+	MEASURE 'Fact_CRM_Complaint'[Dispute_Rate (gửi)] = CALCULATE ( 'Fact_CRM_Complaint'[Dispute_Rate], USERELATIONSHIP ( 'Fact_CRM_Complaint'[sent_date_key], 'Dim_Date'[date_key] ) )
+	MEASURE 'Fact_CRM_Complaint'[SLA_Timely_Rate (gửi)] = CALCULATE ( 'Fact_CRM_Complaint'[SLA_Timely_Rate], USERELATIONSHIP ( 'Fact_CRM_Complaint'[sent_date_key], 'Dim_Date'[date_key] ) )
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_Date'[year],
+	"Complaints", 'Fact_CRM_Complaint'[Complaints],
+	"Complaints · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints] ),
+	"Complaints (gửi)", 'Fact_CRM_Complaint'[Complaints (gửi)],
+	"Complaints (gửi) · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints (gửi)] ),
+	"Avg_Days_To_Company", 'Fact_CRM_Complaint'[Avg_Days_To_Company],
+	"Avg_Days_To_Company · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Avg_Days_To_Company] ),
+	"Avg_Days_To_Company (gửi)", 'Fact_CRM_Complaint'[Avg_Days_To_Company (gửi)],
+	"Avg_Days_To_Company (gửi) · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Avg_Days_To_Company (gửi)] ),
+	"Dispute_Rate", 'Fact_CRM_Complaint'[Dispute_Rate],
+	"Dispute_Rate · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Dispute_Rate] ),
+	"Dispute_Rate (gửi)", 'Fact_CRM_Complaint'[Dispute_Rate (gửi)],
+	"Dispute_Rate (gửi) · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Dispute_Rate (gửi)] ),
+	"SLA_Timely_Rate", 'Fact_CRM_Complaint'[SLA_Timely_Rate],
+	"SLA_Timely_Rate · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[SLA_Timely_Rate] ),
+	"SLA_Timely_Rate (gửi)", 'Fact_CRM_Complaint'[SLA_Timely_Rate (gửi)],
+	"SLA_Timely_Rate (gửi) · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[SLA_Timely_Rate (gửi)] )
+)
+ORDER BY 'Dim_Date'[year]

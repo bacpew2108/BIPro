@@ -1,0 +1,11 @@
+// G6c-channel-response | Tỷ trọng phản hồi trong từng kênh. Chạy, Copy kết quả, dán vào G6c-channel-response.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Dim_CRM_Channel_Response'[submitted_via],
+	'Dim_CRM_Channel_Response'[company_response],
+	"Complaints", 'Fact_CRM_Complaint'[Complaints],
+	"Complaints · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Complaints] ),
+	"Response Share in Channel %", 'Fact_CRM_Complaint'[Response Share in Channel %],
+	"Response Share in Channel % · ISBLANK", ISBLANK ( 'Fact_CRM_Complaint'[Response Share in Channel %] )
+)
+ORDER BY 'Dim_CRM_Channel_Response'[submitted_via], 'Dim_CRM_Channel_Response'[company_response]

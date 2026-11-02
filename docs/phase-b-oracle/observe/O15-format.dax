@@ -1,0 +1,7 @@
+// O15 | FORMAT và locale (oracle-ui.md mục 2.4). Copy kết quả rồi lưu O15-copy.tsv
+EVALUATE
+ROW (
+	"a", FORMAT ( 1234.5, "#,0.0" ),
+	"b", FORMAT ( 0.1234, "0%" ),
+	"c", FORMAT ( DATE ( 2018, 12, 31 ), "General Date" )
+)

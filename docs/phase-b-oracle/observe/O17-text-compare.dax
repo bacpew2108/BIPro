@@ -1,0 +1,3 @@
+// O17 | Mâu thuẫn tài liệu: so sánh chuỗi "12" với số 12
+EVALUATE
+ROW ( "x", IF ( "12" > 12, 1, 0 ) )

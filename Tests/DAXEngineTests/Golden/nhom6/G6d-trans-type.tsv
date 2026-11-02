@@ -1,0 +1,7 @@
+Dim_Trans_Type[trans_type]	Dim_Trans_Type[operation]	[Trans Amount]	[Trans Amount · ISBLANK]	[% Trans Amount]	[% Trans Amount · ISBLANK]
+Credit	Collection from Another Bank	781479953	false	0.12488106957662816	false
+Credit	Credit in Cash	2418521782	false	0.38648155435221093	false
+Credit	Interest Credited	27470689.5	false	0.004389836327340119	false
+Debit	Cash Withdrawal	2339512949.5	false	0.37385588497870537	false
+Debit	Credit Card Withdrawal	18170400	false	0.0029036432450048584	false
+Debit	Remittance to Another Bank	672637786.3	false	0.10748801152011053	false

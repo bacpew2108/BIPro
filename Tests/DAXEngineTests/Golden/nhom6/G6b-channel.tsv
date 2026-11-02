@@ -1,0 +1,7 @@
+Dim_CRM_Channel_Response[submitted_via]	[Complaints]	[Complaints · ISBLANK]	[Channel Share %]	[Channel Share % · ISBLANK]
+Email	8	false	0.0003416029719458559	false
+Fax	298	false	0.012724710704983133	false
+Phone	2504	false	0.10692173021905291	false
+Postal mail	1071	false	0.04573209786925146	false
+Referral	6303	false	0.26914044152184124	false
+Web	13235	false	0.5651394167129254	false

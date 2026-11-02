@@ -1,0 +1,1085 @@
+-- Dim_Account  [format: #,0]
+MEASURE 'Dim_Account'[Total Accounts] =
+CALCULATE ( COUNTROWS ( Dim_Account ), KEEPFILTERS ( Dim_Account[account_key] <> -1 ) )
+
+-- Dim_Account  [format: #,0]
+MEASURE 'Dim_Account'[Card Accounts] =
+CALCULATE ( [Total Accounts], KEEPFILTERS ( Dim_Account[card_type] <> "No Card" ) )
+
+-- Dim_Account
+MEASURE 'Dim_Account'[Card Penetration %] =
+DIVIDE ( [Card Accounts], [Total Accounts] )
+
+-- Dim_Account  [format: #,0]
+MEASURE 'Dim_Account'[Accounts with Loan] =
+DISTINCTCOUNT ( Fact_Loan[account_key] )
+
+-- Dim_Account
+MEASURE 'Dim_Account'[Loan Penetration %] =
+DIVIDE ( [Accounts with Loan], [Total Accounts] )
+
+-- Dim_Account  [format: #,0]
+MEASURE 'Dim_Account'[Cards Issued] =
+CALCULATE ( COUNTROWS ( Dim_Account ), KEEPFILTERS ( NOT ISBLANK ( Dim_Account[card_issued_year] ) ) )
+
+-- Dim_Client  [format: #,0]
+MEASURE 'Dim_Client'[Total_Clients] =
+CALCULATE ( COUNTROWS ( Dim_Client ), KEEPFILTERS ( Dim_Client[client_key] <> -1 ) )
+
+-- Dim_Client
+MEASURE 'Dim_Client'[Total_Clients Sub Label] =
+VAR r = DIVIDE ( [Complaints], [Total_Clients] )
+RETURN IF ( ISBLANK ( r ), "Chưa có khiếu nại", FORMAT ( r, "#,0.0" ) & " khiếu nại / KH" )
+
+-- Dim_Client
+MEASURE 'Dim_Client'[Total_Clients Sub Color] =
+"#6A7179"
+
+-- Dim_District
+MEASURE 'Dim_District'[Branch Title] =
+VAR fromAcct = ISFILTERED ( Dim_Account[branch_city] ) || ISFILTERED ( Dim_Account[branch_state_name] )
+VAR fromDist = ISFILTERED ( Dim_District[city] ) || ISFILTERED ( Dim_District[state_name] )
+VAR city = SWITCH ( TRUE (),
+    ISFILTERED ( Dim_Account[branch_city] ), SELECTEDVALUE ( Dim_Account[branch_city] ),
+    ISFILTERED ( Dim_District[city] ), SELECTEDVALUE ( Dim_District[city] ) )
+VAR state = SWITCH ( TRUE (),
+    fromAcct, SELECTEDVALUE ( Dim_Account[branch_state_name] ),
+    fromDist, SELECTEDVALUE ( Dim_District[state_name] ) )
+RETURN SWITCH ( TRUE (),
+    NOT ISBLANK ( city ), "CHI TIẾT CHI NHÁNH · " & city & IF ( NOT ISBLANK ( state ), ", " & state ),
+    NOT ISBLANK ( state ), "CHI TIẾT BANG · " & state,
+    "CHI TIẾT CHI NHÁNH · (chưa chọn chi nhánh/bang)" )
+
+-- Dim_District
+MEASURE 'Dim_District'[Branch Subtitle] =
+VAR fromAcct = ISFILTERED ( Dim_Account[branch_city] ) || ISFILTERED ( Dim_Account[branch_state_name] )
+VAR fromDist = ISFILTERED ( Dim_District[city] ) || ISFILTERED ( Dim_District[state_name] )
+VAR region = SWITCH ( TRUE (),
+    fromAcct, SELECTEDVALUE ( Dim_Account[branch_region] ),
+    fromDist, SELECTEDVALUE ( Dim_District[region] ) )
+VAR head = IF ( NOT ISBLANK ( region ), "Vùng " & region & " · ", "" )
+RETURN head & SWITCH ( TRUE (),
+    fromAcct, "GD & khoản vay theo chi nhánh mở tài khoản · khiếu nại theo địa chỉ KH cùng thành phố/bang",
+    fromDist, "Khoản vay theo chi nhánh giải ngân · GD theo TK mở tại cùng thành phố/bang · khiếu nại theo địa chỉ KH cùng thành phố/bang",
+    "Toàn hệ thống – drill-through từ một chi nhánh/bang để xem chi tiết" )
+
+-- Dim_District  [format: #,0]
+MEASURE 'Dim_District'[Branch Loan Count] =
+COALESCE ( [Loan Count], 0 )
+
+-- Dim_District  [format: $#,0]
+MEASURE 'Dim_District'[Branch Loan Amount] =
+COALESCE ( [Loan Amount], 0 )
+
+-- Dim_District  [format: $#,0]
+MEASURE 'Dim_District'[Branch Outstanding] =
+COALESCE ( [Outstanding (est.)], 0 )
+
+-- Dim_District
+MEASURE 'Dim_District'[Branch NPL Label] =
+VAR r = [Bad_Debt_Ratio_Count]
+RETURN IF ( ISBLANK ( r ), "Không có khoản vay", FORMAT ( r, "0.0%" ) )
+
+-- Dim_District  [format: #,0]
+MEASURE 'Dim_District'[D4 Trans Count] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Trans Count], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Account[branch_city], Dim_Account[branch_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Trans Count], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Account[branch_state_name] ) ),
+    [Trans Count] )
+
+-- Dim_District  [format: $#,0]
+MEASURE 'Dim_District'[D4 Trans Amount] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Trans Amount], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Account[branch_city], Dim_Account[branch_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Trans Amount], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Account[branch_state_name] ) ),
+    [Trans Amount] )
+
+-- Dim_District  [format: #,0]
+MEASURE 'Dim_District'[D4 Active Accounts] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Active Accounts], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Account[branch_city], Dim_Account[branch_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Active Accounts], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Account[branch_state_name] ) ),
+    [Active Accounts] )
+
+-- Dim_District
+MEASURE 'Dim_District'[D4 Overdraft Rate] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Overdraft Rate], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Account[branch_city], Dim_Account[branch_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Overdraft Rate], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Account[branch_state_name] ) ),
+    [Overdraft Rate] )
+
+-- Dim_District  [format: #,0]
+MEASURE 'Dim_District'[D4 Complaints] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_Account[branch_city] ), CALCULATE ( [Complaints], TREATAS ( SUMMARIZE ( Dim_Account, Dim_Account[branch_city], Dim_Account[branch_state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_Account[branch_state_name] ), CALCULATE ( [Complaints], TREATAS ( VALUES ( Dim_Account[branch_state_name] ), Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Complaints], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Complaints], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Client[client_state_name] ) ),
+    [Complaints] )
+
+-- Dim_District
+MEASURE 'Dim_District'[D4 SLA_Timely_Rate] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_Account[branch_city] ), CALCULATE ( [SLA_Timely_Rate], TREATAS ( SUMMARIZE ( Dim_Account, Dim_Account[branch_city], Dim_Account[branch_state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_Account[branch_state_name] ), CALCULATE ( [SLA_Timely_Rate], TREATAS ( VALUES ( Dim_Account[branch_state_name] ), Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [SLA_Timely_Rate], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [SLA_Timely_Rate], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Client[client_state_name] ) ),
+    [SLA_Timely_Rate] )
+
+-- Dim_District
+MEASURE 'Dim_District'[D4 Dispute_Rate] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_Account[branch_city] ), CALCULATE ( [Dispute_Rate], TREATAS ( SUMMARIZE ( Dim_Account, Dim_Account[branch_city], Dim_Account[branch_state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_Account[branch_state_name] ), CALCULATE ( [Dispute_Rate], TREATAS ( VALUES ( Dim_Account[branch_state_name] ), Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Dispute_Rate], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Dispute_Rate], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Client[client_state_name] ) ),
+    [Dispute_Rate] )
+
+-- Dim_District  [format: 0.0]
+MEASURE 'Dim_District'[D4 Avg_Days_To_Company] =
+SWITCH ( TRUE (),
+    ISFILTERED ( Dim_Account[branch_city] ), CALCULATE ( [Avg_Days_To_Company], TREATAS ( SUMMARIZE ( Dim_Account, Dim_Account[branch_city], Dim_Account[branch_state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_Account[branch_state_name] ), CALCULATE ( [Avg_Days_To_Company], TREATAS ( VALUES ( Dim_Account[branch_state_name] ), Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[city] ), CALCULATE ( [Avg_Days_To_Company], TREATAS ( SUMMARIZE ( Dim_District, Dim_District[city], Dim_District[state_name] ), Dim_Client[client_city], Dim_Client[client_state_name] ) ),
+    ISFILTERED ( Dim_District[state_name] ), CALCULATE ( [Avg_Days_To_Company], TREATAS ( VALUES ( Dim_District[state_name] ), Dim_Client[client_state_name] ) ),
+    [Avg_Days_To_Company] )
+
+-- Dim_District
+MEASURE 'Dim_District'[D4 Timely Color] =
+VAR r = [D4 SLA_Timely_Rate]
+RETURN IF ( ISBLANK ( r ), BLANK (), IF ( r < [SLA Target], "#C0392B", "#2E7D32" ) )
+
+-- Fact_CRM_Complaint  [format: #,0]
+MEASURE 'Fact_CRM_Complaint'[Complaints] =
+SUM ( Fact_CRM_Complaint[complaint_count] )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[SLA_Timely_Rate] =
+DIVIDE ( CALCULATE ( [Complaints], KEEPFILTERS ( Fact_CRM_Complaint[is_timely] = 1 ) ), CALCULATE ( [Complaints], KEEPFILTERS ( Fact_CRM_Complaint[is_timely] IN { 0, 1 } ) ) )
+
+-- Fact_CRM_Complaint  [format: #,0]
+MEASURE 'Fact_CRM_Complaint'[Disputed Complaints] =
+CALCULATE ( [Complaints], Fact_CRM_Complaint[is_disputed] = 1 )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Dispute_Rate] =
+DIVIDE ( CALCULATE ( [Complaints], KEEPFILTERS ( Fact_CRM_Complaint[is_disputed] = 1 ) ), CALCULATE ( [Complaints], KEEPFILTERS ( Fact_CRM_Complaint[is_disputed] IN { 0, 1 } ) ) )
+
+-- Fact_CRM_Complaint  [format: 0.0]
+MEASURE 'Fact_CRM_Complaint'[Avg_Days_To_Company] =
+CALCULATE ( AVERAGE ( Fact_CRM_Complaint[days_to_company] ), KEEPFILTERS ( Fact_CRM_Complaint[days_to_company] >= 0 ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Within 3 Days %] =
+DIVIDE ( CALCULATE ( [Complaints], Fact_CRM_Complaint[days_to_company] >= 0, Fact_CRM_Complaint[days_to_company] <= 3 ), CALCULATE ( [Complaints], Fact_CRM_Complaint[days_to_company] >= 0 ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Relief Rate] =
+DIVIDE ( CALCULATE ( [Complaints], KEEPFILTERS ( Dim_CRM_Channel_Response[company_response] IN { "Closed with monetary relief", "Closed with non-monetary relief", "Closed with relief" } ) ), [Complaints] )
+
+-- Fact_CRM_Complaint  [format: #,0]
+MEASURE 'Fact_CRM_Complaint'[Avg Complaints per Month] =
+AVERAGEX ( FILTER ( VALUES ( Dim_Date[year_month] ), [Complaints] > 0 ), [Complaints] )
+
+-- Fact_CRM_Complaint  [format: #,0]
+MEASURE 'Fact_CRM_Complaint'[Complaints_Sent] =
+CALCULATE ( [Complaints], USERELATIONSHIP ( Fact_CRM_Complaint[sent_date_key], Dim_Date[date_key] ) )
+
+-- Fact_CRM_Complaint  [format: #,0]
+MEASURE 'Fact_CRM_Complaint'[Complaints MA3] =
+VAR mi = MAX ( Dim_Date[MonthIndex] )
+RETURN IF ( HASONEVALUE ( Dim_Date[MonthIndex] ), DIVIDE ( CALCULATE ( [Complaints], REMOVEFILTERS ( Dim_Date ), Dim_Date[MonthIndex] > mi - 3, Dim_Date[MonthIndex] <= mi ), 3 ) )
+
+-- Fact_CRM_Complaint  [format: 0%]
+MEASURE 'Fact_CRM_Complaint'[SLA Target] =
+0.98
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Timely Color] =
+IF ( [SLA_Timely_Rate] < [SLA Target], "#C0392B", "#2E7D32" )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Dispute Color] =
+VAR r = [Dispute_Rate]
+RETURN SWITCH ( TRUE (), ISBLANK ( r ), BLANK (), r > 0.25, "#F4C7BE", r > 0.15, "#FBE3C4", "#DDF0E1" )
+
+-- Fact_CRM_Complaint  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_CRM_Complaint'[Complaints YoY %] =
+VAR y = SELECTEDVALUE ( Dim_Date[year] )
+VAR cur = CALCULATE ( [Avg Complaints per Month], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y )
+VAR prev = CALCULATE ( [Avg Complaints per Month], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y - 1 )
+RETURN IF ( NOT ISBLANK ( y ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Complaints YoY Label] =
+VAR g = [Complaints YoY %]
+RETURN IF ( ISBLANK ( g ), "TB " & FORMAT ( [Avg Complaints per Month], "#,0" ) & " vụ/tháng", FORMAT ( g, "+0.0%;-0.0%" ) & " vụ/tháng so với năm trước" )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Complaints YoY Color] =
+VAR g = [Complaints YoY %]
+RETURN IF ( ISBLANK ( g ), "#6A7179", IF ( g > 0, "#C0392B", "#2E7D32" ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Channel Share %] =
+DIVIDE ( [Complaints], CALCULATE ( [Complaints], ALLSELECTED ( Dim_CRM_Channel_Response[submitted_via] ) ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Pareto Cum %] =
+VAR cur = [Complaints]
+VAR curIssue = SELECTEDVALUE ( Dim_CRM_Issue[issue] )
+VAR tbl = ADDCOLUMNS ( ALLSELECTED ( Dim_CRM_Issue[issue] ), "@c", [Complaints] )
+VAR cum = SUMX ( FILTER ( tbl, [@c] > cur || ( [@c] = cur && Dim_CRM_Issue[issue] <= curIssue ) ), [@c] )
+RETURN IF ( NOT ISBLANK ( cur ), DIVIDE ( cum, SUMX ( tbl, [@c] ) ) )
+
+-- Fact_CRM_Complaint  [format: 0%]
+MEASURE 'Fact_CRM_Complaint'[Pareto 80% Line] =
+0.8
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Pareto Color] =
+IF ( [Pareto Cum %] - DIVIDE ( [Complaints], CALCULATE ( [Complaints], ALLSELECTED ( Dim_CRM_Issue[issue] ) ) ) < 0.8, "#6A1B9A", "#CE93D8" )
+
+-- Fact_CRM_Complaint  [format: #,0.0]
+MEASURE 'Fact_CRM_Complaint'[Complaints per 1000 Clients] =
+DIVIDE ( [Complaints], [Total_Clients] ) * 1000
+
+-- Fact_CRM_Complaint  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_CRM_Complaint'[Complaints Δ] =
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Complaints], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Complaints], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Complaints Δ Label] =
+VAR d = [Complaints Δ]
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Complaints Δ Color] =
+VAR d = [Complaints Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_CRM_Complaint  [format: 0.0%]
+MEASURE 'Fact_CRM_Complaint'[SLA_Timely_Rate Δ] =
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [SLA_Timely_Rate], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [SLA_Timely_Rate], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[SLA_Timely_Rate Δ Label] =
+VAR d = [SLA_Timely_Rate Δ]
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[SLA_Timely_Rate Δ Color] =
+VAR d = [SLA_Timely_Rate Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_CRM_Complaint  [format: 0.0%]
+MEASURE 'Fact_CRM_Complaint'[Dispute_Rate Δ] =
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Dispute_Rate], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Dispute_Rate], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Dispute_Rate Δ Label] =
+VAR d = [Dispute_Rate Δ]
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Dispute_Rate Δ Color] =
+VAR d = [Dispute_Rate Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_CRM_Complaint  [format: +0.0;-0.0;0.0]
+MEASURE 'Fact_CRM_Complaint'[Avg_Days_To_Company Δ] =
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Avg_Days_To_Company], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Avg_Days_To_Company], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Avg_Days_To_Company Δ Label] =
+VAR d = [Avg_Days_To_Company Δ]
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), "0.0" ) & " ngày" & " so với " & py & period )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Avg_Days_To_Company Δ Color] =
+VAR d = [Avg_Days_To_Company Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_CRM_Complaint  [format: 0.0%]
+MEASURE 'Fact_CRM_Complaint'[Relief Rate Δ] =
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Relief Rate], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Relief Rate], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Relief Rate Δ Label] =
+VAR d = [Relief Rate Δ]
+VAR endKey = MAX ( Fact_CRM_Complaint[received_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Relief Rate Δ Color] =
+VAR d = [Relief Rate Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_CRM_Complaint
+MEASURE 'Fact_CRM_Complaint'[Response Share in Channel %] =
+DIVIDE ( [Complaints], CALCULATE ( [Complaints], REMOVEFILTERS ( Dim_CRM_Channel_Response[company_response] ) ) )
+
+-- Fact_Loan  [format: #,0]
+MEASURE 'Fact_Loan'[Loan Count] =
+SUM ( Fact_Loan[loan_count] )
+
+-- Fact_Loan  [format: $#,0]
+MEASURE 'Fact_Loan'[Loan Amount] =
+SUM ( Fact_Loan[loan_amount] )
+
+-- Fact_Loan  [format: $#,0]
+MEASURE 'Fact_Loan'[Avg Loan Amount] =
+DIVIDE ( [Loan Amount], [Loan Count] )
+
+-- Fact_Loan  [format: $#,0]
+MEASURE 'Fact_Loan'[Monthly Payment] =
+SUM ( Fact_Loan[monthly_payment] )
+
+-- Fact_Loan  [format: #,0]
+MEASURE 'Fact_Loan'[Active Loans] =
+CALCULATE ( [Loan Count], KEEPFILTERS ( Dim_Loan_Profile[is_active] = 1 ) )
+
+-- Fact_Loan  [format: #,0]
+MEASURE 'Fact_Loan'[Bad Debt Loans] =
+CALCULATE ( [Loan Count], KEEPFILTERS ( Dim_Loan_Profile[is_bad_debt] = 1 ) )
+
+-- Fact_Loan  [format: $#,0]
+MEASURE 'Fact_Loan'[Bad_Debt_Principal] =
+CALCULATE ( [Loan Amount], KEEPFILTERS ( Dim_Loan_Profile[is_bad_debt] = 1 ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Count] =
+IF ( NOT ISBLANK ( [Loan Count] ), DIVIDE ( [Bad Debt Loans] + 0, [Loan Count] ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Value] =
+IF ( NOT ISBLANK ( [Loan Amount] ), DIVIDE ( [Bad_Debt_Principal] + 0, [Loan Amount] ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[NPL Color] =
+VAR r = [Bad_Debt_Ratio_Value]
+RETURN SWITCH ( TRUE (), ISBLANK ( r ), BLANK (), r > 0.10, "#C0392B", "#2E7D32" )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[NPL Count Color] =
+VAR r = [Bad_Debt_Ratio_Count]
+RETURN SWITCH ( TRUE (), ISBLANK ( r ), BLANK (), r > 0.10, "#F4C7BE", "#DDF0E1" )
+
+-- Fact_Loan  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Loan'[Loan YoY %] =
+VAR y = SELECTEDVALUE ( Dim_Date[year] )
+VAR cur = CALCULATE ( [Loan Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y )
+VAR prev = CALCULATE ( [Loan Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y - 1 )
+RETURN IF ( NOT ISBLANK ( y ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Loan YoY Label] =
+VAR g = [Loan YoY %]
+RETURN IF ( ISBLANK ( g ), "Chọn 1 năm để so sánh", FORMAT ( g, "+0.0%;-0.0%" ) & " so với năm trước" )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Loan YoY Color] =
+VAR g = [Loan YoY %]
+RETURN IF ( ISBLANK ( g ), "#6A7179", IF ( g >= 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan  [format: 0]
+MEASURE 'Fact_Loan'[State Rank by Loan Amount] =
+IF ( HASONEVALUE ( Dim_District[state_name] ), RANKX ( ALL ( Dim_District[state_name] ), [Loan Amount], , DESC, DENSE ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Title Loan Page] =
+"Danh mục cho vay – " & IF ( HASONEVALUE ( Dim_Date[year] ), "năm " & VALUES ( Dim_Date[year] ), "2013–2018" ) & " · Nợ xấu theo giá trị " & FORMAT ( [Bad_Debt_Ratio_Value], "0.0%" )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[NPL Count Text Color] =
+VAR r = [Bad_Debt_Ratio_Count]
+RETURN SWITCH ( TRUE (), ISBLANK ( r ), BLANK (), r > 0.10, "#C0392B", "#2E7D32" )
+
+-- Fact_Loan  [format: 0 "tháng"]
+MEASURE 'Fact_Loan'[Weighted Avg Term] =
+DIVIDE ( SUMX ( Fact_Loan, Fact_Loan[loan_amount] * RELATED ( Dim_Loan_Profile[duration_months] ) ), [Loan Amount] )
+
+-- Fact_Loan  [format: #,0]
+MEASURE 'Fact_Loan'[Settled Loans] =
+CALCULATE ( [Loan Count], KEEPFILTERS ( Dim_Loan_Profile[status] = "A" ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Settled Rate] =
+IF ( NOT ISBLANK ( [Loan Count] ), DIVIDE ( [Settled Loans] + 0, [Loan Count] ) )
+
+-- Fact_Loan  [format: $#,0]
+MEASURE 'Fact_Loan'[Outstanding (est.)] =
+VAR asOf = DATE ( 2018, 12, 31 )
+RETURN
+    SUMX (
+        FILTER ( Fact_Loan, RELATED ( Dim_Loan_Profile[is_active] ) = 1 ),
+        VAR dur = RELATED ( Dim_Loan_Profile[duration_months] )
+        VAR paid = DATEDIFF ( RELATED ( Dim_Date[full_date] ), asOf, MONTH )
+        RETURN Fact_Loan[monthly_payment] * MAX ( 0, dur - paid )
+    )
+
+-- Fact_Loan  [format: 0]
+MEASURE 'Fact_Loan'[Branch Loan Rank] =
+IF ( HASONEVALUE ( Dim_District[branch_label] ) && NOT ISBLANK ( [Loan Amount] ), RANKX ( FILTER ( ALLSELECTED ( Dim_District[branch_label] ), NOT ISBLANK ( [Loan Amount] ) ), [Loan Amount], , DESC, DENSE ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[NPL Avg (Selected)] =
+CALCULATE ( [Bad_Debt_Ratio_Count], ALLSELECTED ( Dim_District ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Branch NPL Color] =
+VAR r = [Bad_Debt_Ratio_Count]
+RETURN IF ( ISBLANK ( r ), BLANK (), IF ( r > [NPL Avg (Selected)], "#C0392B", "#F0A36B" ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[NPL Group Color] =
+VAR r = [Bad_Debt_Ratio_Count]
+RETURN IF ( ISBLANK ( r ), BLANK (), IF ( r > 0.10, "#C0392B", "#E65100" ) )
+
+-- Fact_Loan  [format: 0.0%]
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Count Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Bad_Debt_Ratio_Count], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Bad_Debt_Ratio_Count], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Count Δ Label] =
+VAR d = [Bad_Debt_Ratio_Count Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Count Δ Color] =
+VAR d = [Bad_Debt_Ratio_Count Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan  [format: 0.0%]
+MEASURE 'Fact_Loan'[Settled Rate Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Settled Rate], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Settled Rate], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Settled Rate Δ Label] =
+VAR d = [Settled Rate Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Settled Rate Δ Color] =
+VAR d = [Settled Rate Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Top Branches Text] =
+VAR t = TOPN ( 3, FILTER ( VALUES ( Dim_District[branch_label] ), NOT ISBLANK ( [Loan Amount] ) ), [Loan Amount], DESC )
+RETURN IF ( COUNTROWS ( t ) > 0, CONCATENATEX ( t, Dim_District[branch_label] & " " & FORMAT ( [Loan Amount] / 1e6, "$#,0.0" ) & "M (NPL " & FORMAT ( [Bad_Debt_Ratio_Count], "0%" ) & ")", " · ", [Loan Amount], DESC ) )
+
+-- Fact_Loan  [format: $#,0]
+MEASURE 'Fact_Loan'[Active_Monthly_Payment] =
+CALCULATE ( [Monthly Payment], KEEPFILTERS ( Dim_Loan_Profile[is_active] = 1 ) )
+
+-- Fact_Loan  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Loan'[Loan Amount Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Loan Amount], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Loan Amount], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Loan Amount Δ Label] =
+VAR d = [Loan Amount Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Loan Amount Δ Color] =
+VAR d = [Loan Amount Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Loan'[Loan Count Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Loan Count], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Loan Count], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Loan Count Δ Label] =
+VAR d = [Loan Count Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Loan Count Δ Color] =
+VAR d = [Loan Count Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Loan'[Bad_Debt_Principal Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Bad_Debt_Principal], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Bad_Debt_Principal], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Principal Δ Label] =
+VAR d = [Bad_Debt_Principal Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Principal Δ Color] =
+VAR d = [Bad_Debt_Principal Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan  [format: 0.0%]
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Value Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Bad_Debt_Ratio_Value], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Bad_Debt_Ratio_Value], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Value Δ Label] =
+VAR d = [Bad_Debt_Ratio_Value Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Bad_Debt_Ratio_Value Δ Color] =
+VAR d = [Bad_Debt_Ratio_Value Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Loan  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Loan'[Active_Monthly_Payment Δ] =
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Active_Monthly_Payment], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Active_Monthly_Payment], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Active_Monthly_Payment Δ Label] =
+VAR d = [Active_Monthly_Payment Δ]
+VAR endKey = MAX ( Fact_Loan[loan_date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Loan
+MEASURE 'Fact_Loan'[Active_Monthly_Payment Δ Color] =
+VAR d = [Active_Monthly_Payment Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: #,0]
+MEASURE 'Fact_Transaction'[Trans Count] =
+SUM ( Fact_Transaction[trans_count] )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Trans Amount] =
+SUM ( Fact_Transaction[amount] )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Avg Trans Value] =
+DIVIDE ( [Trans Amount], [Trans Count] )
+
+-- Fact_Transaction  [format: #,0]
+MEASURE 'Fact_Transaction'[Active Accounts] =
+DISTINCTCOUNT ( Fact_Transaction[account_key] )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Avg Balance After] =
+AVERAGE ( Fact_Transaction[balance_after] )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Total_Credit_Inflow] =
+CALCULATE ( [Trans Amount], KEEPFILTERS ( Dim_Trans_Type[trans_type] = "Credit" ) )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Total_Debit_Outflow] =
+CALCULATE ( [Trans Amount], KEEPFILTERS ( Dim_Trans_Type[trans_type] = "Debit" ) )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Net_Cashflow] =
+[Total_Credit_Inflow] - [Total_Debit_Outflow]
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Trans Amount PM] =
+VAR mi = MAX ( Dim_Date[MonthIndex] )
+RETURN IF ( HASONEVALUE ( Dim_Date[MonthIndex] ), CALCULATE ( [Trans Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[MonthIndex] = mi - 1 ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Trans Amount MoM %] =
+DIVIDE ( [Trans Amount] - [Trans Amount PM], [Trans Amount PM] )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Trans Amount MA3] =
+VAR mi = MAX ( Dim_Date[MonthIndex] )
+RETURN IF ( HASONEVALUE ( Dim_Date[MonthIndex] ), DIVIDE ( CALCULATE ( [Trans Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[MonthIndex] > mi - 3, Dim_Date[MonthIndex] <= mi ), 3 ) )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Trans Amount YTD] =
+VAR mi = MAX ( Dim_Date[MonthIndex] )
+VAR y = MAX ( Dim_Date[year] )
+RETURN CALCULATE ( [Trans Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y, Dim_Date[MonthIndex] <= mi )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Trans YoY %] =
+VAR y = SELECTEDVALUE ( Dim_Date[year] )
+VAR cur = CALCULATE ( [Trans Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y )
+VAR prev = CALCULATE ( [Trans Amount], REMOVEFILTERS ( Dim_Date ), Dim_Date[year] = y - 1 )
+RETURN IF ( NOT ISBLANK ( y ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans YoY Label] =
+VAR g = [Trans YoY %]
+RETURN IF ( ISBLANK ( g ), "Chọn 1 năm để so sánh", FORMAT ( g, "+0.0%;-0.0%" ) & " so với năm trước" )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans YoY Color] =
+VAR g = [Trans YoY %]
+RETURN IF ( ISBLANK ( g ), "#6A7179", IF ( g >= 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: #,0.0]
+MEASURE 'Fact_Transaction'[Trans per Client] =
+DIVIDE ( [Trans Count], DISTINCTCOUNT ( Fact_Transaction[client_key] ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[% Trans Count] =
+DIVIDE ( [Trans Count], CALCULATE ( [Trans Count], ALLSELECTED ( Dim_Trans_Type ) ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[% Trans Amount] =
+DIVIDE ( [Trans Amount], CALCULATE ( [Trans Amount], ALLSELECTED ( Dim_Trans_Type ) ) )
+
+-- Fact_Transaction  [format: #,0]
+MEASURE 'Fact_Transaction'[Neg Balance Trans] =
+CALCULATE ( [Trans Count], KEEPFILTERS ( Fact_Transaction[balance_after] < 0 ) )
+
+-- Fact_Transaction  [format: #,0]
+MEASURE 'Fact_Transaction'[Neg Trans PM] =
+VAR mi = MAX ( Dim_Date[MonthIndex] )
+RETURN IF ( HASONEVALUE ( Dim_Date[MonthIndex] ), CALCULATE ( [Neg Balance Trans], REMOVEFILTERS ( Dim_Date ), Dim_Date[MonthIndex] = mi - 1 ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Neg Trans Alert Color] =
+VAR cur = [Neg Balance Trans]
+VAR prev = [Neg Trans PM]
+RETURN IF ( ISBLANK ( cur ), BLANK (), IF ( cur > prev + 0, "#C0392B", "#2E7D32" ) )
+
+-- Fact_Transaction  [format: #,0]
+MEASURE 'Fact_Transaction'[Overdraft Accounts] =
+CALCULATE ( DISTINCTCOUNT ( Fact_Transaction[account_key] ), KEEPFILTERS ( Fact_Transaction[balance_after] < 0 ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Overdraft Rate] =
+DIVIDE ( [Overdraft Accounts], [Active Accounts] )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Peak Hour Color] =
+VAR cur = [Trans Count]
+VAR avgCell = AVERAGEX ( FILTER ( CROSSJOIN ( ALLSELECTED ( Fact_Transaction[trans_hour] ), ALLSELECTED ( Dim_Date[day_name] ) ), [Trans Count] > 0 ), [Trans Count] )
+RETURN SWITCH ( TRUE (), ISBLANK ( cur ), BLANK (), cur > 1.1 * avgCell, "#EF9A9A", cur >= 0.9 * avgCell, "#81C784", cur >= 0.5 * avgCell, "#C8E6C9", "#F1F8E9" )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans Heat Color] =
+VAR cur = [Trans per Client]
+VAR avgAll = CALCULATE ( [Trans per Client], ALLSELECTED ( Dim_Client[age_group_current] ), ALLSELECTED ( Dim_Account ) )
+RETURN SWITCH ( TRUE (), ISBLANK ( cur ), BLANK (), cur > 1.1 * avgAll, "#66BB6A", cur >= avgAll, "#A5D6A7", cur >= 0.9 * avgAll, "#C8E6C9", "#F1F8E9" )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Sanction Interest] =
+CALCULATE ( [Trans Amount], KEEPFILTERS ( Dim_Trans_Type[trans_purpose] = "Sanction Interest" ) )
+
+-- Fact_Transaction  [format: #,0]
+MEASURE 'Fact_Transaction'[Sanction Count] =
+CALCULATE ( [Trans Count], KEEPFILTERS ( Dim_Trans_Type[trans_purpose] = "Sanction Interest" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Trans Count Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Trans Count], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Trans Count], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans Count Δ Label] =
+VAR d = [Trans Count Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans Count Δ Color] =
+VAR d = [Trans Count Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Trans Amount Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Trans Amount], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Trans Amount], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans Amount Δ Label] =
+VAR d = [Trans Amount Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Trans Amount Δ Color] =
+VAR d = [Trans Amount Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Avg Trans Value Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Avg Trans Value], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Avg Trans Value], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Avg Trans Value Δ Label] =
+VAR d = [Avg Trans Value Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Avg Trans Value Δ Color] =
+VAR d = [Avg Trans Value Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Active Accounts Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Active Accounts], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Active Accounts], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Active Accounts Δ Label] =
+VAR d = [Active Accounts Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Active Accounts Δ Color] =
+VAR d = [Active Accounts Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: 0.0%]
+MEASURE 'Fact_Transaction'[Overdraft Rate Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Overdraft Rate], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Overdraft Rate], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), IF ( ISBLANK ( prev ) || ISBLANK ( cur ), BLANK (), cur - prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Overdraft Rate Δ Label] =
+VAR d = [Overdraft Rate Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ) * 100, "0.0" ) & " điểm %" & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Overdraft Rate Δ Color] =
+VAR d = [Overdraft Rate Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: #,0.0]
+MEASURE 'Fact_Transaction'[Trans Count (k)] =
+DIVIDE ( [Trans Count], 1000 )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Closing_Balance] =
+VAR accts = CALCULATETABLE ( VALUES ( Fact_Transaction[account_key] ), REMOVEFILTERS ( Dim_Trans_Type ) )
+RETURN
+    SUMX (
+        accts,
+        VAR t = CALCULATE ( MAX ( Fact_Transaction[trans_timestamp] ), REMOVEFILTERS ( Dim_Trans_Type ) )
+        RETURN CALCULATE ( MAX ( Fact_Transaction[balance_after] ), REMOVEFILTERS ( Dim_Trans_Type ), Fact_Transaction[trans_timestamp] = t )
+    )
+
+-- Fact_Transaction  [format: $#,0]
+MEASURE 'Fact_Transaction'[Avg_Account_Balance] =
+VAR accts = CALCULATETABLE ( VALUES ( Fact_Transaction[account_key] ), REMOVEFILTERS ( Dim_Trans_Type ) )
+RETURN
+    AVERAGEX (
+        accts,
+        VAR t = CALCULATE ( MAX ( Fact_Transaction[trans_timestamp] ), REMOVEFILTERS ( Dim_Trans_Type ) )
+        RETURN CALCULATE ( MAX ( Fact_Transaction[balance_after] ), REMOVEFILTERS ( Dim_Trans_Type ), Fact_Transaction[trans_timestamp] = t )
+    )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Total_Credit_Inflow Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Total_Credit_Inflow], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Total_Credit_Inflow], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Total_Credit_Inflow Δ Label] =
+VAR d = [Total_Credit_Inflow Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Total_Credit_Inflow Δ Color] =
+VAR d = [Total_Credit_Inflow Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Total_Debit_Outflow Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Total_Debit_Outflow], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Total_Debit_Outflow], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Total_Debit_Outflow Δ Label] =
+VAR d = [Total_Debit_Outflow Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Total_Debit_Outflow Δ Color] =
+VAR d = [Total_Debit_Outflow Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d < 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Net_Cashflow Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Net_Cashflow], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Net_Cashflow], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, ABS ( prev ) ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Net_Cashflow Δ Label] =
+VAR d = [Net_Cashflow Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Net_Cashflow Δ Color] =
+VAR d = [Net_Cashflow Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction  [format: +0.0%;-0.0%;0.0%]
+MEASURE 'Fact_Transaction'[Avg_Account_Balance Δ] =
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR curDates = FILTER ( VALUES ( Dim_Date[full_date] ), Dim_Date[full_date] >= DATE ( YEAR ( endDt ), 1, 1 ) && Dim_Date[full_date] <= endDt )
+VAR cur = CALCULATE ( [Avg_Account_Balance], curDates, REMOVEFILTERS ( Dim_Date ) )
+VAR prev = CALCULATE ( [Avg_Account_Balance], SAMEPERIODLASTYEAR ( curDates ), REMOVEFILTERS ( Dim_Date ) )
+RETURN IF ( NOT ISBLANK ( endKey ), DIVIDE ( cur - prev, prev ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Avg_Account_Balance Δ Label] =
+VAR d = [Avg_Account_Balance Δ]
+VAR endKey = MAX ( Fact_Transaction[date_key] )
+VAR endDt = DATE ( INT ( endKey / 10000 ), MOD ( INT ( endKey / 100 ), 100 ), MOD ( endKey, 100 ) )
+VAR py = YEAR ( endDt ) - 1
+VAR period = IF ( MONTH ( endDt ) < 12, " (T1–T" & MONTH ( endDt ) & ")", "" )
+RETURN SWITCH ( TRUE (),
+    ISBLANK ( endKey ), BLANK (),
+    ISBLANK ( d ), "Không có số liệu " & py & period,
+    IF ( d > 0, "▲ ", IF ( d < 0, "▼ ", "● " ) ) & FORMAT ( ABS ( d ), IF ( ABS ( d ) < 0.05, "0.0%", "0%" ) ) & " so với " & py & period )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Avg_Account_Balance Δ Color] =
+VAR d = [Avg_Account_Balance Δ]
+RETURN IF ( ISBLANK ( d ) || d = 0, "#6A7179", IF ( d > 0, "#2E7D32", "#C0392B" ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Peak Hour Font Color] =
+VAR cur = [Trans Count (k)]
+VAR grid = FILTER ( CROSSJOIN ( ALLSELECTED ( Fact_Transaction[trans_hour] ), ALLSELECTED ( Dim_Date[day_name] ) ), [Trans Count (k)] > 0 )
+VAR lo = MINX ( grid, [Trans Count (k)] )
+VAR hi = MAXX ( grid, [Trans Count (k)] )
+RETURN IF ( ISBLANK ( cur ), BLANK (), IF ( DIVIDE ( cur - lo, hi - lo ) >= 0.85, "#FFFFFF", "#1A1A1A" ) )
+
+-- Fact_Transaction
+MEASURE 'Fact_Transaction'[Peak Hour Top10 Icon] =
+VAR cur = [Trans Count (k)]
+VAR grid = FILTER ( CROSSJOIN ( ALLSELECTED ( Fact_Transaction[trans_hour] ), ALLSELECTED ( Dim_Date[day_name] ) ), [Trans Count (k)] > 0 )
+VAR p90 = PERCENTILEX.INC ( grid, [Trans Count (k)], 0.9 )
+RETURN IF ( NOT ISBLANK ( cur ) && cur >= p90, "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>" )
+

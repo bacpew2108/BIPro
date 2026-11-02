@@ -1,0 +1,4 @@
+EVALUATE
+    SUMMARIZECOLUMNS(
+        "Net_Cashflow", [Net_Cashflow]
+    )

@@ -1,0 +1,13 @@
+// G6e-heatmap | Heatmap giờ × thứ. Chạy, Copy kết quả, dán vào G6e-heatmap.tsv
+EVALUATE
+SUMMARIZECOLUMNS (
+	'Fact_Transaction'[trans_hour],
+	'Dim_Date'[day_name],
+	"Trans Count (k)", 'Fact_Transaction'[Trans Count (k)],
+	"Trans Count (k) · ISBLANK", ISBLANK ( 'Fact_Transaction'[Trans Count (k)] ),
+	"Peak Hour Font Color", 'Fact_Transaction'[Peak Hour Font Color],
+	"Peak Hour Font Color · ISBLANK", ISBLANK ( 'Fact_Transaction'[Peak Hour Font Color] ),
+	"Peak Hour Top10 Icon", 'Fact_Transaction'[Peak Hour Top10 Icon],
+	"Peak Hour Top10 Icon · ISBLANK", ISBLANK ( 'Fact_Transaction'[Peak Hour Top10 Icon] )
+)
+ORDER BY 'Fact_Transaction'[trans_hour], 'Dim_Date'[day_name]

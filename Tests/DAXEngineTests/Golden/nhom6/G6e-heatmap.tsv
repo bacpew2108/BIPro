@@ -1,0 +1,71 @@
+Fact_Transaction[trans_hour]	Dim_Date[day_name]	[Trans Count (k)]	[Trans Count (k) · ISBLANK]	[Peak Hour Font Color]	[Peak Hour Font Color · ISBLANK]	[Peak Hour Top10 Icon]	[Peak Hour Top10 Icon · ISBLANK]
+8	Friday	16.379	false	#FFFFFF	false		true
+8	Monday	16.205	false	#FFFFFF	false		true
+8	Saturday	16.979	false	#FFFFFF	false		true
+8	Sunday	15.863	false	#FFFFFF	false		true
+8	Thursday	16.197	false	#FFFFFF	false		true
+8	Tuesday	16.504	false	#FFFFFF	false		true
+8	Wednesday	17.246	false	#FFFFFF	false		true
+9	Friday	17.007	false	#FFFFFF	false		true
+9	Monday	16.421	false	#FFFFFF	false		true
+9	Saturday	16.891	false	#FFFFFF	false		true
+9	Sunday	16.301	false	#FFFFFF	false		true
+9	Thursday	16.641	false	#FFFFFF	false		true
+9	Tuesday	16.564	false	#FFFFFF	false		true
+9	Wednesday	17.522	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+10	Friday	16.735	false	#FFFFFF	false		true
+10	Monday	16.892	false	#FFFFFF	false		true
+10	Saturday	17.2	false	#FFFFFF	false		true
+10	Sunday	15.887	false	#FFFFFF	false		true
+10	Thursday	16.453	false	#FFFFFF	false		true
+10	Tuesday	16.799	false	#FFFFFF	false		true
+10	Wednesday	17.755	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+11	Friday	16.993	false	#FFFFFF	false		true
+11	Monday	16.46	false	#FFFFFF	false		true
+11	Saturday	16.869	false	#FFFFFF	false		true
+11	Sunday	16.245	false	#FFFFFF	false		true
+11	Thursday	16.779	false	#FFFFFF	false		true
+11	Tuesday	16.645	false	#FFFFFF	false		true
+11	Wednesday	17.751	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+12	Friday	16.985	false	#FFFFFF	false		true
+12	Monday	16.49	false	#FFFFFF	false		true
+12	Saturday	17.021	false	#FFFFFF	false		true
+12	Sunday	15.912	false	#FFFFFF	false		true
+12	Thursday	16.546	false	#FFFFFF	false		true
+12	Tuesday	16.631	false	#FFFFFF	false		true
+12	Wednesday	17.349	false	#FFFFFF	false		true
+13	Friday	16.776	false	#FFFFFF	false		true
+13	Monday	16.471	false	#FFFFFF	false		true
+13	Saturday	17	false	#FFFFFF	false		true
+13	Sunday	16.326	false	#FFFFFF	false		true
+13	Thursday	16.51	false	#FFFFFF	false		true
+13	Tuesday	16.381	false	#FFFFFF	false		true
+13	Wednesday	17.687	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+14	Friday	16.725	false	#FFFFFF	false		true
+14	Monday	16.194	false	#FFFFFF	false		true
+14	Saturday	17.168	false	#FFFFFF	false		true
+14	Sunday	16.046	false	#FFFFFF	false		true
+14	Thursday	16.764	false	#FFFFFF	false		true
+14	Tuesday	16.664	false	#FFFFFF	false		true
+14	Wednesday	17.689	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+15	Friday	16.771	false	#FFFFFF	false		true
+15	Monday	16.484	false	#FFFFFF	false		true
+15	Saturday	17.211	false	#FFFFFF	false		true
+15	Sunday	16.204	false	#FFFFFF	false		true
+15	Thursday	16.511	false	#FFFFFF	false		true
+15	Tuesday	16.729	false	#FFFFFF	false		true
+15	Wednesday	17.419	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+16	Friday	16.955	false	#FFFFFF	false		true
+16	Monday	16.521	false	#FFFFFF	false		true
+16	Saturday	16.894	false	#FFFFFF	false		true
+16	Sunday	16.126	false	#FFFFFF	false		true
+16	Thursday	16.583	false	#FFFFFF	false		true
+16	Tuesday	16.748	false	#FFFFFF	false		true
+16	Wednesday	17.806	false	#FFFFFF	false	data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M6 1.5 L11 10.5 L1 10.5 Z' fill='%23FFD54F' stroke='%2367000D' stroke-width='1.2' stroke-linejoin='round'/></svg>	false
+17	Friday	0.227	false	#1A1A1A	false		true
+17	Monday	0.272	false	#1A1A1A	false		true
+17	Saturday	0.283	false	#1A1A1A	false		true
+17	Sunday	0.248	false	#1A1A1A	false		true
+17	Thursday	0.281	false	#1A1A1A	false		true
+17	Tuesday	0.254	false	#1A1A1A	false		true
+17	Wednesday	0.275	false	#1A1A1A	false		true

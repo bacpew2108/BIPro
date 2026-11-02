@@ -1,0 +1,23 @@
+# WP	owned path pattern (bash case glob, relative to repo root)
+WP1	Sources/CXPress9/*
+WP1	Sources/PBIXKit/Writing/DataModelStream+Write.swift
+WP1	Tests/PBIXKitTests/Write/Compress*.swift
+WP2	Sources/PBIXKit/Writing/ZipWriter.swift
+WP2	Sources/PBIXKit/Writing/PBIRPatch.swift
+WP2	Sources/PBIXKit/ZipArchive.swift
+WP2	Tests/PBIXKitTests/Write/Zip*.swift
+WP2	Tests/PBIXKitTests/Write/PBIR*.swift
+WP3	Sources/PBIXKit/Writing/ABFWriter.swift
+WP3	Sources/PBIXKit/ABFBackup.swift
+WP3	Tests/PBIXKitTests/Write/ABF*.swift
+WP4	Sources/PBIXKit/Writing/MetadataWriter.swift
+WP4	Tests/PBIXKitTests/Write/Metadata*.swift
+WP5	Sources/PBIXKit/Writing/VertiPaqWriter.swift
+WP5	Sources/PBIXKit/Writing/EnterDataTable.swift
+WP5	Tests/PBIXKitTests/Write/VertiPaq*.swift
+LEAD	Sources/PBIXKit/Writing/Contracts.swift
+LEAD	Sources/PBIXKit/Writing/PBIXWriter.swift
+LEAD	Sources/pbix-dump/*
+LEAD	Package.swift
+LEAD	docs/*
+WP5	Sources/PBIXKit/Writing/TableMetadataWriter.swift

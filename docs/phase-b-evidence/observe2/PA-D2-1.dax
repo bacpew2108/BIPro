@@ -1,0 +1,31 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[year],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			"Loan_Amount2", 'Fact_Loan'[Loan Amount],
+			"Loan_Count2", 'Fact_Loan'[Loan Count]
+		)
+
+	VAR __DS0BodyLimited = 
+		SAMPLE(3502, __DS0Core, 'Dim_Date'[year], 1)
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_Date'[year]

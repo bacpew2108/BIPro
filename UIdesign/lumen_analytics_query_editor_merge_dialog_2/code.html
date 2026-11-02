@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"outline":"#717786","surface-dim":"#dcd9dc","surface-tint":"#005db8","primary":"#005ab3","primary-fixed-dim":"#aac7ff","surface-container":"#f0edef","secondary-fixed-dim":"#c2c1ff","on-primary-fixed-variant":"#00468d","on-secondary-fixed-variant":"#332dbc","primary-fixed":"#d6e3ff","on-primary":"#ffffff","surface-bright":"#fcf8fb","on-surface-variant":"#414754","inverse-on-surface":"#f3f0f2","inverse-primary":"#aac7ff","on-background":"#1b1b1d","on-secondary-fixed":"#0c006b","on-primary-fixed":"#001b3e","tertiary-fixed":"#ffdbcb","inverse-surface":"#303032","outline-variant":"#c0c6d6","tertiary":"#9a4100","on-tertiary-container":"#fffbff","error":"#ba1a1a","error-container":"#ffdad6","secondary":"#4a47d2","on-tertiary":"#ffffff","primary-container":"#0073e0","surface-container-highest":"#e4e2e4","on-surface":"#1b1b1d","tertiary-container":"#c25300","surface-container-high":"#eae7ea","on-error-container":"#93000a","on-primary-container":"#fefcff","on-secondary-container":"#fffbff","secondary-fixed":"#e2dfff","surface-variant":"#e4e2e4","secondary-container":"#6462ec","surface-container-lowest":"#ffffff","surface":"#fcf8fb","surface-container-low":"#f6f3f5","tertiary-fixed-dim":"#ffb691","on-tertiary-fixed":"#341100","on-tertiary-fixed-variant":"#793100","background":"#fcf8fb","on-error":"#ffffff","on-secondary":"#ffffff"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"margin":"16px","space-md":"12px","gutter":"12px","space-xs":"4px","space-lg":"16px","space-sm":"8px","space-xl":"24px"},fontFamily:{"headline-sm":["Inter"],"body-lg":["Inter"],"body-sm":["Inter"],"label-md":["Inter"],"headline-md":["Inter"],"data-mono":["JetBrains Mono"],"body-md":["Inter"],"metric-display":["Inter"],"headline-lg":["Inter"],"label-sm":["Inter"],"display":["Inter"]},fontSize:{"headline-sm":["13px",{lineHeight:"18px",letterSpacing:"-0.006em",fontWeight:"600"}],"body-lg":["14px",{lineHeight:"20px",letterSpacing:"-0.005em",fontWeight:"400"}],"body-sm":["12px",{lineHeight:"16px",letterSpacing:"0em",fontWeight:"400"}],"label-md":["11px",{lineHeight:"14px",letterSpacing:"0.01em",fontWeight:"500"}],"headline-md":["15px",{lineHeight:"20px",letterSpacing:"-0.01em",fontWeight:"600"}],"data-mono":["11px",{lineHeight:"15px",letterSpacing:"0em",fontWeight:"400"}],"body-md":["13px",{lineHeight:"18px",letterSpacing:"-0.003em",fontWeight:"400"}],"metric-display":["24px",{lineHeight:"28px",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-lg":["20px",{lineHeight:"26px",letterSpacing:"-0.015em",fontWeight:"600"}],"label-sm":["10px",{lineHeight:"13px",letterSpacing:"0.02em",fontWeight:"500"}],"display":["28px",{lineHeight:"34px",letterSpacing:"-0.018em",fontWeight:"600"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased select-none"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-low/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-12 w-full px-margin flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="w-3 h-3 rounded-full bg-[#FF5F57]"></div><div class="w-3 h-3 rounded-full bg-[#FEBC2E]"></div><div class="w-3 h-3 rounded-full bg-[#28C840]"></div><span class="ml-space-md text-on-surface-variant font-label-md text-label-md tracking-wider uppercase">Lumen</span></div><div class="flex items-center gap-space-xs"><span class="text-on-surface font-headline-sm text-headline-sm">Sales Report — Query Editor</span><span class="text-on-surface-variant font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-surface-container-high">Edited</span></div><div class="flex items-center gap-space-sm"><div class="flex items-center bg-surface-container px-space-sm py-1 rounded gap-space-xs text-on-surface-variant"><span class="material-symbols-outlined text-[16px]">search</span><span class="font-label-md text-label-md">Search ribbon</span></div><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div><div class="h-8 w-full px-margin flex items-center bg-surface-container-low shadow-[0_1px_4px_rgba(0,0,0,0.02)]"><nav class="flex items-center gap-space-xs" data-active-classes="bg-surface-container-lowest text-on-surface font-headline-sm shadow-[0_1px_2px_rgba(0,0,0,0.04)]"><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-file" href="#">File</a><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-home" href="#">Home</a><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-transform" href="#">Transform</a><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-add-column" href="#">Add Column</a><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-view" href="#">View</a><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-tools" href="#">Tools</a><a class="px-space-md py-1 rounded text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="query-help" href="#">Help</a></nav></div></header><aside class="fixed left-0 top-20 bottom-0 w-60 bg-surface-container-low/80 backdrop-blur-md z-40 flex flex-col p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center justify-between pb-space-sm mb-space-sm"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[16px] text-on-surface-variant cursor-pointer">expand_more</span><span class="material-symbols-outlined text-[16px] text-on-surface-variant">schema</span><span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Queries [6]</span></div><span class="material-symbols-outlined text-[16px] text-on-surface-variant hover:text-on-surface cursor-pointer">dock_to_left</span></div><div class="flex flex-col gap-1 overflow-y-auto"><!-- Folder 1: Staging --><div class="flex flex-col"><div class="flex items-center gap-1 px-1 py-1 text-on-surface-variant hover:text-on-surface cursor-pointer text-body-sm font-semibold select-none"><span class="material-symbols-outlined text-[14px]">expand_more</span><span class="material-symbols-outlined text-[16px] text-tertiary">folder</span><span class="">Staging</span></div><div class="flex flex-col pl-4 gap-0.5 mt-0.5"><a class="flex items-center gap-space-sm px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="material-symbols-outlined text-[15px]">table_chart</span><span class="">Raw_Sales</span></a><a class="flex items-center gap-space-sm px-2 py-1 rounded italic text-outline font-body-sm text-body-sm hover:bg-surface-container-high transition-colors" href="#" title="Enable load disabled"><span class="material-symbols-outlined text-[15px] opacity-70">table_chart</span><span class="italic">Raw_Customers</span></a></div></div><!-- Folder 2: Final --><div class="flex flex-col mt-2"><div class="flex items-center gap-1 px-1 py-1 text-on-surface-variant hover:text-on-surface cursor-pointer text-body-sm font-semibold select-none"><span class="material-symbols-outlined text-[14px]">expand_more</span><span class="material-symbols-outlined text-[16px] text-tertiary">folder</span><span class="">Final</span></div><div class="flex flex-col pl-4 gap-0.5 mt-0.5"><a aria-current="page" class="flex items-center justify-between px-2 py-1.5 rounded transition-colors bg-primary text-on-primary font-headline-sm shadow-sm" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[15px]">table_chart</span><span class="font-semibold">Sales_Transactions</span></div><span class="material-symbols-outlined text-[14px]">check</span></a><a class="flex items-center gap-space-sm px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="material-symbols-outlined text-[15px]">table_chart</span><span class="">Customers_Dim</span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[15px]">table_chart</span><span class="">Product_Catalog</span></div><span class="material-symbols-outlined text-[14px] text-tertiary font-bold" title="Warning">warning</span></a><a class="flex items-center gap-space-sm px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="material-symbols-outlined text-[15px]">table_chart</span><span class="">Calendar</span></a></div></div></div></aside><div class="pl-60 pr-64"><main class="w-full h-screen pt-20 bg-surface flex flex-col overflow-hidden"><div class="flex flex-col w-full h-full relative select-none">
+<!-- Underlying Blurred Query Editor Canvas Workspace -->
+<div class="absolute inset-0 flex flex-col pointer-events-none opacity-40 filter blur-[2px] transition-all">
+<!-- Formula / M-Code Bar -->
+<div class="h-9 w-full bg-surface-container-low px-space-md flex items-center gap-space-sm shadow-sm">
+<div class="flex items-center gap-1 text-on-surface-variant font-label-md text-label-md px-1.5 py-0.5 rounded bg-surface-container">
+<span class="font-data-mono text-data-mono font-semibold text-primary">fx</span>
+</div>
+<div class="h-4 w-[1px] bg-outline-variant/30"></div>
+<div class="flex-1 font-data-mono text-data-mono text-on-surface truncate">
+        = Table.NestedJoin(#"Changed Type", {"CustomerID"}, Customers, {"CustomerID"}, "Customers", JoinKind.LeftOuter)
+      </div>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">check</span>
+</div>
+<!-- Underlying Grid Mock Preview -->
+<div class="flex-1 bg-surface-container-lowest overflow-hidden p-space-sm flex flex-col">
+<div class="grid grid-cols-7 bg-surface-container-high py-1 px-2 text-on-surface-variant font-label-md text-label-md">
+<span>#</span><span>OrderID</span><span>OrderDate</span><span>CustomerID</span><span>ProductID</span><span>Quantity</span><span>Revenue</span>
+</div>
+<div class="flex flex-col divide-y divide-surface-container gap-1 mt-1 text-on-surface font-data-mono text-data-mono opacity-60">
+<div class="grid grid-cols-7 py-1 px-2"><span>1</span><span>SO-98201</span><span>2024-03-01</span><span>CUST-1049</span><span>PRD-88</span><span>4</span><span>$1,280.00</span></div>
+<div class="grid grid-cols-7 py-1 px-2"><span>2</span><span>SO-98202</span><span>2024-03-01</span><span>CUST-8402</span><span>PRD-12</span><span>1</span><span>$340.50</span></div>
+<div class="grid grid-cols-7 py-1 px-2"><span>3</span><span>SO-98203</span><span>2024-03-02</span><span>CUST-0091</span><span>PRD-40</span><span>12</span><span>$4,110.00</span></div>
+<div class="grid grid-cols-7 py-1 px-2"><span>4</span><span>SO-98204</span><span>2024-03-02</span><span>CUST-3921</span><span>PRD-03</span><span>2</span><span>$89.00</span></div>
+<div class="grid grid-cols-7 py-1 px-2"><span>5</span><span>SO-98205</span><span>2024-03-03</span><span>CUST-5832</span><span>PRD-77</span><span>6</span><span>$890.20</span></div>
+</div>
+</div>
+</div>
+<!-- Modal Backdrop Dimmer -->
+<div class="absolute inset-0 bg-inverse-surface/20 backdrop-blur-md flex items-center justify-center p-space-md z-30">
+<!-- Native macOS Sequoia Dialog Window Sheet -->
+<section class="w-full max-w-[780px] bg-surface-container-lowest/95 backdrop-blur-2xl rounded-xl shadow-2xl flex flex-col overflow-hidden transform transition-all duration-150">
+<!-- Window Sheet Header -->
+<div class="px-space-xl pt-5 pb-3 flex items-start justify-between bg-surface-container-low/60">
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center gap-space-sm">
+<span class="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[17px]">merge_type</span>
+</span>
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-tight font-semibold">Merge Queries</h1>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant ml-8">
+            Select tables and matching columns to create an enriched tabular projection.
+          </p>
+</div>
+<div class="flex items-center gap-1">
+<button class="w-6 h-6 rounded-md flex items-center justify-center hover:bg-surface-container-highest transition-colors text-on-surface-variant" title="Quick help" type="button">
+<span class="material-symbols-outlined text-[16px]">help</span>
+</button>
+</div>
+</div>
+<!-- Dialog Body Content -->
+<div class="px-space-xl py-space-md flex flex-col gap-space-md max-h-[798px] overflow-y-auto">
+<!-- Section 1: First Table Preview -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Primary Source</span>
+<div class="flex items-center gap-1.5 bg-surface-container px-2 py-0.5 rounded-full text-on-surface font-label-md text-label-md">
+<span class="material-symbols-outlined text-[13px] text-primary">table_chart</span>
+<span class="font-medium">Sales_Transactions</span>
+<span class="text-on-surface-variant text-label-sm">(18,430 rows)</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant text-label-sm font-label-sm">
+<span class="material-symbols-outlined text-[13px] text-primary">check_circle</span>
+<span>1 Column Selected</span>
+</div>
+</div>
+<!-- Mini Data Grid 1 -->
+<div class="w-full bg-surface-container-lowest rounded-lg shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left font-data-mono text-data-mono border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant text-[10px] uppercase font-semibold">
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="font-data-mono text-[9px] text-on-surface-variant">123</span>
+<span>OrderID</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[11px] text-on-surface-variant">calendar_today</span>
+<span>OrderDate</span>
+</div>
+</th>
+<!-- Highlighted Joined Key Column -->
+<th class="py-1.5 px-3 font-semibold whitespace-nowrap bg-primary-fixed text-on-primary-fixed shadow-inner">
+<div class="flex items-center justify-between gap-1.5">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-primary">key</span>
+<span class="font-headline-sm text-headline-sm text-primary">CustomerID</span>
+</div>
+<span class="bg-primary text-on-primary text-[9px] px-1 rounded font-sans">KEY 1</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="font-data-mono text-[9px] text-on-surface-variant">ABC</span>
+<span>ProductID</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container text-right">
+<div class="flex items-center justify-end gap-1">
+<span class="font-data-mono text-[9px] text-on-surface-variant">123</span>
+<span>Quantity</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container text-right">
+<div class="flex items-center justify-end gap-1">
+<span class="font-data-mono text-[9px] text-on-surface-variant">$</span>
+<span>Revenue</span>
+</div>
+</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container text-on-surface">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-1 px-2.5">SO-10928</td>
+<td class="py-1 px-2.5 text-on-surface-variant">2024-02-14</td>
+<td class="py-1 px-3 bg-primary-fixed/40 font-semibold text-primary">CUST-84021</td>
+<td class="py-1 px-2.5">PRD-004</td>
+<td class="py-1 px-2.5 text-right">3</td>
+<td class="py-1 px-2.5 text-right font-medium">$410.00</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-1 px-2.5">SO-10929</td>
+<td class="py-1 px-2.5 text-on-surface-variant">2024-02-14</td>
+<td class="py-1 px-3 bg-primary-fixed/40 font-semibold text-primary">CUST-19204</td>
+<td class="py-1 px-2.5">PRD-812</td>
+<td class="py-1 px-2.5 text-right">1</td>
+<td class="py-1 px-2.5 text-right font-medium">$1,299.00</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-1 px-2.5">SO-10930</td>
+<td class="py-1 px-2.5 text-on-surface-variant">2024-02-15</td>
+<td class="py-1 px-3 bg-primary-fixed/40 font-semibold text-primary">CUST-04918</td>
+<td class="py-1 px-2.5">PRD-109</td>
+<td class="py-1 px-2.5 text-right">6</td>
+<td class="py-1 px-2.5 text-right font-medium">$540.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Section 2: Second Table Selector & Mini Grid -->
+<div class="flex flex-col gap-1.5 mt-1">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Join Secondary Table</span>
+<div class="flex items-center gap-1 text-on-surface-variant text-label-sm font-label-sm">
+<span class="material-symbols-outlined text-[13px] text-primary">check_circle</span>
+<span>1 Column Selected</span>
+</div>
+</div>
+<!-- Secondary Table Selector Input Pill -->
+<div class="flex items-center gap-2">
+<div class="relative flex-1">
+<div class="flex items-center justify-between bg-surface-container-low hover:bg-surface-container px-3 py-1.5 rounded-lg shadow-sm cursor-pointer transition-all">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-tertiary">folder_open</span>
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Customers</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container-high px-1.5 py-0.2 rounded">Final.Customers_Dim</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="text-label-sm font-label-sm font-mono">18,500 rows</span>
+<span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Mini Data Grid 2 -->
+<div class="w-full bg-surface-container-lowest rounded-lg shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left font-data-mono text-data-mono border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant text-[10px] uppercase font-semibold">
+<!-- Highlighted Joined Key Column -->
+<th class="py-1.5 px-3 font-semibold whitespace-nowrap bg-primary-fixed text-on-primary-fixed shadow-inner">
+<div class="flex items-center justify-between gap-1.5">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px] text-primary">key</span>
+<span class="font-headline-sm text-headline-sm text-primary">CustomerID</span>
+</div>
+<span class="bg-primary text-on-primary text-[9px] px-1 rounded font-sans">KEY 2</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="font-data-mono text-[9px] text-on-surface-variant">ABC</span>
+<span>CustomerName</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="font-data-mono text-[9px] text-on-surface-variant">ABC</span>
+<span>Segment</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[11px] text-on-surface-variant">public</span>
+<span>Country</span>
+</div>
+</th>
+<th class="py-1.5 px-2.5 font-medium whitespace-nowrap bg-surface-container">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[11px] text-on-surface-variant">location_city</span>
+<span>City</span>
+</div>
+</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container text-on-surface">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-1 px-3 bg-primary-fixed/40 font-semibold text-primary">CUST-84021</td>
+<td class="py-1 px-2.5 font-medium text-on-surface">Apex Dynamics Inc.</td>
+<td class="py-1 px-2.5"><span class="px-1.5 py-0.5 bg-surface-container-high rounded text-[10px]">Enterprise</span></td>
+<td class="py-1 px-2.5 text-on-surface-variant">United States</td>
+<td class="py-1 px-2.5 text-on-surface-variant">Seattle</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-1 px-3 bg-primary-fixed/40 font-semibold text-primary">CUST-19204</td>
+<td class="py-1 px-2.5 font-medium text-on-surface">Helios Nordic AB</td>
+<td class="py-1 px-2.5"><span class="px-1.5 py-0.5 bg-surface-container-high rounded text-[10px]">Mid-Market</span></td>
+<td class="py-1 px-2.5 text-on-surface-variant">Sweden</td>
+<td class="py-1 px-2.5 text-on-surface-variant">Stockholm</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="py-1 px-3 bg-primary-fixed/40 font-semibold text-primary">CUST-04918</td>
+<td class="py-1 px-2.5 font-medium text-on-surface">Vanguard Global Logistics</td>
+<td class="py-1 px-2.5"><span class="px-1.5 py-0.5 bg-surface-container-high rounded text-[10px]">Enterprise</span></td>
+<td class="py-1 px-2.5 text-on-surface-variant">Germany</td>
+<td class="py-1 px-2.5 text-on-surface-variant">Frankfurt</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Section 3 & 4: Join Kind & Fuzzy Options -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-space-md pt-2">
+<!-- Join Kind Slicer -->
+<div class="md:col-span-8 flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-semibold">Join Kind</label>
+<div class="relative">
+<div class="flex items-center justify-between bg-surface-container-low hover:bg-surface-container px-3 py-2 rounded-lg shadow-sm cursor-pointer transition-all">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-on-surface font-medium leading-none">Left Outer</span>
+<span class="text-[11px] text-on-surface-variant mt-0.5">all from first, matching from second</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">unfold_more</span>
+</div>
+</div>
+</div>
+<!-- Match Distribution Sparkline Tile -->
+<div class="md:col-span-4 bg-surface-container-low rounded-lg p-2.5 flex flex-col justify-between shadow-sm">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Card Match Density</span>
+<span class="text-primary font-semibold">98.2%</span>
+</div>
+<!-- Micro SVG visualization -->
+<div class="h-6 w-full flex items-end gap-1 pt-1">
+<div class="flex-1 bg-primary/20 h-2 rounded-t-sm"></div>
+<div class="flex-1 bg-primary/30 h-3 rounded-t-sm"></div>
+<div class="flex-1 bg-primary/40 h-4 rounded-t-sm"></div>
+<div class="flex-1 bg-primary/60 h-5 rounded-t-sm"></div>
+<div class="flex-1 bg-primary h-6 rounded-t-sm"></div>
+<div class="flex-1 bg-primary h-6 rounded-t-sm"></div>
+<div class="flex-1 bg-primary h-5 rounded-t-sm"></div>
+<div class="w-1.5 bg-error/70 h-1.5 rounded-t-sm" title="Unmatched rows (1.8%)"></div>
+</div>
+</div>
+</div>
+<!-- Section 4: Fuzzy Matching Configuration -->
+<div class="bg-surface-container-low/50 rounded-lg p-3 flex flex-col gap-2 shadow-sm">
+<label class="flex items-center gap-2.5 cursor-pointer group">
+<input class="w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary" id="fuzzyToggle" type="checkbox"/>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">
+              Use fuzzy matching to perform the merge
+            </span>
+</label>
+<!-- Collapsible toggle disclosure line -->
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md w-fit pl-6" onclick="document.getElementById('fuzzyOptions').classList.toggle('hidden'); document.getElementById('fuzzyCaret').classList.toggle('rotate-90')" type="button">
+<span class="material-symbols-outlined text-[14px] transition-transform duration-150" id="fuzzyCaret">arrow_right</span>
+<span>Fuzzy matching options</span>
+</button>
+<!-- Collapsible Drawer -->
+<div class="hidden flex-col gap-2 pl-6 pt-1 text-body-sm text-body-sm text-on-surface-variant transition-all" id="fuzzyOptions">
+<div class="grid grid-cols-2 gap-space-md">
+<div class="flex flex-col gap-1">
+<span class="text-label-sm font-label-sm">Similarity threshold (0.00 – 1.00)</span>
+<input class="bg-surface-container-lowest px-2 py-1 rounded shadow-sm text-on-surface font-data-mono text-data-mono focus:outline-none" type="text" value="0.80"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-label-sm font-label-sm">Maximum number of matches</span>
+<input class="bg-surface-container-lowest px-2 py-1 rounded shadow-sm text-on-surface font-data-mono text-data-mono focus:outline-none" type="text" value="1"/>
+</div>
+</div>
+<label class="flex items-center gap-2 pt-1 cursor-pointer">
+<input class="w-3.5 h-3.5 rounded text-primary accent-primary" type="checkbox"/>
+<span class="text-label-sm font-label-sm">Match by combining text parts (Token-based)</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Window Sheet Footer Bar -->
+<footer class="px-space-xl py-3.5 bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_-1px_4px_rgba(0,0,0,0.02)]">
+<!-- Status indicator notification -->
+<div class="flex items-center gap-2 text-on-surface">
+<div class="w-5 h-5 rounded-full bg-[#34C759]/15 flex items-center justify-center text-[#248A3D]">
+<span class="material-symbols-outlined text-[14px] font-bold">done</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface">
+            The selection matches <span class="font-semibold text-on-surface">18,102</span> of <span class="font-semibold text-on-surface">18,430</span> rows from the first table. <span class="text-on-surface-variant font-mono">(98.2%)</span>
+</p>
+</div>
+<!-- Action Push Buttons (macOS Native Ergonomics) -->
+<div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+<button class="px-4 py-1.5 rounded-md bg-surface-container-lowest hover:bg-surface-container-high active:bg-surface-container text-on-surface font-headline-sm text-headline-sm shadow-sm transition-all" type="button">
+            Cancel
+          </button>
+<button class="px-5 py-1.5 rounded-md bg-primary hover:bg-primary-container active:opacity-90 text-on-primary font-headline-sm text-headline-sm shadow-md transition-all flex items-center gap-1.5" type="button">
+<span>OK</span>
+<span class="text-label-sm opacity-70">↵</span>
+</button>
+</div>
+</footer>
+</section>
+</div>
+</div></main></div><aside class="fixed right-0 top-20 bottom-0 w-64 bg-surface-container-low/80 backdrop-blur-md z-40 flex flex-col p-space-md shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center justify-between pb-space-sm mb-space-sm"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[16px] text-on-surface-variant">tune</span><span class="font-headline-sm text-headline-sm text-on-surface">Query Settings</span></div><span class="material-symbols-outlined text-[16px] text-on-surface-variant hover:text-on-surface cursor-pointer">dock_to_right</span></div><div class="flex flex-col gap-space-sm"><div class="flex flex-col gap-space-xs"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Properties</span><div class="bg-surface-container px-space-sm py-1 rounded font-body-sm text-body-sm text-on-surface">Sales_Transactions</div></div><div class="flex flex-col gap-space-xs mt-space-sm"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Applied Steps</span><nav class="flex flex-col gap-0.5"><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Source</span><span class="material-symbols-outlined text-[14px] text-on-surface-variant">settings</span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Navigation</span><span class="material-symbols-outlined text-[14px] text-on-surface-variant">settings</span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Promoted Headers</span><span></span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Changed Type</span><span></span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Filtered Rows</span><span class="material-symbols-outlined text-[14px] text-on-surface-variant">settings</span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Added Custom</span><span class="material-symbols-outlined text-[14px] text-on-surface-variant">settings</span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Merged Queries</span><span class="material-symbols-outlined text-[14px] text-on-surface-variant">settings</span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="">Expanded Customers</span><span></span></a><a class="flex items-center justify-between px-2 py-1 rounded text-on-surface-variant font-body-sm text-body-sm hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#"><span class="font-semibold">Removed Columns</span><span class="material-symbols-outlined text-[14px] text-on-primary cursor-pointer hover:opacity-80">close</span></a></nav></div></div></aside>
+</body></html>
