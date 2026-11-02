@@ -22,7 +22,7 @@ Cập nhật: 2026-11-02, sau review và merge đợt 1 của Phase C.
 
 ## Worktree / worker
 
-Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Ba nhánh `Bacpew/c1-*` vẫn giữ, vì đã merge vào `main`. Mô tả việc của từng worker nằm trong `docs/tasks/`.
+Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Ba nhánh `Bacpew/c1-*` đã merge vào `main` nên cũng đã xoá. Mô tả việc của từng worker nằm trong `docs/tasks/`.
 
 ## Quyết định đã chốt
 
