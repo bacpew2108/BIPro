@@ -157,6 +157,7 @@ BI Pro (SwiftUI + AppKit, macOS 15+)
 - **Trạng thái (2026-11-02):** **engine đạt tiêu chí xong**: 30/30 golden khớp Power BI (G0–G6, T1–T5; 3 buổi test tay). Còn UI2/UI3 của DAX Query View. Chi tiết: mục "Tiếp tục từ đây" đầu `PHASE_B_PLAN.md`.
 
 ### Phase C: Report có số liệu và tương tác (5 tuần) → **M1**
+Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md).
 - [ ] Visual có số: card/KPI, bar/column/line/combo, donut, treemap, 100% stacked, table/matrix, slicer, shape map; định dạng số, conditional formatting.
 - [ ] Filters pane, slicer lọc thật, cross-filter/highlight, drill, tooltip, Selection pane, Bookmarks pane.
 - **Xong khi:** cả 4 trang Nhom6 tương tác như trên Power BI.
