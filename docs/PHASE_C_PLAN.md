@@ -27,7 +27,13 @@
 
 **Buổi C1 xong** (2026-11-02): 64 truy vấn, 11 kết quả, 9 ảnh; quan sát ở `docs/phase-c-evidence/C1.md` §2. Engine chạy được 0/64; danh sách việc của E1 ở C1.md §2.5.
 
-**Tiếp theo:** đợt 1, gồm E1 ‖ R1 ‖ R2 (worker agy); lead làm E2 rồi Q, so builder với 64 truy vấn C1.
+**Đợt 1 đang chạy** (2026-11-02): 3 worker agy E1 ‖ R1 ‖ R2 ở worktree `c1-e1-engine`, `c1-r1-charts`, `c1-r2-cards`. Lead đã xong:
+- E2: measure ẩn `_<M> FormatString`; `SELECTEDMEASURE()` thay bằng M.
+- Q:
+  - `VisualQuerySpecReader` và `DAXQueryBuilder`: văn bản trùng Power BI ở **43/44** visual mặc định. Còn thiếu slicer hierarchy đang mở nút.
+  - `DataViewMapper`: thử bằng kết quả thật của Power BI.
+  - `VisualDataLoader`.
+- `NumberDisplay`: độ chính xác tự động theo định dạng của measure, khớp card D1/D2.
 
 ## 0. Mục tiêu và tiêu chí xong
 
