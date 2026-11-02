@@ -154,6 +154,12 @@ public struct ModelMetadata: Sendable {
     public let roles: [String]
     public let perspectives: [String]
     public let cultures: [String]
+    /// Shared Power Query expressions (`Expression`), e.g. parameters and shared queries.
+    public let expressions: [String]
+    /// Tables that are calculation groups (`CalculationGroup` → `Table`).
+    public let calculationGroups: [String]
+    /// User-defined DAX functions (`Function`); empty when the file predates them.
+    public let functions: [String]
     /// `Model.Culture`, e.g. `en-US`. Nil when the metadata has no model row.
     public let culture: String?
 
@@ -297,6 +303,11 @@ public struct ModelMetadata: Sendable {
         roles = names("Role")
         perspectives = names("Perspective")
         cultures = names("Culture")
+        expressions = names("Expression")
+        functions = names("Function")
+        calculationGroups = ((try? db.rows(
+            "SELECT t.Name FROM CalculationGroup c JOIN [Table] t ON t.ID = c.TableID ORDER BY c.ID")) ?? [])
+            .compactMap { $0.string(0) }
         culture = (try? db.rows("SELECT Culture FROM Model ORDER BY ID LIMIT 1"))?.first?.nonEmpty(0)
     }
 
