@@ -65,12 +65,23 @@ public enum Propagation {
         let sources = Set(localFilters.map { $0.column.table }).union(tableFilters.map(\.table))
         try checkUnambiguous(active, sources: sources)
 
-        var involved: Set<TableID> = [table]
-        involved.formUnion(sources)
+        // Chỉ các bảng ảnh hưởng tới R(table): tổ tiên của `table` trên đồ thị lan truyền (một → nhiều, thêm
+        // nhiều → một nếu hai chiều), cộng tổ tiên của các bảng phía nhiều trỏ vào `table` (cần cho blank row).
+        // Tập này đóng với phép lấy tổ tiên nên mọi tập trong đó bằng đúng giá trị khi tính trên cả model, mà bỏ
+        // được các nhánh không liên quan (vd Fact_Transaction ~1 triệu dòng khi chỉ cần Fact_Loan).
+        var feeders: [TableID: [TableID]] = [:]   // bảng → các bảng đẩy bộ lọc trực tiếp vào nó
         for link in active {
-            involved.insert(link.many)
-            involved.insert(link.one)
+            feeders[link.many, default: []].append(link.one)
+            if link.bothDirections { feeders[link.one, default: []].append(link.many) }
         }
+        var roots: [TableID] = [table]
+        for link in active where link.one == table { roots.append(link.many) }
+        var involved: Set<TableID> = []
+        while let next = roots.popLast() {
+            guard involved.insert(next).inserted else { continue }
+            roots.append(contentsOf: feeders[next] ?? [])
+        }
+        let relevant = active.filter { involved.contains($0.one) && involved.contains($0.many) }
 
         var sets: [TableID: RowSet] = [:]
         for t in involved.sorted(by: { $0.raw < $1.raw }) {
@@ -86,11 +97,11 @@ public enum Propagation {
         // đã đổi từ lần xử lý trước, vì xử lý lại khi không đổi gì thì không thu hẹp thêm. Kết quả vẫn là điểm
         // bất động lớn nhất (các bước đơn điệu thu hẹp, nên thứ tự xử lý không đổi kết quả).
         var version: [TableID: Int] = [:]
-        var processed = [(Int, Int)?](repeating: nil, count: active.count)
+        var processed = [(Int, Int)?](repeating: nil, count: relevant.count)
         var changed = true
         while changed {
             changed = false
-            for (i, link) in active.enumerated() {
+            for (i, link) in relevant.enumerated() {
                 let stamp = (version[link.one, default: 0], version[link.many, default: 0])
                 if let last = processed[i], last == stamp { continue }
                 processed[i] = stamp
