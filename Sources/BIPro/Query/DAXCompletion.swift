@@ -511,11 +511,16 @@ public enum DAXCompletion {
         // 1. Khớp tiền tố trước (isPrefix == true trước isPrefix == false)
         // 2. Kind theo thứ tự: measure (0), hàm (1), bảng (2), từ khoá (3)
         // 3. A-Z
+        // Tên khớp đúng phần đang gõ (bỏ qua hoa thường, ngoặc của measure) đứng đầu, vd gõ SUM thì SUM trước SUMX.
+        func isExact(_ item: CompletionItem) -> Bool {
+            let bare = item.label.hasPrefix("[") && item.label.hasSuffix("]") ? String(item.label.dropFirst().dropLast()) : item.label
+            return bare.caseInsensitiveCompare(trimmedPartial) == .orderedSame
+        }
         candidates.sort { a, b in
+            let ea = isExact(a.item), eb = isExact(b.item)
+            if ea != eb { return ea }
             if a.isPrefix != b.isPrefix { return a.isPrefix && !b.isPrefix }
             if a.matchRank != b.matchRank { return a.matchRank < b.matchRank }
-            if a.item.label == "SUMMARIZECOLUMNS" && b.item.label != "SUMMARIZECOLUMNS" { return true }
-            if b.item.label == "SUMMARIZECOLUMNS" && a.item.label != "SUMMARIZECOLUMNS" { return false }
             return a.item.label.localizedCaseInsensitiveCompare(b.item.label) == .orderedAscending
         }
 

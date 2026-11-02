@@ -46,10 +46,11 @@ import DAXEngine
         let result = DAXCompletion.suggestions(text: text, cursor: cursor, model: sampleModel)
 
         #expect(result != nil)
-        let first = result?.items.first
-        #expect(first?.label == "SUMMARIZECOLUMNS")
-        #expect(first?.insertText == "SUMMARIZECOLUMNS(")
-        #expect(first?.kind == .function)
+        // Khớp tiền tố, sắp A–Z: SUMMARIZE rồi SUMMARIZECOLUMNS.
+        #expect(result?.items.map(\.label).prefix(2) == ["SUMMARIZE", "SUMMARIZECOLUMNS"])
+        let item = result?.items.first { $0.label == "SUMMARIZECOLUMNS" }
+        #expect(item?.insertText == "SUMMARIZECOLUMNS(")
+        #expect(item?.kind == .function)
         #expect(result?.replaceRange == NSRange(location: 0, length: 4))
     }
 
@@ -152,7 +153,10 @@ import DAXEngine
         let functions = Array(Set(FunctionRegistry.all.map(\.name) + DAXCompletion.queryForms)).sorted()
         let model = CompletionModel(functions: functions, tables: [], columnsByTable: [:], measuresByTable: [:])
         let result = DAXCompletion.suggestions(text: "EVALUATE\nSUMM", cursor: 13, model: model)
-        #expect(result?.items.first?.label == "SUMMARIZECOLUMNS")
-        #expect(result?.items.first?.detail == "Hàm")
+        let item = result?.items.first { $0.label == "SUMMARIZECOLUMNS" }
+        #expect(item?.detail == "Hàm")
+        // Gõ đúng tên thì tên đó đứng đầu: SUM trước SUMMARIZE, SUMMARIZECOLUMNS, SUMX.
+        let sum = DAXCompletion.suggestions(text: "EVALUATE\nSUM", cursor: 12, model: model)
+        #expect(sum?.items.map(\.label).prefix(4) == ["SUM", "SUMMARIZE", "SUMMARIZECOLUMNS", "SUMX"])
     }
 }
