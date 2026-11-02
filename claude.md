@@ -9,8 +9,14 @@
 - Dùng skill REA (reverse-engineer-anything) để quan sát cách các chức năng của Power BI hoạt động, rồi tự xây dựng chức năng tương tự trong BI Pro.
 
 - Ưu tiên SwiftUI và API native của Apple (Swift Charts, Metal khi cần hiệu năng). Không thêm thư viện bên ngoài nếu chưa hỏi tôi.
-- Lệnh build/test của dự án: `swift build`; `swift test` (test thường); `BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --filter "Nhom6|ORA"` (golden Power BI trên Nhom6); `zsh scripts/build-app.sh` (đóng gói `build/BI Pro.app`). Nếu test sập SIGBUS sau khi đổi struct dùng chung giữa module thì xoá `.build` rồi build lại.
+- Lệnh build/test của dự án: `swift build`; `swift test` (test thường); `BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --filter "Nhom6|ORA|VIS"` (golden Power BI trên Nhom6, gồm truy vấn visual); `zsh scripts/build-app.sh` (đóng gói `build/BI Pro.app`). Nếu test sập SIGBUS sau khi đổi struct dùng chung giữa module thì xoá `.build` rồi build lại.
 - Mỗi tính năng mới: ghi lại phần đã quan sát được từ Power BI (hành vi, đầu vào/đầu ra) ngắn gọn trước khi viết code, để review và để giao việc cho worker có mô tả rõ.
+
+## Trạng thái làm việc
+
+- Giữ `docs/STATE.md` ngắn gọn: mục tiêu và tiến độ, các worktree/worker (tên, nhánh, việc, trạng thái), quyết định thiết kế đã chốt, lệnh build/test, việc tiếp theo.
+- Cập nhật `docs/STATE.md` sau mỗi lần giao việc hoặc review xong. Không chép log dài vào đó.
+- Đầu phiên mới, đọc `docs/STATE.md` trước khi làm gì khác.
 
 ## Tự động giao việc cho Antigravity (agy) qua Orca
 
@@ -31,18 +37,25 @@ Cách giao:
 
 - Dùng skill orca-cli và orchestration. Mỗi việc một worktree con riêng, chạy `agy` trong đó.
 - Tối đa 3 worker cùng lúc.
-- Mô tả việc phải ghi: mục tiêu, file được sửa, "không sửa gì ngoài danh sách", lệnh build/test của project, tiêu chí xong việc (build qua, test liên quan qua, báo lại danh sách file đã sửa kèm tóm tắt ngắn).
+- Ghi mô tả việc ra file `docs/tasks/<tên>.md`: mục tiêu, file được sửa, "không sửa gì ngoài danh sách", lệnh build/test của project, tiêu chí xong việc (build qua, test liên quan qua).
+- Yêu cầu worker khi xong ghi báo cáo ngắn vào `docs/tasks/<tên>-report.md`: file đã sửa, tóm tắt thay đổi, kết quả build/test, việc còn tồn đọng.
 - Worker không được commit, push, cài package hay tải từ mạng.
 - `agy` chạy không tương tác: KHÔNG dùng `--dangerously-skip-permissions`. Cấp danh sách lệnh được phép (build, test, lệnh chỉ đọc) ngay lúc khởi động, vì một lệnh bị từ chối sẽ dừng cả phiên.
+- Không để file settings tạm của việc cấp quyền lọt vào commit.
 
 Khi worker chạy:
 
-- Không kiểm tra lặp đi lặp lại. Chờ nền và đợi tất cả worker xong rồi review một lượt.
+- Khởi động worker, cập nhật `docs/STATE.md`, báo tôi rồi KẾT THÚC lượt. Không đặt lệnh chờ nền, không ngồi chờ trong phiên này, vì phiên lớn chờ lâu sẽ tốn nhiều hạn mức khi chạy lại.
+- Tôi sẽ mở phiên mới để review dựa trên `docs/STATE.md` và các file trong `docs/tasks/`.
 
-Khi worker xong:
+Khi review (thường ở phiên mới):
 
 - `git diff --stat` kiểm tra chỉ file được giao bị sửa; file ngoài phạm vi thì báo tôi.
-- Đọc `git diff`, chạy build/test. Nếu chưa đạt, giao lại MỘT lần với phản hồi cụ thể; vẫn chưa đạt thì dừng và báo tôi.
+- Đọc báo cáo của worker, đọc `git diff`, chạy build/test. Nếu chưa đạt, giao lại MỘT lần với phản hồi cụ thể; vẫn chưa đạt thì dừng và báo tôi.
 - Báo tôi: kết quả từng worker, file đã đổi, việc còn tồn đọng. Không tự merge, không tự xóa worktree.
 
 Dừng và báo tôi ngay (không tự thử lại nhiều lần, không tự đổi tài khoản) nếu worker lỗi, hết hạn mức, hoặc bị từ chối quyền lặp lại.
+
+## Compact Instructions
+
+Khi compact, giữ: mục tiêu, trạng thái từng worker, quyết định thiết kế, lệnh build, đường dẫn `docs/STATE.md`. Bỏ log dài, kết quả lệnh cũ, lịch sử thử quyền.
