@@ -1,0 +1,106 @@
+nạp model: 1.089 s, song song 8, bộ lọc: 2
+
+== D1 · Giao dịch (24 visual có dữ liệu)
+    0.041 s     8 dòng  slicer f4c48650 Năm
+    0.025 s     5 dòng  slicer c0076ed4 Vùng
+    0.024 s     6 dòng  slicer 83b98895 
+    0.024 s     4 dòng  slicer b3cf5dc6 
+    0.025 s     5 dòng  slicer f264fab9 
+    0.053 s     1 dòng  card 7362dc48 Tiền vào
+    0.128 s     1 dòng  card ea0f95d9 Total_Credit_Inflow Δ Label
+    0.063 s     1 dòng  card 9acaa026 Tiền ra
+    0.133 s     1 dòng  card fcdf18e3 Total_Debit_Outflow Δ Label
+    0.116 s     1 dòng  card 36f365af Dòng tiền ròng
+    0.167 s     1 dòng  card 2e97f9a2 Net_Cashflow Δ Label
+    0.865 s     1 dòng  card b6ab8c5d Số dư BQ/TK
+    2.612 s     1 dòng  card 88648d34 Avg_Account_Balance Δ Label
+    0.030 s     1 dòng  card 7ddece57 Số giao dịch
+    0.106 s     1 dòng  card 761c0c6f Trans Count Δ Label
+    0.038 s     1 dòng  card 0fc2614c Giá trị TB/GD
+    0.112 s     1 dòng  card 48f2add3 Avg Trans Value Δ Label
+    0.930 s    72 dòng  lineChart c3662592 Số GD
+    0.330 s    14 dòng  donutChart b1106ee1 % giá trị
+    7.953 s    70 dòng  pivotTable 2132ddc1 Nghìn GD
+    0.920 s    72 dòng  lineChart 52888e84 Giá trị GD
+    0.196 s     6 dòng  lineClusteredColumnComboChart bd7c2a2d Năm
+   34.186 s    72 dòng  lineClusteredColumnComboChart 69ca295f Tỷ lệ thấu chi
+    0.451 s    20 dòng  pivotTable 70eec8cd Vùng
+  tổng tuần tự 49.53 s; song song 8: 36.58 s
+  chậm nhất: 34.19 s lineClusteredColumnComboChart 69ca295f Tỷ lệ thấu chi | 7.95 s pivotTable 2132ddc1 Nghìn GD | 2.61 s card 88648d34 Avg_Account_Balance Δ Label
+
+== D2 · Khoản vay (24 visual có dữ liệu)
+    0.025 s     8 dòng  slicer a9bb9c5a 
+    0.002 s     4 dòng  slicer 2f47bf6f 
+    0.002 s     5 dòng  slicer d24727b1 
+    0.002 s     4 dòng  slicer 344274ff 
+    0.002 s    77 dòng  slicer 36f4eb2f 
+    0.025 s     5 dòng  slicer 5df11828 
+    0.002 s     1 dòng  card f7e03ae5 Tổng giải ngân
+    0.029 s     1 dòng  card 4aaa27cf Loan Amount Δ Label
+    0.002 s     1 dòng  card 094babe3 Giải ngân HĐ nợ xấu
+    0.028 s     1 dòng  card 83b210cb Bad_Debt_Principal Δ Label
+    0.002 s     1 dòng  card 7cc4daf0 NPL% theo giá trị
+    0.028 s     1 dòng  card 81522bef Bad_Debt_Ratio_Value Δ Label
+    0.002 s     1 dòng  card e283185e NPL% theo số HĐ
+    0.028 s     1 dòng  card 809aa1a2 Bad_Debt_Ratio_Count Δ Label
+    0.002 s     1 dòng  card 31714aae Thu hồi hàng tháng
+    0.029 s     1 dòng  card 91ff79f5 Active_Monthly_Payment Δ Label
+    0.002 s     1 dòng  card 01e85e6d Tổng HĐ
+    0.027 s     1 dòng  card dfdaadb4 Loan Count Δ Label
+    0.025 s     6 dòng  lineStackedColumnComboChart a1d6568d Năm
+    0.006 s    20 dòng  donutChart b87e0317 Kỳ hạn BQ
+    0.027 s    20 dòng  hundredPercentStackedColumnChart fefd7eb8 Số khoản vay
+    0.023 s     7 dòng  shapeMap 4353768e Giá trị cho vay
+    0.004 s     4 dòng  clusteredBarChart 7d84e6ad NPL% (giá trị)
+    0.035 s    33 dòng  lineClusteredColumnComboChart dbe28e74 Số khoản vay
+  tổng tuần tự 0.36 s; song song 8: 0.10 s
+  chậm nhất: 0.04 s lineClusteredColumnComboChart dbe28e74 Số khoản vay | 0.03 s card 91ff79f5 Active_Monthly_Payment Δ Label | 0.03 s card 4aaa27cf Loan Amount Δ Label
+
+== D3 · Chăm sóc KH (24 visual có dữ liệu)
+    0.027 s     8 dòng  slicer c6bad7af Năm
+    0.002 s     2 dòng  slicer c39cd1a5 
+    0.003 s    38 dòng  slicer 9261e4a0 
+    0.002 s     6 dòng  slicer f4f933fc 
+    0.026 s     5 dòng  slicer 63132cdf 
+    0.009 s     3 dòng  slicer edf505fc 
+    0.053 s     1 dòng  card 595dca09 Tổng khách hàng
+    0.055 s     1 dòng  card 2de88bf0 Total_Clients Sub Label
+    0.003 s     1 dòng  card f1bef09a Tổng khiếu nại
+    0.030 s     1 dòng  card 1675d575 Complaints Δ Label
+    0.005 s     1 dòng  card 0bb5d766 % phản hồi đúng hạn
+    0.030 s     1 dòng  card bbd52c6b SLA_Timely_Rate Δ Label
+    0.004 s     1 dòng  card 68e54691 % tranh chấp
+    0.031 s     1 dòng  card f6458711 Dispute_Rate Δ Label
+    0.004 s     1 dòng  card 1631b291 Ngày chuyển công ty TB
+    0.030 s     1 dòng  card 77b75e2c Avg_Days_To_Company Δ Label
+    0.004 s     1 dòng  card 5b863d08 % bồi hoàn
+    0.030 s     1 dòng  card 6dd2bdc7 Relief Rate Δ Label
+   12.735 s   341 dòng  lineStackedColumnComboChart 5c5c251a % theo kênh
+    0.786 s    38 dòng  lineClusteredColumnComboChart aabc04ac Số khiếu nại
+    0.024 s     2 dòng  clusteredBarChart c1ed9ef5 Ngày xử lý TB
+    0.088 s    42 dòng  lineStackedColumnComboChart e32431bc Số khiếu nại
+    0.033 s     6 dòng  treemap 312cad44 % đúng hạn
+    0.304 s    10 dòng  clusteredBarChart 1106a6e5 Số khiếu nại
+  tổng tuần tự 14.32 s; song song 8: 12.58 s
+  chậm nhất: 12.73 s lineStackedColumnComboChart 5c5c251a % theo kênh | 0.79 s lineClusteredColumnComboChart aabc04ac Số khiếu nại | 0.30 s clusteredBarChart 1106a6e5 Số khiếu nại
+
+== Chi tiết chi nhánh (17 visual có dữ liệu)
+    0.002 s     1 dòng  card 55f17c43 Branch Title
+    0.002 s     1 dòng  card 13cc2793 Branch Subtitle
+    0.031 s     1 dòng  card 1f0eb72f Số giao dịch
+    0.034 s     1 dòng  card d6e2552d Giá trị giao dịch
+    0.043 s     1 dòng  card 8aee01ad Tài khoản hoạt động
+    0.386 s     1 dòng  card aaab5c49 Tỷ lệ thấu chi
+    0.002 s     1 dòng  card 7518ae19 Số khoản vay
+    0.002 s     1 dòng  card ea0943c9 Giá trị giải ngân
+    0.002 s     1 dòng  card 70663ca3 Tỷ lệ nợ xấu (B+D)
+    0.007 s     1 dòng  card 427472a6 Dư nợ (ước tính)
+    0.003 s     1 dòng  card 41d712ae Số khiếu nại
+    0.005 s     1 dòng  card a4102081 % phản hồi đúng hạn
+    0.004 s     1 dòng  card 46bb39ff % tranh chấp
+    0.004 s     1 dòng  card f4d13cbc Ngày chuyển công ty TB
+    0.950 s    72 dòng  lineChart a165a2a3 Số GD
+    0.002 s     4 dòng  donutChart 9eb315ed Số khoản vay
+    0.018 s     2 dòng  clusteredBarChart 002f3167 % đúng hạn
+  tổng tuần tự 1.50 s; song song 8: 0.99 s
+  chậm nhất: 0.95 s lineChart a165a2a3 Số GD | 0.39 s card aaab5c49 Tỷ lệ thấu chi | 0.04 s card 8aee01ad Tài khoản hoạt động

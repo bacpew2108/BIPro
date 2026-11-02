@@ -6,6 +6,27 @@
 >
 > **Giao việc:** theo `CLAUDE.md`. Tối đa 3 worker agy cùng lúc, mỗi việc một worktree, tập file không giao nhau, review xong mới báo bạn; không tự merge.
 
+## Trạng thái (cập nhật 2026-11-02)
+
+**Đợt 0 xong.** Kết quả:
+- **Hợp đồng** trong `Sources/BIPro/Visuals/`:
+  - `Query/DataView.swift`: dữ liệu để vẽ, gồm single, categorical, matrix, slicer;
+  - `Query/VisualQuerySpec.swift`;
+  - `Format/VisualFormat.swift`: đọc mọi nhóm `objects` Nhom6 dùng, kể cả màu/icon lấy từ measure và gradient;
+  - `Format/NumberDisplay.swift`: K/M/bn, giữ ký hiệu tiền tệ;
+  - `Interaction/InteractionTypes.swift`: `DataPointID`, `VisualActions`, `VisualRenderContext`;
+  - `Fixtures/DataViewSamples.swift`: 12 mẫu, số lấy từ PA khi có.
+  - `Tests/BIProTests/VisualContractTests.swift`: 11 test, xanh.
+- **Đo hiệu năng:** `dax-run profile` (C1.md §1.5).
+  - D2 0,1 s; Chi tiết chi nhánh 1,0 s.
+  - D1 36,6 s và D3 12,6 s, do 3 visual (combo thấu chi 34 s, matrix Giờ × Thứ 8 s, combo kênh 12,7 s).
+  - Vì vậy thêm gói **E3**.
+- **Bảng sở hữu file:** `docs/phase-c-ownership.tsv`. Binder chuyển sang E1, vì SUMMARIZECOLUMNS làm hàm bảng cần binder. E2 chỉ sửa Catalog. E3 chạy ở đợt 2.
+- **Tài liệu công khai:** `docs/phase-c-research/notes.md`. Quan sát từ file và PA: `docs/phase-c-evidence/C1.md`.
+- **Checklist buổi C1:** `docs/phase-c-oracle/CHECKLIST-C1.md`, chờ bạn làm.
+
+**Tiếp theo:** đợt 1, gồm E1 ‖ R1 ‖ R2 (worker agy); lead làm E2 rồi Q. Đợt này không cần chờ buổi C1. Q cần O-C1 để so đủ các visual, nhưng có thể bắt đầu với 8 truy vấn PA đã có.
+
 ## 0. Mục tiêu và tiêu chí xong
 
 Mở `Nhom6_Dashboard.pbix` trong BI Pro: 3 trang D1–D3 và trang drillthrough "Chi tiết chi nhánh" hiện **số thật** và **tương tác như Power BI**.
@@ -206,8 +227,9 @@ Mỗi file chỉ thuộc một gói. Bảng đầy đủ sẽ ghi ở `docs/phas
 | Gói | Ai | File sở hữu | Tự kiểm |
 |---|---|---|---|
 | **C0 Hợp đồng** | lead | `Visuals/Query/{VisualQuerySpec,DataView}.swift`, `Visuals/Format/VisualFormat.swift` (khung), `Visuals/Fixtures/DataViewSamples.swift` (dữ liệu mẫu cho renderer), `docs/phase-c-ownership.tsv`, `docs/phase-c-evidence/C1.md` | `swift build` xanh |
-| **E1 Engine hàm visual** | worker | `Sources/DAXEngine/Functions/VisualFns.swift` (mới), `Sources/DAXEngine/Query/SummarizeColumns.swift`, `Functions/FilterFns.swift` (KEEPFILTERS bảng), `Functions/Registry.swift`, `Tests/DAXEngineTests/VIS/**` (mới) | test MiniBank cho từng hàm; 8 PA chạy được; golden PA ở test nặng |
-| **E2 Định dạng động + binder** | lead (cần hiểu Binder) | `Semantic/Binder.swift`, `Semantic/Catalog.swift`, `Tests/DAXEngineTests/VIS/FormatStringTests.swift` | các cột `v_…_FormatString` của PA khớp |
+| **E1 Engine hàm visual** | worker | `Functions/VisualFns.swift` (mới), `Query/SummarizeColumns.swift`, `Query/QueryExecutor.swift`, `Semantic/Binder.swift` (SUMMARIZECOLUMNS làm hàm bảng cần binder), `Runtime/Evaluator.swift` (CURRENTGROUP), `Functions/FilterFns.swift` (KEEPFILTERS bảng), `Functions/TableFns.swift` (TOPN nhiều khoá), `Functions/Registry.swift`, `Contracts.swift` (chỉ thêm), `Tests/DAXEngineTests/VIS/**` (mới) | test MiniBank cho từng hàm; 8 PA chạy được; golden PA ở test nặng |
+| **E2 Định dạng động** | lead | `Semantic/Catalog.swift` (thêm measure ẩn `_<M> FormatString` từ `formatStringDefinition`, cùng bảng với M), `Tests/DAXEngineTests/VIS-FMT/**` | các cột `v_…_FormatString` của PA khớp |
+| **E3 Hiệu năng engine** (đợt 2, sau khi E1 merge vì cùng `Evaluator.swift`) | lead | `Runtime/Evaluator.swift`, `Runtime/Cache.swift`, `Functions/Calculate.swift`, `Tests/DAXEngineTests/PERF/**` | 3 visual chậm (C1.md §1.5) dưới 1 s; golden Phase B vẫn 30/30 |
 | **Q Builder + mapper + loader** | lead | `Visuals/Query/{VisualQuerySpecReader,DAXQueryBuilder,DataViewMapper,VisualDataLoader}.swift`, `Tests/BIProTests/VisualQuery/**` | builder sinh trùng văn bản PA (chuẩn hoá khoảng trắng); mapper từ golden PA ra DataView đúng |
 | **R1 Biểu đồ trục XY** | worker | `Visuals/Charts/{CartesianChart,ComboChart,ChartAxis,ChartLegend,DataLabels,TrendLine}.swift`, `Tests/BIProTests/Charts/**` | các hàm thuần: chia vạch trục "đẹp", rút gọn số (K/M/bn), xếp cột cụm/chồng/100%, quy đổi trục Y2, hồi quy tuyến tính; ảnh PNG từ `ImageRenderer` cho từng mẫu |
 | **R2 Card + slicer + matrix** | worker | `Visuals/Cards/CardVisual.swift`, `Visuals/Slicer/{DropdownSlicer,SlicerTree}.swift`, `Visuals/Matrix/{MatrixVisual,MatrixLayout,MatrixGradient}.swift`, `Tests/BIProTests/{Card,Slicer,Matrix}/**` | dựng cây hàng/cột và tổng; gradient FillRule; cây slicer có tìm kiếm và chọn nhiều; ảnh PNG |
@@ -222,8 +244,8 @@ Mỗi file chỉ thuộc một gói. Bảng đầy đủ sẽ ghi ở `docs/phas
 |---|---|---|---|
 | **0** (1,5 ngày) | — | C0; dax-run thêm `--profile` (thời gian từng visual); lập `CHECKLIST-C1.md`; đọc tài liệu | — |
 | **Buổi C1** (bạn) | — | — | có checklist |
-| **1** (4–5 ngày) | E1 ‖ R1 ‖ R2 | E2, rồi Q (builder so với PA-*; sau buổi C1 so với observe-c1) | C0 đã commit, `git status` sạch |
-| **2** (4–5 ngày) | R3 ‖ I | G: ghép card, chart, slicer, matrix vào canvas với số thật; tối ưu hiệu năng (§6) | đợt 1 đã review và merge; có O-C3/C4/C11 |
+| **1** (4–5 ngày) | E1 ‖ R1 ‖ R2 | E2, rồi Q (builder so với PA-*; sau buổi C1 so với observe-c1); đo từng measure chậm cho E3 (chỉ đo, chưa sửa Evaluator) | C0 đã commit, `git status` sạch |
+| **2** (4–5 ngày) | R3 ‖ I | E3 (hiệu năng engine), G: ghép card, chart, slicer, matrix vào canvas với số thật | đợt 1 đã review và merge; có O-C3/C4/C11 |
 | **Buổi C2** (bạn) | — | — | 3 trang có số; mình gửi ảnh BI Pro đặt cạnh ảnh Power BI |
 | **3** (4–5 ngày) | P (một mình, hoặc cùng việc sửa từ buổi C2 nếu tách được file) | G: drill, drillthrough, bookmark trên canvas, tooltip, format theo measure, gradient; sửa lỗi buổi C2 | đợt 2 đã merge |
 | **Buổi C3** (bạn) | — | — | checklist C-I đầy đủ |
@@ -279,7 +301,7 @@ BI Pro xuất ảnh từng trang (1920×1080) ra `build/c-out/pages/`. Mình d�
 
 | Rủi ro | Mức | Cách xử lý |
 |---|---|---|
-| **Hiệu năng measure:** 6 card D1 mất 1,05 s; một trang có khoảng 30 measure, kèm "Δ Label" so kỳ trước | cao | Đợt 0: đo từng visual bằng `--profile`. Gom card cùng ngữ cảnh lọc vào một SUMMARIZECOLUMNS, như Power BI vẫn gửi mỗi card một query; việc gom chỉ là tối ưu riêng của BI Pro, golden văn bản vẫn so theo từng visual. Chạy song song theo số nhân; cache kết quả theo (văn bản DAX); đo và tối ưu 10 measure chậm nhất (cache biến bảng trong CALCULATE, memo các ngữ cảnh lọc trùng). Ngưỡng ở §0 sẽ đo lại sau đợt 2 |
+| **Hiệu năng measure:** đã đo ở đợt 0 (C1.md §1.5). D1 36,6 s và D3 12,6 s, do 3 visual tính lại cùng một biểu thức con ở mọi ô | cao | Gói E3 ở đợt 2: cache biểu thức con không phụ thuộc ô. Gom card cùng ngữ cảnh lọc vào một SUMMARIZECOLUMNS, như Power BI vẫn gửi mỗi card một query; việc gom chỉ là tối ưu riêng của BI Pro, golden văn bản vẫn so theo từng visual. Chạy song song theo số nhân; cache kết quả theo (văn bản DAX); đo và tối ưu 10 measure chậm nhất (cache biến bảng trong CALCULATE, memo các ngữ cảnh lọc trùng). Ngưỡng ở §0 sẽ đo lại sau đợt 2 |
 | Swift Charts không có trục Y thứ hai | trung bình | Combo vẽ 2 lớp: cột bằng Swift Charts, đường quy đổi theo thang Y2 rồi vẽ chung khung, trục Y2 tự vẽ. Có hàm thuần để test |
 | Thuật toán dự báo của Power BI không công khai chi tiết | thấp | Phase C chỉ vẽ trend tuyến tính đúng. Dự báo dùng Holt-Winters cộng tính, có ghi chú [SUY ĐOÁN] khi rê chuột; có thể bật/tắt. Để khớp hẳn thì đưa sang Phase G |
 | Khuôn truy vấn của lọc chéo/tô sáng chưa quan sát | trung bình | Đợt 2 mới làm tương tác, sau buổi C1. Nếu buổi C1 trễ thì đợt 1 vẫn chạy (renderer, engine không phụ thuộc) |

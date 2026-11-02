@@ -10,6 +10,8 @@ dùng: dax-run <lệnh> [tham số]
                                         đánh giá từng measure, ghi từng dòng, có giới hạn thời gian
   query <file.pbix> <out-dir> <a.dax> [b.dax ...] [--timeout GIÂY]
                                         chạy truy vấn DAX, ghi <out-dir>/<tên>.engine.tsv (ô dạng KIỂU:giá trị)
+  profile <file.pbix> [--page id|tên] [--filter "DAX"]... [--parallel N] [--timeout GIÂY] [--print]
+                                        đo truy vấn lõi (xấp xỉ) của từng visual theo trang, tuần tự và song song
 """
 
 let arguments = CommandLine.arguments
@@ -24,6 +26,8 @@ case "measures-run":
     exit(runMeasuresCommand(arguments: Array(arguments.dropFirst())))
 case "query":
     exit(runQueryCommand(arguments: Array(arguments.dropFirst())))
+case "profile":
+    exit(runProfileCommand(arguments: Array(arguments.dropFirst())))
 default:
     FileHandle.standardError.write(Data("lệnh chưa có: \(command)\n\(usage)\n".utf8))
     exit(2)
