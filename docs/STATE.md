@@ -22,14 +22,7 @@ Cập nhật: 2026-11-02, sau review và merge đợt 1 của Phase C.
 
 ## Worktree / worker
 
-| Worktree | Nhánh | Việc | Trạng thái |
-|---|---|---|---|
-| `c1-e1-engine` | `Bacpew/c1-e1-engine` | E1 engine hàm visual | đã merge; chưa xoá worktree (chờ bạn) |
-| `c1-r1-charts` | `Bacpew/c1-r1-charts` | R1 biểu đồ | đã merge; chưa xoá |
-| `c1-r2-cards` | `Bacpew/c1-r2-cards` | R2 card/slicer/matrix | đã merge; chưa xoá |
-| `ui4-editor` | `Bacpew/ui4-editor` | UI4 Phase B | đã merge từ trước; chưa xoá |
-
-Mô tả việc của từng worker nằm trong `docs/tasks/`.
+Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Ba nhánh `Bacpew/c1-*` vẫn giữ, vì đã merge vào `main`. Mô tả việc của từng worker nằm trong `docs/tasks/`.
 
 ## Quyết định đã chốt
 
@@ -61,6 +54,5 @@ Mô tả việc của từng worker nằm trong `docs/tasks/`.
 3. **Hợp đồng:** `SlicerNode` chưa có `formatString`; R2 đã nêu.
 4. **Ảnh xuất thử** ở `build/c-out/visuals/`. Renderer có tham số `interactive:`/`scrollable:` để `ImageRenderer` vẽ được.
 5. **Chờ bạn:**
-   - đồng ý xoá 4 worktree đã merge;
    - copy văn bản "Define new measure" của Power BI (Phase B);
    - buổi C2 trên VM (sau đợt 2).
