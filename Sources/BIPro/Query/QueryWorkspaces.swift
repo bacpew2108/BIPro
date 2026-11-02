@@ -112,7 +112,8 @@ struct DAXQueryWorkspace: View {
             measuresByTable[t] = state.workspace.measures(of: t)
         }
         completionModel = CompletionModel(
-            functions: FunctionRegistry.all.map(\.name),
+            // Hàm của engine cộng các dạng truy vấn engine xử lý riêng (không có trong registry).
+            functions: Array(Set(FunctionRegistry.all.map(\.name) + DAXCompletion.queryForms)).sorted(),
             tables: tables,
             columnsByTable: columnsByTable,
             measuresByTable: measuresByTable

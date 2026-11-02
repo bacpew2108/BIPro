@@ -72,6 +72,9 @@ public struct CompletionResult: Sendable, Hashable {
 }
 
 public enum DAXCompletion {
+    /// Dạng truy vấn mà engine bind riêng ở cấp EVALUATE (QueryExecutor), nên không có trong FunctionRegistry.
+    static let queryForms = ["SUMMARIZECOLUMNS", "ROW"]
+
     /// Tính toán danh sách gợi ý tự hoàn thành tại con trỏ `cursor` (UTF-16 offset).
     /// Trả về `nil` nếu ở trong chuỗi `"..."` hoặc comment `//`, `--`.
     public static func suggestions(text: String, cursor: Int, model: CompletionModel) -> CompletionResult? {
@@ -418,7 +421,7 @@ public enum DAXCompletion {
             let (matches, isPrefix) = matchString(t, query: trimmedPartial)
             if matches {
                 let insert = hasClosingQuote ? t : "\(t)'"
-                let item = CompletionItem(kind: .table, label: t, insertText: insert, detail: "Table")
+                let item = CompletionItem(kind: .table, label: t, insertText: insert, detail: "Bảng")
                 candidates.append((item, isPrefix))
             }
         }
@@ -480,7 +483,7 @@ public enum DAXCompletion {
         for fn in model.functions {
             let (matches, isPrefix) = matchString(fn, query: trimmedPartial)
             if matches {
-                let item = CompletionItem(kind: .function, label: fn, insertText: "\(fn)(", detail: "Function")
+                let item = CompletionItem(kind: .function, label: fn, insertText: "\(fn)(", detail: "Hàm")
                 candidates.append((item, isPrefix, 1))
             }
         }
@@ -490,7 +493,7 @@ public enum DAXCompletion {
             let (matches, isPrefix) = matchString(tbl, query: trimmedPartial)
             if matches {
                 let insert = tbl.contains(" ") ? "'\(tbl)'" : tbl
-                let item = CompletionItem(kind: .table, label: tbl, insertText: insert, detail: "Table")
+                let item = CompletionItem(kind: .table, label: tbl, insertText: insert, detail: "Bảng")
                 candidates.append((item, isPrefix, 2))
             }
         }
@@ -499,7 +502,7 @@ public enum DAXCompletion {
         for kw in model.keywords {
             let (matches, isPrefix) = matchString(kw, query: trimmedPartial)
             if matches {
-                let item = CompletionItem(kind: .keyword, label: kw, insertText: kw, detail: "Keyword")
+                let item = CompletionItem(kind: .keyword, label: kw, insertText: kw, detail: "Từ khoá")
                 candidates.append((item, isPrefix, 3))
             }
         }

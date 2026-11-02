@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import PBIXKit
+import DAXEngine
 @testable import BIPro
 
 @Suite struct DAXCompletionTests {
@@ -142,5 +143,16 @@ import Testing
         let dateTableItem = resultDim?.items.first { $0.label == "Dim_Date" }
         #expect(dateTableItem != nil)
         #expect(dateTableItem?.insertText == "Dim_Date")
+    }
+}
+
+@Suite struct DAXCompletionRegistryTests {
+    /// Danh sách hàm thật mà app dùng (registry + dạng truy vấn) phải có SUMMARIZECOLUMNS và ROW.
+    @Test func danhSachHamThatCoSummarizeColumns() {
+        let functions = Array(Set(FunctionRegistry.all.map(\.name) + DAXCompletion.queryForms)).sorted()
+        let model = CompletionModel(functions: functions, tables: [], columnsByTable: [:], measuresByTable: [:])
+        let result = DAXCompletion.suggestions(text: "EVALUATE\nSUMM", cursor: 13, model: model)
+        #expect(result?.items.first?.label == "SUMMARIZECOLUMNS")
+        #expect(result?.items.first?.detail == "Hàm")
     }
 }
