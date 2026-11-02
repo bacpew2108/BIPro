@@ -38,13 +38,21 @@ public struct ModelMeasureInput: Sendable, Hashable {
     public let name: String
     public let expression: String
     public let formatString: String?
+    /// Biểu thức định dạng động (`FormatStringDefinition`), nếu có. Catalog sinh thêm measure ẩn
+    /// `_<tên> FormatString` cùng bảng, như Power BI dùng trong truy vấn visual (C1.md §2.1, PA-D2-2).
+    public let formatStringDefinition: String?
 
-    public init(table: String, name: String, expression: String, formatString: String? = nil) {
+    public init(table: String, name: String, expression: String, formatString: String? = nil,
+                formatStringDefinition: String? = nil) {
         self.table = table
         self.name = name
         self.expression = expression
         self.formatString = formatString
+        self.formatStringDefinition = formatStringDefinition
     }
+
+    /// Tên measure ẩn chứa định dạng động của measure `name`.
+    public static func formatStringMeasureName(_ name: String) -> String { "_\(name) FormatString" }
 }
 
 public struct Catalog: Sendable {
@@ -79,13 +87,44 @@ public struct Catalog: Sendable {
             appendMeasure(table: input.table, name: input.name, origin: .model, text: input.expression,
                           body: body, parseError: error, formatString: input.formatString)
         }
+        // Measure ẩn `_<tên> FormatString` (sau mọi measure thật để không đổi ID của chúng).
+        // [SUY ĐOÁN] Bỏ qua nếu model đã có measure trùng tên.
+        for input in inputs {
+            guard let definition = input.formatStringDefinition, !definition.isEmpty else { continue }
+            let name = ModelMeasureInput.formatStringMeasureName(input.name)
+            guard measureByQualifiedName[Catalog.qualifiedKey(input.table, name)] == nil else { continue }
+            let (body, error) = Catalog.parse(definition)
+            // SELECTEDMEASURE() trong biểu thức định dạng là chính measure M.
+            let bound = body.map { Catalog.replacingSelectedMeasure($0, table: input.table, name: input.name) }
+            appendMeasure(table: input.table, name: name, origin: .model, text: definition,
+                          body: bound, parseError: error, formatString: nil)
+        }
+    }
+
+    /// Thay `SELECTEDMEASURE()` bằng tham chiếu `'table'[name]` (dùng cho biểu thức định dạng động).
+    /// [SUY ĐOÁN] SELECTEDMEASURENAME/SELECTEDMEASUREFORMATSTRING chưa gặp trong Nhom6 nên chưa thay.
+    static func replacingSelectedMeasure(_ e: Expr, table: String, name: String) -> Expr {
+        func go(_ e: Expr) -> Expr { replacingSelectedMeasure(e, table: table, name: name) }
+        switch e {
+        case .call(let fn, let args, let range):
+            if fn.uppercased() == "SELECTEDMEASURE", args.allSatisfy({ $0 == nil }) {
+                return .columnRef(table: table, column: name, range)
+            }
+            return .call(name: fn, args: args.map { $0.map(go) }, range)
+        case .unary(let op, let x, let r): return .unary(op, go(x), r)
+        case .binary(let op, let a, let b, let r): return .binary(op, go(a), go(b), r)
+        case .varBlock(let vars, let body, let r):
+            return .varBlock(vars: vars.map { VarBinding(name: $0.name, value: go($0.value)) }, body: go(body), r)
+        case .tableConstructor(let rows, let r): return .tableConstructor(rows: rows.map { $0.map(go) }, r)
+        default: return e
+        }
     }
 
     /// Catalog dựng từ metadata của một file .pbix (đã đọc ABF).
     public init(metadata: ModelMetadata) {
         let inputs = metadata.measures.map {
             ModelMeasureInput(table: $0.tableName, name: $0.name, expression: $0.expression,
-                              formatString: $0.formatString)
+                              formatString: $0.formatString, formatStringDefinition: $0.formatStringDefinition)
         }
         self.init(schema: ModelSchema(metadata: metadata), measures: inputs)
     }
