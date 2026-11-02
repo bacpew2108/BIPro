@@ -41,10 +41,12 @@ public final class DAXEngine: Sendable {
         return try evaluator.scalar(.measure(found.id), in: base)
     }
 
-    /// Lỗi cú pháp của một truy vấn, cho editor. Chỉ kiểm cú pháp; lỗi tên và kiểu do binder khi chạy.
+    /// Lỗi của một truy vấn cho editor (gạch chân): cú pháp, rồi lỗi tên và bind (cột, bảng, measure, hàm,
+    /// số đối số). Không đánh giá gì nên nhanh và không chạm dữ liệu. Lỗi chỉ lộ ra khi chạy (kiểu, giá trị) không có ở đây.
     public func validate(_ expression: String) -> [DAXError] {
         do {
-            _ = try parseQuery(expression)
+            let query = try parseQuery(expression)
+            try QueryExecutor.check(query, model: catalog)
             return []
         } catch {
             return [error]

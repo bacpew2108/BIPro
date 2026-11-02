@@ -184,6 +184,8 @@ struct ORAGoldenNhom6Tests {
         let query = try String(contentsOf: GoldenPaths.query(name), encoding: .utf8)
         let golden = GoldenTable(text: try String(
             contentsOf: GoldenPaths.golden.appendingPathComponent("\(name).tsv"), encoding: .utf8))
+        // Gạch chân lỗi không được báo nhầm trên truy vấn Power BI chạy được.
+        #expect(engine.validate(query).isEmpty, "\(name): validate báo lỗi nhầm: \(engine.validate(query))")
         let result = try await engine.execute(query)
         try #require(result.tables.count == 1, "\(name): cần đúng một bảng kết quả")
         let mismatches = GoldenComparator.compare(golden: golden, engine: result.tables[0])

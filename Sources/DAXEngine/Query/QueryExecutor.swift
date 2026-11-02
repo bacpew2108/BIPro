@@ -153,6 +153,50 @@ public enum QueryExecutor {
         return PreparedQuery(evaluator: evaluator, base: base, statements: statements)
     }
 
+    /// Kiểm lỗi tên và lỗi bind của truy vấn mà không đánh giá gì (cho gạch chân lỗi trong editor).
+    /// Đi đúng đường bind của `prepare`: MEASURE/COLUMN, VAR/TABLE theo thứ tự, ROW, SUMMARIZECOLUMNS, START AT,
+    /// cộng thân của mọi DEFINE MEASURE/COLUMN. ORDER BY chỉ resolve được khi có tên cột kết quả nên không kiểm.
+    static func check(_ query: Query, model: Catalog) throws(DAXError) {
+        var scope = BindScope(catalog: model, nextSlot: 0)
+        for definition in query.defines {
+            switch definition {
+            case .measure(let table, let name, let body):
+                scope.catalog.defineMeasure(table: table, name: name, body: body)
+            case .column(let table, let name, let body):
+                scope.catalog.defineColumn(table: table, name: name, body: body)
+            case .variable, .table:
+                break
+            }
+        }
+        for definition in query.defines {
+            switch definition {
+            case .variable(let name, let expr):
+                _ = try scope.bind(expr)
+                scope.registerVariable(name: name, slot: scope.allocateSlot())
+            case .table(let name, let expr):
+                _ = try scope.bind(expr)
+                scope.registerTable(name: name, slot: scope.allocateSlot())
+            case .measure(let table, let name, _), .column(let table, let name, _):
+                if let defined = scope.catalog.measure(named: name, table: table) {
+                    _ = try Binder.bindMeasure(defined.id, catalog: scope.catalog)
+                }
+            }
+        }
+        for evaluate in query.statements {
+            if case .call(let name, let args, let range) = evaluate.table, name.uppercased() == "ROW" {
+                _ = try bindRowPairs(args, range: range, scope: &scope)
+            } else if case .call(let name, let args, let range) = evaluate.table,
+                      name.uppercased() == "SUMMARIZECOLUMNS" {
+                _ = try SummarizeColumns.plan(args: args, range: range, scope: &scope)
+            } else {
+                _ = try scope.bind(evaluate.table)
+            }
+            for expr in evaluate.startAt {
+                _ = try scope.bind(expr)
+            }
+        }
+    }
+
     /// ROW("tên", biểu thức, …): cặp tên và biểu thức.
     static func bindRowPairs(_ args: [Expr?], range: SourceRange,
                              scope: inout BindScope) throws(DAXError) -> [(name: String, expr: BoundExpr)] {
