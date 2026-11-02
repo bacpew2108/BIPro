@@ -18,6 +18,10 @@ public enum MathFunctions: FunctionFamily {
                      impl: .scalar(MathFunctions.roundBody)),
         FunctionSpec(name: "FLOOR", params: [.scalar("number"), .scalar("significance", optional: true)],
                      impl: .scalar(MathFunctions.floorBody)),
+        FunctionSpec(name: "CEILING", params: [.scalar("number"), .scalar("significance", optional: true)],
+                     impl: .scalar(MathFunctions.ceilingBody)),
+        FunctionSpec(name: "SQRT", params: [.scalar("number")],
+                     impl: .scalar(MathFunctions.sqrtBody)),
     ]
 
     // MARK: - Thân hàm
@@ -110,6 +114,42 @@ public enum MathFunctions: FunctionFamily {
         if s < 0 { throw DAXError(.runtime, "FLOOR: significance không được âm") }   // [SUY ĐOÁN]
         let thuong = clean15Digits(x / s)
         return .double(clean15Digits(thuong.rounded(.towardZero) * s))
+    }
+
+    /// CEILING(number, significance): làm tròn xa 0 tới bội số của significance (mặc định 1).
+    static func ceilingBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        guard let n = try numericOperand(of: try frame.scalar(0)) else { return .blank }
+        var boi: NumOperand = .integer(1)
+        if !frame.isBlankArgument(1) {
+            guard let s = try numericOperand(of: try frame.scalar(1)) else { return .blank }
+            boi = s
+        }
+        if case .integer(let x) = n, case .integer(let s) = boi {
+            if s == 0 { return .integer(0) }
+            if s < 0 { throw DAXError(.runtime, "CEILING: significance không được âm") }
+            if x == 0 { return .integer(0) }
+            let d = Double(x) / Double(s)
+            let rounded = x > 0 ? Int64(ceil(d)) * s : -Int64(floor(abs(d))) * s
+            return .integer(rounded)
+        }
+        let x = n.asDouble
+        let s = boi.asDouble
+        if s == 0 { return .integer(0) }
+        if s < 0 { throw DAXError(.runtime, "CEILING: significance không được âm") }
+        if x == 0 { return .double(0) }
+        let thuong = clean15Digits(x / s)
+        let rounded = x > 0 ? ceil(thuong) : -floor(abs(thuong))
+        return .double(clean15Digits(rounded * s))
+    }
+
+    /// SQRT(number): căn bậc hai. Số âm báo lỗi.
+    static func sqrtBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        guard let n = try numericOperand(of: try frame.scalar(0)) else { return .blank }
+        let x = n.asDouble
+        guard x >= 0 else {
+            throw DAXError(.runtime, "SQRT: không tính được căn bậc hai của số âm")
+        }
+        return .double(clean15Digits(sqrt(x)))
     }
 }
 

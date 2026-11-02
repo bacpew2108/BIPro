@@ -14,6 +14,7 @@ public enum FunctionRegistry {
         + TableFunctions.functions
         + CalculateFunctions.functions
         + TimeIntelligenceFunctions.functions
+        + VisualFunctions.functions
 
     public static let byName: [String: FunctionSpec] =
         Dictionary(all.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })

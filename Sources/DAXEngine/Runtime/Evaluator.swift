@@ -62,6 +62,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
 
     var rowStack: [RowFrame] = []
     var varStack: [VarBlock] = []
+    public var currentGroupStack: [TableValue] = []
     /// Tổng số dòng đã materialize thành TableValue trong phiên (dùng để kiểm tra "không materialize khi lặp").
     public private(set) var materializedRowCount = 0
     private var boundMeasures: [MeasureID: BoundExpr] = [:]
@@ -126,6 +127,10 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             throw DAXError(.typeMismatch, "{…} không dùng được như giá trị")
         case .keyword(let word):
             throw DAXError(.typeMismatch, "từ khoá \(word) không phải giá trị")
+        case .tuple:
+            throw DAXError(.typeMismatch, "bộ giá trị (tuple) không dùng được như giá trị")
+        case .summarize:
+            throw DAXError(.typeMismatch, "biểu thức bảng SUMMARIZECOLUMNS không dùng được như giá trị")
         }
     }
 
@@ -133,6 +138,8 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         switch expr {
         case .table(let id):
             return try materialize(id, try visibleRows(of: id, in: ctx))
+        case .summarize(let plan):
+            return try SummarizeColumns.evaluateTable(plan, in: ctx, evaluator: self, store: store)
         case .variable(let slot):
             switch try lookupVariable(slot) {
             case .table(let value): return value
@@ -145,6 +152,9 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             }
         case .call(let fid, let args):
             let spec = try specification(fid)
+            if spec.name == "KEEPFILTERS", let inner = args.first ?? nil {
+                return try table(inner, in: ctx)
+            }
             guard case .table(let body) = spec.impl else {
                 throw DAXError(.typeMismatch, "\(spec.name) không trả về bảng")
             }
@@ -203,6 +213,11 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
                 try iterateExpr(inner, in: ctx, body)
             }
         case .call(let fid, let args):
+            let spec = try specification(fid)
+            if spec.name == "KEEPFILTERS", let inner = args.first ?? nil {
+                try iterateExpr(inner, in: ctx, body)
+                return
+            }
             // ALL, ALLSELECTED, ALLNOBLANKROW, ALLEXCEPT trên bảng vật lý: lặp trên RowSet, không materialize.
             if let physical = try physicalCall(fid, args, ctx) {
                 try iteratePhysical(physical.table, physical.rows, ctx, body)
@@ -308,6 +323,8 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         switch expr {
         case .table(let id):
             return .rows(id, try visibleRows(of: id, in: ctx))
+        case .summarize(let plan):
+            return .table(try SummarizeColumns.evaluateTable(plan, in: ctx, evaluator: self, store: store))
         case .variable(let slot):
             return try lookupVariable(slot)
         case .varBlock(let slots, let values, let body):
@@ -554,6 +571,30 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
                              _ ctx: EvalContext) throws(DAXError) -> Value {
         switch op {
         case .inSet:
+            if case .tableConstructor(_, let rows) = left, rows.count == 1 {
+                var lhsTuple: [Value] = []
+                for item in rows[0] {
+                    lhsTuple.append(try scalar(item, in: ctx))
+                }
+                for candidate in try setTuples(right, ctx) {
+                    if try tupleEqual(lhsTuple, candidate) {
+                        return .boolean(true)
+                    }
+                }
+                return .boolean(false)
+            }
+            if case .tuple(let items) = left {
+                var lhsTuple: [Value] = []
+                for item in items {
+                    lhsTuple.append(try scalar(item, in: ctx))
+                }
+                for candidate in try setTuples(right, ctx) {
+                    if try tupleEqual(lhsTuple, candidate) {
+                        return .boolean(true)
+                    }
+                }
+                return .boolean(false)
+            }
             let lhs = try scalar(left, in: ctx)
             for candidate in try setValues(right, ctx) {
                 if case .boolean(true) = try Value.compare(.equal, lhs, candidate) {
@@ -587,6 +628,32 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             if let first = row.first { out.append(first) }
         }
         return out
+    }
+
+    private func setTuples(_ expr: BoundExpr, _ ctx: EvalContext) throws(DAXError) -> [[Value]] {
+        var out: [[Value]] = []
+        if case .tableConstructor(_, let rows) = expr {
+            for row in rows {
+                var r: [Value] = []
+                for item in row {
+                    r.append(try scalar(item, in: ctx))
+                }
+                out.append(r)
+            }
+            return out
+        }
+        return try table(expr, in: ctx).rows
+    }
+
+    private func tupleEqual(_ a: [Value], _ b: [Value]) throws(DAXError) -> Bool {
+        guard a.count == b.count else { return false }
+        for (v1, v2) in zip(a, b) {
+            if case .boolean(true) = try Value.compare(.equal, v1, v2) {
+                continue
+            }
+            return false
+        }
+        return true
     }
 }
 

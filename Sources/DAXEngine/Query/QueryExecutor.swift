@@ -19,6 +19,7 @@
 // Giới hạn đã biết: DEFINE MEASURE không thấy DEFINE VAR (Binder chỉ tra VAR của phạm vi truy vấn);
 // Evaluating không có frame biến, nên các tham chiếu `.variable` còn lại ném lỗi ở evaluator.
 
+import Foundation
 import ColumnStore
 
 public enum QueryExecutor {
@@ -103,7 +104,8 @@ public enum QueryExecutor {
             case .variable(let name, let expr):
                 let value = substitute(try scope.bind(expr), env)
                 let slot = scope.allocateSlot()
-                scope.registerVariable(name: name, slot: slot)
+                let vcols = scope.staticVirtualColumns(of: value)
+                scope.registerVariable(name: name, slot: slot, virtualColumns: vcols)
                 if isTable(value, tableSlots) {
                     tableSlots.insert(slot)
                     env[slot] = value
@@ -137,7 +139,12 @@ public enum QueryExecutor {
                 let plan = try SummarizeColumns.plan(args: args, range: range, scope: &scope)
                 source = .summarize(plan.mapExpressions { substitute($0, env) })
             } else {
-                source = .table(substitute(try scope.bind(evaluate.table), env))
+                let bound = substitute(try scope.bind(evaluate.table), env)
+                if case .summarize(let plan) = bound {
+                    source = .summarize(plan)
+                } else {
+                    source = .table(bound)
+                }
             }
 
             var startAt: [BoundExpr] = []
@@ -171,8 +178,9 @@ public enum QueryExecutor {
         for definition in query.defines {
             switch definition {
             case .variable(let name, let expr):
-                _ = try scope.bind(expr)
-                scope.registerVariable(name: name, slot: scope.allocateSlot())
+                let bound = try scope.bind(expr)
+                let slot = scope.allocateSlot()
+                scope.registerVariable(name: name, slot: slot, virtualColumns: scope.staticVirtualColumns(of: bound))
             case .table(let name, let expr):
                 _ = try scope.bind(expr)
                 scope.registerTable(name: name, slot: scope.allocateSlot())
@@ -236,6 +244,10 @@ public enum QueryExecutor {
             return .varBlock(slots: slots, values: values.map { substitute($0, env) }, body: substitute(body, env))
         case .tableConstructor(let columns, let rows):
             return .tableConstructor(columns: columns, rows: rows.map { row in row.map { substitute($0, env) } })
+        case .tuple(let items):
+            return .tuple(items.map { substitute($0, env) })
+        case .summarize(let plan):
+            return .summarize(plan.mapExpressions { substitute($0, env) })
         default:
             return expr
         }
@@ -244,7 +256,7 @@ public enum QueryExecutor {
     /// Biểu thức có giá trị bảng hay không (để chọn cách thay VAR).
     static func isTable(_ expr: BoundExpr, _ tableSlots: Set<Int>) -> Bool {
         switch expr {
-        case .table, .tableConstructor:
+        case .table, .tableConstructor, .summarize:
             return true
         case .variable(let slot):
             return tableSlots.contains(slot)
@@ -283,12 +295,7 @@ public enum QueryExecutor {
         case .summarize(let plan):
             rows = try SummarizeColumns.evaluate(plan, base: prepared.base, store: store,
                                                  evaluator: prepared.evaluator)
-            for column in plan.groupColumns {
-                headers.append(header(for: column, schema: store.schema))
-            }
-            for measure in plan.measures {
-                headers.append("[\(measure.name)]")
-            }
+            headers = plan.resultHeaders(schema: store.schema)
         }
 
         let keys = try resolveOrder(statement.orderBy, headers: headers)
@@ -431,8 +438,8 @@ public enum QueryExecutor {
         case (.boolean(let x), .boolean(let y)):
             return x == y ? 0 : (x ? 1 : -1)
         case (.string(let x), .string(let y)):
-            let lx = x.lowercased(), ly = y.lowercased()
-            return lx == ly ? 0 : (lx < ly ? -1 : 1)
+            let res = x.compare(y, options: [.caseInsensitive], locale: Locale(identifier: "en_US"))
+            return res == .orderedSame ? 0 : (res == .orderedAscending ? -1 : 1)
         case (.blank, .blank):
             return 0
         default:
