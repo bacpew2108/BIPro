@@ -141,15 +141,337 @@ enum ResultFormat {
     }
 }
 
+// MARK: - Header cell và view tuỳ biến có icon sắp xếp và lọc (UI3, O13, Sửa 1)
+
+final class FilterableTableHeaderCell: NSTableHeaderCell {
+    var isFiltered: Bool = false
+    var sortDirection: GridFilter.SortDirection? = nil
+
+    override init(textCell string: String) {
+        super.init(textCell: string)
+    }
+
+    required init(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    override func copy(with zone: NSZone? = nil) -> Any {
+        let copy = super.copy(with: zone) as! FilterableTableHeaderCell
+        copy.isFiltered = isFiltered
+        copy.sortDirection = sortDirection
+        return copy
+    }
+
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        let base = super.drawingRect(forBounds: rect)
+        // Chừa chỗ cho icon và mũi tên ở mép phải ô tiêu đề (khoảng 32 pt)
+        let reservedWidth: CGFloat = 32
+        return NSRect(
+            x: base.minX,
+            y: base.minY,
+            width: max(0, base.width - reservedWidth),
+            height: base.height
+        )
+    }
+
+    override func draw(withFrame cellFrame: NSRect, in controlView: NSView) {
+        super.draw(withFrame: cellFrame, in: controlView)
+        drawIcons(in: cellFrame)
+    }
+
+    private func drawIcons(in cellFrame: NSRect) {
+        let filterRect = ResultGrid.filterIconDrawingRect(in: cellFrame)
+        let filterSymbol = isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease"
+        let filterColor: NSColor = isFiltered ? .controlAccentColor : .secondaryLabelColor
+        drawSymbol(named: filterSymbol, color: filterColor, in: filterRect)
+
+        if let sortDirection {
+            let arrowRect = ResultGrid.sortArrowDrawingRect(in: cellFrame)
+            let arrowSymbol = (sortDirection == .ascending) ? "arrow.up" : "arrow.down"
+            drawSymbol(named: arrowSymbol, color: .secondaryLabelColor, in: arrowRect)
+        }
+    }
+
+    private func drawSymbol(named name: String, color: NSColor, in rect: NSRect) {
+        guard let baseImage = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return }
+        let config = NSImage.SymbolConfiguration(pointSize: rect.height, weight: .semibold)
+            .applying(.init(hierarchicalColor: color))
+        let image = baseImage.withSymbolConfiguration(config) ?? baseImage
+        image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1.0, respectFlipped: true, hints: nil)
+    }
+}
+
+final class ResultTableHeaderView: NSTableHeaderView {
+    weak var coordinator: ResultGrid.Coordinator?
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let colIdx = column(at: point)
+        guard colIdx >= 0, let tableView = self.tableView else {
+            super.mouseDown(with: event)
+            return
+        }
+        let tableCol = tableView.tableColumns[colIdx]
+        // Cột số thứ tự dòng (#) không có menu
+        if tableCol.identifier.rawValue == "#" {
+            super.mouseDown(with: event)
+            return
+        }
+        let rect = headerRect(ofColumn: colIdx)
+        let isSorted = (tableCol.headerCell as? FilterableTableHeaderCell)?.sortDirection != nil
+        let hitRect = ResultGrid.filterIconHitRect(in: rect, isSorted: isSorted)
+
+        // Chỉ khi bấm vào vùng icon (vùng bấm rộng khoảng 20 pt) mới mở popover
+        if hitRect.contains(point) {
+            let iconRect = ResultGrid.filterIconDrawingRect(in: rect)
+            coordinator?.openMenu(for: colIdx, tableColumn: tableCol, iconRect: iconRect, headerView: self)
+            return
+        }
+
+        // Bấm vào chữ tên cột thì không làm gì; kéo mép để đổi độ rộng cột vẫn phải hoạt động
+        super.mouseDown(with: event)
+    }
+}
+
+// MARK: - Popover sắp xếp và lọc cột (O13)
+
+struct ColumnFilterPopoverView: View {
+    let column: Int
+    let columnName: String
+    let isNumericOrDate: Bool
+    let distinctValues: [Value]
+    let currentSortKey: GridFilter.SortKey?
+    let currentFilter: Set<Value>?
+
+    var onSort: (GridFilter.SortDirection) -> Void
+    var onClearSort: () -> Void
+    var onApplyFilter: (Set<Value>?) -> Void
+
+    @State private var searchText = ""
+    @State private var selectedValues: Set<Value>
+
+    init(
+        column: Int,
+        columnName: String,
+        isNumericOrDate: Bool,
+        distinctValues: [Value],
+        currentSortKey: GridFilter.SortKey?,
+        currentFilter: Set<Value>?,
+        onSort: @escaping (GridFilter.SortDirection) -> Void,
+        onClearSort: @escaping () -> Void,
+        onApplyFilter: @escaping (Set<Value>?) -> Void
+    ) {
+        self.column = column
+        self.columnName = columnName
+        self.isNumericOrDate = isNumericOrDate
+        self.distinctValues = distinctValues
+        self.currentSortKey = currentSortKey
+        self.currentFilter = currentFilter
+        self.onSort = onSort
+        self.onClearSort = onClearSort
+        self.onApplyFilter = onApplyFilter
+        _selectedValues = State(initialValue: currentFilter ?? Set(distinctValues))
+    }
+
+    private var isSorted: Bool {
+        currentSortKey?.column == column
+    }
+
+    private var filteredValues: [Value] {
+        GridFilter.filterValues(distinctValues, query: searchText)
+    }
+
+    private var allFilteredSelected: Bool {
+        let visible = filteredValues
+        guard !visible.isEmpty else { return false }
+        return visible.allSatisfy { selectedValues.contains($0) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Sắp xếp
+            VStack(alignment: .leading, spacing: 2) {
+                Button {
+                    onSort(.ascending)
+                } label: {
+                    HStack {
+                        Image(systemName: isNumericOrDate ? "arrow.up.circle" : "textformat.characters")
+                            .frame(width: 16)
+                        Text(isNumericOrDate ? "Nhỏ đến lớn" : "A đến Z")
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 3)
+                .padding(.horizontal, 6)
+
+                Button {
+                    onSort(.descending)
+                } label: {
+                    HStack {
+                        Image(systemName: isNumericOrDate ? "arrow.down.circle" : "textformat.characters")
+                            .frame(width: 16)
+                        Text(isNumericOrDate ? "Lớn đến nhỏ" : "Z đến A")
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 3)
+                .padding(.horizontal, 6)
+
+                Button {
+                    onClearSort()
+                } label: {
+                    HStack {
+                        Image(systemName: "clear")
+                            .frame(width: 16)
+                        Text("Bỏ sắp xếp")
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isSorted)
+                .opacity(isSorted ? 1.0 : 0.45)
+                .padding(.vertical, 3)
+                .padding(.horizontal, 6)
+            }
+
+            Divider()
+
+            // Tìm kiếm
+            HStack(spacing: 4) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Tìm kiếm", text: $searchText)
+                    .textFieldStyle(.plain)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(5)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .cornerRadius(4)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(nsColor: .separatorColor), lineWidth: 1))
+
+            // Chọn tất cả
+            Button {
+                let visible = filteredValues
+                if allFilteredSelected {
+                    selectedValues.subtract(visible)
+                } else {
+                    selectedValues.formUnion(visible)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: allFilteredSelected ? "checkmark.square.fill" : "square")
+                        .foregroundStyle(allFilteredSelected ? Color.accentColor : Color.secondary)
+                    Text("Chọn tất cả")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 6)
+            .padding(.top, 2)
+
+            Divider()
+
+            // Danh sách giá trị phân biệt
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    ForEach(filteredValues, id: \.self) { val in
+                        let isChecked = selectedValues.contains(val)
+                        Button {
+                            if isChecked {
+                                selectedValues.remove(val)
+                            } else {
+                                selectedValues.insert(val)
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: isChecked ? "checkmark.square.fill" : "square")
+                                    .foregroundStyle(isChecked ? Color.accentColor : Color.secondary)
+                                Text(GridFilter.displayLabel(for: val))
+                                    .lineLimit(1)
+                                Spacer()
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                    }
+                }
+            }
+            .frame(maxHeight: 160)
+
+            Divider()
+
+            // Nút Áp dụng
+            HStack {
+                Spacer()
+                Button("Áp dụng") {
+                    if selectedValues.count == distinctValues.count {
+                        onApplyFilter(nil)
+                    } else {
+                        onApplyFilter(selectedValues)
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(10)
+        .frame(width: 240)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
+    }
+}
+
 // MARK: - Lưới kết quả
 
-/// Lưới kết quả dùng NSTableView (ô được tái sử dụng, nên cuộn được bảng lớn). Bấm tiêu đề cột để sắp xếp.
+/// Lưới kết quả dùng NSTableView (ô được tái sử dụng, nên cuộn được bảng lớn). Bấm tiêu đề cột để mở menu sắp xếp và lọc.
 /// `key` đổi khi bảng kết quả đổi; so sánh `key` thay vì so cả bảng (có thể hàng triệu ô) ở mỗi lần cập nhật.
 struct ResultGrid: NSViewRepresentable {
     let table: ResultTable
     let key: String
-    /// Gọi khi thứ tự dòng đổi (sắp xếp), để Copy và Export giữ đúng thứ tự đang xem.
+    /// Gọi khi thứ tự dòng đổi (sắp xếp hoặc lọc), để Copy và Export giữ đúng thứ tự đang xem.
     var onOrderChange: ([Int]) -> Void = { _ in }
+
+    /// Vùng bấm mở menu lọc/sắp xếp của cột (rộng khoảng 20 pt, mở rộng khi có thêm mũi tên sắp xếp).
+    public static func filterIconHitRect(in headerRect: NSRect, isSorted: Bool = false) -> NSRect {
+        let width: CGFloat = isSorted ? 30 : 20
+        let rightMargin: CGFloat = 2
+        let x = max(headerRect.minX, headerRect.maxX - width - rightMargin)
+        return NSRect(x: x, y: headerRect.minY, width: min(width, headerRect.width), height: headerRect.height)
+    }
+
+    /// Vùng vẽ icon lọc (12 pt sát mép phải ô tiêu đề).
+    public static func filterIconDrawingRect(in headerRect: NSRect) -> NSRect {
+        let size: CGFloat = 12
+        let rightMargin: CGFloat = 6
+        let x = headerRect.maxX - size - rightMargin
+        let y = headerRect.minY + (headerRect.height - size) / 2
+        return NSRect(x: x, y: y, width: size, height: size)
+    }
+
+    /// Vùng vẽ mũi tên sắp xếp cạnh icon lọc (10 pt).
+    public static func sortArrowDrawingRect(in headerRect: NSRect) -> NSRect {
+        let filterRect = filterIconDrawingRect(in: headerRect)
+        let size: CGFloat = 10
+        let spacing: CGFloat = 2
+        let x = filterRect.minX - spacing - size
+        let y = headerRect.minY + (headerRect.height - size) / 2
+        return NSRect(x: x, y: y, width: size, height: size)
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -170,6 +492,12 @@ struct ResultGrid: NSViewRepresentable {
         tableView.allowsMultipleSelection = true
         tableView.dataSource = context.coordinator
         tableView.delegate = context.coordinator
+
+        let headerView = ResultTableHeaderView()
+        headerView.tableView = tableView
+        headerView.coordinator = context.coordinator
+        tableView.headerView = headerView
+
         scroll.documentView = tableView
         context.coordinator.load(table, key: key, into: tableView, onOrderChange: onOrderChange)
         return scroll
@@ -186,6 +514,11 @@ struct ResultGrid: NSViewRepresentable {
         private var order: [Int] = []
         private var numericColumn: [Bool] = []
         private var onOrderChange: ([Int]) -> Void = { _ in }
+        private var filters: [Int: Set<Value>] = [:]
+        private var sortKey: GridFilter.SortKey? = nil
+        private weak var tableView: NSTableView?
+        private var popover: NSPopover?
+
         private static let cellFont = NSFont.monospacedSystemFont(ofSize: 11.5, weight: .regular)
         private static let rowNumberFont = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular)
 
@@ -194,6 +527,12 @@ struct ResultGrid: NSViewRepresentable {
             self.table = table
             self.key = key
             self.onOrderChange = onOrderChange
+            self.tableView = tableView
+            self.filters = [:]
+            self.sortKey = nil
+            self.popover?.close()
+            self.popover = nil
+
             order = Array(table.rows.indices)
             numericColumn = table.columns.indices.map { c in
                 table.rows.prefix(200).contains { ResultFormat.isNumeric($0[c]) }
@@ -201,20 +540,116 @@ struct ResultGrid: NSViewRepresentable {
             for column in tableView.tableColumns { tableView.removeTableColumn(column) }
             let number = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("#"))
             number.title = "#"
+            // Biểu tượng bảng ở góc lưới, như Power BI (ảnh lưới DAX Query View).
+            if let icon = NSImage(systemSymbolName: "tablecells", accessibilityDescription: "Số dòng") {
+                let attachment = NSTextAttachment()
+                attachment.image = icon
+                let title = NSMutableAttributedString(attachment: attachment)
+                title.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor,
+                                   range: NSRange(location: 0, length: title.length))
+                number.headerCell.attributedStringValue = title
+                number.headerCell.alignment = .center
+            }
             number.width = max(36, CGFloat(String(table.rows.count).count) * 8 + 16)
             tableView.addTableColumn(number)
             for (c, name) in table.columns.enumerated() {
                 let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("c\(c)"))
                 column.title = name
-                column.sortDescriptorPrototype = NSSortDescriptor(key: "c\(c)", ascending: true)
                 let sample = table.rows.prefix(200).map { ResultFormat.display($0[c]).count }.max() ?? 0
                 column.width = min(320, max(70, CGFloat(max(sample, name.count)) * 7.2 + 20))
-                if numericColumn[c] { column.headerCell.alignment = .right }
+                let headerCell = FilterableTableHeaderCell(textCell: name)
+                if numericColumn[c] { headerCell.alignment = .right }
+                column.headerCell = headerCell
                 tableView.addTableColumn(column)
             }
             tableView.sortDescriptors = []
+            updateHeaderUI()
             tableView.reloadData()
             notifyOrder()
+        }
+
+        func openMenu(for colIdx: Int, tableColumn: NSTableColumn, iconRect: NSRect, headerView: NSView) {
+            guard let c = Int(tableColumn.identifier.rawValue.dropFirst()), c < table.columns.count else { return }
+            popover?.close()
+
+            let isNumOrDate = numericColumn[c] || GridFilter.isNumericOrDateColumn(in: table, column: c)
+            let distinct = GridFilter.distinctValues(in: table, column: c)
+
+            let view = ColumnFilterPopoverView(
+                column: c,
+                columnName: table.columns[c],
+                isNumericOrDate: isNumOrDate,
+                distinctValues: distinct,
+                currentSortKey: sortKey,
+                currentFilter: filters[c],
+                onSort: { [weak self] dir in
+                    self?.applySort(column: c, direction: dir)
+                    self?.popover?.close()
+                },
+                onClearSort: { [weak self] in
+                    self?.clearSort(column: c)
+                    self?.popover?.close()
+                },
+                onApplyFilter: { [weak self] selected in
+                    self?.applyFilter(column: c, selectedValues: selected, totalDistinctCount: distinct.count)
+                    self?.popover?.close()
+                }
+            )
+
+            let hosting = NSHostingController(rootView: view)
+            let pop = NSPopover()
+            pop.contentViewController = hosting
+            pop.behavior = .transient
+            pop.animates = true
+            // Nền sáng như Power BI (O13); mặc định NSPopover theo vibrancy nên nền xám tối, khó đọc.
+            pop.appearance = NSAppearance(named: .aqua)
+            self.popover = pop
+            // Popover hiện ngay dưới icon
+            pop.show(relativeTo: iconRect, of: headerView, preferredEdge: .maxY)
+        }
+
+        func applySort(column: Int, direction: GridFilter.SortDirection) {
+            sortKey = GridFilter.SortKey(column: column, direction: direction)
+            recomputeAndReload()
+        }
+
+        func clearSort(column: Int) {
+            if sortKey?.column == column {
+                sortKey = nil
+                recomputeAndReload()
+            }
+        }
+
+        func applyFilter(column: Int, selectedValues: Set<Value>?, totalDistinctCount: Int) {
+            if let selectedValues, selectedValues.count < totalDistinctCount {
+                filters[column] = selectedValues
+            } else {
+                filters.removeValue(forKey: column)
+            }
+            recomputeAndReload()
+        }
+
+        private func recomputeAndReload() {
+            order = GridFilter.filteredAndSortedIndices(in: table, filters: filters, sortKey: sortKey)
+            updateHeaderUI()
+            tableView?.reloadData()
+            notifyOrder()
+        }
+
+        private func updateHeaderUI() {
+            guard let tableView else { return }
+            for (c, name) in table.columns.enumerated() {
+                guard let col = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("c\(c)")) else { continue }
+                let isFiltered = filters[c] != nil
+                col.title = name
+
+                if let cell = col.headerCell as? FilterableTableHeaderCell {
+                    cell.isFiltered = isFiltered
+                    cell.sortDirection = (sortKey?.column == c) ? sortKey?.direction : nil
+                }
+                tableView.setIndicatorImage(nil, in: col)
+            }
+            tableView.headerView?.needsDisplay = true
         }
 
         /// Báo thứ tự dòng cho SwiftUI ở lượt sau của main queue (không sửa state trong lúc view đang cập nhật).
@@ -229,12 +664,23 @@ struct ResultGrid: NSViewRepresentable {
         func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
             guard let tableColumn else { return nil }
             let identifier = tableColumn.identifier
-            let field = (tableView.makeView(withIdentifier: identifier, owner: self) as? NSTextField) ?? {
+            // Ô là NSTableCellView chứa nhãn căn giữa theo chiều dọc (NSTextField trần bị dính mép trên).
+            let cell = (tableView.makeView(withIdentifier: identifier, owner: self) as? NSTableCellView) ?? {
+                let cell = NSTableCellView()
+                cell.identifier = identifier
                 let label = NSTextField(labelWithString: "")
-                label.identifier = identifier
                 label.lineBreakMode = .byTruncatingTail
-                return label
+                label.translatesAutoresizingMaskIntoConstraints = false
+                cell.addSubview(label)
+                cell.textField = label
+                NSLayoutConstraint.activate([
+                    label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
+                    label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+                    label.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                ])
+                return cell
             }()
+            guard let field = cell.textField else { return cell }
             let source = order[row]
             if identifier.rawValue == "#" {
                 field.stringValue = String(source + 1)
@@ -248,48 +694,7 @@ struct ResultGrid: NSViewRepresentable {
                 field.textColor = .labelColor
                 field.alignment = numericColumn[c] ? .right : .left
             }
-            return field
-        }
-
-        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
-            guard let descriptor = tableView.sortDescriptors.first, let key = descriptor.key,
-                  let c = Int(key.dropFirst()), c < table.columns.count else { return }
-            let rows = table.rows
-            order.sort { a, b in
-                let ordered = Self.less(rows[a][c], rows[b][c])
-                let reversed = Self.less(rows[b][c], rows[a][c])
-                if !ordered && !reversed { return a < b }
-                return descriptor.ascending ? ordered : reversed
-            }
-            tableView.reloadData()
-            notifyOrder()
-        }
-
-        /// Thứ tự sắp xếp của lưới: BLANK trước, rồi số và ngày theo giá trị, rồi chuỗi (không phân biệt hoa thường).
-        private static func less(_ a: Value, _ b: Value) -> Bool {
-            func rank(_ v: Value) -> Int {
-                switch v {
-                case .blank: 0
-                case .boolean: 1
-                case .integer, .double, .currency, .dateTime: 2
-                case .string: 3
-                }
-            }
-            func number(_ v: Value) -> Double {
-                switch v {
-                case .integer(let x): Double(x)
-                case .double(let x): x
-                case .currency(let x): Double(x) / 10_000
-                case .dateTime(let x): x
-                case .boolean(let x): x ? 1 : 0
-                default: 0
-                }
-            }
-            if rank(a) != rank(b) { return rank(a) < rank(b) }
-            if case .string(let x) = a, case .string(let y) = b {
-                return x.localizedCaseInsensitiveCompare(y) == .orderedAscending
-            }
-            return number(a) < number(b)
+            return cell
         }
     }
 }

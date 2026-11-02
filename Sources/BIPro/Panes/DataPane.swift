@@ -6,22 +6,46 @@ import SwiftUI
 /// Σ for numeric columns that summarize by default; geo icons from the data category.
 struct DataPane: View {
     enum Purpose { case report, table, query }
+    enum DataTab { case tables, model }
 
     let state: DocumentState
     var purpose: Purpose = .report
     var collapse: (() -> Void)?
 
+    @State private var selectedTab: DataTab = .tables
     @State private var search = ""
-    @State private var expanded: Set<String> = []
+    @State private var expanded: Set<String> = ["model:root"]
 
     var body: some View {
         VStack(spacing: 0) {
-            PaneHeader(title: purpose == .query ? "Mô hình dữ liệu" : "Dữ liệu", symbol: "cylinder.split.1x2", collapse: collapse)
-            SearchField(text: $search, prompt: "Tìm field…").padding(.horizontal, 10).padding(.bottom, 6)
+            headerView
+            if purpose == .query {
+                tabBar
+            }
+            SearchField(text: $search, prompt: "Tìm field…")
+                .padding(.horizontal, 10)
+                .padding(.bottom, 6)
+
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(tables, id: \.id) { table in
-                        tableNode(table)
+                    if purpose == .query && selectedTab == .model {
+                        ModelTreeView(
+                            state: state,
+                            search: search,
+                            expanded: $expanded,
+                            openNewQueryTab: { title, text, run in
+                                openNewQueryTab(title: title, text: text, run: run)
+                            },
+                            collapseAll: { collapseAll() },
+                            expandAll: { expandAll() },
+                            renderTableNode: { table, level in
+                                AnyView(tableNode(table, baseLevel: level))
+                            }
+                        )
+                    } else {
+                        ForEach(tables, id: \.id) { table in
+                            tableNode(table, baseLevel: 0)
+                        }
                     }
                 }
                 .padding(.bottom, 8)
@@ -31,7 +55,59 @@ struct DataPane: View {
         .background(DS.Palette.chrome)
         .onAppear {
             if let table = state.table, purpose != .report { expanded.insert(table) }
+            if purpose == .query { expanded.insert("model:root") }
         }
+    }
+
+    // MARK: - Header & Tabs
+
+    @ViewBuilder
+    private var headerView: some View {
+        if purpose == .query {
+            HStack(spacing: 6) {
+                Text("Dữ liệu")
+                    .font(DS.Typeface.headlineSmall)
+                    .fontWeight(.bold)
+                    .foregroundStyle(DS.Palette.label)
+                Spacer()
+                if let collapse {
+                    Button(action: collapse) {
+                        Image(systemName: "chevron.right.2")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(GhostIconButtonStyle())
+                    .help("Thu gọn")
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 38)
+        } else {
+            PaneHeader(title: "Dữ liệu", symbol: "cylinder.split.1x2", collapse: collapse)
+        }
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 16) {
+            tabButton(title: "Bảng", tab: .tables)
+            tabButton(title: "Mô hình", tab: .model)
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
+    }
+
+    private func tabButton(title: String, tab: DataTab) -> some View {
+        Button(action: { selectedTab = tab }) {
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(DS.Typeface.bodySmall.weight(selectedTab == tab ? .semibold : .regular))
+                    .foregroundStyle(selectedTab == tab ? DS.Palette.label : DS.Palette.secondaryLabel)
+                Rectangle()
+                    .fill(selectedTab == tab ? DS.Palette.accent : Color.clear)
+                    .frame(height: 2)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var tables: [ModelMetadata.Table] {
@@ -42,7 +118,7 @@ struct DataPane: View {
 
     private var showHidden: Bool { purpose != .report }
 
-    // MARK: Nodes
+    // MARK: - Nodes
 
     private enum Item: Identifiable {
         case folder(String, [Item])
@@ -97,20 +173,43 @@ struct DataPane: View {
         return folderItems + root.sorted(by: byName)
     }
 
-    @ViewBuilder private func tableNode(_ table: ModelMetadata.Table) -> some View {
+    @ViewBuilder
+    private func tableNode(_ table: ModelMetadata.Table, baseLevel: Int = 0) -> some View {
         let isOpen = expanded.contains(table.name) || !search.isEmpty
         let children = items(for: table.name)
         if search.isEmpty || !children.isEmpty || table.name.lowercased().contains(search.lowercased()) {
-            TreeRow(level: 0, isExpanded: isOpen, hasChildren: true,
-                    symbol: table.name.lowercased().hasPrefix("fact") ? "tablecells.fill" : "tablecells",
-                    tint: DS.Palette.table, title: table.name, isHidden: table.isHidden,
-                    isSelected: purpose == .table && state.table == table.name && state.column == nil,
-                    trailing: purpose == .report ? nil : state.workspace.rowCount(table.name).formatted(.number.notation(.compactName))) {
+            TreeRow(
+                level: baseLevel,
+                isExpanded: isOpen,
+                hasChildren: true,
+                symbol: table.name.lowercased().hasPrefix("fact") ? "tablecells.fill" : "tablecells",
+                tint: DS.Palette.table,
+                title: table.name,
+                isHidden: table.isHidden,
+                isSelected: purpose == .table && state.table == table.name && state.column == nil,
+                trailing: purpose == .report ? nil : state.workspace.rowCount(table.name).formatted(.number.notation(.compactName))
+            ) {
                 toggle(table.name)
                 if purpose == .table { state.select(table: table.name) }
             }
+            .leftContextMenu {
+                LeftMenuBuilder.tableMenuItems(
+                    tableName: table.name,
+                    onTop100: {
+                        let cols = state.workspace.columns(of: table.name)
+                        openNewQueryTab(title: table.name, text: QuickQueries.top100Rows(table: table.name, columns: cols), run: true)
+                    },
+                    onDefineNewMeasure: {
+                        openNewQueryTab(title: "Measure mới", text: QuickQueries.defineNewMeasure(tableName: table.name), run: false)
+                    },
+                    onCollapseAll: { collapseAll() },
+                    onExpandAll: { expandAll() }
+                )
+            }
             if isOpen {
-                ForEach(children) { item in node(item, table: table.name, level: 1) }
+                ForEach(children) { item in
+                    node(item, table: table.name, level: baseLevel + 1)
+                }
             }
         }
     }
@@ -135,13 +234,73 @@ struct DataPane: View {
                     state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
                 }
             }
-            .contextMenu { measureMenu(m) })
+            .leftContextMenu {
+                LeftMenuBuilder.measureMenuItems(
+                    onEvaluate: {
+                        openNewQueryTab(title: m.name, text: QuickQueries.evaluate(measure: m), run: true)
+                    },
+                    onDefineAndEvaluate: {
+                        openNewQueryTab(title: m.name, text: QuickQueries.defineAndEvaluate(measure: m), run: true)
+                    },
+                    onDefineWithReferencesAndEvaluate: {
+                        let allMeasures = state.workspace.metadata?.measures ?? []
+                        let allColumns = state.workspace.metadata?.columns ?? []
+                        openNewQueryTab(
+                            title: m.name,
+                            text: QuickQueries.defineWithReferencesAndEvaluate(
+                                measure: m,
+                                allMeasures: allMeasures,
+                                allColumns: allColumns
+                            ),
+                            run: true
+                        )
+                    },
+                    onDefineNewMeasure: {
+                        openNewQueryTab(
+                            title: "Measure mới",
+                            text: QuickQueries.defineNewMeasure(tableName: m.tableName),
+                            run: false
+                        )
+                    },
+                    onDefineAllMeasures: {
+                        let allMeasures = state.workspace.metadata?.measures ?? []
+                        openNewQueryTab(
+                            title: m.name,
+                            text: QuickQueries.defineAllMeasures(clickedMeasure: m, allMeasures: allMeasures),
+                            run: true
+                        )
+                    },
+                    onCollapseAll: { collapseAll() },
+                    onExpandAll: { expandAll() },
+                    onCopyFormula: {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(m.expression, forType: .string)
+                    }
+                )
+            })
         case .column(let c):
             return AnyView(TreeRow(level: level, symbol: columnSymbol(c), tint: c.kind == .calculated ? DS.Palette.indigo : DS.Palette.secondaryLabel,
                                    title: c.name, isHidden: c.isHidden, checkbox: checkbox(table, c.name),
                                    isSelected: purpose == .table && state.table == table && state.column == c.name,
                                    help: c.expression) {
                 if purpose == .table { state.select(table: table, column: c.name) }
+            }
+            .leftContextMenu {
+                LeftMenuBuilder.columnMenuItems(
+                    isCalculated: c.kind == .calculated,
+                    hasExpression: !(c.expression?.isEmpty ?? true),
+                    onPreviewData: {
+                        openNewQueryTab(title: c.name, text: QuickQueries.previewData(tableName: table, columnName: c.name), run: true)
+                    },
+                    onCollapseAll: { collapseAll() },
+                    onExpandAll: { expandAll() },
+                    onCopyFormula: {
+                        if let expr = c.expression, !expr.isEmpty {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(expr, forType: .string)
+                        }
+                    }
+                )
             })
         case .hierarchy(let h):
             let key = "\(table)/h/\(h.name)"
@@ -159,15 +318,41 @@ struct DataPane: View {
         }
     }
 
-    @ViewBuilder private func measureMenu(_ m: ModelMetadata.Measure) -> some View {
-        Button("Định nghĩa và đánh giá (DAX)") {
-            state.mode = .daxQuery
-            state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
+    private func openNewQueryTab(title: String, text: String, run: Bool = true) {
+        state.daxQueries.append(DAXQueryTab(title: title, text: text))
+        state.daxSelection = state.daxQueries.count - 1
+        state.mode = .daxQuery
+        state.daxEditorSelection = NSRange(location: 0, length: 0)
+        if run && state.canRunDAX {
+            state.runDAXQuery()
         }
-        Button("Sao chép công thức") {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(m.expression, forType: .string)
+    }
+
+    private func collapseAll() {
+        expanded.removeAll()
+    }
+
+    private func expandAll() {
+        for table in tables {
+            expanded.insert(table.name)
+            for item in items(for: table.name) {
+                if case .folder(let name, _) = item {
+                    expanded.insert("\(table.name)/\(name)")
+                } else if case .hierarchy(let h) = item {
+                    expanded.insert("\(table.name)/h/\(h.name)")
+                }
+            }
         }
+        expanded.insert("model:root")
+        expanded.insert("model:calcGroups")
+        expanded.insert("model:cultures")
+        expanded.insert("model:expressions")
+        expanded.insert("model:functions")
+        expanded.insert("model:measures")
+        expanded.insert("model:perspectives")
+        expanded.insert("model:relationships")
+        expanded.insert("model:roles")
+        expanded.insert("model:tables")
     }
 
     private func checkbox(_ table: String, _ field: String) -> Bool? {
@@ -204,6 +389,8 @@ struct TreeRow: View {
     var tint: Color
     var title: String
     var isHidden = false
+    var isDimmed = false
+    var isBold = false
     var checkbox: Bool?
     var isSelected = false
     var trailing: String?
@@ -225,10 +412,13 @@ struct TreeRow: View {
                 .foregroundStyle(DS.Palette.tertiaryLabel)
                 .frame(width: 10)
                 if let checkbox { CheckboxMark(isOn: checkbox) }
-                Image(systemName: symbol).font(.system(size: 11)).foregroundStyle(isSelected ? .white : tint).frame(width: 15)
+                Image(systemName: symbol)
+                    .font(.system(size: 11))
+                    .foregroundStyle(isSelected ? .white : (isDimmed ? DS.Palette.tertiaryLabel : tint))
+                    .frame(width: 15)
                 Text(title)
-                    .font(level == 0 ? DS.Typeface.headlineSmall : DS.Typeface.bodySmall)
-                    .foregroundStyle(isSelected ? .white : (isHidden ? DS.Palette.tertiaryLabel : DS.Palette.label))
+                    .font(DS.Typeface.bodySmall)   // chữ thường cho mọi cấp, kể cả tên bảng và nhóm mô hình (yêu cầu người dùng)
+                    .foregroundStyle(isSelected ? .white : (isDimmed || isHidden ? DS.Palette.tertiaryLabel : DS.Palette.label))
                     .lineLimit(1)
                 if isHidden { Image(systemName: "eye.slash").font(.system(size: 9)).foregroundStyle(DS.Palette.tertiaryLabel) }
                 Spacer(minLength: 4)
@@ -251,12 +441,8 @@ struct TreeRow: View {
 }
 
 enum DAXSnippets {
-    /// Power BI's "Define and evaluate" quick query.
+    /// Power BI's "Define and evaluate" quick query (mẫu 2).
     static func defineAndEvaluate(_ m: ModelMetadata.Measure) -> String {
-        let body = m.expression.trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { "\t\t" + $0 }.joined(separator: "\n")
-        let ref = "'\(m.tableName.replacingOccurrences(of: "'", with: "''"))'[\(m.name)]"
-        return "DEFINE\n\tMEASURE \(ref) =\n\(body)\n\nEVALUATE\n\t{ \(ref) }\n"
+        QuickQueries.defineAndEvaluate(measure: m)
     }
 }
