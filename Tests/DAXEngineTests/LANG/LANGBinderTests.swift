@@ -235,7 +235,10 @@ private func bindError(_ text: String, catalog: Catalog) -> DAXError? {
         let (abf, _) = try pbix.loadDataModel()
         let metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
         let catalog = Catalog(metadata: metadata)
-        #expect(catalog.measures.count == 168)
+        // 168 measure của model + 1 measure ẩn `_<M> FormatString` cho mỗi measure có định dạng động (E2, Phase C).
+        let dynamicFormats = metadata.measures.filter { !($0.formatStringDefinition ?? "").isEmpty }.count
+        #expect(catalog.measures.count == 168 + dynamicFormats)
+        #expect(dynamicFormats == 19)
 
         let rows = try measures119()
         #expect(rows.count == 119)
