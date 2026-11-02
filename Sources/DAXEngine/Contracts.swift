@@ -106,6 +106,8 @@ public indirect enum BoundExpr: Sendable {
     case varBlock(slots: [Int], values: [BoundExpr], body: BoundExpr)
     case tableConstructor(columns: Int, rows: [[BoundExpr]])
     case keyword(String)                          // DESC, DENSE, YEAR, MONTH…
+    case tuple([BoundExpr])
+    case summarize(SummarizeColumns.Plan)
 }
 
 // MARK: - Khai báo hàm
@@ -164,6 +166,10 @@ public struct Param: Sendable, Hashable {
 
     public static func keyword(_ name: String, _ words: [String], optional: Bool = false) -> Param {
         Param(name: name, kind: .keyword(words), optional: optional, repeats: false)
+    }
+
+    public static func keyword(_ name: String, _ words: [String], optional: Bool, repeats: Bool) -> Param {
+        Param(name: name, kind: .keyword(words), optional: optional, repeats: repeats)
     }
 }
 

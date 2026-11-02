@@ -42,7 +42,7 @@ public enum Binder {
             case .variable(let name, let expr):
                 let value = try scope.bind(expr)
                 let slot = scope.allocateSlot()
-                scope.registerVariable(name: name, slot: slot)
+                scope.registerVariable(name: name, slot: slot, virtualColumns: scope.staticVirtualColumns(of: value))
                 definitions.append(BoundDefinition(kind: .variable, name: name, slot: slot, value: value))
             case .table(let name, let expr):
                 let value = try scope.bind(expr)
@@ -119,6 +119,8 @@ struct BindScope {
     private var virtualScopes: [Set<String>] = []
     /// Bảng nguồn đã biết của slot VAR (để [cột] trong FILTER(tbl, …) tra được bảng).
     private var slotTables: [Int: TableID] = [:]
+    /// Cột ảo của slot VAR (bảng ảo).
+    private var slotVirtualColumns: [Int: Set<String>] = [:]
 
     init(catalog: Catalog, nextSlot: Int) {
         self.catalog = catalog
@@ -132,9 +134,12 @@ struct BindScope {
     }
 
     /// Đăng ký DEFINE VAR để các biểu thức sau thấy tên này.
-    mutating func registerVariable(name: String, slot: Int) {
+    mutating func registerVariable(name: String, slot: Int, virtualColumns: Set<String>? = nil) {
         variables.append((name.lowercased(), slot))
         catalog.defineVariable(name: name, slot: slot)
+        if let virtualColumns {
+            slotVirtualColumns[slot] = virtualColumns
+        }
     }
 
     /// Đăng ký DEFINE TABLE. Tra tên bảng sẽ ra slot (BoundExpr.variable), không ra TableID.
@@ -172,6 +177,9 @@ struct BindScope {
             return try bindIdentifier(name, range: range)
 
         case .call(let name, let args, let range):
+            if name.uppercased() == "SUMMARIZECOLUMNS" {
+                return .summarize(try SummarizeColumns.plan(args: args, range: range, scope: &self))
+            }
             return try bindCall(name, args: args, range: range)
 
         case .unary(let op, let operand, _):
@@ -191,6 +199,9 @@ struct BindScope {
                 let slot = allocateSlot()
                 if let table = staticTable(of: value) {
                     slotTables[slot] = table
+                }
+                if let vcols = staticVirtualColumns(of: value) {
+                    slotVirtualColumns[slot] = vcols
                 }
                 variables.append((v.name.lowercased(), slot))
                 slots.append(slot)
@@ -251,9 +262,18 @@ struct BindScope {
         throw DAXError(.unknownName, "không tìm thấy bảng '\(name)'", range: range)
     }
 
-    /// [x] không có bảng: measure, rồi cột của các bảng trong phạm vi row (trong cùng trước), rồi cột ảo [@c].
+    private func bare(_ s: String) -> String {
+        s.hasPrefix("[") && s.hasSuffix("]") && s.count >= 2 ? String(s.dropFirst().dropLast()).lowercased() : s.lowercased()
+    }
+
+    /// [x] không có bảng: cột ảo của bảng đang lặp, rồi measure, rồi cột của các bảng trong phạm vi row (trong cùng trước).
     private func bindBracket(_ name: String, range: SourceRange) throws(DAXError) -> BoundExpr {
         if name.hasPrefix("@") {
+            return .virtualColumn(name: name)
+        }
+        let bareName = bare(name)
+        // Cột của bảng hằng hoặc bảng ảo đang lặp
+        if virtualScopes.contains(where: { $0.contains(bareName) }) {
             return .virtualColumn(name: name)
         }
         if let measure = catalog.measure(named: name) {
@@ -263,10 +283,6 @@ struct BindScope {
             if let column = columnID(in: table, named: name) {
                 return .column(column)
             }
-        }
-        // Cột của bảng hằng {…} đang lặp: [Value], [Value1]… (quan sát O18 buổi 2). Đọc từ row context lúc chạy.
-        if virtualScopes.contains(where: { $0.contains(name.lowercased()) }) {
-            return .virtualColumn(name: name)
         }
         throw DAXError(.unknownName, "không tìm thấy measure hoặc cột [\(name)]", range: range)
     }
@@ -317,7 +333,7 @@ struct BindScope {
 
         var bound: [BoundExpr?] = []
         var pushed = false
-        var pushedVirtual = false
+        var pushedVirtualCount = 0
         for (i, arg) in args.enumerated() {
             guard let arg else {
                 bound.append(nil)
@@ -339,16 +355,21 @@ struct BindScope {
             if i == scopeArg, let table = staticTable(of: boundArg) {
                 rowTables.append(table)
                 pushed = true
-            } else if i == scopeArg, let names = staticVirtualColumns(of: boundArg) {
+            }
+            if i == scopeArg, let names = staticVirtualColumns(of: boundArg) {
                 virtualScopes.append(names)
-                pushedVirtual = true
+                pushedVirtualCount += 1
+            }
+            if spec.name == "SUBSTITUTEWITHINDEX", i == 2, let names = staticVirtualColumns(of: boundArg) {
+                virtualScopes.append(names)
+                pushedVirtualCount += 1
             }
         }
         if pushed {
             rowTables.removeLast()
         }
-        if pushedVirtual {
-            virtualScopes.removeLast()
+        if pushedVirtualCount > 0 {
+            virtualScopes.removeLast(pushedVirtualCount)
         }
         return .call(FunctionID(raw: Int32(index)), bound)
     }
@@ -403,17 +424,105 @@ struct BindScope {
         }
     }
 
-    /// Tên cột của bảng hằng {…} làm nguồn lặp (trực tiếp, hoặc qua tham số bảng đầu tiên của hàm bọc nó).
-    private func staticVirtualColumns(of expr: BoundExpr) -> Set<String>? {
+    /// Tên cột của bảng ảo làm nguồn lặp.
+    func staticVirtualColumns(of expr: BoundExpr) -> Set<String>? {
         switch expr {
         case .tableConstructor(let columns, _):
             return columns == 1 ? ["value"] : Set((1...max(columns, 1)).map { "value\($0)" })
+        case .summarize(let plan):
+            var cols = Set<String>()
+            for clause in plan.clauses {
+                switch clause {
+                case .plain(let col):
+                    if let cname = catalog.schema.column(col)?.name {
+                        cols.insert(cname.lowercased())
+                    }
+                case .rollup(let levels):
+                    for lvl in levels {
+                        for col in lvl.columns {
+                            if let cname = catalog.schema.column(col)?.name {
+                                cols.insert(cname.lowercased())
+                            }
+                        }
+                        cols.insert(bare(lvl.flagName))
+                    }
+                }
+            }
+            for m in plan.measures {
+                cols.insert(bare(m.name))
+            }
+            return cols
+        case .variable(let slot):
+            return slotVirtualColumns[slot]
         case .varBlock(_, _, let body):
             return staticVirtualColumns(of: body)
         case .call(let fid, let args):
             let index = Int(fid.raw)
             guard index >= 0, index < FunctionRegistry.all.count else { return nil }
             let spec = FunctionRegistry.all[index]
+            if ["KEEPFILTERS", "FILTER", "CALCULATETABLE", "ALL", "ALLSELECTED"].contains(spec.name),
+               let first = args.first, let firstArg = first {
+                return staticVirtualColumns(of: firstArg)
+            }
+            if spec.name == "SUBSTITUTEWITHINDEX", args.count >= 2, let nameExpr = args[1],
+               case .literal(.string(let name)) = nameExpr {
+                var cols = args[0].flatMap { staticVirtualColumns(of: $0) } ?? Set<String>()
+                cols.insert(bare(name))
+                return cols
+            }
+            if spec.name == "ADDCOLUMNS", args.count >= 2 {
+                var cols = args[0].flatMap { staticVirtualColumns(of: $0) } ?? Set<String>()
+                var i = 1
+                while i < args.count {
+                    if let a = args[i], case .literal(.string(let name)) = a {
+                        cols.insert(bare(name))
+                    }
+                    i += 2
+                }
+                return cols
+            }
+            if spec.name == "GROUPBY", args.count >= 1 {
+                var cols = Set<String>()
+                var i = 1
+                while i < args.count {
+                    if let a = args[i] {
+                        if case .literal(.string(let name)) = a {
+                            cols.insert(bare(name))
+                            i += 2
+                            continue
+                        } else if case .column(let cid) = a {
+                            if let cname = catalog.schema.column(cid)?.name {
+                                cols.insert(cname.lowercased())
+                            }
+                        } else if case .virtualColumn(let vname) = a {
+                            cols.insert(bare(vname))
+                        }
+                    }
+                    i += 1
+                }
+                return cols
+            }
+            if spec.name == "SUMMARIZE", args.count >= 1 {
+                var cols = Set<String>()
+                var i = 1
+                while i < args.count {
+                    if let a = args[i] {
+                        if case .column(let cid) = a {
+                            if let cname = catalog.schema.column(cid)?.name {
+                                cols.insert(cname.lowercased())
+                            }
+                        } else if case .virtualColumn(let vname) = a {
+                            cols.insert(bare(vname))
+                        } else if case .literal(.string(let name)) = a {
+                            cols.insert(bare(name))
+                            i += 2
+                            continue
+                        }
+                    }
+                    i += 1
+                }
+                return cols
+            }
             guard let k = spec.params.firstIndex(where: { $0.kind == .table || $0.kind == .tableOrColumnRef }),
                   k < args.count, let arg = args[k] else { return nil }
             return staticVirtualColumns(of: arg)
@@ -426,7 +535,7 @@ struct BindScope {
 
     /// Từ khoá đối số (DESC, DENSE, YEAR…) khi tham số không khai báo kiểu keyword.
     static let keywordWords: Set<String> = [
-        "ASC", "DESC", "DENSE", "SKIP", "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR",
+        "ASC", "DESC", "DENSE", "SKIP", "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "ALPHABETICAL",
     ]
 
     /// Tên hàm thường → chỉ số trong FunctionRegistry.all. Trùng tên thì lấy mục đầu tiên.
@@ -450,7 +559,7 @@ final class ArgumentMatcher {
         case pair(Int, Int)
     }
 
-    private static let pairNames: Set<String> = ["value|result", "name|expression"]
+    private static let pairNames: Set<String> = ["value|result", "name|expression", "orderBy|order"]
 
     private let params: [Param]
     private let args: [Expr?]

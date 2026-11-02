@@ -62,6 +62,12 @@ func fkPhysicalSource(_ expr: BoundExpr, _ evaluator: Evaluator,
             return (table: id, rows: rows)
         }
         return nil
+    case .call(let fid, let args):
+        let spec = try evaluator.specification(fid)
+        if spec.name == "KEEPFILTERS", let inner = args.first ?? nil {
+            return try fkPhysicalSource(inner, evaluator, ctx)
+        }
+        return nil
     default:
         return nil
     }
@@ -121,6 +127,17 @@ func fkRelatedValue(_ column: ColumnID, _ evaluator: Evaluator, _ ctx: EvalConte
             return Value(stored: data.value(at: r))
         case .virtual(let tv, let i):
             if let index = tv.lineageIndex(of: column) {
+                return tv.rows[i][index]
+            }
+            let tName = store.schema.table(column.table)?.name ?? ""
+            let cName = store.schema.column(column)?.name ?? ""
+            let q1 = "'\(tName)'[\(cName)]".lowercased()
+            let q2 = "\(tName)[\(cName)]".lowercased()
+            let bName = "[\(cName)]".lowercased()
+            if let index = tv.columns.firstIndex(where: {
+                let col = $0.lowercased()
+                return col == q1 || col == q2 || col == bName
+            }) {
                 return tv.rows[i][index]
             }
         default:
@@ -258,6 +275,18 @@ func fkCompareKeys(_ a: [Value], _ b: [Value], desc: Bool) throws(DAXError) -> I
     return 0
 }
 
+func fkCompareMultiKeys(_ a: [Value], _ b: [Value], descs: [Bool]) throws(DAXError) -> Int {
+    for k in 0..<min(a.count, b.count) {
+        let lt = try fkLess(a[k], b[k])
+        let gt = try fkLess(b[k], a[k])
+        if !lt && !gt { continue }
+        let desc = k < descs.count ? descs[k] : false
+        let aFirst = desc ? gt : lt
+        return aFirst ? -1 : 1
+    }
+    return 0
+}
+
 // MARK: - Họ hàm
 
 public enum TableFunctions: FunctionFamily {
@@ -362,7 +391,7 @@ public enum TableFunctions: FunctionFamily {
             throw DAXError(.arity, "SUMMARIZE cần một bảng")
         }
         let evaluator = try fkEvaluator(frame)
-        var groups: [ColumnID] = []
+        var groups: [(expr: BoundExpr, name: String, lineage: ColumnID?)] = []
         var extensions: [(name: String, expr: BoundExpr)] = []
         var i = 1
         while i < frame.args.count {
@@ -371,7 +400,10 @@ public enum TableFunctions: FunctionFamily {
             }
             switch arg {
             case .column(let column):
-                groups.append(column)
+                groups.append((expr: arg, name: fkQualifiedName(column, evaluator), lineage: column))
+                i += 1
+            case .virtualColumn(let name):
+                groups.append((expr: arg, name: name, lineage: nil))
                 i += 1
             case .literal(.string(let name)):
                 guard i + 1 < frame.args.count, let expr = frame.args[i + 1] else {
@@ -390,16 +422,21 @@ public enum TableFunctions: FunctionFamily {
         try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
             var key: [Value] = []
             key.reserveCapacity(groups.count)
-            for column in groups {
-                key.append(try fkRelatedValue(column, evaluator, inner))
+            for g in groups {
+                switch g.expr {
+                case .column(let column):
+                    key.append(try fkRelatedValue(column, evaluator, inner))
+                default:
+                    key.append(try evaluator.scalar(g.expr, in: inner))
+                }
             }
             if seen.insert(key).inserted {
                 keys.append(key)
             }
         }
 
-        var names = groups.map { fkQualifiedName($0, evaluator) }
-        var lineage: [ColumnID?] = groups.map { Optional($0) }
+        var names = groups.map(\.name)
+        var lineage: [ColumnID?] = groups.map(\.lineage)
         var rows: [[Value]] = []
         rows.reserveCapacity(keys.count)
         for key in keys {
@@ -409,8 +446,10 @@ public enum TableFunctions: FunctionFamily {
                 if frame.ctx.row != nil {
                     filter = try evaluator.transitioned(filter)
                 }
-                for (k, column) in groups.enumerated() {
-                    filter = filter.applying(FilterItem(column: column, values: [key[k]]), keep: false)
+                for (k, g) in groups.enumerated() {
+                    if let col = g.lineage {
+                        filter = filter.applying(FilterItem(column: col, values: [key[k]]), keep: false)
+                    }
                 }
                 for extension_ in extensions {
                     values.append(try evaluator.scalar(extension_.expr, in: EvalContext(filter: filter, row: nil)))
@@ -485,17 +524,37 @@ public enum TableFunctions: FunctionFamily {
         }
         let evaluator = try fkEvaluator(frame)
         let n = try fkTopCount(try frame.scalar(0))
-        var orderExprs: [BoundExpr] = []
-        var descending = false
-        for i in 2..<max(2, frame.args.count) {
-            guard let arg = frame.args[i] else { continue }
-            if case .keyword(let word) = arg {
-                descending = word == "DESC"
-            } else {
-                orderExprs.append(arg)
+        var orderSpecs: [(expr: BoundExpr, desc: Bool)] = []
+        var i = 2
+        while i < frame.args.count {
+            guard let arg = frame.args[i] else {
+                i += 1
+                continue
             }
+            var isDir = false
+            var dirDesc = false
+            switch arg {
+            case .keyword(let word):
+                isDir = true
+                dirDesc = (word == "DESC")
+            case .literal(.integer(let v)):
+                isDir = true
+                dirDesc = (v == 0) // trong DAX: 0 = DESC, 1 = ASC
+            case .literal(.boolean(let b)):
+                isDir = true
+                dirDesc = !b
+            default:
+                break
+            }
+
+            if isDir && !orderSpecs.isEmpty {
+                orderSpecs[orderSpecs.count - 1].desc = dirDesc
+            } else {
+                orderSpecs.append((expr: arg, desc: false))
+            }
+            i += 1
         }
-        guard !orderExprs.isEmpty else {
+        guard !orderSpecs.isEmpty else {
             throw DAXError(.arity, "TOPN cần ít nhất một biểu thức sắp xếp")
         }
 
@@ -504,9 +563,9 @@ public enum TableFunctions: FunctionFamily {
         let visit: (EvalContext) throws(DAXError) -> Void = { (inner: EvalContext) throws(DAXError) in
             guard let index = inner.row?.row else { return }
             var keys: [Value] = []
-            keys.reserveCapacity(orderExprs.count)
-            for expr in orderExprs {
-                keys.append(try evaluator.scalar(expr, in: inner))
+            keys.reserveCapacity(orderSpecs.count)
+            for spec in orderSpecs {
+                keys.append(try evaluator.scalar(spec.expr, in: inner))
             }
             entries.append((index: index, keys: keys))
         }
@@ -525,10 +584,11 @@ public enum TableFunctions: FunctionFamily {
 
         // Sắp xếp ổn định theo khoá, rồi theo vị trí gốc để kết quả xác định.
         var failure: DAXError?
+        let descs = orderSpecs.map(\.desc)
         var order = Array(entries.indices)
         order.sort { (a: Int, b: Int) -> Bool in
             do throws(DAXError) {
-                let c = try fkCompareKeys(entries[a].keys, entries[b].keys, desc: descending)
+                let c = try fkCompareMultiKeys(entries[a].keys, entries[b].keys, descs: descs)
                 if c != 0 { return c < 0 }
                 return a < b
             } catch {
@@ -548,7 +608,7 @@ public enum TableFunctions: FunctionFamily {
                 for (position, entry) in order.enumerated() {
                     if position < n {
                         chosen.append(entry)
-                    } else if try fkCompareKeys(entries[entry].keys, threshold, desc: descending) == 0 {
+                    } else if try fkCompareMultiKeys(entries[entry].keys, threshold, descs: descs) == 0 {
                         chosen.append(entry)
                     } else {
                         break

@@ -53,7 +53,7 @@ fileprivate func fkReferencedColumns(_ expr: BoundExpr) -> Set<ColumnID> {
 /// Biểu thức là bảng (tham chiếu bảng, biến bảng, hoặc hàm trả bảng). Dùng để loại trước khi đọc cột.
 fileprivate func fkIsTableExpression(_ expr: BoundExpr, _ evaluator: Evaluator) throws(DAXError) -> Bool {
     switch expr {
-    case .table:
+    case .table, .summarize, .tableConstructor:
         return true
     case .variable(let slot):
         if case .scalar = try evaluator.lookupVariable(slot) { return false }

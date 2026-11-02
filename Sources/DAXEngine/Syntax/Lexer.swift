@@ -36,7 +36,8 @@ struct DAXToken: Sendable, Hashable {
 enum DAXLexer {
     /// Tách văn bản thành token. Luôn kết thúc bằng một token `.eof`.
     static func tokenize(_ text: String) throws(DAXError) -> [DAXToken] {
-        var scanner = DAXScanner(scalars: Array(text.unicodeScalars))
+        let normalized = text.replacingOccurrences(of: "\r\n", with: "\n")
+        var scanner = DAXScanner(scalars: Array(normalized.unicodeScalars))
         return try scanner.run()
     }
 }

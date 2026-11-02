@@ -5,12 +5,14 @@
 // Lỗi cú pháp là DAXError kind .syntax, mang SourceRange của token gây lỗi.
 
 public func parseExpression(_ text: String) throws(DAXError) -> Expr {
-    var parser = DAXParser(tokens: try DAXLexer.tokenize(text))
+    let clean = text.replacingOccurrences(of: "\r\n", with: "\n")
+    var parser = DAXParser(tokens: try DAXLexer.tokenize(clean))
     return try parser.parseWholeExpression()
 }
 
 public func parseQuery(_ text: String) throws(DAXError) -> Query {
-    var parser = DAXParser(tokens: try DAXLexer.tokenize(text))
+    let clean = text.replacingOccurrences(of: "\r\n", with: "\n")
+    var parser = DAXParser(tokens: try DAXLexer.tokenize(clean))
     return try parser.parseWholeQuery()
 }
 
@@ -310,9 +312,18 @@ struct DAXParser {
 
         case .symbol("("):
             _ = next()
-            let inner = try parseExpr()
+            let first = try parseExpr()
+            if isSymbol(",") {
+                var items = [first]
+                while isSymbol(",") {
+                    _ = next()
+                    items.append(try parseExpr())
+                }
+                try expectSymbol(")")
+                return .tableConstructor(rows: [items], spanFrom(start))
+            }
             try expectSymbol(")")
-            return inner
+            return first
 
         case .symbol("{"):
             return try parseTableConstructor()
