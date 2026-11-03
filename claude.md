@@ -26,6 +26,19 @@
 - Lead chạy specify → clarify → plan → tasks → analyze. Phần thỏa điều kiện giao việc bên dưới thì chuyển `tasks.md` thành `docs/tasks/<tên>.md` và giao cho agy (agy không chạy được skill Spec Kit). `/speckit-implement` chỉ dùng cho phần lead tự làm. Khi review, chạy thêm `/speckit-converge`.
 - Không dùng `specify workflow run`, vì nó chạy `claude -p` qua cả bước implement mà không có cổng review.
 
+## Skill mattpocock (dùng kèm Spec Kit)
+
+Spec Kit là quy trình chính. Skill mattpocock chỉ dùng như công cụ lẻ, tự gọi khi gặp đúng tình huống:
+
+- Ý tưởng còn mơ hồ trước khi specify: `/grilling`.
+- Trong plan, chia module và chốt hợp đồng: `/codebase-design`. Câu hỏi thiết kế khó trả lời trên giấy: `/prototype`.
+- Đọc tài liệu công khai (PBIR, TMDL, MS docs): `/research`. Vẫn theo ranh giới mạng của constitution.
+- Viết brief cho agy, sửa CLAUDE.md: `/writing-for-agents`.
+- Lead tự code: `/tdd`. Lỗi khó hoặc chậm: `/diagnosing-bugs`.
+- Review: `/code-review` có sẵn của Claude Code để tìm lỗi, cộng `/speckit-converge` khi đã có `specs/`.
+
+Không dùng các skill trùng quy trình chính hoặc cần issue tracker: `/grill-with-docs`, `/to-spec`, `/to-tickets`, `/implement`, `/implement-spec`, `/triage`, `/wayfinder`, `/setup-matt-pocock-skills`, `mattpocock-skills:code-review`, `/pr`, `/handoff` (đã có `docs/STATE.md`). `/retro` và `/wait-what` do tôi tự gõ khi cần.
+
 ## Tự động giao việc cho Antigravity (agy) qua Orca
 
 Tự giao việc cho agy khi việc thỏa TẤT CẢ:
