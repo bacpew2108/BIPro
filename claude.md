@@ -60,10 +60,11 @@ Cách giao:
 
 Khi worker chạy:
 
-- Khởi động worker, cập nhật `docs/STATE.md`, báo tôi rồi KẾT THÚC lượt. Không đặt lệnh chờ nền, không ngồi chờ trong phiên này, vì phiên lớn chờ lâu sẽ tốn nhiều hạn mức khi chạy lại.
-- Tôi sẽ mở phiên mới để review dựa trên `docs/STATE.md` và các file trong `docs/tasks/`.
+- Khởi động worker, rồi đặt MỘT lệnh nền (`run_in_background`) tự chờ trong shell đến khi jsonl của mọi worker có `"event":"result"`. Cấm vòng lặp kiểm tra định kỳ đánh thức Claude nhiều lần (ScheduleWakeup, Monitor theo chu kỳ, pgrep).
+- Cập nhật `docs/STATE.md` (worker, nhánh, đường dẫn jsonl, việc review cần làm), báo tôi, nhắc tôi gõ `/compact`, rồi KẾT THÚC lượt. Claude không tự compact được; compact để lượt review không phải đọc lại context dài.
+- Khi lệnh nền báo xong, review ngay trong phiên đó, dựa trên `docs/STATE.md` và `docs/tasks/`. Nếu phiên bị đóng, tôi mở phiên mới và review theo cùng các file đó.
 
-Khi review (thường ở phiên mới):
+Khi review:
 
 - `git diff --stat` kiểm tra chỉ file được giao bị sửa; file ngoài phạm vi thì báo tôi.
 - Đọc báo cáo của worker, đọc `git diff`, chạy build/test. Nếu chưa đạt, giao lại MỘT lần với phản hồi cụ thể; vẫn chưa đạt thì dừng và báo tôi.
