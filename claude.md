@@ -46,7 +46,14 @@ Cách giao:
 - Dùng skill orca-cli và orchestration. Mỗi việc một worktree con riêng, chạy `agy` trong đó.
 - Tối đa 3 worker cùng lúc.
 - Ghi mô tả việc ra file `docs/tasks/<tên>.md`: mục tiêu, file được sửa, "không sửa gì ngoài danh sách", lệnh build/test của project, tiêu chí xong việc (build qua, test liên quan qua).
-- Yêu cầu worker khi xong ghi báo cáo ngắn vào `docs/tasks/<tên>-report.md`: file đã sửa, tóm tắt thay đổi, kết quả build/test, việc còn tồn đọng.
+- Worker phải tự test đạt trước khi bàn giao (ghi vào brief, kèm lệnh cụ thể):
+  - `swift build` không lỗi; `swift test` toàn bộ (không chỉ test mới) đều qua, trừ known issue đã ghi trong brief.
+  - Viết test cho mọi tiêu chí xong việc trong brief, dùng dữ liệu mẫu hoặc golden thật; không hard-code kết quả, không sửa hay tắt test có sẵn để cho qua.
+  - Việc đụng engine hoặc truy vấn: chạy thêm golden nặng (lệnh ở trên) và phải giữ nguyên số golden khớp.
+  - Việc vẽ giao diện: xuất ảnh PNG vào `build/<phase>-out/` và tự mở xem ảnh không trống, không lỗi.
+  - `git status` chỉ có file trong danh sách được sửa.
+  - Chưa đạt thì tự sửa tiếp; không sửa được thì ghi rõ lý do trong báo cáo, không bàn giao như đã xong.
+- Yêu cầu worker khi xong ghi báo cáo ngắn vào `docs/tasks/<tên>-report.md`: file đã sửa, tóm tắt thay đổi, lệnh test đã chạy kèm số test qua/trượt (chép dòng kết quả cuối), việc còn tồn đọng.
 - Worker không được commit, push, cài package hay tải từ mạng.
 - `agy` chạy không tương tác: KHÔNG dùng `--dangerously-skip-permissions`. Cấp danh sách lệnh được phép (build, test, lệnh chỉ đọc) ngay lúc khởi động, vì một lệnh bị từ chối sẽ dừng cả phiên.
 - Không để file settings tạm của việc cấp quyền lọt vào commit.
