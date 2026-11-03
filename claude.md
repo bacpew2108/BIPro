@@ -21,7 +21,7 @@
 ## Spec Kit
 
 - Hướng dẫn: `docs/speckit_guide.md`. Nguyên tắc: `.specify/memory/constitution.md` (tóm tắt từ file này; mâu thuẫn thì file này thắng và sửa constitution).
-- Chỉ chạy lệnh `/speckit-*` khi tôi gõ hoặc yêu cầu. Dùng cho phase hoặc tính năng mới; không viết spec ngược cho phần đã xong. Phase đã chi tiết tới mức task (như Phase C) thì chỉ dùng `/speckit-analyze` và `/speckit-converge` để kiểm.
+- Chỉ chạy lệnh `/speckit-*` khi tôi gõ hoặc yêu cầu. Dùng cho phase hoặc tính năng mới; không viết spec ngược cho phần đã xong. Phase đã chi tiết tới mức task trong `docs/` (như Phase C) thì làm tiếp theo quy trình cũ; `/speckit-analyze` và `/speckit-converge` chỉ chạy được khi đã có `specs/NNN-…/` (spec, plan, tasks).
 - `docs/` là cấp trên, `specs/` là cấp dưới. Mâu thuẫn thì sửa `docs/` trước. Viết spec, plan, tasks bằng tiếng Việt. Spec phải có mục "Quan sát Power BI" và tiêu chí khớp golden.
 - Lead chạy specify → clarify → plan → tasks → analyze. Phần thỏa điều kiện giao việc bên dưới thì chuyển `tasks.md` thành `docs/tasks/<tên>.md` và giao cho agy (agy không chạy được skill Spec Kit). `/speckit-implement` chỉ dùng cho phần lead tự làm. Khi review, chạy thêm `/speckit-converge`.
 - Không dùng `specify workflow run`, vì nó chạy `claude -p` qua cả bước implement mà không có cổng review.
