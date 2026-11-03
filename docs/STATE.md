@@ -34,6 +34,7 @@ Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` �
   - tên không bắt đầu bằng chữ cái thì thêm `v` ở đầu;
   - trùng tên cột của model thì thêm `2`.
 - Dự báo (forecast) chỉ làm gần đúng; đường xu hướng làm đúng.
+- Spec Kit (2026-11-03): chỉ chạy khi bạn yêu cầu, dùng cho phase hoặc tính năng mới; quy tắc ở mục "Spec Kit" trong `CLAUDE.md`, nguyên tắc ở `.specify/memory/constitution.md`.
 
 ## Lệnh build/test
 
