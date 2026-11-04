@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-04, đợt 2 xong phần chính: R3, I merge; E3; G có số thật, tô sáng, drill, drillthrough, tooltip. Còn mở nút (slicer hierarchy, matrix).
+Cập nhật: 2026-11-04, **đợt 2 xong** (R3, I, E3, G). Worktree của đợt 2 đã xoá. Việc tiếp: đợt 3 (gói P), buổi C2 trên VM.
 
 ## Mục tiêu và tiến độ
 
@@ -14,29 +14,16 @@ Cập nhật: 2026-11-04, đợt 2 xong phần chính: R3, I merge; E3; G có s�
     - Q, bộ sinh truy vấn trùng văn bản Power BI ở 43/44 visual, cùng mapper và loader;
     - R1, biểu đồ trục XY;
     - R2, card, slicer, matrix.
-  - **Đợt 2** (2026-11-04) làm gần xong, còn các phần ghi bên dưới:
+  - **Đợt 2** xong (2026-11-04):
     - R3 (donut, treemap, shape map, tooltip) và I (logic tương tác): agy xong, đã review và merge vào `main`;
     - E3 (hiệu năng engine): xong phần chính. Đo ở `phase-c-evidence/C1.md` §1.5: combo thấu chi 34 s → 3,7 s, matrix Giờ × Thứ 5,5–8 s → 1,7–2,2 s, matrix mở nút 9 s → 1,1–1,5 s, combo kênh 12,7 s → 0,7 s; golden 57/57, kết quả khớp byte. Chưa đạt ngưỡng 1 s ở combo thấu chi và matrix Giờ × Thứ;
     - G (ghép): `Report/ReportInteraction.swift` + `Report/LiveVisual.swift`. Card, slicer, matrix, cột/bar/line/combo, donut, treemap, shape map chạy số thật; slicer, lọc chéo, tô sáng chéo (3 golden khớp `interact/xf-*.dax`), drill down/up (nút góc trên phải, chế độ drill, chuột phải), drillthrough (chuột phải → trang đích, tham số đọc từ `pageBinding`), tooltip khi rê chuột. Engine chạy được cả 16 truy vấn trong `observe-c1/interact/` (agy báo thiếu là sai). Bạn đã bấm thử slicer và lọc chéo: ổn. Chưa tự kiểm bấm drill, drillthrough, tô sáng trên app.
-    - Chưa làm: slicer phân cấp mở nút và matrix mở nút (cần `expansionStates` → ROLLUPADDISSUBTOTAL + NONVISUAL ở bộ sinh, mapper dựng cây từ dòng rollup, nút mở); drill cho donut chưa có golden; Edit interactions (người dùng đổi lọc/tô sáng) chưa có giao diện.
+    - Mở nút: slicer hierarchy (`expansionStates` trong file + bấm mũi tên) và matrix cột (bấm +/−) đã làm, có golden (`D1-slicer-nam`, `interact/matrix-expand`); mới hỗ trợ mở một cấp ở cấp gốc. `DropdownSlicer` đã dùng `SlicerNode.formatString`.
+    - Chưa làm (để sau): drill cho donut chưa có golden; Edit interactions (người dùng đổi lọc/tô sáng giữa hai visual) chưa có giao diện; matrix mở nút theo hàng; mở nút nhiều cấp.
 
 ## Worktree / worker
 
-Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Mô tả việc của từng worker nằm trong `docs/tasks/`. Gốc của cả hai nhánh: `main` ở `61adc89` (chưa push).
-
-| Worker | Nhánh | Worktree | Brief → báo cáo | jsonl | Trạng thái |
-|---|---|---|---|---|---|
-| R3 | `bacpew2108/c2-r3` | `~/orca/workspaces/PowerBINative/c2-r3` | `docs/tasks/c2-r3.md` → `c2-r3-report.md` | `/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/runs/c2-r3.jsonl` | đã merge vào `main` (2026-11-04); worktree còn đó, chờ bạn cho xoá |
-| I | `bacpew2108/c2-i` | `~/orca/workspaces/PowerBINative/c2-i` | `docs/tasks/c2-i.md` → `c2-i-report.md` | `…/scratchpad/runs/c2-i.jsonl` (cùng thư mục) | đã merge vào `main` (2026-11-04); worktree còn đó, chờ bạn cho xoá |
-
-Allow-list quyền của agy: `…/scratchpad/c2-allow.json` (ngoài repo). Một lệnh nền chờ cả hai jsonl có `"event":"result"`; nếu phiên đóng mà chưa xong thì mở phiên mới, kiểm hai file jsonl rồi review.
-
-**Review cần làm khi xong** (CLAUDE.md "Khi review"):
-- `git diff --stat main` mỗi nhánh: chỉ file trong danh sách được giao (R3: Charts/{Donut,Treemap}, Map, Tooltip, Tests/{Donut,Treemap,Map}; I: Interaction/{FilterState,SelectionState,FilterTranslator,InteractionRules}, Tests/Interaction; cộng file báo cáo).
-- Đọc báo cáo và diff; chạy `swift build`, `swift test`. Soi các lỗi agy hay mắc: `@objc(selector:)` thiếu, `isReleasedWhenClosed`, popover sáng, kết quả viết cứng cho test qua.
-- R3: mở 6 ảnh `build/c-out/visuals/{donut,donutHighlight,treemap,treemapOneLevel,shapeMap,tooltip}.png` trong worktree, kiểm khác dung lượng và đúng hình.
-- I: kiểm 7 test golden đọc văn bản từ `observe-c1/interact/*.dax`; xem danh sách [SUY ĐOÁN] trong báo cáo.
-- Chưa đạt thì giao lại MỘT lần; vẫn chưa đạt thì báo bạn. Không tự merge, không tự xoá worktree.
+Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xoá (2026-11-04). Báo cáo của agy ở `docs/tasks/c2-r3-report.md`, `c2-i-report.md`.
 
 ## Quyết định đã chốt
 
@@ -66,11 +53,9 @@ Allow-list quyền của agy: `…/scratchpad/c2-allow.json` (ngoài repo). Mộ
 
 ## Việc tiếp theo
 
-1. **G còn lại (lead):** slicer hierarchy và matrix mở nút (`D1-slicer-nam` đang là known issue trong `DAXQueryBuilderTests`); `DropdownSlicer` dùng `SlicerNode.formatString`; kiểm tay drill/drillthrough/tô sáng ở buổi C2.
+1. **Đợt 2 còn tồn:** kiểm tay drill, drillthrough, tô sáng, mở nút trên app ở buổi C2; Edit interactions; mở nút nhiều cấp.
 2. **E3 còn lại:** hạ combo thấu chi và matrix Giờ × Thứ dưới 1 s. Hướng: gộp context transition theo nhóm (một lần quét thay vì mỗi tài khoản hai CALCULATE), giảm cấp phát ở đường nóng (8 luồng chỉ nhanh hơn 1 luồng khoảng 2,2 lần).
-3. **Hợp đồng:** `SlicerNode.formatString` đã thêm (2026-11-04); `DropdownSlicer` chưa dùng (năm có thể hiện "2,016").
 4. **Ảnh xuất thử** ở `build/c-out/visuals/`. Renderer có tham số `interactive:`/`scrollable:` để `ImageRenderer` vẽ được.
 5. **Chờ bạn:**
    - copy văn bản "Define new measure" của Power BI (Phase B);
-   - duyệt cho xoá worktree `c2-r3`, `c2-i` (đã merge);
    - buổi C2 trên VM (sau đợt 2) và bấm thử app.

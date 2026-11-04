@@ -26,11 +26,11 @@ struct LiveVisualView: View {
     @State private var hover: MenuTarget?
 
     private struct MenuTarget: Equatable { var point: DataPointID?; var location: CGPoint }
-    private struct LoadKey: Hashable { var state: FilterState; var depth: Int }
+    private struct LoadKey: Hashable { var state: FilterState; var depth: Int; var expansion: [Value] }
 
     var body: some View {
         let state = interaction.state(for: page)
-        let key = LoadKey(state: state, depth: interaction.depth(of: visual))
+        let key = LoadKey(state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [])
         ZStack {
             content(state: state)
         }
@@ -152,7 +152,7 @@ struct LiveVisualView: View {
                 case .down(let point): interaction.drillDown(page: page, visual: visual, spec: spec, point: point)
                 case .up: interaction.drillUp(page: page, visual: visual)
                 case .nextLevel, .expandAll: interaction.nextLevel(visual: visual, spec: spec)
-                case .toggle: break
+                case .toggle(_, let path): interaction.expandSlicer(visual: visual, spec: spec, path: path)
                 }
             }
         }

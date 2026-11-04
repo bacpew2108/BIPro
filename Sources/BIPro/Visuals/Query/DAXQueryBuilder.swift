@@ -118,6 +118,11 @@ enum DAXQueryBuilder {
         }
     }
 
+    private static func ascendingKeys(_ g: GroupField) -> [QuerySortKey] {
+        (g.sortBy.map { [QuerySortKey(target: .column($0), ascending: true)] } ?? [])
+            + [QuerySortKey(target: .column(g.column), ascending: true)]
+    }
+
     private static func key(_ k: QuerySortKey) -> String {
         switch k.target {
         case .column(let c): c.dax
@@ -144,6 +149,21 @@ enum DAXQueryBuilder {
         switch spec.shape {
         case .card:
             w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
+
+        case .slicer(let top) where spec.drillLevels.count >= 2 && !spec.expanded.isEmpty:
+            // Slicer hierarchy có nút đang mở: cấp gốc kèm các cấp con của nút mở (C1.md §2.2, D1-slicer-nam).
+            // [SUY ĐOÁN] Tên `__DM3FilterTable` cố định như mẫu; nhiều nút mở thì gộp vào một TREATAS.
+            let l0 = spec.drillLevels[0], l1 = spec.drillLevels[1]
+            let literals = spec.expanded.map { FilterTranslator.literal($0) }.joined(separator: ", ")
+            w.variable("__DM3FilterTable", "TREATAS({\(literals)}, \(l0.column.dax))")
+            let group = inline("ROLLUPGROUP", [l1.column.dax] + (l1.sortBy.map { [$0.dax] } ?? []))
+            let rollup = call("ROLLUPADDISSUBTOTAL", [l0.column.dax, "\"IsGrandTotalRowTotal\"", group, "\"IsDM1Total\"",
+                                                      "NONVISUAL(__DM3FilterTable)"])
+            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", [rollup] + filters))
+            let keys = [QuerySortKey(target: .result("IsGrandTotalRowTotal"), ascending: false)]
+                + ascendingKeys(l0) + [QuerySortKey(target: .result("IsDM1Total"), ascending: false)] + ascendingKeys(l1)
+            w.variable("__DS0PrimaryWindowed", inline("TOPN", ["\(top + 1)", "__DS0Core"] + topnKeys(keys)))
+            w.evaluate("__DS0PrimaryWindowed", orderBy: orderBy(keys))
 
         case .slicer(let top):
             guard let g = spec.primary.first else { break }
@@ -239,38 +259,58 @@ enum DAXQueryBuilder {
     private static func buildMatrix(_ spec: VisualQuerySpec, filters: [String], into w: inout Writer) {
         let rowCols = groupColumns(spec.primary)
         let colCols = groupColumns(spec.secondary)
+        // Cột có nút đang mở (C1.md §2.2, matrix-expand): cấp gốc kèm cấp con của nút mở, cờ `IsDM2Total`.
+        let expandedColumns = spec.drillLevels.count >= 2 && !spec.expanded.isEmpty && spec.secondary.count == 1 && spec.columnTotals
         func rollup(_ groups: [GroupField], _ flag: String) -> String {
             let cols = groupColumns(groups)
             let inner = cols.count > 1 ? inline("ROLLUPGROUP", cols) : cols.first ?? ""
             return inline("ROLLUPADDISSUBTOTAL", [inner, "\"\(flag)\""])
         }
         let rowGroup = spec.rowTotals ? [rollup(spec.primary, "IsGrandTotalRowTotal")] : rowCols
-        let colGroup = spec.columnTotals && !spec.secondary.isEmpty ? [rollup(spec.secondary, "IsGrandTotalColumnTotal")] : colCols
-        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", rowGroup + colGroup + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
+        var colGroup = spec.columnTotals && !spec.secondary.isEmpty ? [rollup(spec.secondary, "IsGrandTotalColumnTotal")] : colCols
+        let l0 = spec.drillLevels.first, l1 = spec.drillLevels.count > 1 ? spec.drillLevels[1] : nil
+        if expandedColumns, let l0, let l1 {
+            colGroup = [call("ROLLUPADDISSUBTOTAL", [l0.column.dax, "\"IsGrandTotalColumnTotal\"", l1.column.dax, "\"IsDM2Total\""])]
+        }
+        let coreName = expandedColumns ? "__DS0CoreNoInstanceFilters" : "__DS0Core"
+        let src = expandedColumns ? "__DS0CoreWithInstanceFilters" : "__DS0Core"
+        w.variable(coreName, call("SUMMARIZECOLUMNS", rowGroup + colGroup + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
+        var colCols2 = colCols
+        if expandedColumns, let l0, let l1 {
+            let literals = spec.expanded.map { FilterTranslator.literal($0) }.joined(separator: ", ")
+            w.variable(src, call("FILTER", ["KEEPFILTERS(\(coreName))", call("OR", [
+                inline("OR", ["[IsGrandTotalColumnTotal]", "AND(NOT([IsGrandTotalColumnTotal]), [IsDM2Total])"]),
+                "AND(NOT([IsDM2Total]), \(l0.column.dax) IN {\(literals)})"])]))
+            colCols2 = [l0.column.dax, "[IsGrandTotalColumnTotal]", l1.column.dax, "[IsDM2Total]"]
+        }
 
         let rowFlag = QuerySortKey(target: .result("IsGrandTotalRowTotal"), ascending: false)
         let colFlag = QuerySortKey(target: .result("IsGrandTotalColumnTotal"), ascending: true)
         let rowKeys = (spec.rowTotals ? [rowFlag] : []) + spec.primaryOrder
-        let colKeys = (spec.columnTotals ? [colFlag] : []) + spec.secondaryOrder
+        var colKeys = (spec.columnTotals ? [colFlag] : []) + spec.secondaryOrder
+        if expandedColumns, let l0, let l1 {
+            colKeys = [colFlag] + ascendingKeys(l0) + [QuerySortKey(target: .result("IsDM2Total"), ascending: true)] + ascendingKeys(l1)
+        }
         let (pTop, sTop): (Int, Int) = { if case .window(let p, let s) = spec.reduction { (p, s) } else { (102, 102) } }()
 
         w.variable("__DS0PrimaryWindowed", inline("TOPN", ["\(pTop)",
-            inline("SUMMARIZE", ["__DS0Core"] + rowCols + (spec.rowTotals ? ["[IsGrandTotalRowTotal]"] : []))]
+            inline("SUMMARIZE", [src] + rowCols + (spec.rowTotals ? ["[IsGrandTotalRowTotal]"] : []))]
             + topnKeys(rowKeys)))
         if !spec.secondary.isEmpty {
-            w.variable("__DS0SecondaryBase", inline("SUMMARIZE", ["__DS0Core"] + colCols + (spec.columnTotals ? ["[IsGrandTotalColumnTotal]"] : [])))
+            w.variable("__DS0SecondaryBase", inline("SUMMARIZE", [src] + (expandedColumns ? colCols2 : colCols + (spec.columnTotals ? ["[IsGrandTotalColumnTotal]"] : []))))
             w.variable("__DS0Secondary", inline("TOPN", ["\(sTop)", "__DS0SecondaryBase"] + topnKeys(colKeys)))
             w.variable("__DS0BodyLimited", call("NATURALLEFTOUTERJOIN", ["__DS0PrimaryWindowed",
-                call("SUBSTITUTEWITHINDEX", ["__DS0Core", "\"ColumnIndex\"", "__DS0Secondary"]
+                call("SUBSTITUTEWITHINDEX", [src, "\"ColumnIndex\"", "__DS0Secondary"]
                     + colKeys.flatMap { [key($0), $0.ascending ? "ASC" : "DESC"] })]))
         }
-        var minMaxSource = "__DS0Core"
+        var minMaxSource = coreName
         if !spec.gradientInputs.isEmpty, spec.rowTotals || spec.columnTotals {
             var conds: [String] = []
             if spec.rowTotals { conds.append("[IsGrandTotalRowTotal] = FALSE") }
             if spec.columnTotals && !spec.secondary.isEmpty { conds.append("[IsGrandTotalColumnTotal] = FALSE") }
-            let predicate = conds.count == 1 ? conds[0] : inline("AND", conds)
-            w.variable("__DS0CoreNoInstanceFiltersNoTotals", call("FILTER", ["KEEPFILTERS(__DS0Core)", predicate]))
+            if expandedColumns { conds.append("[IsDM2Total] = FALSE") }
+            let predicate = conds.count == 1 ? conds[0] : conds.dropFirst().reduce(conds[0]) { inline("AND", [$0, $1]) }
+            w.variable("__DS0CoreNoInstanceFiltersNoTotals", call("FILTER", ["KEEPFILTERS(\(coreName))", predicate]))
             minMaxSource = "__DS0CoreNoInstanceFiltersNoTotals"
         }
         if !spec.gradientInputs.isEmpty {

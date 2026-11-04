@@ -4,6 +4,7 @@
 //
 // Spec không chứa DAX, không chứa JSON. Mọi tên đã là tên thật trong model (bảng, cột, measure).
 // Khuôn truy vấn tham chiếu: docs/phase-b-evidence/observe2/PA-*.dax (và observe-c1 sau buổi C1).
+import DAXEngine
 import Foundation
 
 /// Một cột nhóm (cột thật của model) trong truy vấn.
@@ -123,6 +124,8 @@ struct VisualQuerySpec: Hashable, Sendable {
     var highlight: QueryFilter?
     /// Mọi cấp của hierarchy ở trục danh mục (Năm › Quý › Tháng) khi có hơn một cấp, để drill. Rỗng nếu không drill được.
     var drillLevels: [GroupField] = []
+    /// Slicer hierarchy: giá trị cấp gốc đang mở nút (expansionStates). Chỉ có nghĩa khi `drillLevels.count >= 2`.
+    var expanded: [Value] = []
 
     init(visualID: String, visualType: String, primary: [GroupField] = [], secondary: [GroupField] = [],
          measures: [QueryMeasure] = [], filters: [QueryFilter] = [], rowTotals: Bool = false, columnTotals: Bool = false,

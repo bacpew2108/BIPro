@@ -37,9 +37,7 @@ private let goldenVisuals: [(file: String, page: String, visual: String)] = [
 ]
 
 /// Khuôn chưa làm, có lý do (không tính là lỗi của bộ sinh).
-private let knownGaps: [String: String] = [
-    "pa/D1-slicer-nam": "slicer hierarchy đang mở nút 2011 (expansionStates → ROLLUPADDISSUBTOTAL + NONVISUAL), chưa làm",
-]
+private let knownGaps: [String: String] = [:]
 
 private struct Nhom6Report: @unchecked Sendable {
     let metadata: ModelMetadata
@@ -140,5 +138,21 @@ struct DAXQueryBuilderHighlightTests {
         let ours = DAXQueryBuilder.normalized(DAXQueryBuilder.build(spec))
         let theirs = DAXQueryBuilder.normalized(try goldenText(entry.file))
         #expect(ours == theirs, "\(entry.file)\n--- Power BI\n\(theirs)\n--- BI Pro\n\(ours)\n--- lệch từ: \(firstDifference(ours, theirs))")
+    }
+}
+
+/// Matrix mở nút (buổi C1, bấm + ở cột "Midwest" của matrix Nhóm tuổi × Vùng).
+@Suite(.enabled(if: DAXFixtures.exists(DAXFixtures.nhom6)))
+struct DAXQueryBuilderExpandTests {
+    @Test func matrixMoNutKhopPowerBI() throws {
+        let model = try nhom6.get()
+        let page = try #require(model.report.pages.first { $0.id == "d1_giaodich" })
+        let visual = try #require(page.visuals.first { $0.id.hasPrefix("70eec8cd") })
+        let filters = (model.filters.visuals[visual.id] ?? []) + (model.filters.pages[page.id] ?? []) + model.filters.report
+        var spec = try VisualQuerySpecReader(metadata: model.metadata).spec(for: visual, filters: filters)
+        spec.expanded = [.string("Midwest")]
+        let ours = DAXQueryBuilder.normalized(DAXQueryBuilder.build(spec))
+        let theirs = DAXQueryBuilder.normalized(try goldenText("interact/matrix-expand"))
+        #expect(ours == theirs, "--- Power BI\n\(theirs)\n--- BI Pro\n\(ours)\n--- lệch từ: \(firstDifference(ours, theirs))")
     }
 }

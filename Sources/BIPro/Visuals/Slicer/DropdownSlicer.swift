@@ -127,8 +127,13 @@ struct SlicerDropdownListView: View {
                             selection: context.slicerSelection,
                             roots: data.roots,
                             isExpanded: expandedPaths.contains(item.path),
+                            expandable: item.depth == 0 && data.levels.count > 1,
                             onToggleExpand: {
-                                if expandedPaths.contains(item.path) {
+                                if item.node.children.isEmpty, item.depth == 0 {
+                                    // Cấp con chưa nạp: nhờ phần ghép mở nút rồi nạp lại.
+                                    context.actions.drill(.toggle(axis: .rows, path: item.path))
+                                    expandedPaths.insert(item.path)
+                                } else if expandedPaths.contains(item.path) {
                                     expandedPaths.remove(item.path)
                                 } else {
                                     expandedPaths.insert(item.path)
@@ -149,6 +154,10 @@ struct SlicerDropdownListView: View {
                 .padding(.vertical, 4)
             }
             .frame(maxHeight: 280)
+        }
+        .onAppear {
+            // Nút đã có cấp con (mở sẵn trong file) hiện ở trạng thái mở.
+            for root in data.roots where !root.children.isEmpty { expandedPaths.insert([root.value]) }
         }
         .frame(minWidth: 220, maxWidth: 360)
         .background(Color.white)
@@ -183,6 +192,8 @@ private struct SlicerNodeRow: View {
     let selection: SlicerSelection
     let roots: [SlicerNode]
     let isExpanded: Bool
+    /// Nút cấp gốc của slicer hierarchy: hiện mũi tên dù chưa nạp cấp con.
+    var expandable = false
     let onToggleExpand: () -> Void
     let onSelect: (_ additive: Bool) -> Void
 
@@ -190,7 +201,7 @@ private struct SlicerNodeRow: View {
         let state = SlicerTree.state(of: item.path, in: selection, roots: roots)
         let labelText = item.node.value == .blank
             ? "(Trống)"
-            : NumberDisplay.plain(DataCell(item.node.value))
+            : NumberDisplay.plain(DataCell(item.node.value, formatString: item.node.formatString))
 
         HStack(spacing: 6) {
             // Thụt lề cấp con 16 pt
@@ -200,7 +211,7 @@ private struct SlicerNodeRow: View {
             }
 
             // Nút mở/đóng cấp con ▸/▾ nếu có con
-            if !item.node.children.isEmpty {
+            if !item.node.children.isEmpty || expandable {
                 Button(action: onToggleExpand) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
