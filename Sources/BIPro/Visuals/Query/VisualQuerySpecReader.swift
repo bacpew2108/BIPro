@@ -259,6 +259,12 @@ struct VisualQuerySpecReader {
     // MARK: - Bộ lọc tĩnh (Categorical In / Not In). Gói I sẽ mở rộng (slicer, lọc chéo, drillthrough).
 
     static func translate(_ filter: ReportFilter) -> QueryFilter? {
+        guard let sf = staticFilter(filter, scope: .report) else { return nil }
+        return QueryFilter(tableExpression: "FILTER(KEEPFILTERS(VALUES(\(sf.column.dax))), \(sf.predicate))")
+    }
+
+    /// Bộ lọc report/page/visual trên một cột, dạng cột + vị từ DAX (để `FilterTranslator.assemble` ghép với tương tác).
+    static func staticFilter(_ filter: ReportFilter, scope: FilterScope) -> StaticFilter? {
         let raw = filter.raw
         guard let conditions = raw["filter"]?["Where"]?.array, !conditions.isEmpty,
               let field = raw["field"]?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,
@@ -267,7 +273,7 @@ struct VisualQuerySpecReader {
         let parts = conditions.compactMap { condition(($0["Condition"]), column: column) }
         guard !parts.isEmpty else { return nil }
         let predicate = parts.count == 1 ? parts[0] : "AND(" + parts.joined(separator: ", ") + ")"
-        return QueryFilter(tableExpression: "FILTER(KEEPFILTERS(VALUES(\(column.dax))), \(predicate))")
+        return StaticFilter(column: column, predicate: predicate, scope: scope)
     }
 
     private static func condition(_ json: JSONValue?, column: QueryColumn) -> String? {

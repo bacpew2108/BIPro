@@ -12,7 +12,7 @@ struct ReportWorkspace: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 if let page = state.page {
-                    ReportPageView(workspace: state.workspace, page: page, selectedVisual: $state.visualID,
+                    ReportPageView(workspace: state.workspace, page: page, interaction: state.interaction, selectedVisual: $state.visualID,
                                    zoom: state.zoom, onScale: { currentScale = $0 },
                                    navigate: { state.pageID = $0; state.visualID = nil })
                         .id(page.id)

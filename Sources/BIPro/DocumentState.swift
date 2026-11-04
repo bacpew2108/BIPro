@@ -56,6 +56,8 @@ enum RibbonTab: String, Identifiable {
 final class DocumentState {
     let workspace: Workspace
     let fileName: String
+    /// Trạng thái lọc/tương tác và nạp dữ liệu của các visual trong báo cáo (gói G).
+    let interaction: ReportInteraction
 
     var mode: WorkspaceMode = .report {
         didSet {
@@ -104,6 +106,7 @@ final class DocumentState {
     init(workspace: Workspace, fileName: String) {
         self.workspace = workspace
         self.fileName = fileName
+        self.interaction = ReportInteraction(workspace: workspace)
         pageID = workspace.activePageID.flatMap { id in workspace.report.pages.contains { $0.id == id } ? id : nil }
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
         table = workspace.userTables.first?.name

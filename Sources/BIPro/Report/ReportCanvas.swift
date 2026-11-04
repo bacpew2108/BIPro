@@ -5,6 +5,7 @@ import SwiftUI
 struct ReportPageView: View {
     let workspace: Workspace
     let page: ReportPage
+    var interaction: ReportInteraction?
     @Binding var selectedVisual: String?
     /// nil = fit page.
     var zoom: Double?
@@ -34,7 +35,7 @@ struct ReportPageView: View {
             pageBackground
                 .onTapGesture { selectedVisual = nil }
             ForEach(page.visuals.filter { !$0.isHidden }) { visual in
-                VisualContainerView(workspace: workspace, page: page, visual: visual, navigate: navigate)
+                VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
                     .frame(width: visual.width, height: visual.height)
                     .overlay {
                         if selectedVisual == visual.id { SelectionHandles(scale: scale) }
@@ -67,6 +68,7 @@ struct VisualContainerView: View {
     let workspace: Workspace
     let page: ReportPage
     let visual: ReportVisual
+    var interaction: ReportInteraction?
     let navigate: (String) -> Void
 
     private var container: ObjectProperties { visual.containerObjects }
@@ -87,7 +89,7 @@ struct VisualContainerView: View {
                     .frame(maxWidth: .infinity, alignment: Alignment(horizontal: title.alignment, vertical: .center))
                     .lineLimit(1)
             }
-            VisualContentView(workspace: workspace, page: page, visual: visual, navigate: navigate)
+            VisualContentView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(padding)
@@ -144,9 +146,27 @@ struct VisualContentView: View {
     let workspace: Workspace
     let page: ReportPage
     let visual: ReportVisual
+    var interaction: ReportInteraction?
     let navigate: (String) -> Void
 
+    /// Loại visual có renderer số thật (gói G). Còn lại giữ bản giữ chỗ.
+    private static let liveTypes: Set<String> = [
+        "card", "slicer", "pivotTable", "matrix",
+        "clusteredBarChart", "clusteredColumnChart", "stackedColumnChart", "hundredPercentStackedColumnChart",
+        "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
+        "donutChart", "treemap", "shapeMap",
+    ]
+
     var body: some View {
+        if let interaction, interaction.isAvailable, Self.liveTypes.contains(visual.type) {
+            LiveVisualView(workspace: workspace, page: page, visual: visual, interaction: interaction)
+        } else {
+            staticContent
+        }
+    }
+
+    @ViewBuilder
+    private var staticContent: some View {
         switch visual.type {
         case "textbox":
             TextboxVisual(visual: visual, theme: workspace.theme)
