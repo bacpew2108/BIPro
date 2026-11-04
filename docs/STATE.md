@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-04, đã giao R3 và I của đợt 2 cho agy (đang chạy).
+Cập nhật: 2026-11-04, R3 và I của đợt 2 đã xong và qua review; chờ bạn duyệt merge.
 
 ## Mục tiêu và tiến độ
 
@@ -15,8 +15,8 @@ Cập nhật: 2026-11-04, đã giao R3 và I của đợt 2 cho agy (đang chạ
     - R1, biểu đồ trục XY;
     - R2, card, slicer, matrix.
   - **Đợt 2** đang làm (bước 1 xong: hợp đồng `SlicerNode.formatString`, quan sát C1 §2.6, brief, fixture TopoJSON, commit `61adc89`):
-    - R3 (agy, đang chạy): donut, treemap, shape map, tooltip;
-    - I (agy, đang chạy): tương tác (slicer, lọc chéo, tô sáng, drillthrough, drill down), phần logic thuần;
+    - R3 (agy, xong, đã review; chưa merge): donut, treemap, shape map, tooltip;
+    - I (agy, xong, đã review; chưa merge): tương tác (slicer, lọc chéo, tô sáng, drillthrough, drill down), phần logic thuần;
     - E3 (lead, chưa làm): hiệu năng engine;
     - G (lead, chưa làm): ghép visual thật vào canvas, drill, drillthrough; nối `FilterTranslator` vào builder.
 
@@ -26,8 +26,8 @@ Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Mô tả việc
 
 | Worker | Nhánh | Worktree | Brief → báo cáo | jsonl | Trạng thái |
 |---|---|---|---|---|---|
-| R3 | `bacpew2108/c2-r3` | `~/orca/workspaces/PowerBINative/c2-r3` | `docs/tasks/c2-r3.md` → `c2-r3-report.md` | `/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/runs/c2-r3.jsonl` | chạy (bắt đầu 2026-11-04) |
-| I | `bacpew2108/c2-i` | `~/orca/workspaces/PowerBINative/c2-i` | `docs/tasks/c2-i.md` → `c2-i-report.md` | `…/scratchpad/runs/c2-i.jsonl` (cùng thư mục) | chạy (bắt đầu 2026-11-04) |
+| R3 | `bacpew2108/c2-r3` | `~/orca/workspaces/PowerBINative/c2-r3` | `docs/tasks/c2-r3.md` → `c2-r3-report.md` | `/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/runs/c2-r3.jsonl` | xong, review đạt (chờ bạn duyệt merge) |
+| I | `bacpew2108/c2-i` | `~/orca/workspaces/PowerBINative/c2-i` | `docs/tasks/c2-i.md` → `c2-i-report.md` | `…/scratchpad/runs/c2-i.jsonl` (cùng thư mục) | xong, review đạt (chờ bạn duyệt merge) |
 
 Allow-list quyền của agy: `…/scratchpad/c2-allow.json` (ngoài repo). Một lệnh nền chờ cả hai jsonl có `"event":"result"`; nếu phiên đóng mà chưa xong thì mở phiên mới, kiểm hai file jsonl rồi review.
 
