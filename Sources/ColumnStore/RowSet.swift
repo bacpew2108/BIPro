@@ -208,12 +208,31 @@ public struct RowSet: Sendable, Hashable {
     }
 
     private static func mergeIntersection(_ a: [UInt32], _ b: [UInt32]) -> [UInt32] {
+        // Một bên nhỏ hơn hẳn: duyệt bên nhỏ và tìm nhị phân trong bên lớn, O(nhỏ × log lớn) thay vì O(nhỏ + lớn).
+        if a.count * 16 < b.count { return probeIntersection(small: a, large: b) }
+        if b.count * 16 < a.count { return probeIntersection(small: b, large: a) }
         var out: [UInt32] = []
         var i = 0, j = 0
         while i < a.count, j < b.count {
             if a[i] == b[j] { out.append(a[i]); i += 1; j += 1 }
             else if a[i] < b[j] { i += 1 }
             else { j += 1 }
+        }
+        return out
+    }
+
+    private static func probeIntersection(small: [UInt32], large: [UInt32]) -> [UInt32] {
+        var out: [UInt32] = []
+        var from = 0
+        for key in small {
+            var lo = from, hi = large.count
+            while lo < hi {
+                let mid = (lo + hi) >> 1
+                if large[mid] < key { lo = mid + 1 } else { hi = mid }
+            }
+            if lo == large.count { break }
+            if large[lo] == key { out.append(key) }
+            from = lo
         }
         return out
     }

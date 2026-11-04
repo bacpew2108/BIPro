@@ -344,7 +344,7 @@ public enum TableFunctions: FunctionFamily {
         if case .column(let column) = expr {
             let evaluator = try fkEvaluator(frame)
             let store = evaluator.store
-            let values = try frame.ctx.filter.visibleValues(of: column, in: store)
+            let values = try evaluator.visibleValues(of: column, in: frame.ctx)
             let name = store.schema.column(column)?.name ?? ""
             return TableValue.values(of: column, name: name, values: values)
         }
@@ -360,7 +360,7 @@ public enum TableFunctions: FunctionFamily {
         let evaluator = try fkEvaluator(frame)
         if case .column(let column) = expr {
             // Giống VALUES(cột).
-            let values = try frame.ctx.filter.visibleValues(of: column, in: evaluator.store)
+            let values = try evaluator.visibleValues(of: column, in: frame.ctx)
             let name = evaluator.store.schema.column(column)?.name ?? ""
             return TableValue.values(of: column, name: name, values: values)
         }

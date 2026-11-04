@@ -59,32 +59,20 @@ public enum Propagation {
             throw ColumnStoreError.unknownTable(filter.table)
         }
 
-        let links = try resolve(store.schema.relationships, overrides)
-        let active = links.filter { $0.isActive }
-        // Mơ hồ chỉ quan trọng khi có bộ lọc thật sự chảy đi từ bảng đó, nên chỉ kiểm nguồn có bộ lọc.
+        // Kế hoạch lan truyền (quan hệ hoạt động, các bảng liên quan, kiểm mơ hồ) chỉ phụ thuộc bảng đích, ghi đè quan hệ
+        // và tập bảng có bộ lọc, nên tính một lần rồi dùng lại cho hàng trăm nghìn ngữ cảnh chỉ khác giá trị lọc.
         let sources = Set(localFilters.map { $0.column.table }).union(tableFilters.map(\.table))
-        try checkUnambiguous(active, sources: sources)
-
-        // Chỉ các bảng ảnh hưởng tới R(table): tổ tiên của `table` trên đồ thị lan truyền (một → nhiều, thêm
-        // nhiều → một nếu hai chiều), cộng tổ tiên của các bảng phía nhiều trỏ vào `table` (cần cho blank row).
-        // Tập này đóng với phép lấy tổ tiên nên mọi tập trong đó bằng đúng giá trị khi tính trên cả model, mà bỏ
-        // được các nhánh không liên quan (vd Fact_Transaction ~1 triệu dòng khi chỉ cần Fact_Loan).
-        var feeders: [TableID: [TableID]] = [:]   // bảng → các bảng đẩy bộ lọc trực tiếp vào nó
-        for link in active {
-            feeders[link.many, default: []].append(link.one)
-            if link.bothDirections { feeders[link.one, default: []].append(link.many) }
+        let plan = try RelationshipIndexRegistry.shared.cache(for: store).plan(
+            PropagationPlanKey(table: table, overrides: overrides, sources: sources.sorted(by: { $0.raw < $1.raw }))
+        ) {
+            try makePlan(store: store, table: table, overrides: overrides, sources: sources)
         }
-        var roots: [TableID] = [table]
-        for link in active where link.one == table { roots.append(link.many) }
-        var involved: Set<TableID> = []
-        while let next = roots.popLast() {
-            guard involved.insert(next).inserted else { continue }
-            roots.append(contentsOf: feeders[next] ?? [])
-        }
-        let relevant = active.filter { involved.contains($0.one) && involved.contains($0.many) }
+        let active = plan.active
+        let involved = plan.involved
+        let relevant = plan.relevant
 
         var sets: [TableID: RowSet] = [:]
-        for t in involved.sorted(by: { $0.raw < $1.raw }) {
+        for t in involved {
             var rows = try localRows(in: store, table: t, localFilters: localFilters)
             for filter in tableFilters where filter.table == t {
                 rows = rows.intersection(try aligned(filter.rows, universe: rows.universe))
@@ -150,9 +138,43 @@ public enum Propagation {
         return RowSet(universe: result.universe, sortedRows: result.rows.filter { $0 < blank })
     }
 
+    /// Kết quả tính trước của một (bảng đích, ghi đè, nguồn lọc).
+    struct PropagationPlan: Sendable {
+        let active: [Link]
+        let involved: [TableID]
+        let relevant: [Link]
+    }
+
+    private static func makePlan(store: ColumnStore, table: TableID, overrides: [RelationshipOverride],
+                                 sources: Set<TableID>) throws -> PropagationPlan {
+        let links = try resolve(store.schema.relationships, overrides)
+        let active = links.filter { $0.isActive }
+        // Mơ hồ chỉ quan trọng khi có bộ lọc thật sự chảy đi từ bảng đó, nên chỉ kiểm nguồn có bộ lọc.
+        try checkUnambiguous(active, sources: sources)
+
+        // Chỉ các bảng ảnh hưởng tới R(table): tổ tiên của `table` trên đồ thị lan truyền (một → nhiều, thêm
+        // nhiều → một nếu hai chiều), cộng tổ tiên của các bảng phía nhiều trỏ vào `table` (cần cho blank row).
+        // Tập này đóng với phép lấy tổ tiên nên mọi tập trong đó bằng đúng giá trị khi tính trên cả model, mà bỏ
+        // được các nhánh không liên quan (vd Fact_Transaction ~1 triệu dòng khi chỉ cần Fact_Loan).
+        var feeders: [TableID: [TableID]] = [:]   // bảng → các bảng đẩy bộ lọc trực tiếp vào nó
+        for link in active {
+            feeders[link.many, default: []].append(link.one)
+            if link.bothDirections { feeders[link.one, default: []].append(link.many) }
+        }
+        var roots: [TableID] = [table]
+        for link in active where link.one == table { roots.append(link.many) }
+        var involvedSet: Set<TableID> = []
+        while let next = roots.popLast() {
+            guard involvedSet.insert(next).inserted else { continue }
+            roots.append(contentsOf: feeders[next] ?? [])
+        }
+        let relevant = active.filter { involvedSet.contains($0.one) && involvedSet.contains($0.many) }
+        return PropagationPlan(active: active, involved: involvedSet.sorted(by: { $0.raw < $1.raw }), relevant: relevant)
+    }
+
     // MARK: - Quan hệ và ghi đè
 
-    private struct Link: Sendable {
+    struct Link: Sendable {
         let schema: RelationshipSchema
         var isActive: Bool
         var bothDirections: Bool
@@ -225,6 +247,12 @@ public enum Propagation {
     }
 
     // MARK: - Dòng cục bộ
+
+    /// local(T) công khai: dòng của `table` (kể cả blank row ảo) thoả các bộ lọc mã trên cột của chính `table`,
+    /// chưa lan truyền qua quan hệ nào. Dùng để tách phần bộ lọc cục bộ khỏi phần lan truyền (xem `FilterContext`).
+    public static func localRowSet(in store: ColumnStore, table: TableID, localFilters: [CodeSet]) throws -> RowSet {
+        try localRows(in: store, table: table, localFilters: localFilters)
+    }
 
     /// local(T): mọi dòng của T (kể cả blank row ảo) AND các bộ lọc trên cột của T.
     /// Bộ lọc theo mã: dòng có mã trong `codes`. Mã 0 khớp dòng BLANK, và blank row ảo có mã 0 ở mọi cột.

@@ -1,6 +1,7 @@
 // SUMMARIZECOLUMNS (QRY, đợt 2), architecture.md §6 và §8.2 (bước 1–5).
 // Mở rộng Phase C: ROLLUPADDISSUBTOTAL, ROLLUPGROUP, NONVISUAL, và biểu thức bảng.
 import ColumnStore
+import Foundation
 
 public enum SummarizeColumns {
     /// Một cặp ("tên", biểu thức) đã bind.
@@ -269,8 +270,10 @@ public enum SummarizeColumns {
     }
 
     /// Đánh giá kế hoạch, trả các dòng giá trị (cột nhóm trước, rồi biểu thức theo thứ tự).
+    /// `parallel`: chạy các ô (tổ hợp nhóm) song song trên nhiều luồng, mỗi luồng một Evaluator riêng dùng chung cache.
+    /// Chỉ evaluator gốc ở cấp truy vấn (chưa có khung row, không phải luồng con) mới song song; còn lại chạy tuần tự.
     public static func evaluate(_ plan: Plan, base: EvalContext, store: ColumnStore,
-                                evaluator: any Evaluating) throws(DAXError) -> [[Value]] {
+                                evaluator: any Evaluating, parallel: Bool = true) throws(DAXError) -> [[Value]] {
         try QueryExecutor.checkCancelled()
         let filtered = try applyFilterTables(plan.filterTables, keep: plan.filterKeep, base: base.filter,
                                              store: store, evaluator: evaluator)
@@ -283,9 +286,8 @@ public enum SummarizeColumns {
         }
         if !hasRollup {
             let combos = try groupCombinations(plan.groupColumns, filter: filtered, store: store)
-            var out: [[Value]] = []
-            for combo in combos {
-                try QueryExecutor.checkCancelled()
+            let rows = try evaluateCells(count: combos.count, parallel: parallel, evaluator: evaluator) { i, ev throws(DAXError) in
+                let combo = combos[i]
                 var cell = cellBase
                 for (k, column) in plan.groupColumns.enumerated() {
                     cell = cell.applying(FilterItem(column: column, values: [combo[k]]), keep: false)
@@ -293,13 +295,11 @@ public enum SummarizeColumns {
                 var values: [Value] = []
                 values.reserveCapacity(plan.measures.count)
                 for measure in plan.measures {
-                    values.append(try evaluator.scalar(measure.expr, in: EvalContext(filter: cell, row: nil)))
+                    values.append(try ev.scalar(measure.expr, in: EvalContext(filter: cell, row: nil)))
                 }
-                if keepRow(values, plan.measures) {
-                    out.append(combo + values)
-                }
+                return keepRow(values, plan.measures) ? combo + values : nil
             }
-            return out
+            return rows
         }
 
         struct ClauseCombos {
@@ -395,23 +395,80 @@ public enum SummarizeColumns {
             combinedFilters = nextFilters
         }
 
-        var out: [[Value]] = []
-        for (combo, filterItems) in zip(combinedTuples, combinedFilters) {
-            try QueryExecutor.checkCancelled()
+        return try evaluateCells(count: combinedTuples.count, parallel: parallel, evaluator: evaluator) { i, ev throws(DAXError) in
             var cell = cellBase
-            for item in filterItems {
+            for item in combinedFilters[i] {
                 cell = cell.applying(item, keep: false)
             }
             var values: [Value] = []
             values.reserveCapacity(plan.measures.count)
             for measure in plan.measures {
-                values.append(try evaluator.scalar(measure.expr, in: EvalContext(filter: cell, row: nil)))
+                values.append(try ev.scalar(measure.expr, in: EvalContext(filter: cell, row: nil)))
             }
-            if keepRow(values, plan.measures) {
-                out.append(combo + values)
+            return keepRow(values, plan.measures) ? combinedTuples[i] + values : nil
+        }
+    }
+
+    /// Chạy `cell(i, evaluator)` cho i trong 0..<count, giữ thứ tự, bỏ các ô trả nil.
+    /// Tuần tự khi `parallel` tắt, khi ít ô, hoặc khi evaluator không phải `Evaluator`. Song song: mỗi luồng một
+    /// `Evaluator` riêng (khung row/VAR là trạng thái riêng của từng evaluator), dùng chung cache và kho cột (đều an toàn luồng).
+    /// Luồng gọi vẫn ở trong Task của người gọi nên canh huỷ: thấy `Task.isCancelled` thì bật cờ dừng cho các luồng.
+    private static func evaluateCells(count: Int, parallel: Bool, evaluator: any Evaluating,
+                                      _ cell: @escaping (Int, any Evaluating) throws(DAXError) -> [Value]?) throws(DAXError) -> [[Value]] {
+        let workers = min(ProcessInfo.processInfo.activeProcessorCount, count)
+        guard parallel, workers > 1, let root = evaluator as? Evaluator, root.allowsParallelCells else {
+            var out: [[Value]] = []
+            for i in 0..<count {
+                try QueryExecutor.checkCancelled()
+                if let row = try cell(i, evaluator) { out.append(row) }
+            }
+            return out
+        }
+        final class Shared: @unchecked Sendable {
+            let lock = NSLock()
+            var next = 0
+            var error: DAXError?
+            var stop = false
+            var results: [[Value]?]
+            init(count: Int) { results = [[Value]?](repeating: nil, count: count) }
+            func take(count: Int) -> Int? {
+                lock.lock(); defer { lock.unlock() }
+                guard !stop, next < count else { return nil }
+                defer { next += 1 }
+                return next
+            }
+            func fail(_ e: DAXError) { lock.lock(); if error == nil { error = e }; stop = true; lock.unlock() }
+            func store(_ row: [Value]?, at i: Int) { lock.lock(); results[i] = row; lock.unlock() }
+        }
+        let shared = Shared(count: count)
+        let cancelFlag = CancellationFlag()
+        // `cell` không Sendable, nhưng chỉ đọc dữ liệu bất biến và mỗi luồng có evaluator riêng.
+        nonisolated(unsafe) let work = cell
+        let group = DispatchGroup()
+        for _ in 0..<workers {
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                defer { group.leave() }
+                let ev = root.fork(cancelFlag: cancelFlag)
+                while let i = shared.take(count: count) {
+                    do throws(DAXError) {
+                        shared.store(try work(i, ev), at: i)
+                    } catch {
+                        shared.fail(error)
+                        return
+                    }
+                }
             }
         }
-        return out
+        while group.wait(timeout: DispatchTime.now() + .milliseconds(20)) == .timedOut {
+            if Task.isCancelled {
+                cancelFlag.set()
+                shared.lock.lock(); shared.stop = true; shared.lock.unlock()
+            }
+        }
+        if let error = shared.error { throw error }
+        try QueryExecutor.checkCancelled()
+        return shared.results.compactMap { $0 }
     }
 
     /// [SUY ĐOÁN] Lọc candidateTuples theo filterTable khi có NONVISUAL

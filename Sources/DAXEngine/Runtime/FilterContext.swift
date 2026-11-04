@@ -20,6 +20,7 @@
 // [SUY ĐOÁN] CROSSFILTER(…, None) được coi như tắt quan hệ (isActive = false).
 
 import ColumnStore
+import Foundation
 
 /// Thứ tự ổn định của `ColumnID`: theo bảng rồi theo cột.
 fileprivate func columnLess(_ a: ColumnID, _ b: ColumnID) -> Bool {
@@ -30,6 +31,44 @@ fileprivate func columnLess(_ a: ColumnID, _ b: ColumnID) -> Bool {
 fileprivate func uniqued(_ values: [Value]) -> [Value] {
     var seen = Set<Value>()
     return values.filter { seen.insert($0).inserted }
+}
+
+/// Nhớ kết quả `encodedCodeSet` theo (store, mục lọc). Store được giữ yếu.
+fileprivate final class CodeSetMemo: @unchecked Sendable {
+    static let shared = CodeSetMemo()
+
+    struct Hit { let codeSet: CodeSet? }
+
+    private struct Entry {
+        weak var store: ColumnStore?
+        var sets: [FilterItem: CodeSet?] = [:]
+    }
+
+    private let lock = NSLock()
+    private var entries: [ObjectIdentifier: Entry] = [:]
+
+    func lookup(store: ColumnStore, item: FilterItem) -> Hit? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[ObjectIdentifier(store)], entry.store === store, let found = entry.sets[item] else {
+            return nil
+        }
+        return Hit(codeSet: found)
+    }
+
+    func remember(store: ColumnStore, item: FilterItem, _ result: CodeSet?) {
+        lock.lock()
+        defer { lock.unlock() }
+        let key = ObjectIdentifier(store)
+        var entry = entries[key]
+        if entry == nil || entry?.store !== store {
+            entries = entries.filter { $0.value.store != nil }
+            entry = Entry(store: store)
+        }
+        if entry!.sets.count > 20_000 { entry!.sets.removeAll(keepingCapacity: true) }
+        entry!.sets[item] = .some(result)
+        entries[key] = entry
+    }
 }
 
 /// Khoá dòng khi chiếu bộ lọc bảng: mã của các cột mã hoá và giá trị của các cột dense còn lại.
@@ -281,6 +320,42 @@ public struct FilterContext: Sendable, Hashable {
         return result
     }
 
+    /// Tách các mục cột nằm trên chính `table` khỏi phần còn lại của ngữ cảnh. Với mô hình mà bộ lọc chỉ chảy một → nhiều
+    /// và `table` không phải phía một của quan hệ nào, R(table) = R(table | phần còn lại) ∩ (dòng thoả các mục cục bộ).
+    /// Phần còn lại không chứa mục nào của `table` nên dùng chung được cho mọi ngữ cảnh chỉ khác nhau ở mục cục bộ
+    /// (context transition của một dòng, một tài khoản…): cache một lần rồi chỉ giao với tập dòng cục bộ nhỏ.
+    /// Trả nil khi không áp dụng được: không có mục cục bộ, không có gì khác để chia, có ghi đè quan hệ,
+    /// có quan hệ hai chiều, hoặc `table` là phía một.
+    public func splittingLocalItems(of table: TableID, store: ColumnStore) -> (rest: FilterContext, local: [FilterItem])? {
+        guard relationshipOverrides.isEmpty else { return nil }
+        let mine = items.filter { $0.column.table == table }
+        guard !mine.isEmpty, items.count > mine.count || !rowFilters.isEmpty else { return nil }
+        for relationship in store.schema.relationships {
+            if relationship.crossFilter == .bothDirections || relationship.oneColumn.table == table { return nil }
+        }
+        var rest = self
+        rest.items = items.filter { $0.column.table != table }
+        rest.shadows = ShadowStack()  // R(T) không đọc shadow: bỏ để các ngữ cảnh khác shadow dùng chung một khoá
+        return (rest, mine)
+    }
+
+    /// Dòng của `table` thoả các mục cột `local` (mục mã hoá qua chỉ mục, mục dense qua quét). Universe là số dòng + 1.
+    /// Không gồm blank row ảo ở kết quả giao với R(table | phần còn lại).
+    public func rows(matching local: [FilterItem], table: TableID, store: ColumnStore) throws(DAXError) -> RowSet {
+        var codeSets: [CodeSet] = []
+        var exact: [RowSet] = []
+        for item in local {
+            if let codes = try encodedCodeSet(for: item, store: store) {
+                codeSets.append(codes)
+            } else {
+                exact.append(try denseRows(for: item, store: store))
+            }
+        }
+        var rows = try guarded { try Propagation.localRowSet(in: store, table: table, localFilters: codeSets) }
+        for e in exact { rows = rows.intersection(e) }
+        return rows
+    }
+
     /// VALUES(col): các giá trị phân biệt của cột trên các dòng thấy được của bảng chứa cột. Có thể có BLANK.
     /// Thứ tự theo `ColumnIndex.sortRank` (cột mã hoá) hoặc theo dòng (cột dense).
     public func visibleValues(of column: ColumnID, in store: ColumnStore) throws(DAXError) -> [Value] {
@@ -288,6 +363,11 @@ public struct FilterContext: Sendable, Hashable {
             throw DAXError(.runtime, "Không có cột \(column) trong model")
         }
         let rows = try visibleRows(in: store, table: column.table, overrides: [])
+        return try values(of: column, among: rows, store: store)
+    }
+
+    /// Giá trị phân biệt của cột trên tập dòng `rows` của bảng chứa cột (cùng thứ tự và quy tắc BLANK như `visibleValues`).
+    public func values(of column: ColumnID, among rows: RowSet, store: ColumnStore) throws(DAXError) -> [Value] {
         let index = try guarded { try store.index(column) }
         if index.column.isEncoded {
             // Đọc mã qua ColumnIndex: sortRank để sắp, dictionary để đổi mã thành giá trị.
@@ -425,6 +505,19 @@ public struct FilterContext: Sendable, Hashable {
 
     /// Dịch một mục cột mã hoá thành tập mã của cột, qua `ColumnStore.index`. Trả `nil` khi cột là dense.
     private func encodedCodeSet(for item: FilterItem, store: ColumnStore) throws(DAXError) -> CodeSet? {
+        // Mục chuỗi hoặc nhiều giá trị phải quét dictionary (so không phân biệt hoa thường); cùng một mục lặp lại ở mọi
+        // ô nên nhớ kết quả. Mục một giá trị không phải chuỗi (tài khoản, mốc thời gian) chỉ là một lần tra mã: tính lại.
+        let memoizable = item.values.count > 1 || item.values.contains {
+            if case .string = $0 { return true }
+            return false
+        }
+        if memoizable, let hit = CodeSetMemo.shared.lookup(store: store, item: item) { return hit.codeSet }
+        let result = try computeEncodedCodeSet(for: item, store: store)
+        if memoizable { CodeSetMemo.shared.remember(store: store, item: item, result) }
+        return result
+    }
+
+    private func computeEncodedCodeSet(for item: FilterItem, store: ColumnStore) throws(DAXError) -> CodeSet? {
         guard let meta = store.schema.column(item.column) else {
             throw DAXError(.runtime, "Không có cột \(item.column) trong model")
         }

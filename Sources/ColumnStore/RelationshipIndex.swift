@@ -250,6 +250,13 @@ extension ColumnStore {
     }
 }
 
+/// Khoá kế hoạch lan truyền.
+struct PropagationPlanKey: Hashable, Sendable {
+    let table: TableID
+    let overrides: [RelationshipOverride]
+    let sources: [TableID]
+}
+
 /// Cache các chỉ mục của một store. Khoá theo cặp cột để không phụ thuộc trường khác của quan hệ.
 final class RelationshipIndexCache: @unchecked Sendable {
     private struct Key: Hashable {
@@ -259,6 +266,19 @@ final class RelationshipIndexCache: @unchecked Sendable {
 
     private let lock = NSLock()
     private var built: [Key: RelationshipIndex] = [:]
+    private let planLock = NSLock()
+    private var plans: [PropagationPlanKey: Propagation.PropagationPlan] = [:]
+
+    /// Kế hoạch lan truyền đã tính (xem `Propagation`). Lỗi (ví dụ mơ hồ) không được lưu.
+    func plan(_ key: PropagationPlanKey, make: () throws -> Propagation.PropagationPlan) throws -> Propagation.PropagationPlan {
+        planLock.lock()
+        defer { planLock.unlock() }
+        if let hit = plans[key] { return hit }
+        let plan = try make()
+        if plans.count > 4096 { plans.removeAll(keepingCapacity: true) }
+        plans[key] = plan
+        return plan
+    }
 
     /// Giữ khoá trong lúc dựng, để cùng một quan hệ không dựng hai lần.
     func index(_ relationship: RelationshipSchema, store: ColumnStore) throws -> RelationshipIndex {

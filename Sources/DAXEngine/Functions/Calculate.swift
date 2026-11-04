@@ -331,7 +331,7 @@ extension Evaluator {
         }
         let candidates: [Value]
         if keep {
-            candidates = try ctx.filter.visibleValues(of: column, in: store)
+            candidates = try visibleValues(of: column, in: ctx)
         } else {
             candidates = try allValues(of: column)
         }

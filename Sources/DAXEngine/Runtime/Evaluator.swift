@@ -17,6 +17,7 @@
 //   thì trả BLANK, nhiều giá trị thì báo lỗi. Đây là hành vi quan sát thường gặp, chưa đối chiếu oracle.
 // [SUY ĐOÁN] Tên sentinel `virtualTable` (raw = -1) chỉ dùng làm dấu row context cho khung bảng ảo.
 import ColumnStore
+import Foundation
 
 /// Khung row đang lặp. Bảng vật lý chỉ lưu (bảng, dòng); bảng ảo lưu cả bảng để tra lineage.
 enum RowFrame: Sendable {
@@ -48,6 +49,14 @@ final class VarBlock {
         self.varsBelow = varsBelow
         self.values = [VarValue?](repeating: nil, count: slots.count)
     }
+}
+
+/// Cờ huỷ dùng chung giữa luồng gọi và các luồng phụ.
+final class CancellationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    func set() { lock.lock(); value = true; lock.unlock() }
 }
 
 public final class Evaluator: Evaluating, @unchecked Sendable {
@@ -85,6 +94,27 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         let store = ColumnStore(source: InMemoryColumnSource(schema: schema, rowCounts: [:], columns: [:]))
         self.init(store: store, catalog: Catalog(schema: schema))
     }
+
+    /// Evaluator mới dùng chung kho cột, catalog và cache, nhưng có trạng thái riêng (khung row, khung VAR).
+    /// Mỗi luồng song song cần một bản riêng.
+    func fork(cancelFlag: CancellationFlag) -> Evaluator {
+        let child = Evaluator(store: store, catalog: catalog, cache: cache, functions: functions)
+        child.isWorker = true
+        child.cancelFlag = cancelFlag
+        return child
+    }
+
+    /// Evaluator này là bản con của `fork()` đang chạy trên luồng phụ.
+    private var isWorker = false
+
+    /// Cờ huỷ do luồng gọi bật cho các luồng phụ: luồng phụ không nằm trong Task của người gọi nên không thấy `Task.isCancelled`.
+    var cancelFlag: CancellationFlag?
+
+    /// Đã bị huỷ: Task hiện tại bị huỷ, hoặc cờ huỷ của luồng gọi đã bật.
+    var isCancelledNow: Bool { Task.isCancelled || cancelFlag?.isSet == true }
+
+    /// Cho phép chạy các ô song song: chỉ ở evaluator gốc, ngoài mọi row context.
+    var allowsParallelCells: Bool { !isWorker && rowStack.isEmpty }
 
     // MARK: - Evaluating
 
@@ -239,11 +269,33 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
 
     /// R(T): dòng của T còn thấy được trong ngữ cảnh (có cache theo vân tay).
     public func visibleRows(of table: TableID, in ctx: EvalContext) throws(DAXError) -> RowSet {
+        if let split = ctx.filter.splittingLocalItems(of: table, store: store) {
+            // Phần còn lại (tháng, báo cáo…) giống nhau giữa các ô, chỉ mục cục bộ (tài khoản…) đổi: lấy phần còn lại
+            // từ cache rồi giao với tập dòng cục bộ nhỏ thay vì lan truyền lại cả bộ lọc. Kết quả giao rẻ hơn một lần
+            // tra cache (băm vân tay, khoá), và có hàng trăm nghìn ngữ cảnh như vậy nên không đưa vào cache.
+            let rest = try visibleRows(of: table, in: EvalContext(filter: split.rest, row: nil))
+            let local = try ctx.filter.rows(matching: split.local, table: table, store: store)
+            return rest.intersection(local)
+        }
         let key = RowSetCacheKey.visible(table, fingerprint: ctx.filter.fingerprint)
         if let hit = cache.rowSets.rows(for: key) { return hit }
         let rows = try ctx.filter.visibleRows(in: store, table: table, overrides: [])
         cache.rowSets.store(rows, for: key)
         return rows
+    }
+
+    /// VALUES(cột) có cache: dòng thấy được lấy từ cache R(T), giá trị phân biệt cache theo (cột, vân tay).
+    /// Trùng kết quả `FilterContext.visibleValues`, nhưng không lan truyền lại bộ lọc ở mỗi lần gọi.
+    public func visibleValues(of column: ColumnID, in ctx: EvalContext) throws(DAXError) -> [Value] {
+        guard store.schema.column(column) != nil else {
+            throw DAXError(.runtime, "Không có cột \(column) trong model")
+        }
+        let key = ValuesCacheKey(column: column, fingerprint: ctx.filter.fingerprint)
+        if let hit = cache.values.values(for: key) { return hit }
+        let rows = try visibleRows(of: column.table, in: ctx)
+        let values = try ctx.filter.values(of: column, among: rows, store: store)
+        cache.values.store(values, for: key)
+        return values
     }
 
     /// Chạy một lời gọi tới ColumnStore và đổi lỗi thành DAXError.
@@ -261,7 +313,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
     /// Gọi trong mọi vòng lặp dài của đường nóng. Khi không có Task huỷ thì chỉ là một lần đọc cờ.
     @inline(__always)
     func checkCancelled() throws(DAXError) {
-        if Task.isCancelled { throw DAXError(.cancelled, "đã huỷ") }
+        if isCancelledNow { throw DAXError(.cancelled, "đã huỷ") }
     }
 
     func specification(_ fid: FunctionID) throws(DAXError) -> FunctionSpec {
@@ -361,7 +413,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             }
         }
         // Không có khung row chứa cột: lấy giá trị đơn của bộ lọc.
-        let values = try ctx.filter.visibleValues(of: id, in: store)
+        let values = try visibleValues(of: id, in: ctx)
         if values.count == 1 { return values[0] }
         if values.isEmpty { return .blank }
         throw DAXError(.multipleValues, "không xác định được một giá trị của cột \(id) (có \(values.count) giá trị)")
@@ -531,7 +583,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         var cancelled = false
         rows.forEach { r in
             if cancelled { return }
-            if out.count & 0xFFF == 0 && Task.isCancelled {
+            if out.count & 0xFFF == 0 && isCancelledNow {
                 cancelled = true
                 return
             }
@@ -550,7 +602,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         var failure: DAXError?
         rows.forEach { r in
             guard failure == nil else { return }
-            if Task.isCancelled {
+            if isCancelledNow {
                 failure = DAXError(.cancelled, "đã huỷ")
                 return
             }

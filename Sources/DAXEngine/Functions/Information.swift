@@ -64,7 +64,7 @@ public enum InformationFunctions: FunctionFamily {
     private static let selectedValueBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
         let evaluator = try fkEvaluator(frame)
         let column = try ffColumnArgument(fkArg(frame, 0))
-        let values = try frame.ctx.filter.visibleValues(of: column, in: evaluator.store)
+        let values = try evaluator.visibleValues(of: column, in: frame.ctx)
         if values.count == 1 { return values[0] }
         if frame.isBlankArgument(1) { return .blank }
         return try frame.scalar(1)

@@ -294,7 +294,7 @@ public enum QueryExecutor {
             rows = [values]
         case .summarize(let plan):
             rows = try SummarizeColumns.evaluate(plan, base: prepared.base, store: store,
-                                                 evaluator: prepared.evaluator)
+                                                 evaluator: prepared.evaluator, parallel: true)
             headers = plan.resultHeaders(schema: store.schema)
         }
 
