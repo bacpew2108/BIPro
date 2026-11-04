@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-02, sau review và merge đợt 1 của Phase C.
+Cập nhật: 2026-11-04, đã giao R3 và I của đợt 2 cho agy (đang chạy).
 
 ## Mục tiêu và tiến độ
 
@@ -14,15 +14,29 @@ Cập nhật: 2026-11-02, sau review và merge đợt 1 của Phase C.
     - Q, bộ sinh truy vấn trùng văn bản Power BI ở 43/44 visual, cùng mapper và loader;
     - R1, biểu đồ trục XY;
     - R2, card, slicer, matrix.
-  - **Đợt 2** chưa bắt đầu, gồm:
-    - R3: donut, treemap, shape map, tooltip;
-    - I: tương tác (slicer, lọc chéo, tô sáng);
-    - E3 (lead): hiệu năng engine;
-    - G (lead): ghép visual thật vào canvas, drill, drillthrough.
+  - **Đợt 2** đang làm (bước 1 xong: hợp đồng `SlicerNode.formatString`, quan sát C1 §2.6, brief, fixture TopoJSON, commit `61adc89`):
+    - R3 (agy, đang chạy): donut, treemap, shape map, tooltip;
+    - I (agy, đang chạy): tương tác (slicer, lọc chéo, tô sáng, drillthrough, drill down), phần logic thuần;
+    - E3 (lead, chưa làm): hiệu năng engine;
+    - G (lead, chưa làm): ghép visual thật vào canvas, drill, drillthrough; nối `FilterTranslator` vào builder.
 
 ## Worktree / worker
 
-Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Ba nhánh `Bacpew/c1-*` đã merge vào `main` nên cũng đã xoá. Mô tả việc của từng worker nằm trong `docs/tasks/`.
+Worktree của đợt 1 và `ui4-editor` đã xoá (2026-11-03). Mô tả việc của từng worker nằm trong `docs/tasks/`. Gốc của cả hai nhánh: `main` ở `61adc89` (chưa push).
+
+| Worker | Nhánh | Worktree | Brief → báo cáo | jsonl | Trạng thái |
+|---|---|---|---|---|---|
+| R3 | `bacpew2108/c2-r3` | `~/orca/workspaces/PowerBINative/c2-r3` | `docs/tasks/c2-r3.md` → `c2-r3-report.md` | `/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/runs/c2-r3.jsonl` | chạy (bắt đầu 2026-11-04) |
+| I | `bacpew2108/c2-i` | `~/orca/workspaces/PowerBINative/c2-i` | `docs/tasks/c2-i.md` → `c2-i-report.md` | `…/scratchpad/runs/c2-i.jsonl` (cùng thư mục) | chạy (bắt đầu 2026-11-04) |
+
+Allow-list quyền của agy: `…/scratchpad/c2-allow.json` (ngoài repo). Một lệnh nền chờ cả hai jsonl có `"event":"result"`; nếu phiên đóng mà chưa xong thì mở phiên mới, kiểm hai file jsonl rồi review.
+
+**Review cần làm khi xong** (CLAUDE.md "Khi review"):
+- `git diff --stat main` mỗi nhánh: chỉ file trong danh sách được giao (R3: Charts/{Donut,Treemap}, Map, Tooltip, Tests/{Donut,Treemap,Map}; I: Interaction/{FilterState,SelectionState,FilterTranslator,InteractionRules}, Tests/Interaction; cộng file báo cáo).
+- Đọc báo cáo và diff; chạy `swift build`, `swift test`. Soi các lỗi agy hay mắc: `@objc(selector:)` thiếu, `isReleasedWhenClosed`, popover sáng, kết quả viết cứng cho test qua.
+- R3: mở 6 ảnh `build/c-out/visuals/{donut,donutHighlight,treemap,treemapOneLevel,shapeMap,tooltip}.png` trong worktree, kiểm khác dung lượng và đúng hình.
+- I: kiểm 7 test golden đọc văn bản từ `observe-c1/interact/*.dax`; xem danh sách [SUY ĐOÁN] trong báo cáo.
+- Chưa đạt thì giao lại MỘT lần; vẫn chưa đạt thì báo bạn. Không tự merge, không tự xoá worktree.
 
 ## Quyết định đã chốt
 
@@ -35,6 +49,8 @@ Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` �
   - trùng tên cột của model thì thêm `2`.
 - Dự báo (forecast) chỉ làm gần đúng; đường xu hướng làm đúng.
 - Spec Kit (2026-11-03): lead tự dùng khi bắt đầu phase hoặc tính năng mới (từ Phase D), dừng cho bạn duyệt sau spec, plan, tasks; quy tắc ở mục "Spec Kit" trong `CLAUDE.md`, nguyên tắc ở `.specify/memory/constitution.md`.
+- Skill (2026-11-04): Spec Kit là quy trình chính; chỉ dùng 3 skill mattpocock (`/writing-for-agents`, `/tdd`, `/diagnosing-bugs`); Superpowers đã gỡ.
+- Tương tác (đợt 2): mặc định theo loại visual, Nhom6 không có `visualInteractions`. Card, shape map bị lọc; combo, donut, cột 100% bị tô sáng; các chỗ khác ghi [SUY ĐOÁN] trong C1.md §2.6, kiểm ở buổi C2.
 
 ## Lệnh build/test
 
@@ -50,9 +66,9 @@ Không còn worker nào đang chạy. Worktree của đợt 1 và `ui4-editor` �
 
 ## Việc tiếp theo
 
-1. **Đợt 2:** giao R3 ‖ I cho worker. Lead làm E3 (3 truy vấn chậm: combo thấu chi 36 s, matrix Giờ × Thứ 5,5 s, matrix mở nút 9 s) và G (ghép vào canvas).
-2. Bộ sinh truy vấn: slicer hierarchy đang mở nút (`expansionStates` → ROLLUP + NONVISUAL), và các khuôn tương tác ở C1.md §2.2.
-3. **Hợp đồng:** `SlicerNode` chưa có `formatString`; R2 đã nêu.
+1. **Đợt 2:** chờ R3 ‖ I xong rồi review (xem bảng trên). Lead làm E3 (3 truy vấn chậm: combo thấu chi 36 s, matrix Giờ × Thứ 5,5 s, matrix mở nút 9 s; dùng `/diagnosing-bugs`, vòng đo bằng `dax-run profile`, golden giữ 30/30) và G (ghép vào canvas).
+2. Bộ sinh truy vấn (lead): nhận `AssembledFilters` của I (thêm trường `highlight` cho `VisualQuerySpec`, `VAR __H0FilterTable` và cột `CALCULATE(<measure>, KEEPFILTERS(__H0FilterTable))` theo C1.md §2.2); slicer hierarchy đang mở nút (`expansionStates` → ROLLUP + NONVISUAL). Cần kiểm engine chạy được các truy vấn tương tác (`observe-c1/interact/*.dax`, có tuple IN).
+3. **Hợp đồng:** `SlicerNode.formatString` đã thêm (2026-11-04); R2 chưa dùng, giao lại lúc ghép (G) hoặc sửa nhỏ ở `DropdownSlicer`.
 4. **Ảnh xuất thử** ở `build/c-out/visuals/`. Renderer có tham số `interactive:`/`scrollable:` để `ImageRenderer` vẽ được.
 5. **Chờ bạn:**
    - copy văn bản "Define new measure" của Power BI (Phase B);
