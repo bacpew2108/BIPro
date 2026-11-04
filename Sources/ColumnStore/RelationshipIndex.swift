@@ -126,6 +126,11 @@ public struct RelationshipIndex: Sendable {
     public func manyRows(from oneRows: RowSet, restrictedTo restriction: RowSet) -> RowSet {
         precondition(oneRows.universe == oneRowCount + 1, "RelationshipIndex: universe phía một không khớp")
         precondition(restriction.universe == manyRowCount + 1, "RelationshipIndex: universe phía nhiều không khớp")
+        // Bên một rất chọn lọc còn restriction lại rộng (vd cả bảng fact): đi từ posting list của bên một, rồi giao
+        // với restriction, thay vì duyệt từng dòng của restriction.
+        if codeToPK != nil, oneRows.count * 16 <= manyRowCount, restriction.count * 4 > manyRowCount {
+            return manyRows(from: oneRows, strategy: .postings).intersection(restriction)
+        }
         let blankIncluded = oneRows.contains(oneRowCount)
         var out: [UInt32] = []
         restriction.forEach { r in

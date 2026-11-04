@@ -105,6 +105,15 @@ public struct FilterContext: Sendable, Hashable {
     /// Lược đồ quan hệ, để tính expanded table. Đặt bằng `bound(to:)` ở gốc. Rỗng thì expanded chỉ là chính bảng đó.
     public private(set) var relationships: [RelationshipSchema]
 
+    /// Băm không gồm `relationships`: lược đồ quan hệ là hằng của model, mọi ngữ cảnh của một engine đều chung,
+    /// nên băm nó chỉ tốn thời gian (14 quan hệ kèm tên chuỗi) ở mỗi lần lấy vân tay. `==` vẫn so đủ mọi trường.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(items)
+        hasher.combine(rowFilters)
+        hasher.combine(relationshipOverrides)
+        hasher.combine(shadows)
+    }
+
     /// Dựng từ bộ lọc theo cột. Mục trùng cột được AND (giao giá trị).
     public init(items: [FilterItem] = []) {
         var merged: [FilterItem] = []

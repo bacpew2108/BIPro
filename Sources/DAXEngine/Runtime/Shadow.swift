@@ -8,25 +8,39 @@ import ColumnStore
 public struct ShadowStack: Sendable, Hashable {
     /// Mỗi khung là ngữ cảnh không kèm shadow (để tránh lồng vô hạn).
     public private(set) var frames: [FilterContext]
+    /// Băm các khung, tính một lần khi dựng. `FilterContext.fingerprint` được gọi hàng trăm nghìn lần trong một truy vấn,
+    /// còn các khung shadow (mỗi khung là cả một ngữ cảnh) thì không đổi, nên không băm lại từng lần.
+    private var digest: Int
 
     public init(frames: [FilterContext] = []) {
         self.frames = frames
+        self.digest = ShadowStack.digest(of: frames)
+    }
+
+    private static func digest(of frames: [FilterContext]) -> Int {
+        var hasher = Hasher()
+        for frame in frames { frame.hash(into: &hasher) }
+        return hasher.finalize()
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(digest)
+    }
+
+    public static func == (lhs: ShadowStack, rhs: ShadowStack) -> Bool {
+        lhs.digest == rhs.digest && lhs.frames == rhs.frames
     }
 
     public var isEmpty: Bool { frames.isEmpty }
 
     /// Ngăn xếp mới với `frame` đặt lên trên. Người gọi phải đảm bảo `frame` không có shadow.
     public func pushing(_ frame: FilterContext) -> ShadowStack {
-        var out = self
-        out.frames.append(frame)
-        return out
+        ShadowStack(frames: frames + [frame])
     }
 
     /// Ngăn xếp mới bỏ khung trên cùng.
     public func popping() -> ShadowStack {
-        var out = self
-        if !out.frames.isEmpty { out.frames.removeLast() }
-        return out
+        ShadowStack(frames: Array(frames.dropLast()))
     }
 
     /// Mục cột của khung gần nhất có lọc `column`. `nil` nếu không khung nào lọc cột đó.

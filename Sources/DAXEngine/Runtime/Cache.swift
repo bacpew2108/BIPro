@@ -29,6 +29,8 @@ public struct MeasureCacheKey: Hashable, Sendable {
 public enum RowSetCacheKey: Hashable, Sendable {
     /// R(T) dưới một vân tay ngữ cảnh.
     case visible(TableID, fingerprint: Int)
+    /// R(T) như `visible`, lưu dạng bitset để giao nhanh với tập nhỏ.
+    case visibleBitset(TableID, fingerprint: Int)
     /// Các dòng của T có cùng giá trị ở mọi cột với dòng `row` (context transition của một dòng vật lý).
     case transition(TableID, row: Int)
 }

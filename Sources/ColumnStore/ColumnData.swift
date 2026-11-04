@@ -5,6 +5,7 @@
 // Cache nằm trong class, không đổi struct trong contract.
 
 import Foundation
+import Synchronization
 
 extension ColumnData {
     /// `true` nếu cột mã hoá bằng dictionary, kể cả cột allBlank. Cột dense trả `false`.
@@ -38,6 +39,25 @@ extension ColumnData {
     }
 }
 
+/// Giá trị tính lười đúng một lần, đọc không cần khoá sau khi đã tính. Nhiều luồng đánh giá song song đọc cùng
+/// một chỉ mục hàng trăm nghìn lần; khoá chung làm chúng xếp hàng chờ nhau dù mỗi lần đọc chỉ là lấy tham chiếu.
+final class LazyOnce<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private let ready = Atomic<Bool>(false)
+    private var value: Value?
+
+    func get(_ make: () -> Value) -> Value {
+        if ready.load(ordering: .acquiring), let value { return value }
+        lock.lock()
+        defer { lock.unlock() }
+        if let value { return value }
+        let built = make()
+        value = built
+        ready.store(true, ordering: .releasing)
+        return built
+    }
+}
+
 /// Chỉ mục tính lười của một cột (CS). Mỗi cột một đối tượng, và `ColumnStore` giữ đối tượng này.
 ///
 /// Mỗi cache (posting list, sortRank, bảng ngược giá trị → mã) được tính đúng một lần, dưới khoá riêng,
@@ -47,9 +67,9 @@ public final class ColumnIndex: @unchecked Sendable {
     public let column: ColumnData
 
     private let lock = NSLock()
-    private var postings: Postings?
-    private var sortRanks: [Int]?
-    private var codesByValue: [StoredValue: Int]?
+    private let postingsOnce = LazyOnce<Postings>()
+    private let sortRanksOnce = LazyOnce<[Int]>()
+    private let codesOnce = LazyOnce<[StoredValue: Int]>()
 
     /// Dòng không BLANK của cột dense, sắp theo (giá trị, dòng), kèm khoá số cùng thứ tự.
     private struct DenseOrder {
@@ -62,7 +82,7 @@ public final class ColumnIndex: @unchecked Sendable {
         let blankCount: Int
     }
 
-    private var denseOrderCache: DenseOrder?
+    private let denseOrderOnce = LazyOnce<DenseOrder>()
 
     private struct Postings {
         /// Mã c có các dòng `rows[offsets[c]..<offsets[c + 1]]`, tăng dần. Độ dài là số mã + 1.
@@ -171,12 +191,7 @@ public final class ColumnIndex: @unchecked Sendable {
     }
 
     private func denseOrderTable() -> DenseOrder {
-        lock.lock()
-        defer { lock.unlock() }
-        if let denseOrderCache { return denseOrderCache }
-        let built = ColumnIndex.buildDenseOrder(column)
-        denseOrderCache = built
-        return built
+        denseOrderOnce.get { ColumnIndex.buildDenseOrder(column) }
     }
 
     /// Sắp các dòng không BLANK của cột dense. Mọi dòng trong [0, rowCount) được xét, như `ColumnData.value(at:)`.
@@ -219,35 +234,23 @@ public final class ColumnIndex: @unchecked Sendable {
     // MARK: - Tính lười
 
     private func postingTable() -> Postings {
-        lock.lock()
-        defer { lock.unlock() }
-        if let postings { return postings }
-        let built = ColumnIndex.buildPostings(column)
-        postings = built
-        return built
+        postingsOnce.get { ColumnIndex.buildPostings(column) }
     }
 
     private func rankTable() -> [Int] {
-        lock.lock()
-        defer { lock.unlock() }
-        if let sortRanks { return sortRanks }
-        let built = ColumnIndex.buildSortRanks(column)
-        sortRanks = built
-        return built
+        sortRanksOnce.get { ColumnIndex.buildSortRanks(column) }
     }
 
     private func codeTable() -> [StoredValue: Int] {
-        lock.lock()
-        defer { lock.unlock() }
-        if let codesByValue { return codesByValue }
-        var table: [StoredValue: Int] = [:]
-        for code in stride(from: 1, through: column.dictionaryCount, by: 1) {
-            if let value = column.dictionaryValue(code: code), table[value] == nil {
-                table[value] = code
+        codesOnce.get {
+            var table: [StoredValue: Int] = [:]
+            for code in stride(from: 1, through: column.dictionaryCount, by: 1) {
+                if let value = column.dictionaryValue(code: code), table[value] == nil {
+                    table[value] = code
+                }
             }
+            return table
         }
-        codesByValue = table
-        return table
     }
 
     /// Sắp các dòng theo mã bằng đếm và prefix sum, nên thời gian là O(số dòng + số mã).

@@ -90,6 +90,13 @@ public struct RowSet: Sendable, Hashable {
         }
     }
 
+    /// Cùng tập, nhưng luôn lưu dạng bitset. Giao một tập nhỏ (thưa) với bản này tốn O(số phần tử của tập nhỏ),
+    /// không cần tìm nhị phân; đổi lại bộ nhớ theo universe, nên chỉ dùng cho tập được giao đi giao lại nhiều lần.
+    public func bitsetForm() -> RowSet {
+        if case .bitset = storage { return self }
+        return RowSet(universe: universe, storage: .bitset(words), members: members)
+    }
+
     public func intersection(_ other: RowSet) -> RowSet {
         precondition(universe == other.universe, "RowSet khác universe")
         switch (storage, other.storage) {

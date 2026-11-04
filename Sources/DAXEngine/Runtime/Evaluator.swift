@@ -273,9 +273,17 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             // Phần còn lại (tháng, báo cáo…) giống nhau giữa các ô, chỉ mục cục bộ (tài khoản…) đổi: lấy phần còn lại
             // từ cache rồi giao với tập dòng cục bộ nhỏ thay vì lan truyền lại cả bộ lọc. Kết quả giao rẻ hơn một lần
             // tra cache (băm vân tay, khoá), và có hàng trăm nghìn ngữ cảnh như vậy nên không đưa vào cache.
-            let rest = try visibleRows(of: table, in: EvalContext(filter: split.rest, row: nil))
+            let restContext = EvalContext(filter: split.rest, row: nil)
+            let restKey = RowSetCacheKey.visibleBitset(table, fingerprint: split.rest.fingerprint)
+            let rest: RowSet
+            if let hit = cache.rowSets.rows(for: restKey) {
+                rest = hit
+            } else {
+                rest = try visibleRows(of: table, in: restContext).bitsetForm()
+                cache.rowSets.store(rest, for: restKey)
+            }
             let local = try ctx.filter.rows(matching: split.local, table: table, store: store)
-            return rest.intersection(local)
+            return local.intersection(rest)
         }
         let key = RowSetCacheKey.visible(table, fingerprint: ctx.filter.fingerprint)
         if let hit = cache.rowSets.rows(for: key) { return hit }

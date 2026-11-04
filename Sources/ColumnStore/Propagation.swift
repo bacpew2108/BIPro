@@ -86,10 +86,14 @@ public enum Propagation {
         // bất động lớn nhất (các bước đơn điệu thu hẹp, nên thứ tự xử lý không đổi kết quả).
         var version: [TableID: Int] = [:]
         var processed = [(Int, Int)?](repeating: nil, count: relevant.count)
+        // Thứ tự xử lý quan hệ không đổi kết quả nhưng đổi chi phí: xử lý trước bên một chọn lọc nhất (ít dòng nhất),
+        // để bên nhiều co lại trước rồi các quan hệ sau chỉ duyệt phần còn lại, thay vì duyệt cả triệu dòng fact.
+        let order = relevant.indices.sorted { sets[relevant[$0].one]!.count < sets[relevant[$1].one]!.count }
         var changed = true
         while changed {
             changed = false
-            for (i, link) in relevant.enumerated() {
+            for i in order {
+                let link = relevant[i]
                 let stamp = (version[link.one, default: 0], version[link.many, default: 0])
                 if let last = processed[i], last == stamp { continue }
                 processed[i] = stamp
@@ -268,7 +272,7 @@ public enum Propagation {
             guard index.column.isEncoded else {
                 throw ColumnStoreError.notImplemented("Lọc theo mã trên cột dense \(filter.column)")
             }
-            let codes = Array(Set(filter.codes)).sorted()
+            let codes = filter.codes.count == 1 ? filter.codes : Array(Set(filter.codes)).sorted()
             var estimate = codes.contains(0) ? 1 : 0
             for code in codes {
                 if let slice = index.postings(forCode: Int(code)) {
@@ -297,7 +301,8 @@ public enum Propagation {
                         matched.append(contentsOf: slice)
                     }
                 }
-                matched.sort()
+                // Một mã: posting list đã tăng dần; nhiều mã mới phải sắp lại.
+                if step.codes.count > 1 { matched.sort() }
                 if step.codes.contains(0) {
                     matched.append(blankRow)
                 }

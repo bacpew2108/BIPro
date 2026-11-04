@@ -409,14 +409,17 @@ public enum SummarizeColumns {
         }
     }
 
+    /// Đặt biến môi trường `DAX_SERIAL=1` để ép chạy tuần tự (đo hiệu năng một luồng).
+    private static let serialOnly = ProcessInfo.processInfo.environment["DAX_SERIAL"] != nil
+
     /// Chạy `cell(i, evaluator)` cho i trong 0..<count, giữ thứ tự, bỏ các ô trả nil.
     /// Tuần tự khi `parallel` tắt, khi ít ô, hoặc khi evaluator không phải `Evaluator`. Song song: mỗi luồng một
     /// `Evaluator` riêng (khung row/VAR là trạng thái riêng của từng evaluator), dùng chung cache và kho cột (đều an toàn luồng).
     /// Luồng gọi vẫn ở trong Task của người gọi nên canh huỷ: thấy `Task.isCancelled` thì bật cờ dừng cho các luồng.
     private static func evaluateCells(count: Int, parallel: Bool, evaluator: any Evaluating,
                                       _ cell: @escaping (Int, any Evaluating) throws(DAXError) -> [Value]?) throws(DAXError) -> [[Value]] {
-        let workers = min(ProcessInfo.processInfo.activeProcessorCount, count)
-        guard parallel, workers > 1, let root = evaluator as? Evaluator, root.allowsParallelCells else {
+        let workers = min(Int(ProcessInfo.processInfo.environment["DAX_WORKERS"] ?? "") ?? ProcessInfo.processInfo.activeProcessorCount, count)
+        guard parallel, workers > 1, !serialOnly, let root = evaluator as? Evaluator, root.allowsParallelCells else {
             var out: [[Value]] = []
             for i in 0..<count {
                 try QueryExecutor.checkCancelled()
