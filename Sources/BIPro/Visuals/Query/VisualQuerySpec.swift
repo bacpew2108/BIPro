@@ -118,6 +118,11 @@ struct VisualQuerySpec: Hashable, Sendable {
     var includeIntersectionCount: Bool
     /// Matrix có thang màu: tên cột kết quả cần min/max qua `GROUPBY … MINX/MAXX(CURRENTGROUP())` (PA-D1-2).
     var gradientInputs: [String] = []
+    /// Tô sáng chéo: bảng lọc `__H0FilterTable` (TREATAS…). Khi có, mỗi measure giá trị/tooltip kèm một cột
+    /// `CALCULATE(<measure>, KEEPFILTERS(__H0FilterTable))` (C1.md §2.2).
+    var highlight: QueryFilter?
+    /// Mọi cấp của hierarchy ở trục danh mục (Năm › Quý › Tháng) khi có hơn một cấp, để drill. Rỗng nếu không drill được.
+    var drillLevels: [GroupField] = []
 
     init(visualID: String, visualType: String, primary: [GroupField] = [], secondary: [GroupField] = [],
          measures: [QueryMeasure] = [], filters: [QueryFilter] = [], rowTotals: Bool = false, columnTotals: Bool = false,

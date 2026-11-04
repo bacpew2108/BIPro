@@ -48,6 +48,23 @@ final class Workspace: @unchecked Sendable {
         }
     }
 
+    /// Trang drillthrough và các cột tham số của nó (đọc từ `pageBinding` của page.json, chỉ định dạng PBIR).
+    lazy var drillthroughPages: [(page: ReportPage, columns: [QueryColumn])] = {
+        guard pbix.reportFormat == .pbir else { return [] }
+        return report.pages.compactMap { page in
+            let path = "Report/definition/pages/\(page.id)/page.json"
+            guard pbix.archive.entry(path) != nil, var data = try? pbix.archive.read(path) else { return nil }
+            if data.starts(with: [0xEF, 0xBB, 0xBF]) { data = data.dropFirst(3) }
+            guard let json = try? JSONValue.parse(data), json["pageBinding"]?["type"]?.string == "Drillthrough" else { return nil }
+            let columns = (json["pageBinding"]?["parameters"]?.array ?? []).compactMap { p -> QueryColumn? in
+                let c = p["fieldExpr"]?["Column"]
+                guard let table = c?["Expression"]?["SourceRef"]?["Entity"]?.string, let name = c?["Property"]?.string else { return nil }
+                return QueryColumn(table: table, column: name)
+            }
+            return columns.isEmpty ? nil : (page, columns)
+        }
+    }()
+
     var visiblePages: [ReportPage] { report.pages.filter { !$0.isHidden } }
 
     func page(id: String) -> ReportPage? { report.pages.first { $0.id == id } }

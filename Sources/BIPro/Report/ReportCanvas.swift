@@ -159,7 +159,7 @@ struct VisualContentView: View {
 
     var body: some View {
         if let interaction, interaction.isAvailable, Self.liveTypes.contains(visual.type) {
-            LiveVisualView(workspace: workspace, page: page, visual: visual, interaction: interaction)
+            LiveVisualView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
         } else {
             staticContent
         }

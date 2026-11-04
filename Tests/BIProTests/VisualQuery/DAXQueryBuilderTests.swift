@@ -121,3 +121,24 @@ private func firstDifference(_ a: String, _ b: String) -> String {
         #expect(DAXQueryBuilder.topLevelArguments("\"a, b\", 1") == ["\"a, b\"", "1"])
     }
 }
+
+/// Tô sáng chéo (buổi C1, nhấp cột "35-49" của bar D2): `VAR __H0FilterTable` và các cột song sinh phải khớp văn bản Power BI.
+@Suite(.enabled(if: DAXFixtures.exists(DAXFixtures.nhom6)))
+struct DAXQueryBuilderHighlightTests {
+    @Test(arguments: [
+        ("interact/xf-combo", "d2_khoanvay", "a1d6568d"),
+        ("interact/xf-donut", "d2_khoanvay", "b87e0317"),
+        ("interact/xf-100pct", "d2_khoanvay", "fefd7eb8"),
+    ])
+    func tôSángKhớpPowerBI(_ entry: (file: String, page: String, visual: String)) throws {
+        let model = try nhom6.get()
+        let page = try #require(model.report.pages.first { $0.id == entry.page })
+        let visual = try #require(page.visuals.first { $0.id.hasPrefix(entry.visual) })
+        let filters = (model.filters.visuals[visual.id] ?? []) + (model.filters.pages[page.id] ?? []) + model.filters.report
+        var spec = try VisualQuerySpecReader(metadata: model.metadata).spec(for: visual, filters: filters)
+        spec.highlight = QueryFilter(tableExpression: "TREATAS({\"35-49\"}, 'Fact_Loan'[age_group_at_loan])")
+        let ours = DAXQueryBuilder.normalized(DAXQueryBuilder.build(spec))
+        let theirs = DAXQueryBuilder.normalized(try goldenText(entry.file))
+        #expect(ours == theirs, "\(entry.file)\n--- Power BI\n\(theirs)\n--- BI Pro\n\(ours)\n--- lệch từ: \(firstDifference(ours, theirs))")
+    }
+}

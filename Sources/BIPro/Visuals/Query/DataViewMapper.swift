@@ -134,6 +134,26 @@ enum DataViewMapper {
                 if values[m][target][c].value == .blank { values[m][target][c] = value }
             }
         }
+        // Tô sáng chéo: cột song sinh của từng measure, cùng kích thước với `values`.
+        var highlights: [[[DataCell]]]?
+        if spec.highlight != nil {
+            var h: [[[DataCell]]] = values.map { $0.map { $0.map { _ in DataCell.blank } } }
+            for row in rows {
+                let key = CategoryKey(values: levelIdx.map { $0.map { row[$0] } ?? .blank })
+                guard let c = categoryOf[key] else { continue }
+                var s = 0
+                if let ci = columnIndex, case .integer(let n) = row[ci] { s = Int(n) }
+                for (m, measure) in measures.enumerated() {
+                    guard let name = DAXQueryBuilder.highlightName(measure), let j = index.result(name), j < row.count else { continue }
+                    let target = h[m].count == 1 ? 0 : s
+                    guard target < h[m].count else { continue }
+                    if h[m][target][c].value == .blank {
+                        h[m][target][c] = DataCell(row[j], formatString: measure.field.formatString)
+                    }
+                }
+            }
+            highlights = h
+        }
         let reduced: Bool = {
             switch spec.reduction {
             case .top(let n): return body.rows.count >= n
@@ -144,7 +164,7 @@ enum DataViewMapper {
         return .categorical(CategoricalData(
             categoryLevels: spec.primary.map(\.field), categories: categories,
             seriesField: spec.secondary.first?.field, series: series,
-            measures: measures.map(\.field), values: values, highlights: nil, isReduced: reduced))
+            measures: measures.map(\.field), values: values, highlights: highlights, isReduced: reduced))
     }
 
     // MARK: - Matrix

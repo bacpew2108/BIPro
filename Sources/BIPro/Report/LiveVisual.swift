@@ -11,6 +11,7 @@ struct LiveVisualView: View {
     let page: ReportPage
     let visual: ReportVisual
     let interaction: ReportInteraction
+    let navigate: (String) -> Void
 
     private enum Phase {
         case loading
@@ -19,13 +20,21 @@ struct LiveVisualView: View {
     }
 
     @State private var phase: Phase = .loading
+    /// Chế độ drill: bấm vào điểm là drill down (thay cho lọc chéo), như nút mũi tên xuống của Power BI.
+    @State private var drillMode = false
+    @State private var menu: MenuTarget?
+    @State private var hover: MenuTarget?
+
+    private struct MenuTarget: Equatable { var point: DataPointID?; var location: CGPoint }
+    private struct LoadKey: Hashable { var state: FilterState; var depth: Int }
 
     var body: some View {
         let state = interaction.state(for: page)
+        let key = LoadKey(state: state, depth: interaction.depth(of: visual))
         ZStack {
             content(state: state)
         }
-        .task(id: state) { await load(state) }
+        .task(id: key) { await load(state) }
     }
 
     @ViewBuilder
@@ -61,7 +70,24 @@ struct LiveVisualView: View {
     @ViewBuilder
     private func rendered(_ data: LiveVisualData, state: FilterState) -> some View {
         let context = renderContext(data, state: state)
-        switch data.view {
+        ZStack(alignment: .topLeading) {
+            renderedBody(data.view, context: context)
+            if data.spec.drillLevels.count > 1 { drillControls(data.spec) }
+            if menu == nil, let hover, let point = hover.point, case .categorical(let categorical) = data.view {
+                let rows = VisualTooltip.rows(for: point, in: categorical)
+                if !rows.isEmpty {
+                    VisualTooltipView(rows: rows)
+                        .offset(x: hover.location.x + 12, y: hover.location.y + 12)
+                        .allowsHitTesting(false)
+                }
+            }
+            if let menu { contextMenu(menu, spec: data.spec) }
+        }
+    }
+
+    @ViewBuilder
+    private func renderedBody(_ view: DataView, context: VisualRenderContext) -> some View {
+        switch view {
         case .empty(let reason):
             placeholder.overlay(alignment: .bottomLeading) {
                 Text(reason).font(.system(size: 10)).foregroundStyle(.secondary).padding(4)
@@ -103,9 +129,31 @@ struct LiveVisualView: View {
         let page = page, visual = visual, interaction = interaction
         let spec = data.spec
         var actions = VisualActions()
+        let drillMode = drillMode
         actions.select = { point, additive in
             MainActor.assumeIsolated {
-                interaction.select(page: page, visual: visual, spec: spec, point: point, additive: additive)
+                menu = nil
+                if drillMode, let point {
+                    interaction.drillDown(page: page, visual: visual, spec: spec, point: point)
+                } else {
+                    interaction.select(page: page, visual: visual, spec: spec, point: point, additive: additive)
+                }
+            }
+        }
+        actions.hover = { point, location in
+            MainActor.assumeIsolated { hover = point.map { MenuTarget(point: $0, location: location) } }
+        }
+        actions.contextMenu = { point, location in
+            MainActor.assumeIsolated { menu = MenuTarget(point: point, location: location) }
+        }
+        actions.drill = { request in
+            MainActor.assumeIsolated {
+                switch request {
+                case .down(let point): interaction.drillDown(page: page, visual: visual, spec: spec, point: point)
+                case .up: interaction.drillUp(page: page, visual: visual)
+                case .nextLevel, .expandAll: interaction.nextLevel(visual: visual, spec: spec)
+                case .toggle: break
+                }
             }
         }
         actions.slicerChanged = { selection in
@@ -119,6 +167,69 @@ struct LiveVisualView: View {
             selection: state.selection.points(forVisual: visual.id),
             slicerSelection: state.slicers[visual.id]?.selection ?? SlicerSelection(),
             actions: actions)
+    }
+
+    // MARK: - Drill và menu chuột phải
+
+    /// Ba nút ở góc trên phải: lên một cấp, chế độ drill (bấm điểm để xuống), xuống một cấp cho cả trục.
+    private func drillControls(_ spec: VisualQuerySpec) -> some View {
+        let depth = interaction.depth(of: visual)
+        func button(_ symbol: String, _ help: String, on: Bool = false, enabled: Bool = true, _ action: @escaping () -> Void) -> some View {
+            Button(action: action) {
+                Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(on ? Color.accentColor.opacity(0.25) : Color.black.opacity(0.06)))
+            }
+            .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.35).help(help)
+        }
+        return HStack(spacing: 3) {
+            button("arrow.up.left", "Lên một cấp", enabled: depth > 0) { interaction.drillUp(page: page, visual: visual) }
+            button("arrow.down", "Chế độ drill: bấm điểm để xuống cấp", on: drillMode, enabled: depth + 1 < spec.drillLevels.count) { drillMode.toggle() }
+            button("arrow.down.to.line", "Xuống một cấp cho cả trục", enabled: depth + 1 < spec.drillLevels.count) { interaction.nextLevel(visual: visual, spec: spec) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .padding(2)
+    }
+
+    private func contextMenu(_ target: MenuTarget, spec: VisualQuerySpec) -> some View {
+        let depth = interaction.depth(of: visual)
+        let through = target.point.map { interaction.drillthroughTargets(from: page, point: $0) } ?? []
+        return ZStack(alignment: .topLeading) {
+            Color.clear.contentShape(Rectangle()).onTapGesture { menu = nil }
+            VStack(alignment: .leading, spacing: 0) {
+                if spec.drillLevels.count > 1 {
+                    if let point = target.point, depth + 1 < spec.drillLevels.count {
+                        menuItem("Drill down") { interaction.drillDown(page: page, visual: visual, spec: spec, point: point) }
+                    }
+                    if depth > 0 { menuItem("Drill up") { interaction.drillUp(page: page, visual: visual) } }
+                }
+                ForEach(Array(through.enumerated()), id: \.offset) { _, entry in
+                    menuItem("Drillthrough › \(entry.page.displayName)") {
+                        interaction.applyDrillthrough(to: entry.page, values: entry.values)
+                        navigate(entry.page.id)
+                    }
+                }
+                if target.point != nil, InteractionRules.canSelect(visualType: visual.type) {
+                    menuItem("Bỏ chọn") { interaction.select(page: page, visual: visual, spec: spec, point: nil, additive: false) }
+                }
+            }
+            .padding(4)
+            .frame(width: 200, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white).shadow(color: .black.opacity(0.25), radius: 6, y: 2))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.black.opacity(0.12)))
+            .offset(x: target.location.x, y: target.location.y)
+        }
+    }
+
+    private func menuItem(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button {
+            menu = nil
+            action()
+        } label: {
+            Text(title).font(.system(size: 12)).foregroundStyle(.black)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.vertical, 5).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Nạp

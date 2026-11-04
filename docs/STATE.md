@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-04, đợt 2: R3, I đã merge; E3 xong phần chính; G đã ghép số thật vào canvas (chưa có drill, drillthrough, tô sáng).
+Cập nhật: 2026-11-04, đợt 2 xong phần chính: R3, I merge; E3; G có số thật, tô sáng, drill, drillthrough, tooltip. Còn mở nút (slicer hierarchy, matrix).
 
 ## Mục tiêu và tiến độ
 
@@ -17,7 +17,8 @@ Cập nhật: 2026-11-04, đợt 2: R3, I đã merge; E3 xong phần chính; G �
   - **Đợt 2** (2026-11-04) làm gần xong, còn các phần ghi bên dưới:
     - R3 (donut, treemap, shape map, tooltip) và I (logic tương tác): agy xong, đã review và merge vào `main`;
     - E3 (hiệu năng engine): xong phần chính. Đo ở `phase-c-evidence/C1.md` §1.5: combo thấu chi 34 s → 3,7 s, matrix Giờ × Thứ 5,5–8 s → 1,7–2,2 s, matrix mở nút 9 s → 1,1–1,5 s, combo kênh 12,7 s → 0,7 s; golden 57/57, kết quả khớp byte. Chưa đạt ngưỡng 1 s ở combo thấu chi và matrix Giờ × Thứ;
-    - G (ghép): `Report/ReportInteraction.swift` + `Report/LiveVisual.swift`. Card, slicer, matrix, cột/bar/line/combo, donut, treemap, shape map chạy số thật; slicer và lọc chéo đi qua `FilterTranslator.assemble`. Đã mở trang D2 của Nhom6 trong app: đủ 6 card, 3 chart, donut, 100%, bản đồ, bar, combo. Chưa làm: tô sáng chéo (tạm áp như lọc chéo), drill down/up, drillthrough, slicer phân cấp mở nút, tooltip, chuột phải; chưa tự kiểm bấm chuột (chỉ logic thuần có test).
+    - G (ghép): `Report/ReportInteraction.swift` + `Report/LiveVisual.swift`. Card, slicer, matrix, cột/bar/line/combo, donut, treemap, shape map chạy số thật; slicer, lọc chéo, tô sáng chéo (3 golden khớp `interact/xf-*.dax`), drill down/up (nút góc trên phải, chế độ drill, chuột phải), drillthrough (chuột phải → trang đích, tham số đọc từ `pageBinding`), tooltip khi rê chuột. Engine chạy được cả 16 truy vấn trong `observe-c1/interact/` (agy báo thiếu là sai). Bạn đã bấm thử slicer và lọc chéo: ổn. Chưa tự kiểm bấm drill, drillthrough, tô sáng trên app.
+    - Chưa làm: slicer phân cấp mở nút và matrix mở nút (cần `expansionStates` → ROLLUPADDISSUBTOTAL + NONVISUAL ở bộ sinh, mapper dựng cây từ dòng rollup, nút mở); drill cho donut chưa có golden; Edit interactions (người dùng đổi lọc/tô sáng) chưa có giao diện.
 
 ## Worktree / worker
 
@@ -65,7 +66,7 @@ Allow-list quyền của agy: `…/scratchpad/c2-allow.json` (ngoài repo). Mộ
 
 ## Việc tiếp theo
 
-1. **G còn lại (lead):** tô sáng chéo (thêm `highlight` cho `VisualQuerySpec`, `VAR __H0FilterTable` + cột `CALCULATE(<measure>, KEEPFILTERS(__H0FilterTable))` theo C1.md §2.2); drill down/up (`Drill.swift`), drillthrough, slicer phân cấp mở nút (`expansionStates` → ROLLUP + NONVISUAL); tooltip và chuột phải; kiểm engine chạy được các truy vấn tương tác trong `observe-c1/interact/*.dax` (có tuple IN, `KEEPFILTERS(SUMMARIZE …)`: agy báo engine chưa chạy, mình chưa kiểm). Bấm thử trong app (slicer, lọc chéo) chưa ai làm.
+1. **G còn lại (lead):** slicer hierarchy và matrix mở nút (`D1-slicer-nam` đang là known issue trong `DAXQueryBuilderTests`); `DropdownSlicer` dùng `SlicerNode.formatString`; kiểm tay drill/drillthrough/tô sáng ở buổi C2.
 2. **E3 còn lại:** hạ combo thấu chi và matrix Giờ × Thứ dưới 1 s. Hướng: gộp context transition theo nhóm (một lần quét thay vì mỗi tài khoản hai CALCULATE), giảm cấp phát ở đường nóng (8 luồng chỉ nhanh hơn 1 luồng khoảng 2,2 lần).
 3. **Hợp đồng:** `SlicerNode.formatString` đã thêm (2026-11-04); `DropdownSlicer` chưa dùng (năm có thể hiện "2,016").
 4. **Ảnh xuất thử** ở `build/c-out/visuals/`. Renderer có tham số `interactive:`/`scrollable:` để `ImageRenderer` vẽ được.

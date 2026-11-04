@@ -101,6 +101,12 @@ struct VisualQuerySpecReader {
             }
         }
 
+        // Drill: mọi cấp của hierarchy ở trục danh mục (chỉ chart và donut).
+        if shape == .chart || shape == .donut {
+            let levels = groupFields(queryState["Category"], role: "Category", activeOnly: false)
+            if levels.count > 1 { spec.drillLevels = levels }
+        }
+
         // Sắp xếp và giảm dữ liệu.
         spec.primaryOrder = order(for: spec, sortDefinition: body["query"]?["sortDefinition"], shape: shape)
         spec.secondaryOrder = spec.secondary.flatMap(Self.ascendingKeys)
@@ -205,6 +211,20 @@ struct VisualQuerySpecReader {
                                     ignore: true, purpose: .formatString(of: field.queryRef)))
         }
         return out
+    }
+
+    // MARK: - Drill
+
+    /// Đưa spec xuống cấp `depth` của hierarchy (0 = cấp gốc). Chart nhóm theo mọi cấp từ gốc tới `depth` (C1.md §2.2:
+    /// `year, quarter_name, quarter_num`); donut chỉ hiện cấp `depth`, các cấp trên thành bộ lọc drill.
+    static func applyDrill(_ spec: inout VisualQuerySpec, depth: Int) {
+        guard depth > 0, spec.drillLevels.count > depth else { return }
+        if case .donut = spec.shape {
+            spec.primary = [spec.drillLevels[depth]]
+        } else {
+            spec.primary = Array(spec.drillLevels.prefix(depth + 1))
+        }
+        spec.primaryOrder = spec.primary.flatMap(ascendingKeys)
     }
 
     // MARK: - Sắp xếp, giảm dữ liệu

@@ -84,10 +84,37 @@ enum DAXQueryBuilder {
         groups.flatMap { [$0.column.dax] + ($0.sortBy.map { [$0.dax] } ?? []) }
     }
 
-    private static func measureArgs(_ measures: [QueryMeasure]) -> [String] {
-        measures.map { m in
+    private static func measureArgs(_ measures: [QueryMeasure], highlight: HighlightMode = .off) -> [String] {
+        measures.flatMap { m -> [String] in
             let ref = "\(QueryColumn(table: m.table, column: m.measure).dax)"
-            return "\"\(m.resultName)\", " + (m.ignore ? "IGNORE(\(ref))" : ref)
+            var out = ["\"\(m.resultName)\", " + (m.ignore ? "IGNORE(\(ref))" : ref)]
+            if highlight != .off, let twin = highlightName(m) {
+                let calc = "CALCULATE(\(ref), KEEPFILTERS(__H0FilterTable))"
+                // Donut giữ cột giá trị chính, mọi cột song sinh khác (combo, cột 100%…) bọc IGNORE (C1.md §2.2).
+                let ignored = m.ignore || highlight == .ignoreValues
+                out.append("\"\(twin)\", " + (ignored ? "IGNORE(\(calc))" : calc))
+            }
+            return out
+        }
+    }
+
+    enum HighlightMode { case off, keepValues, ignoreValues }
+
+    private static func highlightMode(_ spec: VisualQuerySpec) -> HighlightMode {
+        guard spec.highlight != nil else { return .off }
+        if case .donut = spec.shape { return .keepValues }
+        return .ignoreValues
+    }
+
+    /// Tên cột tô sáng của một measure: tên bảng (ký tự lạ → `_`) ghép tên cột kết quả, như Power BI (C1.md §2.2).
+    /// nil với cột không phải giá trị/tooltip (định dạng động, thuộc tính lấy từ measure).
+    static func highlightName(_ m: QueryMeasure) -> String? {
+        switch m.purpose {
+        case .value, .tooltip:
+            let table = String(m.table.map { $0.isLetter || $0.isNumber ? $0 : "_" })
+            return table + m.resultName
+        default:
+            return nil
         }
     }
 
@@ -110,12 +137,13 @@ enum DAXQueryBuilder {
 
     static func build(_ spec: VisualQuerySpec) -> String {
         var w = Writer()
+        if let h = spec.highlight { w.variable("__H0FilterTable", h.tableExpression) }
         let filters = filterNames(spec)
         for (name, f) in zip(filters, spec.filters) { w.variable(name, filterVar(f)) }
 
         switch spec.shape {
         case .card:
-            w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures)))
+            w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
 
         case .slicer(let top):
             guard let g = spec.primary.first else { break }
@@ -130,19 +158,19 @@ enum DAXQueryBuilder {
         case .donut:
             guard let g = spec.primary.first else { break }
             let rollup = inline("ROLLUPADDISSUBTOTAL", [g.column.dax, "\"IsGrandTotalRowTotal\""])
-            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", [rollup] + filters + measureArgs(spec.measures)))
+            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", [rollup] + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
             let keys = [QuerySortKey(target: .result("IsGrandTotalRowTotal"), ascending: false)] + spec.primaryOrder
             w.variable("__DS0BodyLimited", inline("TOPN", ["1002", "__DS0Core"] + topnKeys(keys)))
             w.evaluate("__DS0BodyLimited", orderBy: orderBy(keys))
 
         case .treemap:
-            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures)))
+            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
             w.variable("__DS0BodyLimited", inline("TOPN", ["1002", "__DS0Core"] + topnKeys(spec.primaryOrder)))
             w.evaluate("__DS0BodyLimited", orderBy: orderBy(spec.primaryOrder))
 
         case .shapeMap:
             guard let g = spec.primary.first else { break }
-            let inner = call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures))
+            let inner = call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures, highlight: highlightMode(spec)))
             w.variable("__DS0Core", call("FILTER", [call("KEEPFILTERS", [inner]), "NOT(ISBLANK(\(g.column.dax)))"]))
             w.variable("__DS0BodyLimited", inline("TOPN", ["3502", "__DS0Core"] + topnKeys(spec.primaryOrder)))
             w.evaluate("__DS0BodyLimited", orderBy: orderBy(spec.primaryOrder))
@@ -164,7 +192,7 @@ enum DAXQueryBuilder {
     }
 
     private static func buildSingleAxis(_ spec: VisualQuerySpec, filters: [String], into w: inout Writer) {
-        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures)))
+        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
         switch spec.reduction {
         case .binnedLine(let size, let minRes, let maxRes, let maxIter):
             let axis = spec.primary.first?.column.dax ?? ""
@@ -189,10 +217,10 @@ enum DAXQueryBuilder {
         let primaryCols = groupColumns(spec.primary)
         let secondaryCols = groupColumns(spec.secondary)
         if spec.scopedMeasures.isEmpty {
-            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", primaryCols + secondaryCols + filters + measureArgs(spec.measures)))
+            w.variable("__DS0Core", call("SUMMARIZECOLUMNS", primaryCols + secondaryCols + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
         } else {
-            w.variable("__ScopedCoreI0", call("SUMMARIZECOLUMNS", primaryCols + secondaryCols + filters + measureArgs(spec.measures)))
-            w.variable("__ScopedCoreDM0", call("SUMMARIZECOLUMNS", primaryCols + filters + measureArgs(spec.scopedMeasures)))
+            w.variable("__ScopedCoreI0", call("SUMMARIZECOLUMNS", primaryCols + secondaryCols + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
+            w.variable("__ScopedCoreDM0", call("SUMMARIZECOLUMNS", primaryCols + filters + measureArgs(spec.scopedMeasures, highlight: highlightMode(spec))))
             w.variable("__DS0Core", call("NATURALLEFTOUTERJOIN", ["__ScopedCoreI0", "__ScopedCoreDM0"]))
         }
         let (pTop, sTop): (Int, Int) = { if case .window(let p, let s) = spec.reduction { (p, s) } else { (201, 62) } }()
@@ -218,7 +246,7 @@ enum DAXQueryBuilder {
         }
         let rowGroup = spec.rowTotals ? [rollup(spec.primary, "IsGrandTotalRowTotal")] : rowCols
         let colGroup = spec.columnTotals && !spec.secondary.isEmpty ? [rollup(spec.secondary, "IsGrandTotalColumnTotal")] : colCols
-        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", rowGroup + colGroup + filters + measureArgs(spec.measures)))
+        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", rowGroup + colGroup + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
 
         let rowFlag = QuerySortKey(target: .result("IsGrandTotalRowTotal"), ascending: false)
         let colFlag = QuerySortKey(target: .result("IsGrandTotalColumnTotal"), ascending: true)
@@ -262,7 +290,7 @@ enum DAXQueryBuilder {
     private static func buildHundredPercent(_ spec: VisualQuerySpec, filters: [String], into w: inout Writer) {
         let primaryCols = groupColumns(spec.primary)
         let secondaryCols = groupColumns(spec.secondary)
-        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", primaryCols + secondaryCols + filters + measureArgs(spec.measures)))
+        w.variable("__DS0Core", call("SUMMARIZECOLUMNS", primaryCols + secondaryCols + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
         w.variable("__DS0PrimaryBase", inline("SUMMARIZE", ["__DS0Core"] + primaryCols))
         w.variable("__DS0SecondaryBase", inline("SUMMARIZE", ["__DS0Core"] + secondaryCols))
         for (name, body) in hundredPercentTemplate { w.variable(name, body) }

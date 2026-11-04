@@ -4,7 +4,6 @@
 //   đổi trạng thái thì dựng lại truy vấn rồi nạp lại (cache theo văn bản DAX nên visual không đổi bộ lọc thì trả về ngay).
 // - Dựng `VisualQuerySpec` từ visual (bộ đọc Q), ghép bộ lọc tĩnh (visual, trang, báo cáo) với slicer và lọc chéo bằng
 //   `FilterTranslator.assemble` (gói I), chạy qua `VisualDataLoader`, đưa `DataView` cho renderer.
-// [GHI CHÚ] Tô sáng chéo (`AssembledFilters.highlight`) chưa có trong bộ sinh truy vấn: tạm áp như lọc chéo.
 import DAXEngine
 import Foundation
 import Observation
@@ -24,6 +23,9 @@ final class ReportInteraction {
     let workspace: Workspace
     /// Trạng thái lọc theo trang (khoá = id trang).
     private(set) var states: [String: FilterState] = [:]
+
+    /// Cấp drill hiện tại của từng visual (0 = cấp gốc), khoá = id visual.
+    private(set) var drillDepth: [String: Int] = [:]
 
     @ObservationIgnored private var servicesTask: Task<(VisualQuerySpecReader, VisualDataLoader), Error>?
     @ObservationIgnored private var topoMap: TopoMap?
@@ -60,6 +62,56 @@ final class ReportInteraction {
         }
     }
 
+    // MARK: - Drill
+
+    func depth(of visual: ReportVisual) -> Int { drillDepth[visual.id] ?? 0 }
+
+    /// Drill down vào một điểm: sang cấp kế, các cấp trên thành bộ lọc drill (C1.md §2.2: `year IN {2016}`).
+    func drillDown(page: ReportPage, visual: ReportVisual, spec: VisualQuerySpec, point: DataPointID) {
+        let d = depth(of: visual)
+        guard d + 1 < spec.drillLevels.count else { return }
+        let level = spec.drillLevels[d]
+        guard let value = point.values[level.field.queryRef] else { return }
+        update(page: page) { $0.drillFilters[visual.id, default: []].append(ColumnValues(column: level.column, values: [value])) }
+        drillDepth[visual.id] = d + 1
+    }
+
+    func drillUp(page: ReportPage, visual: ReportVisual) {
+        let d = depth(of: visual)
+        guard d > 0 else { return }
+        update(page: page) {
+            if var list = $0.drillFilters[visual.id], !list.isEmpty {
+                list.removeLast()
+                $0.drillFilters[visual.id] = list.isEmpty ? nil : list
+            }
+        }
+        drillDepth[visual.id] = d - 1
+    }
+
+    /// "Show next level": xuống một cấp cho cả trục, không lọc.
+    func nextLevel(visual: ReportVisual, spec: VisualQuerySpec) {
+        let d = depth(of: visual)
+        if d + 1 < spec.drillLevels.count { drillDepth[visual.id] = d + 1 }
+    }
+
+    // MARK: - Drillthrough
+
+    /// Trang drillthrough mà điểm này dùng được: điểm có giá trị cho ít nhất một cột tham số của trang.
+    func drillthroughTargets(from page: ReportPage, point: DataPointID) -> [(page: ReportPage, values: [ColumnValues])] {
+        workspace.drillthroughPages.compactMap { entry in
+            guard entry.page.id != page.id else { return nil }
+            let values = entry.columns.compactMap { column -> ColumnValues? in
+                point.values["\(column.table).\(column.column)"].map { ColumnValues(column: column, values: [$0]) }
+            }
+            return values.isEmpty ? nil : (entry.page, values)
+        }
+    }
+
+    /// Đặt tham số drillthrough cho trang đích (bộ lọc `TREATAS` đứng đầu, C1.md §2.2). Người gọi chuyển trang.
+    func applyDrillthrough(to target: ReportPage, values: [ColumnValues]) {
+        update(page: target) { $0.drillthrough = values }
+    }
+
     // MARK: - Nạp dữ liệu
 
     /// Bản đồ TopoJSON nhúng trong file (shape map). nil nếu file không có.
@@ -78,7 +130,9 @@ final class ReportInteraction {
         let statics = staticFilters(page: page, visual: visual)
         let assembled = FilterTranslator.assemble(
             for: InteractionTarget(visualID: visual.id, visualType: visual.type), staticFilters: statics, state: state)
-        spec.filters = assembled.filters + (assembled.highlight.map { [$0] } ?? [])
+        VisualQuerySpecReader.applyDrill(&spec, depth: depth(of: visual))
+        spec.filters = assembled.filters
+        spec.highlight = assembled.highlight
         let loaded = try await loader.load(spec)
         return LiveVisualData(spec: spec, view: loaded.view, query: loaded.query, elapsed: loaded.elapsed)
     }
