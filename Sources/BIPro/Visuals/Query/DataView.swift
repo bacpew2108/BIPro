@@ -155,10 +155,13 @@ struct MatrixData: Hashable, Sendable {
 
 struct SlicerNode: Hashable, Sendable {
     var value: Value
+    /// Chuỗi định dạng của cột chứa giá trị này (mapper lấy từ `SlicerData.levels[cấp].formatString`). nil = hiện nguyên giá trị.
+    var formatString: String?
     var children: [SlicerNode]
 
-    init(_ value: Value, children: [SlicerNode] = []) {
+    init(_ value: Value, formatString: String? = nil, children: [SlicerNode] = []) {
         self.value = value
+        self.formatString = formatString
         self.children = children
     }
 }

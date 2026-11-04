@@ -76,6 +76,16 @@ struct DataViewMapperTests {
         #expect(d.cell(measure: 1, series: 1, category: 0).value == .integer(1571))
     }
 
+    /// Slicer: mỗi nút mang chuỗi định dạng của cột (R2 cần để hiện năm "2016" thay vì "2,016").
+    @Test func slicerNutMangDinhDangCuaCot() throws {
+        let spec = try model.get().spec(page: "d2_khoanvay", visual: "a9bb9c5a")
+        let result = QueryResult(tables: [ResultTable(columns: ["Dim_Date[year]"], rows: [[.integer(2013)], [.integer(2014)]])],
+                                 elapsedNanoseconds: 0)
+        guard case .slicer(let d) = DataViewMapper.map(result, spec: spec) else { Issue.record("không phải slicer"); return }
+        #expect(d.roots.map(\.value) == [.integer(2013), .integer(2014)])
+        #expect(d.roots.map(\.formatString) == Array(repeating: spec.primary[0].field.formatString, count: 2))
+    }
+
     @Test func donutBoDongTong() throws {
         let spec = try model.get().spec(page: "d2_khoanvay", visual: "b87e0317")
         guard case .categorical(let d) = DataViewMapper.map(try powerBIResult("D2-donut"), spec: spec) else {

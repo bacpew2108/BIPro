@@ -88,7 +88,9 @@ enum DataViewMapper {
     private static func slicer(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
         let index = Index(body)
         guard let g = spec.primary.first, let i = index.column(g.column) else { return .empty(reason: "Slicer không có cột") }
-        return .slicer(SlicerData(levels: spec.primary.map(\.field), roots: body.rows.map { SlicerNode($0[i]) }))
+        let format = g.field.formatString
+        return .slicer(SlicerData(levels: spec.primary.map(\.field),
+                                  roots: body.rows.map { SlicerNode($0[i], formatString: format) }))
     }
 
     // MARK: - Categorical

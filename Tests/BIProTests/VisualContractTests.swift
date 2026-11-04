@@ -122,6 +122,14 @@ import Testing
         #expect(f.dataLabels.displayUnits == .thousands)
     }
 
+    @Test func slicerNodeCoFormatStringMacDinhNil() {
+        let leaf = SlicerNode(.integer(1))
+        #expect(leaf.formatString == nil && leaf.children.isEmpty)
+        let tree = SlicerNode(.integer(2016), formatString: "0", children: [SlicerNode(.string("Q1"), formatString: nil)])
+        #expect(tree.formatString == "0" && tree.children[0].formatString == nil)
+        #expect(SlicerNode(.integer(1), formatString: "0") != SlicerNode(.integer(1)))
+    }
+
     // MARK: NumberDisplay
 
     @Test func donViTuDong() {
