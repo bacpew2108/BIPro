@@ -295,18 +295,23 @@ public enum Propagation {
                 }
                 rows = RowSet(universe: universe, sortedRows: kept)
             } else {
-                var matched: [UInt32] = []
-                for code in step.codes {
-                    if let slice = step.index.postings(forCode: Int(code)) {
-                        matched.append(contentsOf: slice)
+                let set: RowSet
+                if step.codes.count > 1 {
+                    // Nhiều mã: gom bit từ các posting list (rời nhau), không nối rồi sắp lại.
+                    let lists = step.codes.compactMap { step.index.postings(forCode: Int($0)) }
+                    set = RowSet.union(universe: universe, disjointLists: lists, extra: step.codes.contains(0) ? [blankRow] : [])
+                } else {
+                    var matched: [UInt32] = []
+                    for code in step.codes {
+                        if let slice = step.index.postings(forCode: Int(code)) {
+                            matched.append(contentsOf: slice)
+                        }
                     }
+                    if step.codes.contains(0) {
+                        matched.append(blankRow)
+                    }
+                    set = RowSet(universe: universe, sortedRows: matched)
                 }
-                // Một mã: posting list đã tăng dần; nhiều mã mới phải sắp lại.
-                if step.codes.count > 1 { matched.sort() }
-                if step.codes.contains(0) {
-                    matched.append(blankRow)
-                }
-                let set = RowSet(universe: universe, sortedRows: matched)
                 rows = rows.map { $0.intersection(set) } ?? set
             }
         }

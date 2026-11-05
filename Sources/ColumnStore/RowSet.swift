@@ -157,6 +157,27 @@ public struct RowSet: Sendable, Hashable {
         }
     }
 
+    /// Hợp của nhiều danh sách dòng rời nhau (posting của nhiều mã): đặt bit rồi gom, không nối và sắp lại cả triệu dòng.
+    /// Mỗi danh sách phải tăng dần và các danh sách không giao nhau (hai mã khác nhau không chung dòng).
+    public static func union(universe: Int, disjointLists lists: [ArraySlice<UInt32>], extra: [UInt32] = []) -> RowSet {
+        var words = [UInt64](repeating: 0, count: wordCount(universe))
+        var members = 0
+        for list in lists {
+            members += list.count
+            for r in list {
+                let i = Int(r)
+                words[i >> 6] |= UInt64(1) << UInt64(i & 63)
+            }
+        }
+        for r in extra {
+            let i = Int(r)
+            let mask = UInt64(1) << UInt64(i & 63)
+            if words[i >> 6] & mask == 0 { members += 1 }
+            words[i >> 6] |= mask
+        }
+        return make(universe: universe, words: words, members: members)
+    }
+
     /// Chọn dạng theo mật độ, từ dãy dòng đã sắp.
     private static func make(universe: Int, sortedRows rows: [UInt32]) -> RowSet {
         if usesSparse(universe: universe, members: rows.count) {

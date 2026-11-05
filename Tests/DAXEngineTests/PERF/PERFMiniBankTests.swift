@@ -89,4 +89,37 @@ import DAXTestSupport
         // Huỷ trước hoặc trong lúc chạy: hoặc xong bình thường, hoặc ném .cancelled; không được treo hay sai loại lỗi.
         do { _ = try await task.value } catch let error as DAXError { #expect(error.kind == .cancelled) }
     }
+
+    /// `cột <op> hằng` (đường so sánh trực tiếp) phải trùng đường chung (`cột + 0 <op> hằng` buộc đi qua khung row ảo).
+    @Test func soSanhTrucTiepTrungDuongChung() async throws {
+        let (engine, _, _) = makeEngine()
+        for op in ["<", "<=", ">", ">=", "=", "<>"] {
+            for constant in ["0", "-1000", "250", "1000000", "BLANK()"] {
+                let direct = try await engine.execute("""
+                    EVALUATE ROW("n", CALCULATE(COUNTROWS(Fact_Trans), KEEPFILTERS(Fact_Trans[balance_after] \(op) \(constant))),
+                                 "m", CALCULATE(COUNTROWS(Fact_Trans), Fact_Trans[balance_after] \(op) \(constant)))
+                    """).tables[0].rows[0]
+                let general = try await engine.execute("""
+                    EVALUATE ROW("n", CALCULATE(COUNTROWS(Fact_Trans), KEEPFILTERS(FILTER(ALL(Fact_Trans[balance_after]), Fact_Trans[balance_after] + 0 \(op) \(constant)))),
+                                 "m", CALCULATE(COUNTROWS(Fact_Trans), FILTER(ALL(Fact_Trans[balance_after]), Fact_Trans[balance_after] + 0 \(op) \(constant))))
+                    """).tables[0].rows[0]
+                #expect(direct == general, "balance_after \(op) \(constant)")
+            }
+        }
+    }
+
+    /// Hằng ở vế trái và hằng là biến VAR cũng đi đường nhanh và vẫn đúng.
+    @Test func soSanhTrucTiepHangOVeTraiVaBienVar() async throws {
+        let (engine, _, _) = makeEngine()
+        let a = try await engine.execute("""
+            EVALUATE ROW("v", CALCULATE(COUNTROWS(Fact_Trans), 0 > Fact_Trans[balance_after]),
+                         "w", CALCULATE(COUNTROWS(Fact_Trans), Fact_Trans[balance_after] < 0))
+            """).tables[0].rows[0]
+        #expect(a[0] == a[1])
+        let b = try await engine.execute("""
+            EVALUATE VAR t = 0 RETURN ROW("v", CALCULATE(COUNTROWS(Fact_Trans), Fact_Trans[balance_after] < t),
+                                           "w", CALCULATE(COUNTROWS(Fact_Trans), Fact_Trans[balance_after] < 0))
+            """).tables[0].rows[0]
+        #expect(b[0] == b[1])
+    }
 }

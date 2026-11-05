@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-05, **đợt 3 (gói P) đã code xong, chưa commit, chờ bạn bấm thử**. Việc tiếp: buổi C2 trên VM (checklist ở `docs/phase-c-oracle/VM-TODO-P.md` cho phần P).
+Cập nhật: 2026-11-05, **đợt 3 (gói P) đã commit (88329f1), chờ bạn bấm thử; E3 vòng 2 xong**. Việc tiếp: buổi C2 trên VM (checklist ở `docs/phase-c-oracle/VM-TODO-P.md` cho phần P).
 
 ## Mục tiêu và tiến độ
 
@@ -50,12 +50,13 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 
 ## Lệnh build/test
 
-- `swift build`; `swift test` (770 test).
+- `swift build`; `swift test` (774 test).
 - Golden Nhom6:
   ```
   BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --filter "Nhom6|ORA|VIS"
   ```
-  57 test, gồm 30 golden Phase B và 72 truy vấn visual.
+  60 test, gồm 30 golden Phase B và 72 truy vấn visual. Test `huyTruyVanNangDungNhanh` (huỷ trong 100 ms) chập chờn khi chạy cùng test nặng khác.
+- `zsh scripts/e3-loop.sh`: đo ba truy vấn chậm trên Nhom6 và so byte với `build/e3-base/` (tạo bản chuẩn trước khi sửa engine).
 - `zsh scripts/build-app.sh` (đóng gói `build/BI Pro.app`).
 - `dax-run profile <pbix> --filter "<DAX>"`: đo thời gian truy vấn của từng visual.
 - Test sập SIGBUS sau khi đổi struct dùng chung giữa các module: xoá `.build` rồi build lại.
@@ -65,7 +66,7 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 0. **Đợt 3:** bạn bấm thử 5 mục ở cuối `docs/phase-c-oracle/VM-TODO-P.md`, rồi commit; làm 10 mục P1–P10 trên VM khi tiện.
 
 1. **Đợt 2 còn tồn:** kiểm tay drill, drillthrough, tô sáng, mở nút trên app ở buổi C2; Edit interactions; mở nút nhiều cấp.
-2. **E3 còn lại:** hạ combo thấu chi và matrix Giờ × Thứ dưới 1 s. Hướng: gộp context transition theo nhóm (một lần quét thay vì mỗi tài khoản hai CALCULATE), giảm cấp phát ở đường nóng (8 luồng chỉ nhanh hơn 1 luồng khoảng 2,2 lần).
+2. **E3 còn lại (vòng 2 xong 2026-11-05):** combo thấu chi 3,6 → 2,15 s, matrix Giờ × Thứ 2,4 → 1,75 s, matrix mở nút 1,0 s, combo kênh 0,74 s; golden 60/60, khớp byte (chi tiết và chẩn đoán ở `C1.md` §1.5). Chưa dưới 1 s ở hai cái đầu: các sửa nhỏ hết lợi nhuận, còn lại cần đổi cấu trúc (gộp context transition theo nhóm cho `Avg_Account_Balance`, `FilterContext` ít cấp phát). Quyết định cần bạn: chấp nhận ngưỡng hiện tại (visual đầu có số sớm vì chạy song song và nạp dần) hay đầu tư đợt riêng cho E3-cấu-trúc. Test huỷ truy vấn (100 ms) chập chờn từ trước, không phải do E3.
 4. **Ảnh xuất thử** ở `build/c-out/visuals/`. Renderer có tham số `interactive:`/`scrollable:` để `ImageRenderer` vẽ được.
 5. **Chờ bạn:**
    - copy văn bản "Define new measure" của Power BI (Phase B);

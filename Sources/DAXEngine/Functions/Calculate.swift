@@ -336,10 +336,20 @@ extension Evaluator {
             candidates = try allValues(of: column)
         }
         var kept: [Value] = []
-        for value in candidates {
-            try checkCancelled()
-            if try holds(expr, value, column: column, name: name, inner: inner) {
-                kept.append(value)
+        if let comparison = try simpleComparison(expr, column: column, inner: inner) {
+            // `cột <op> hằng`: so sánh trực tiếp, không dựng khung row ảo cho từng giá trị (cùng Value.compare với đường chung).
+            for value in candidates {
+                try checkCancelled()
+                let result = comparison.columnOnLeft ? try Value.compare(comparison.op, value, comparison.constant)
+                                                     : try Value.compare(comparison.op, comparison.constant, value)
+                if try result.asLogical() { kept.append(value) }
+            }
+        } else {
+            for value in candidates {
+                try checkCancelled()
+                if try holds(expr, value, column: column, name: name, inner: inner) {
+                    kept.append(value)
+                }
             }
         }
         plan.filters.append(.item(FilterItem(column: column, values: kept), keep: keep))
@@ -351,6 +361,34 @@ extension Evaluator {
         rowStack.append(.virtual(TableValue(columns: [name], rows: [[value]], lineage: [column]), 0))
         defer { rowStack.removeLast() }
         return try scalar(expr, in: inner).asLogical()
+    }
+
+    /// Vị ngữ dạng `cột <phép so sánh> hằng` (hoặc ngược lại) với vế hằng không phụ thuộc dòng: trả phép so sánh và giá trị hằng.
+    private func simpleComparison(_ expr: BoundExpr, column: ColumnID,
+                                  inner: EvalContext) throws(DAXError) -> (op: BinaryOp, constant: Value, columnOnLeft: Bool)? {
+        guard case .binary(let op, let left, let right) = expr else { return nil }
+        switch op {
+        case .equal, .strictEqual, .notEqual, .less, .greater, .lessEqual, .greaterEqual: break
+        default: return nil
+        }
+        if case .column(let c) = left, c == column, isPlainConstant(right) {
+            return (op, try scalar(right, in: inner), true)
+        }
+        if case .column(let c) = right, c == column, isPlainConstant(left) {
+            return (op, try scalar(left, in: inner), false)
+        }
+        return nil
+    }
+
+    /// `BLANK = x` chắc chắn sai: x là số khác 0, chuỗi không rỗng hoặc TRUE.
+    private static func blankCannotEqual(_ x: Value) -> Bool {
+        switch x {
+        case .blank: false
+        case .integer(let n), .currency(let n): n != 0
+        case .double(let d), .dateTime(let d): d != 0
+        case .string(let t): !t.isEmpty
+        case .boolean(let b): b
+        }
     }
 
     /// Đường nhanh cho `cột = hằng` khi không KEEPFILTERS (ví dụ `Fact[trans_timestamp] = t` lặp nhiều lần).
@@ -378,7 +416,8 @@ extension Evaluator {
         guard storesKind(of: index.column, like: key) else { return nil }
         var kept: [Value] = []
         if index.column.isEncoded {
-            if try holds(expr, .blank, column: column, name: name, inner: inner) {
+            // BLANK = x chỉ đúng khi x là giá trị "rỗng" (0, "", FALSE): với hằng khác thì khỏi dựng khung row ảo.
+            if !Self.blankCannotEqual(x), try holds(expr, .blank, column: column, name: name, inner: inner) {
                 kept.append(.blank)
             }
             if let code = index.code(of: key), code > 0,
