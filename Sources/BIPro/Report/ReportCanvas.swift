@@ -34,7 +34,7 @@ struct ReportPageView: View {
         ZStack(alignment: .topLeading) {
             pageBackground
                 .onTapGesture { selectedVisual = nil }
-            ForEach(page.visuals.filter { !$0.isHidden }) { visual in
+            ForEach(page.visuals.filter { !(interaction?.isHidden($0) ?? $0.isHidden) }) { visual in
                 VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
                     .frame(width: visual.width, height: visual.height)
                     .overlay {
@@ -175,7 +175,7 @@ struct VisualContentView: View {
         case "shape", "basicShape":
             ShapeVisual(visual: visual, theme: workspace.theme)
         case "actionButton":
-            ActionButtonVisual(workspace: workspace, visual: visual, navigate: navigate)
+            ActionButtonVisual(workspace: workspace, visual: visual, interaction: interaction, navigate: navigate)
         case "pageNavigator":
             PageNavigatorVisual(workspace: workspace, currentPage: page.id, navigate: navigate)
         case "card", "cardVisual", "multiRowCard", "kpi":
@@ -295,6 +295,7 @@ struct ShapeVisual: View {
 struct ActionButtonVisual: View {
     let workspace: Workspace
     let visual: ReportVisual
+    var interaction: ReportInteraction?
     let navigate: (String) -> Void
 
     var body: some View {
@@ -330,13 +331,18 @@ struct ActionButtonVisual: View {
     private var actionDescription: String {
         switch link.type {
         case "PageNavigation": "Chuyển trang"
-        case "Bookmark": "Bookmark \(link.target ?? "") (chưa hỗ trợ: cần engine lọc)"
+        case "Bookmark": workspace.bookmarks.first { $0.id == link.target }?.displayName ?? "Bookmark"
         default: link.type
         }
     }
 
     private func performAction() {
-        if link.type == "PageNavigation", let target = link.target { navigate(target) }
+        guard let target = link.target else { return }
+        if link.type == "PageNavigation" {
+            navigate(target)
+        } else if link.type == "Bookmark", let interaction, let page = interaction.applyBookmark(id: target) {
+            navigate(page)
+        }
     }
 }
 

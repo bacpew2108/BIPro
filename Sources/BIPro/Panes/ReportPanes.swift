@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Filters
 
 struct FiltersPane: View {
-    let state: DocumentState
+    @Bindable var state: DocumentState
     var collapse: (() -> Void)?
     @State private var search = ""
 
@@ -16,10 +16,11 @@ struct FiltersPane: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if let visual = state.visual {
-                        section("Bộ lọc trên visual này", filters: visualLevelFilters(visual), empty: "Visual chưa có field")
+                        section("Bộ lọc trên visual này", filters: visualLevelFilters(visual), scope: visual.id, level: .visual, empty: "Visual chưa có field")
                     }
-                    section("Bộ lọc trên trang này", filters: state.pageID.flatMap { w.pageFilters[$0] } ?? [], empty: "Chưa có bộ lọc trang")
-                    section("Bộ lọc trên mọi trang", filters: w.reportFilters, empty: "Chưa có bộ lọc báo cáo")
+                    section("Bộ lọc trên trang này", filters: state.pageID.flatMap { w.pageFilters[$0] } ?? [], scope: state.pageID ?? "",
+                            level: .page, empty: "Chưa có bộ lọc trang")
+                    section("Bộ lọc trên mọi trang", filters: w.reportFilters, scope: "", level: .report, empty: "Chưa có bộ lọc báo cáo")
                 }
                 .padding(.bottom, 10)
             }
@@ -31,7 +32,13 @@ struct FiltersPane: View {
     private var activeCount: Int {
         let w = state.workspace
         let page = state.pageID.flatMap { w.pageFilters[$0] } ?? []
-        return (w.reportFilters + page).filter(\.isActive).count
+        let reportCount = w.reportFilters.filter { FilterEditing.isActive($0, key: key($0, .report, ""), interaction: state.interaction) }.count
+        let pageCount = page.filter { FilterEditing.isActive($0, key: key($0, .page, state.pageID ?? ""), interaction: state.interaction) }.count
+        return reportCount + pageCount
+    }
+
+    private func key(_ filter: ReportFilter, _ level: ReportFilter.Level, _ scope: String) -> UserFilterKey {
+        UserFilterKey(level: level, scope: scope, filterID: filter.id)
     }
 
     /// Power BI lists every field of the selected visual as a filter card, plus explicit visual filters.
@@ -44,7 +51,8 @@ struct FiltersPane: View {
         return (explicit + implicit).filter { seen.insert($0.field?.queryRef ?? $0.id).inserted }
     }
 
-    @ViewBuilder private func section(_ title: String, filters: [ReportFilter], empty: String) -> some View {
+    @ViewBuilder private func section(_ title: String, filters: [ReportFilter], scope: String, level: ReportFilter.Level,
+                                      empty: String) -> some View {
         let shown = filters.filter { search.isEmpty || ($0.field?.label ?? $0.id).localizedCaseInsensitiveContains(search) }
         SectionLabel(text: title)
         if shown.isEmpty {
@@ -54,7 +62,7 @@ struct FiltersPane: View {
                 .padding(.horizontal, 10)
         } else {
             VStack(spacing: 6) {
-                ForEach(shown) { FilterCard(filter: $0) }
+                ForEach(shown) { FilterCard(filter: $0, key: key($0, level, scope), interaction: state.interaction) }
             }
             .padding(.horizontal, 10)
         }
@@ -63,15 +71,36 @@ struct FiltersPane: View {
 
 struct FilterCard: View {
     let filter: ReportFilter
+    let key: UserFilterKey
+    let interaction: ReportInteraction
+    @State private var open = false
 
     var body: some View {
+        let editable = FilterEditing.column(of: filter)
+        let active = FilterEditing.isActive(filter, key: key, interaction: interaction)
+        VStack(alignment: .leading, spacing: 0) {
+            Button { if editable != nil { open.toggle() } } label: { header(active: active, editable: editable != nil) }
+                .buttonStyle(.plain)
+            if open, let column = editable {
+                BasicFilterEditor(interaction: interaction, key: key, filter: filter, column: column)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.control)
+            .strokeBorder(active ? DS.Palette.accent.opacity(0.6) : DS.Palette.separator))
+        .opacity(filter.isHidden ? 0.7 : 1)
+        .help(editable == nil ? "Loại bộ lọc này chưa sửa được" : "Bấm để chọn giá trị")
+    }
+
+    private func header(active: Bool, editable: Bool) -> some View {
         HStack(alignment: .top, spacing: 6) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(filter.field?.label ?? filter.id)
                     .font(DS.Typeface.headlineSmall)
-                    .foregroundStyle(filter.isActive ? DS.Palette.accent : DS.Palette.label)
+                    .foregroundStyle(active ? DS.Palette.accent : DS.Palette.label)
                     .lineLimit(1)
-                Text(filter.summary)
+                Text(FilterEditing.summary(of: filter, key: key, interaction: interaction))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
                     .lineLimit(2)
@@ -82,16 +111,11 @@ struct FilterCard: View {
             Spacer(minLength: 0)
             if filter.isHidden { Image(systemName: "eye.slash").help("Ẩn khi xem báo cáo") }
             if filter.isLocked { Image(systemName: "lock").help("Bị khoá khi xem báo cáo") }
-            Image(systemName: "chevron.down").font(.system(size: 9))
+            if editable { Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 9)) }
         }
         .font(.system(size: 10))
         .foregroundStyle(DS.Palette.tertiaryLabel)
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: DS.Radius.control)
-            .strokeBorder(filter.isActive ? DS.Palette.accent.opacity(0.6) : DS.Palette.separator))
-        .opacity(filter.isHidden ? 0.7 : 1)
-        .help("Chỉnh bộ lọc có ở Phase C")
+        .contentShape(Rectangle())
     }
 }
 
@@ -308,6 +332,7 @@ struct SelectionPane: View {
                 LazyVStack(spacing: 0) {
                     ForEach((state.page?.visuals ?? []).sorted { $0.z > $1.z }) { visual in
                         let selected = state.visualID == visual.id
+                        let hidden = state.interaction.isHidden(visual)
                         Button { state.visualID = visual.id } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "line.3.horizontal").font(.system(size: 9)).foregroundStyle(DS.Palette.tertiaryLabel)
@@ -316,8 +341,12 @@ struct SelectionPane: View {
                                 Text(VisualCatalog.displayTitle(visual)).font(DS.Typeface.bodySmall).lineLimit(1)
                                     .foregroundStyle(selected ? .white : DS.Palette.label)
                                 Spacer()
-                                Image(systemName: visual.isHidden ? "eye.slash" : "eye").font(.system(size: 10))
+                                Image(systemName: hidden ? "eye.slash" : "eye").font(.system(size: 10))
                                     .foregroundStyle(selected ? .white : DS.Palette.tertiaryLabel)
+                                    .frame(width: 24, height: DS.Metrics.navRow)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { state.interaction.toggleHidden(visual) }
+                                    .help(hidden ? "Hiện visual" : "Ẩn visual")
                             }
                             .padding(.horizontal, 10)
                             .frame(height: DS.Metrics.navRow)
@@ -328,14 +357,14 @@ struct SelectionPane: View {
                     }
                 }
             }
-            PaneFooter(text: "\(state.page?.visuals.count ?? 0) đối tượng trên canvas")
+            PaneFooter(text: "\(state.page?.visuals.count ?? 0) đối tượng, \((state.page?.visuals ?? []).filter { state.interaction.isHidden($0) }.count) ẩn")
         }
         .background(DS.Palette.chrome)
     }
 }
 
 struct BookmarksPane: View {
-    let state: DocumentState
+    @Bindable var state: DocumentState
     var collapse: (() -> Void)?
 
     var body: some View {
@@ -347,14 +376,23 @@ struct BookmarksPane: View {
                     ForEach(Array(groups(bookmarks).enumerated()), id: \.offset) { _, group in
                         if let name = group.name { SectionLabel(text: name) }
                         ForEach(group.items) { bookmark in
-                            HStack(spacing: 6) {
-                                Image(systemName: "bookmark").font(.system(size: 11)).foregroundStyle(DS.Palette.secondaryLabel)
-                                Text(bookmark.displayName).font(DS.Typeface.bodySmall).lineLimit(1)
-                                Spacer()
+                            let active = state.interaction.visibility.activeBookmarkID == bookmark.id
+                            Button {
+                                if let page = state.interaction.applyBookmark(id: bookmark.id) { state.pageID = page; state.visualID = nil }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: active ? "bookmark.fill" : "bookmark").font(.system(size: 11))
+                                        .foregroundStyle(active ? DS.Palette.accent : DS.Palette.secondaryLabel)
+                                    Text(bookmark.displayName).font(DS.Typeface.bodySmall).lineLimit(1)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 12)
+                                .frame(height: DS.Metrics.navRow)
+                                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(active ? DS.Palette.accent.opacity(0.12) : .clear).padding(.horizontal, 4))
+                                .contentShape(Rectangle())
                             }
-                            .padding(.horizontal, 12)
-                            .frame(height: DS.Metrics.navRow)
-                            .help("Áp dụng bookmark có ở Phase C")
+                            .buttonStyle(.plain)
+                            .help(bookmark.suppressData ? "Áp dụng bookmark (chỉ đổi ẩn/hiện)" : "Áp dụng bookmark")
                         }
                     }
                     if bookmarks.isEmpty {

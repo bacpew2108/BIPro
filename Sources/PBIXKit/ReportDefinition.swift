@@ -37,6 +37,13 @@ public struct ReportVisual: Sendable, Identifiable, Hashable {
     /// `query.queryState` có thứ tự, `active`, `sortDefinition`, `expansionStates`, `filterConfig`.
     public var raw: JSONValue = .null
 
+    public init(id: String, type: String, x: Double = 0, y: Double = 0, z: Double = 0, width: Double = 0, height: Double = 0,
+                isHidden: Bool = false, objects: ObjectProperties = ObjectProperties(nil),
+                containerObjects: ObjectProperties = ObjectProperties(nil), fields: [ReportField] = [], raw: JSONValue = .null) {
+        self.id = id; self.type = type; self.x = x; self.y = y; self.z = z; self.width = width; self.height = height
+        self.isHidden = isHidden; self.objects = objects; self.containerObjects = containerObjects; self.fields = fields; self.raw = raw
+    }
+
     /// Visuals that need query results to render.
     public var isDataBound: Bool { !fields.isEmpty }
 }

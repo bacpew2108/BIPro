@@ -44,6 +44,12 @@ actor VisualDataLoader {
         return Loaded(view: DataViewMapper.map(result, spec: spec), query: query, elapsed: start.duration(to: clock.now), fromCache: false)
     }
 
+    /// Giá trị phân biệt của một cột (Filters pane liệt kê để chọn), xếp tăng dần, tối đa `limit` giá trị.
+    func distinctValues(of column: QueryColumn, limit: Int) async throws -> [Value] {
+        let result = try await engine.execute("EVALUATE TOPN(\(limit), VALUES(\(column.dax)), \(column.dax), ASC)\nORDER BY \(column.dax) ASC")
+        return (result.tables.first?.rows ?? []).compactMap(\.first)
+    }
+
     func clearCache() {
         cache.removeAll()
         cacheOrder.removeAll()

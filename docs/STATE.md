@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-04, **đợt 2 xong** (R3, I, E3, G). Worktree của đợt 2 đã xoá. Việc tiếp: đợt 3 (gói P), buổi C2 trên VM.
+Cập nhật: 2026-11-05, **đợt 3 (gói P) đã code xong, chưa commit, chờ bạn bấm thử**. Việc tiếp: buổi C2 trên VM (checklist ở `docs/phase-c-oracle/VM-TODO-P.md` cho phần P).
 
 ## Mục tiêu và tiến độ
 
@@ -20,6 +20,15 @@ Cập nhật: 2026-11-04, **đợt 2 xong** (R3, I, E3, G). Worktree của đợ
     - G (ghép): `Report/ReportInteraction.swift` + `Report/LiveVisual.swift`. Card, slicer, matrix, cột/bar/line/combo, donut, treemap, shape map chạy số thật; slicer, lọc chéo, tô sáng chéo (3 golden khớp `interact/xf-*.dax`), drill down/up (nút góc trên phải, chế độ drill, chuột phải), drillthrough (chuột phải → trang đích, tham số đọc từ `pageBinding`), tooltip khi rê chuột. Engine chạy được cả 16 truy vấn trong `observe-c1/interact/` (agy báo thiếu là sai). Bạn đã bấm thử slicer và lọc chéo: ổn. Chưa tự kiểm bấm drill, drillthrough, tô sáng trên app.
     - Mở nút: slicer hierarchy (`expansionStates` trong file + bấm mũi tên) và matrix cột (bấm +/−) đã làm, có golden (`D1-slicer-nam`, `interact/matrix-expand`); mới hỗ trợ mở một cấp ở cấp gốc. `DropdownSlicer` đã dùng `SlicerNode.formatString`.
     - Chưa làm (để sau): drill cho donut chưa có golden; Edit interactions (người dùng đổi lọc/tô sáng giữa hai visual) chưa có giao diện; matrix mở nút theo hàng; mở nút nhiều cấp.
+
+  - **Đợt 3 (gói P)** xong phần code (2026-11-05), lead tự làm, không dùng worker (git chưa sạch để tách worktree, phần UI nhỏ và dùng ngay model mới):
+    - `PBIXKit/ReportFilters.swift`: `ReportBookmark` đọc thêm `suppressData`, `suppressActiveSection`, `activeSection`, `targetVisualNames`, `hidden` (id visual → ẩn); `ReportVisual` có init public;
+    - `Report/ViewState.swift`: `VisibilityState` (ẩn/hiện do Selection pane và bookmark, ghi đè giá trị trong file), `UserFilter` + `UserFilterKey` (bộ lọc Basic In/Not In người dùng sửa);
+    - `ReportInteraction`: `visibility`, `userFilters`, `applyBookmark`, `toggleHidden`, `distinctValues`, `mergeStatics` (thay bộ lọc tĩnh tại chỗ, thẻ ngầm thêm vào cuối nhóm cấp của nó); `VisualDataLoader.distinctValues`;
+    - canvas bỏ visual ẩn theo `interaction.isHidden`, nút action kiểu Bookmark áp bookmark, `LiveVisualView` nạp lại khi `userFilters` đổi;
+    - `Panes/FilterEditor.swift` (editor Basic filter: tìm kiếm, chọn nhiều, là/không phải, chọn tất cả, đặt lại) và `ReportPanes.swift` (thẻ mở được, mắt ẩn/hiện trong Selection pane, bấm bookmark trong Bookmarks pane);
+    - test: `Tests/BIProTests/Panes/` (15 test thường, 3 test nặng trên Nhom6, đều qua; `swift test` 770 qua).
+    - Chưa làm: bookmark không `suppressData` (khôi phục slicer/bộ lọc), thêm/xoá bộ lọc ở Filters pane, Advanced filter, Top N, thẻ bộ lọc cho hierarchy; bookmark ghi vào file (Add/Update/Delete). Chưa bấm thử giao diện (xem `VM-TODO-P.md` phần "tự bấm thử").
 
 ## Worktree / worker
 
@@ -41,7 +50,7 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 
 ## Lệnh build/test
 
-- `swift build`; `swift test` (717 test).
+- `swift build`; `swift test` (770 test).
 - Golden Nhom6:
   ```
   BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --filter "Nhom6|ORA|VIS"
@@ -52,6 +61,8 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 - Test sập SIGBUS sau khi đổi struct dùng chung giữa các module: xoá `.build` rồi build lại.
 
 ## Việc tiếp theo
+
+0. **Đợt 3:** bạn bấm thử 5 mục ở cuối `docs/phase-c-oracle/VM-TODO-P.md`, rồi commit; làm 10 mục P1–P10 trên VM khi tiện.
 
 1. **Đợt 2 còn tồn:** kiểm tay drill, drillthrough, tô sáng, mở nút trên app ở buổi C2; Edit interactions; mở nút nhiều cấp.
 2. **E3 còn lại:** hạ combo thấu chi và matrix Giờ × Thứ dưới 1 s. Hướng: gộp context transition theo nhóm (một lần quét thay vì mỗi tài khoản hai CALCULATE), giảm cấp phát ở đường nóng (8 luồng chỉ nhanh hơn 1 luồng khoảng 2,2 lần).

@@ -29,6 +29,11 @@ final class ReportInteraction {
     /// Slicer hierarchy: giá trị cấp gốc đang mở nút do người dùng đặt (ghi đè `expansionStates` trong file).
     private(set) var slicerExpansion: [String: [Value]] = [:]
 
+    /// Ẩn/hiện visual do Selection pane và bookmark đặt (gói P).
+    private(set) var visibility = VisibilityState()
+    /// Bộ lọc Basic người dùng sửa ở Filters pane (gói P). Áp cho mọi visual nên đổi là mọi visual nạp lại (có cache theo văn bản).
+    private(set) var userFilters: [UserFilterKey: UserFilter] = [:]
+
     @ObservationIgnored private var servicesTask: Task<(VisualQuerySpecReader, VisualDataLoader), Error>?
     @ObservationIgnored private var topoMap: TopoMap?
 
@@ -62,6 +67,36 @@ final class ReportInteraction {
             $0.selection.select(point, additive: additive,
                                 from: InteractionTarget(visualID: visual.id, visualType: visual.type), columns: columns)
         }
+    }
+
+    // MARK: - Ẩn/hiện và bookmark (gói P)
+
+    func isHidden(_ visual: ReportVisual) -> Bool { visibility.isHidden(visual) }
+
+    func toggleHidden(_ visual: ReportVisual) { visibility.toggle(visual) }
+
+    /// Áp bookmark theo id. Trả id trang cần chuyển tới (nếu bookmark đổi trang).
+    func applyBookmark(id: String) -> String? {
+        guard let bookmark = workspace.bookmarks.first(where: { $0.id == id }) else { return nil }
+        return visibility.apply(bookmark)
+    }
+
+    // MARK: - Bộ lọc người dùng sửa (gói P)
+
+    /// Đặt bộ lọc Basic cho một thẻ. `nil` hoặc không có giá trị nào = bỏ bộ lọc do người dùng đặt, quay về bản trong file.
+    func setUserFilter(_ filter: UserFilter?, for key: UserFilterKey) {
+        userFilters[key] = filter
+    }
+
+    /// Bộ lọc thấy được của một thẻ sau khi áp phần người dùng sửa, để Filters pane hiện lại đúng trạng thái.
+    func effective(_ filter: ReportFilter, key: UserFilterKey) -> UserFilter? {
+        userFilters[key] ?? UserFilter.from(filter)
+    }
+
+    /// Giá trị phân biệt của một cột, xếp tăng dần, để Filters pane liệt kê. Ném `DAXError`.
+    func distinctValues(of column: QueryColumn, limit: Int = 1000) async throws -> [Value] {
+        let (_, loader) = try await services()
+        return try await loader.distinctValues(of: column, limit: limit)
     }
 
     // MARK: - Mở nút
@@ -155,12 +190,39 @@ final class ReportInteraction {
         return LiveVisualData(spec: spec, view: loaded.view, query: loaded.query, elapsed: loaded.elapsed)
     }
 
-    private func staticFilters(page: ReportPage, visual: ReportVisual) -> [StaticFilter] {
-        let visualList = workspace.visualFilters[visual.id] ?? []
-        let pageList = workspace.pageFilters[page.id] ?? []
-        return visualList.compactMap { VisualQuerySpecReader.staticFilter($0, scope: .visual) }
-            + pageList.compactMap { VisualQuerySpecReader.staticFilter($0, scope: .page) }
-            + workspace.reportFilters.compactMap { VisualQuerySpecReader.staticFilter($0, scope: .report) }
+    func staticFilters(page: ReportPage, visual: ReportVisual) -> [StaticFilter] {
+        Self.mergeStatics(
+            visual: workspace.visualFilters[visual.id] ?? [], visualID: visual.id,
+            page: workspace.pageFilters[page.id] ?? [], pageID: page.id,
+            report: workspace.reportFilters, user: userFilters)
+    }
+
+    /// Bộ lọc tĩnh sau khi áp phần người dùng sửa: thẻ trong file mà người dùng sửa thì thay vị từ (giữ vị trí), thẻ ngầm
+    /// (field của visual chưa có bộ lọc trong file) thì thêm vào cuối nhóm cấp của nó.
+    nonisolated static func mergeStatics(visual: [ReportFilter], visualID: String, page: [ReportFilter], pageID: String,
+                                         report: [ReportFilter], user: [UserFilterKey: UserFilter]) -> [StaticFilter] {
+        func group(_ list: [ReportFilter], level: ReportFilter.Level, scopeID: String, scope: FilterScope) -> [StaticFilter] {
+            var out: [StaticFilter] = []
+            var used = Set<String>()
+            for filter in list {
+                let key = UserFilterKey(level: level, scope: scopeID, filterID: filter.id)
+                if let edit = user[key] {
+                    used.insert(filter.id)
+                    if let predicate = edit.predicate { out.append(StaticFilter(column: edit.column, predicate: predicate, scope: scope)) }
+                } else if let sf = VisualQuerySpecReader.staticFilter(filter, scope: scope) {
+                    out.append(sf)
+                }
+            }
+            let extras = user.filter { $0.key.level == level && $0.key.scope == scopeID && !used.contains($0.key.filterID) }
+                .sorted { $0.key.filterID < $1.key.filterID }
+            for (_, edit) in extras {
+                if let predicate = edit.predicate { out.append(StaticFilter(column: edit.column, predicate: predicate, scope: scope)) }
+            }
+            return out
+        }
+        return group(visual, level: .visual, scopeID: visualID, scope: .visual)
+            + group(page, level: .page, scopeID: pageID, scope: .page)
+            + group(report, level: .report, scopeID: "", scope: .report)
     }
 
     /// Bộ đọc spec và bộ nạp dữ liệu, dựng một lần ngoài main thread (nạp lược đồ, tạo engine) rồi dùng chung.

@@ -36,6 +36,48 @@ public struct ReportBookmark: Sendable, Hashable, Identifiable {
     public let id: String
     public let displayName: String
     public let group: String?
+    /// Trang mà bookmark ghi lại (`explorationState.activeSection`).
+    public let activeSection: String?
+    /// `options.suppressActiveSection`: áp bookmark không chuyển trang.
+    public let suppressActiveSection: Bool
+    /// `options.suppressData`: áp bookmark không đổi bộ lọc/slicer, chỉ đổi hiển thị.
+    public let suppressData: Bool
+    /// `options.applyOnlyToTargetVisuals` cùng `targetVisualNames`; nil khi áp cho mọi visual.
+    public let targetVisualNames: [String]?
+    /// Hiển thị mà bookmark ghi: id visual → `true` nếu `display.mode == hidden`. Chỉ có visual nằm trong bookmark.
+    public let hidden: [String: Bool]
+
+    public init(id: String, displayName: String, group: String?, activeSection: String? = nil, suppressActiveSection: Bool = false,
+                suppressData: Bool = false, targetVisualNames: [String]? = nil, hidden: [String: Bool] = [:]) {
+        self.id = id
+        self.displayName = displayName
+        self.group = group
+        self.activeSection = activeSection
+        self.suppressActiveSection = suppressActiveSection
+        self.suppressData = suppressData
+        self.targetVisualNames = targetVisualNames
+        self.hidden = hidden
+    }
+
+    /// Đọc một file `*.bookmark.json` (PBIR).
+    public static func parse(_ json: JSONValue, fallbackName: String, group: String?) -> ReportBookmark {
+        let options = json["options"]
+        var hidden: [String: Bool] = [:]
+        for (_, section) in json["explorationState"]?["sections"]?.object ?? [:] {
+            for (visualID, container) in section["visualContainers"]?.object ?? [:] {
+                let mode = container["singleVisual"]?["display"]?["mode"]?.string
+                hidden[visualID] = (mode == "hidden")
+            }
+        }
+        let only = options?["applyOnlyToTargetVisuals"]?.bool ?? false
+        return ReportBookmark(
+            id: json["name"]?.string ?? fallbackName, displayName: json["displayName"]?.string ?? fallbackName, group: group,
+            activeSection: json["explorationState"]?["activeSection"]?.string,
+            suppressActiveSection: options?["suppressActiveSection"]?.bool ?? false,
+            suppressData: options?["suppressData"]?.bool ?? false,
+            targetVisualNames: only ? (options?["targetVisualNames"]?.array ?? []).compactMap(\.string) : nil,
+            hidden: hidden)
+    }
 }
 
 extension PBIXFile {
@@ -84,9 +126,11 @@ extension PBIXFile {
         case .pbir:
             let root = "Report/definition/bookmarks/"
             var names: [String: String] = [:]
+            var parsed: [String: JSONValue] = [:]
             for entry in archive.entries where entry.path.hasPrefix(root) && entry.path.hasSuffix(".bookmark.json") {
                 if let json = try? jsonPart(entry.path), let name = json["name"]?.string {
                     names[name] = json["displayName"]?.string ?? name
+                    parsed[name] = json
                 }
             }
             var result: [ReportBookmark] = []
@@ -97,14 +141,16 @@ extension PBIXFile {
                         walk(children.map { $0.string.map { JSONValue.object(["name": .string($0)]) } ?? $0 },
                              group: item["displayName"]?.string ?? name)
                     } else {
-                        result.append(ReportBookmark(id: name, displayName: names[name] ?? name, group: group))
+                        result.append(parsed[name].map { ReportBookmark.parse($0, fallbackName: name, group: group) }
+                            ?? ReportBookmark(id: name, displayName: names[name] ?? name, group: group))
                     }
                 }
             }
             walk((try? jsonPart(root + "bookmarks.json"))?["items"]?.array ?? [], group: nil)
             // Bookmarks missing from the index still exist on disk.
             for (name, display) in names.sorted(by: { $0.key < $1.key }) where !result.contains(where: { $0.id == name }) {
-                result.append(ReportBookmark(id: name, displayName: display, group: nil))
+                result.append(parsed[name].map { ReportBookmark.parse($0, fallbackName: name, group: nil) }
+                    ?? ReportBookmark(id: name, displayName: display, group: nil))
             }
             return result
         case .legacyLayout:
