@@ -216,4 +216,32 @@ struct PanesNhom6Tests {
         interaction.deleteBookmark(id: fileID)
         #expect(!interaction.bookmarkRows.contains { $0.id == fileID })
     }
+
+    /// Thẻ measure của visual (bạn báo "Số GD", "Giá trị GD" không bấm được): lọc theo measure giữ các dòng thoả điều kiện.
+    @Test @MainActor func boLocTheoMeasureCuaVisual() async throws {
+        let workspace = try Workspace(data: Data(contentsOf: nhom6))
+        let interaction = ReportInteraction(workspace: workspace)
+        let page = try #require(workspace.report.pages.first { $0.id == "d1_giaodich" })
+        let visual = try #require(page.visuals.first { $0.type == "lineChart" && $0.fields.contains { $0.property == "Trans Amount" } })
+        let field = try #require(visual.fields.first { $0.property == "Trans Amount" && $0.kind == .measure })
+        let key = UserFilterKey(level: .visual, scope: visual.id, filterID: "implicit-\(field.queryRef)-\(field.role)")
+        func values() async throws -> (count: Int, text: String, ys: [Double]) {
+            let data = try await interaction.load(page: page, visual: visual, state: interaction.state(for: page))
+            guard case .categorical(let c) = data.view else { Issue.record("không phải biểu đồ"); return (0, data.query, []) }
+            let ys = (0..<c.categories.count).flatMap { cat in (0..<max(1, c.series.count)).compactMap { s in
+                NumberDisplay.numericValue(c.cell(measure: 0, series: s, category: cat).value) } }
+            return (c.categories.count, data.query, ys)
+        }
+        let all = try await values()
+        #expect(all.count > 20 && !all.text.contains("ValueFilterDM0"))
+        let column = QueryColumn(table: field.entity, column: field.property)
+        let rule = FilterRule.advanced(first: .init(kind: .greaterThan, operand: "100000000"), second: nil, useOr: false, numeric: true)
+        interaction.setUserFilter(UserFilter(column: column, rule: rule, isMeasure: true), for: key)
+        let filtered = try await values()
+        #expect(filtered.text.contains("ValueFilterDM0"))
+        #expect(filtered.count > 0 && filtered.count < all.count, "còn \(filtered.count) trên \(all.count) dòng")
+        #expect(filtered.ys.allSatisfy { $0 > 100_000_000 })
+        interaction.setUserFilter(nil, for: key)
+        #expect(try await values().count == all.count)
+    }
 }

@@ -12,6 +12,8 @@ import SwiftUI
 enum FilterEditing {
     /// Cột sửa được của một thẻ: bộ lọc `In`/`Not In` đơn giản trong file, hoặc thẻ ngầm của một field cột. nil = chỉ xem.
     static func column(of filter: ReportFilter) -> QueryColumn? {
+        // Thẻ của measure (field giá trị của visual): sửa được bằng Advanced, lọc các dòng kết quả (xem `valueFilters`).
+        if let field = filter.field, field.kind == .measure { return QueryColumn(table: field.entity, column: field.property) }
         if let user = UserFilter.from(filter) { return user.column }
         guard filter.raw == .null, let field = filter.field, field.kind == .column else { return nil }
         return QueryColumn(table: field.entity, column: field.property)
@@ -192,11 +194,14 @@ struct FilterEditorBody: View {
     let key: UserFilterKey
     let filter: ReportFilter
     let column: QueryColumn
+    /// Thẻ của measure: chỉ có Advanced, so sánh số.
+    var measure = false
     @State private var mode: Mode?
 
     private var current: UserFilter? { interaction.userFilters[key] ?? UserFilter.from(filter) }
 
     private var effectiveMode: Mode {
+        if measure { return .advanced }
         if let mode { return mode }
         switch current?.rule {
         case .advanced: return .advanced
@@ -206,7 +211,7 @@ struct FilterEditorBody: View {
     }
 
     /// Top N chỉ có ở bộ lọc cấp visual, như Power BI.
-    private var modes: [Mode] { key.level == .visual ? [.basic, .advanced, .topN] : [.basic, .advanced] }
+    private var modes: [Mode] { measure ? [.advanced] : key.level == .visual ? [.basic, .advanced, .topN] : [.basic, .advanced] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -225,7 +230,7 @@ struct FilterEditorBody: View {
             .menuStyle(.button).buttonStyle(.plain)
             switch effectiveMode {
             case .basic: BasicFilterEditor(interaction: interaction, key: key, filter: filter, column: column)
-            case .advanced: AdvancedFilterEditor(interaction: interaction, key: key, column: column, existing: current?.rule)
+            case .advanced: AdvancedFilterEditor(interaction: interaction, key: key, column: column, existing: current?.rule, measure: measure)
             case .topN: TopNFilterEditor(interaction: interaction, key: key, column: column, existing: current?.rule)
             }
         }
@@ -244,14 +249,15 @@ struct AdvancedFilterEditor: View {
     let key: UserFilterKey
     let column: QueryColumn
     let existing: FilterRule?
+    var measure = false
 
     @State private var first = FilterCondition(kind: .contains, operand: "")
     @State private var second = FilterCondition(kind: .contains, operand: "")
     @State private var useOr = false
     @State private var loaded = false
 
-    private var numeric: Bool { interaction.isNumeric(column) }
-    private var unsupported: Bool { interaction.isDate(column) }
+    private var numeric: Bool { measure || interaction.isNumeric(column) }
+    private var unsupported: Bool { !measure && interaction.isDate(column) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -269,7 +275,7 @@ struct AdvancedFilterEditor: View {
                     Button("Áp dụng bộ lọc", action: apply)
                         .buttonStyle(.borderedProminent).controlSize(.small)
                     if interaction.userFilters[key]?.rule != nil {
-                        Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column), for: key) }
+                        Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column, isMeasure: measure), for: key) }
                             .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
                     }
                 }
@@ -295,7 +301,7 @@ struct AdvancedFilterEditor: View {
         // Điều kiện thứ hai để trống (phép cần toán hạng mà chưa nhập) thì bỏ qua.
         let secondUsed = !second.kind.needsOperand || !second.operand.isEmpty
         let rule = FilterRule.advanced(first: first, second: secondUsed ? second : nil, useOr: useOr, numeric: numeric)
-        interaction.setUserFilter(UserFilter(column: column, rule: rule), for: key)
+        interaction.setUserFilter(UserFilter(column: column, rule: rule, isMeasure: measure), for: key)
     }
 
     private func conditionRow(_ condition: Binding<FilterCondition>) -> some View {

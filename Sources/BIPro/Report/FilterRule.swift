@@ -43,8 +43,10 @@ struct FilterCondition: Hashable, Sendable {
     var operand: String
 
     /// Vị từ DAX trên `column`. nil khi chưa đủ (thiếu toán hạng, hoặc cột số mà toán hạng không phải số).
-    func predicate(column: QueryColumn, numeric: Bool) -> String? {
-        let col = column.dax
+    func predicate(column: QueryColumn, numeric: Bool) -> String? { predicate(expression: column.dax, numeric: numeric) }
+
+    /// Như trên nhưng trên một biểu thức bất kỳ (cột, hoặc cột kết quả `[ValueFilterDM0]` của bộ lọc theo measure).
+    func predicate(expression col: String, numeric: Bool) -> String? {
         guard kind.needsOperand else { return kind == .isBlank ? "ISBLANK(\(col))" : "NOT(ISBLANK(\(col)))" }
         let text = operand.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return nil }
@@ -97,15 +99,19 @@ enum FilterRule: Hashable, Sendable {
 
     func predicate(column: QueryColumn) -> String? {
         switch self {
-        case .topN(let rule):
-            return rule.predicate(column: column)
-        case .advanced(let first, let second, let useOr, let numeric):
-            guard let a = first.predicate(column: column, numeric: numeric) else { return nil }
-            guard let second else { return a }
-            // Điều kiện thứ hai còn dở thì chưa áp dụng cả bộ lọc, để không lọc nhầm một nửa.
-            guard let b = second.predicate(column: column, numeric: numeric) else { return nil }
-            return "\(useOr ? "OR" : "AND")(\(a), \(b))"
+        case .topN(let rule): return rule.predicate(column: column)
+        case .advanced: return predicate(expression: column.dax)
         }
+    }
+
+    /// Vị từ Advanced trên một biểu thức; Top N không có dạng này (nil).
+    func predicate(expression: String) -> String? {
+        guard case .advanced(let first, let second, let useOr, let numeric) = self else { return nil }
+        guard let a = first.predicate(expression: expression, numeric: numeric) else { return nil }
+        guard let second else { return a }
+        // Điều kiện thứ hai còn dở thì chưa áp dụng cả bộ lọc, để không lọc nhầm một nửa.
+        guard let b = second.predicate(expression: expression, numeric: numeric) else { return nil }
+        return "\(useOr ? "OR" : "AND")(\(a), \(b))"
     }
 
     var summary: String {

@@ -134,7 +134,7 @@ struct FilterCard: View {
             Button { if editable != nil { open.toggle() } } label: { header(active: grey) }
                 .buttonStyle(.plain)
             if open, let column = editable {
-                FilterEditorBody(interaction: interaction, key: key, filter: filter, column: column)
+                FilterEditorBody(interaction: interaction, key: key, filter: filter, column: column, measure: filter.field?.kind == .measure)
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)

@@ -45,8 +45,11 @@ enum DAXQueryBuilder {
 
     // MARK: - Thành phần
 
-    private static func filterNames(_ spec: VisualQuerySpec) -> [String] {
-        spec.filters.indices.map { $0 == 0 ? "__DS0FilterTable" : "__DS0FilterTable\($0 + 1)" }
+    private static func filterNames(_ spec: VisualQuerySpec) -> [String] { filterNames(count: spec.filters.count) }
+
+    /// Tên biến của `count` bảng lọc đầu: `__DS0FilterTable`, `__DS0FilterTable2`…
+    static func filterNames(count: Int) -> [String] {
+        (0..<count).map { $0 == 0 ? "__DS0FilterTable" : "__DS0FilterTable\($0 + 1)" }
     }
 
     private static func filterVar(_ f: QueryFilter) -> String {

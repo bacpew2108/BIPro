@@ -313,9 +313,27 @@ final class ReportInteraction {
         VisualQuerySpecReader.applyDrill(&spec, depth: depth(of: visual))
         if let expanded = slicerExpansion[visual.id] { spec.expanded = expanded }
         spec.filters = assembled.filters
+        spec.filters += valueFilters(for: visual, spec: spec)
         spec.highlight = assembled.highlight
         let loaded = try await loader.load(spec)
         return LiveVisualData(spec: spec, view: loaded.view, query: loaded.query, elapsed: loaded.elapsed)
+    }
+
+    /// Bộ lọc theo measure của visual (Power BI: `__ValueFilterDM0`): giữ các dòng kết quả mà measure thoả điều kiện.
+    /// Bảng lọc = `FILTER(KEEPFILTERS(SUMMARIZECOLUMNS(cột nhóm, các bảng lọc khác, "ValueFilterDMn", measure)), điều kiện)`.
+    /// [SUY ĐOÁN] văn bản theo trí nhớ về Power BI, chưa có mẫu từ Performance Analyzer (VM-TODO-C2.md).
+    func valueFilters(for visual: ReportVisual, spec: VisualQuerySpec) -> [QueryFilter] {
+        let mine = userFilters.filter { $0.key.level == .visual && $0.key.scope == visual.id && $0.value.isMeasure }
+            .sorted { $0.key.filterID < $1.key.filterID }
+        guard !mine.isEmpty else { return [] }
+        let others = DAXQueryBuilder.filterNames(count: spec.filters.count)
+        let groups = (spec.primary + spec.secondary).map(\.column.dax)
+        return mine.enumerated().compactMap { index, entry in
+            let name = "ValueFilterDM\(index)"
+            guard let rule = entry.value.rule, let condition = rule.predicate(expression: "[\(name)]") else { return nil }
+            let inner = (groups + others + ["\"\(name)\", \(entry.value.column.dax)"]).joined(separator: ", ")
+            return QueryFilter(tableExpression: "FILTER(KEEPFILTERS(SUMMARIZECOLUMNS(\(inner))), \(condition))")
+        }
     }
 
     func staticFilters(page: ReportPage, visual: ReportVisual) -> [StaticFilter] {
@@ -338,6 +356,7 @@ final class ReportInteraction {
                 if removed.contains(key) { continue }
                 if let edit = user[key] {
                     used.insert(filter.id)
+                    if edit.isMeasure { continue } // bộ lọc theo measure đi đường `valueFilters`, không phải bảng lọc cột
                     if let predicate = edit.predicate { out.append(StaticFilter(column: edit.column, predicate: predicate, scope: scope)) }
                 } else if let sf = VisualQuerySpecReader.staticFilter(filter, scope: scope) {
                     out.append(sf)
@@ -345,7 +364,7 @@ final class ReportInteraction {
             }
             let extras = user.filter { $0.key.level == level && $0.key.scope == scopeID && !used.contains($0.key.filterID) }
                 .sorted { $0.key.filterID < $1.key.filterID }
-            for (_, edit) in extras {
+            for (_, edit) in extras where !edit.isMeasure {
                 if let predicate = edit.predicate { out.append(StaticFilter(column: edit.column, predicate: predicate, scope: scope)) }
             }
             return out

@@ -59,8 +59,11 @@ struct UserFilter: Hashable, Sendable {
     var exclude: Bool
     /// Bộ lọc Advanced hoặc Top N. Có thì thay cho `values`/`exclude`.
     var rule: FilterRule?
+    /// Bộ lọc theo measure (`column.column` là tên measure): lọc các dòng kết quả của visual, chỉ có cấp visual.
+    var isMeasure = false
 
-    init(column: QueryColumn, values: [Value] = [], exclude: Bool = false, rule: FilterRule? = nil) {
+    init(column: QueryColumn, values: [Value] = [], exclude: Bool = false, rule: FilterRule? = nil, isMeasure: Bool = false) {
+        self.isMeasure = isMeasure
         self.column = column
         self.values = values
         self.exclude = exclude
