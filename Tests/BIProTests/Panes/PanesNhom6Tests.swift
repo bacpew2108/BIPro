@@ -289,6 +289,7 @@ struct PanesNhom6Tests {
         func load() async throws -> LiveVisualData { try await interaction.load(page: page, visual: visual, state: interaction.state(for: page)) }
         let (reader, _) = (VisualQuerySpecReader(metadata: try #require(workspace.metadata)), 0)
         let spec = try reader.spec(for: visual, filters: [])
+        guard case .matrix(let m0) = try await load().view else { Issue.record("không phải matrix"); return }
         interaction.expandMatrix(visual: visual, spec: spec, path: [.string("Midwest")])
         let first = try await load()
         #expect(DAXQueryBuilder.normalized(first.query) == DAXQueryBuilder.normalized(one), "\(DAXQueryBuilder.normalized(first.query))")
@@ -307,7 +308,7 @@ struct PanesNhom6Tests {
         let out = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appendingPathComponent("build/c-out/visuals")
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
-        for (name, data) in [("matrixExpand2", m1), ("matrixExpand3", m2)] {
+        for (name, data) in [("matrixExpand1", m0), ("matrixExpand2", m1), ("matrixExpand3", m2)] {
             let view = MatrixVisualView(data: data, context: VisualRenderContext(format: VisualFormat(objects: visual.objects)), scrollable: false)
             let renderer = ImageRenderer(content: view.frame(width: 2300, height: 330, alignment: .topLeading).background(Color.white))
             renderer.scale = 1.5

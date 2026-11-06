@@ -111,9 +111,13 @@ struct MatrixGridView: View {
 
     private func cornerCell(tier: Int) -> some View {
         let label: String
-        // Dòng cuối ghi tên trường hàng ("Nhóm tuổi", như ảnh Power BI b5 với 3 cấp và q1.6 chưa mở). Riêng 2 cấp (mới bấm + lần đầu)
-        // dòng 2 ghi tên cấp ("Bang") theo yêu cầu của người dùng 2026-11-07.
-        if tier == layout.headerTiers - 1, layout.headerTiers != 2 || data.columnLevels.count < 2 {
+        // Matrix có cột phân cấp (Vùng › Bang › Chi nhánh): mỗi dòng tiêu đề ghi tên cấp của nó, kể cả khi chưa mở nút
+        // (người dùng yêu cầu 2026-11-07; ảnh Power BI q1.6 chưa mở ghi tên trường hàng, b5 ghi tên trường hàng ở dòng cuối).
+        // Matrix thường: dòng cuối ghi tên trường hàng.
+        let hierarchical = data.columns.contains { $0.hasChildren }
+        if hierarchical, tier < data.columnLevels.count {
+            label = data.columnLevels[tier].displayName
+        } else if tier == layout.headerTiers - 1 {
             label = data.rowLevels.map(\.displayName).joined(separator: ", ")
         } else if tier < data.columnLevels.count {
             label = data.columnLevels[tier].displayName
