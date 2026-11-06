@@ -46,6 +46,14 @@ struct QueryMeasure: Hashable, Sendable {
     }
 }
 
+/// Bộ lọc theo measure của visual (Filters pane, thẻ measure): giữ các dòng mà measure thoả điều kiện.
+/// Văn bản `__ValueFilterDM0` lấy từ Power BI (VM C2): xem `DAXQueryBuilder.valueFilterVariable`.
+struct ValueFilter: Hashable, Sendable {
+    var table: String
+    var measure: String
+    var rule: FilterRule
+}
+
 /// Một khoá sắp xếp trong TOPN/ORDER BY.
 struct QuerySortKey: Hashable, Sendable {
     enum Target: Hashable, Sendable {
@@ -105,6 +113,8 @@ struct VisualQuerySpec: Hashable, Sendable {
     var secondary: [GroupField]
     var measures: [QueryMeasure]
     var filters: [QueryFilter]
+    /// Bộ lọc theo measure; mỗi bộ lọc thành một biến `__ValueFilterDMn` đứng sau các bảng lọc thường và được đưa vào lõi.
+    var valueFilters: [ValueFilter] = []
     /// Matrix: thêm dòng/cột tổng (ROLLUPADDISSUBTOTAL). Tên cờ: "IsGrandTotalRowTotal", "IsGrandTotalColumnTotal".
     var rowTotals: Bool
     var columnTotals: Bool

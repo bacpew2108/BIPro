@@ -243,5 +243,35 @@ struct PanesNhom6Tests {
         #expect(filtered.ys.allSatisfy { $0 > 100_000_000 })
         interaction.setUserFilter(nil, for: key)
         #expect(try await values().count == all.count)
+
+        // Văn bản khớp truy vấn Power BI sinh cho "Giá trị GD nhỏ hơn 100000000" (VM C2, sau chuẩn hoá khoảng trắng).
+        let less = FilterRule.advanced(first: .init(kind: .lessThan, operand: "100000000"), second: nil, useOr: false, numeric: true)
+        interaction.setUserFilter(UserFilter(column: column, rule: less, isMeasure: true), for: key)
+        let text = DAXQueryBuilder.normalized(try await values().text)
+        let oracle = DAXQueryBuilder.normalized("""
+        VAR __ValueFilterDM0 =
+            FILTER(
+                KEEPFILTERS(
+                    SUMMARIZECOLUMNS(
+                        'Dim_Date'[month_start],
+                        __DS0FilterTable,
+                        __DS0FilterTable2,
+                        "Trans_Amount", 'Fact_Transaction'[Trans Amount],
+                        "Trans_Count2", IGNORE('Fact_Transaction'[Trans Count])
+                    )
+                ),
+                [Trans_Amount] < 100000000
+            )
+        VAR __DS0Core =
+            SUMMARIZECOLUMNS(
+                'Dim_Date'[month_start],
+                __DS0FilterTable,
+                __DS0FilterTable2,
+                __ValueFilterDM0,
+                "Trans_Amount", 'Fact_Transaction'[Trans Amount],
+                "Trans_Count2", IGNORE('Fact_Transaction'[Trans Count])
+            )
+        """)
+        #expect(text.contains(oracle), "\(text)")
     }
 }

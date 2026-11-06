@@ -83,6 +83,28 @@ enum DAXQueryBuilder {
         return depth == 0 ? parts : nil
     }
 
+    /// Lõi của visual (cùng cột nhóm, cùng bảng lọc thường, cùng measure) bọc `FILTER(KEEPFILTERS(...), điều kiện)`; điều kiện
+    /// trên cột kết quả của measure (ví dụ `[Trans_Amount] < 100000000`). Measure được lọc không bọc IGNORE.
+    /// [QUAN SÁT, VM C2] mẫu `__ValueFilterDM0` trên line D1. nil khi điều kiện chưa đủ.
+    private static func valueFilterVariable(_ spec: VisualQuerySpec, _ vf: ValueFilter, index: Int, plain: [String]) -> String? {
+        var measures = spec.measures
+        let resultName: String
+        if let at = measures.firstIndex(where: { $0.table == vf.table && $0.measure == vf.measure && $0.purpose == .value })
+            ?? measures.firstIndex(where: { $0.table == vf.table && $0.measure == vf.measure }) {
+            measures[at].ignore = false
+            resultName = measures[at].resultName
+        } else {
+            resultName = "ValueFilterM\(index)"
+            var extra = spec.measures.first ?? QueryMeasure(field: FieldInfo(queryRef: "", displayName: vf.measure, role: "Y", formatString: nil, isMeasure: true),
+                                                          table: vf.table, measure: vf.measure, resultName: resultName, ignore: false, purpose: .value)
+            extra.table = vf.table; extra.measure = vf.measure; extra.resultName = resultName; extra.ignore = false; extra.purpose = .value
+            measures.append(extra)
+        }
+        guard let condition = vf.rule.predicate(expression: "[\(resultName)]") else { return nil }
+        let core = call("SUMMARIZECOLUMNS", groupColumns(spec.primary + spec.secondary) + plain + measureArgs(measures))
+        return call("FILTER", [call("KEEPFILTERS", [core]), condition])
+    }
+
     private static func groupColumns(_ groups: [GroupField]) -> [String] {
         groups.flatMap { [$0.column.dax] + ($0.sortBy.map { [$0.dax] } ?? []) }
     }
@@ -146,8 +168,13 @@ enum DAXQueryBuilder {
     static func build(_ spec: VisualQuerySpec) -> String {
         var w = Writer()
         if let h = spec.highlight { w.variable("__H0FilterTable", h.tableExpression) }
-        let filters = filterNames(spec)
-        for (name, f) in zip(filters, spec.filters) { w.variable(name, filterVar(f)) }
+        let plainFilters = filterNames(spec)
+        for (name, f) in zip(plainFilters, spec.filters) { w.variable(name, filterVar(f)) }
+        let valueNames = spec.valueFilters.indices.map { "__ValueFilterDM\($0)" }
+        for (index, vf) in spec.valueFilters.enumerated() {
+            if let body = valueFilterVariable(spec, vf, index: index, plain: plainFilters) { w.variable(valueNames[index], body) }
+        }
+        let filters = plainFilters + valueNames
 
         switch spec.shape {
         case .card:
