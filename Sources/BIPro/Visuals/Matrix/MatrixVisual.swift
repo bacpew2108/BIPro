@@ -440,16 +440,15 @@ struct MatrixGridView: View {
 // MARK: - Cuộn bằng con lăn chuột
 
 /// Chuột có con lăn (không có pha cuộn như trackpad) không làm `ScrollView` của matrix cuộn khi trang đang vừa khung
-/// (ScrollView ngoài của trang bị tắt). Lớp này chỉ nhận sự kiện con lăn không có pha, tìm `NSScrollView` nhỏ nhất bên dưới
-/// con trỏ rồi tự cuộn: con lăn cuộn dọc, Shift hoặc con lăn ngang cuộn ngang. Trackpad vẫn do SwiftUI xử lý.
+/// (ScrollView ngoài của trang bị tắt). Lớp này nhận mọi sự kiện cuộn, tìm `NSScrollView` nhỏ nhất bên dưới con trỏ rồi
+/// tự cuộn: con lăn cuộn dọc, Shift hoặc con lăn ngang cuộn ngang.
 private struct WheelScrollAssist: NSViewRepresentable {
     func makeNSView(context: Context) -> AssistView { AssistView() }
     func updateNSView(_ nsView: AssistView, context: Context) {}
 
     final class AssistView: NSView {
         override func hitTest(_ point: NSPoint) -> NSView? {
-            guard let event = NSApp.currentEvent, event.type == .scrollWheel,
-                  event.phase.isEmpty, event.momentumPhase.isEmpty else { return nil }
+            guard let event = NSApp.currentEvent, event.type == .scrollWheel else { return nil }
             return self
         }
 
@@ -458,8 +457,9 @@ private struct WheelScrollAssist: NSViewRepresentable {
                 nextResponder?.scrollWheel(with: event)
                 return
             }
-            // Mỗi nấc con lăn cuộn khoảng 40 điểm (trước là 12, người dùng thấy chậm).
-            let unit: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 40
+            // Tốc độ do lớp này quyết định cho cả con lăn lẫn trackpad (như combo "Rủi ro thấu chi"): trang thường thu nhỏ khoảng 40%
+            // nên cuộn theo điểm của ScrollView trông chậm. Con lăn: 100 điểm mỗi nấc; trackpad: nhân 2,5.
+            let unit: CGFloat = event.hasPreciseScrollingDeltas ? 2.5 : 100
             var dx = event.scrollingDeltaX * unit
             var dy = event.scrollingDeltaY * unit
             if event.modifierFlags.contains(.shift), dx == 0 { dx = dy; dy = 0 }
