@@ -178,4 +178,24 @@ struct FilterEditingTests {
         #expect(FilterEditing.matching(values, search: "") == values)
         #expect(FilterEditing.matching(values, search: "201") == [.integer(2016)])
     }
+
+    private let years: [Value] = [2011, 2012, 2013, 9999].map { .integer($0) }
+
+    @Test func danhDauNhuPowerBI() {
+        #expect(FilterEditing.checked(nil, all: years) == Set(years), "không lọc = đánh dấu hết")
+        let not9999 = UserFilter(column: year, values: [.integer(9999)], exclude: true)
+        #expect(FilterEditing.checked(not9999, all: years) == Set(years.dropLast()), "không phải 9999 = đánh dấu phần bù")
+        let only = UserFilter(column: year, values: [.integer(2012)], exclude: false)
+        #expect(FilterEditing.checked(only, all: years) == [.integer(2012)])
+    }
+
+    @Test func tapDanhDauThanhBoLoc() {
+        let all = Set(years)
+        #expect(FilterEditing.filter(column: year, checked: all, all: years).predicate == nil, "đủ hết = không lọc")
+        let bo9999 = FilterEditing.filter(column: year, checked: all.subtracting([.integer(9999)]), all: years)
+        #expect(bo9999.exclude && bo9999.values == [.integer(9999)], "bỏ một = không phải (như `year is not 9999`)")
+        let chiMot = FilterEditing.filter(column: year, checked: [.integer(2012)], all: years)
+        #expect(!chiMot.exclude && chiMot.values == [.integer(2012)], "chọn ít = là")
+        #expect(FilterEditing.filter(column: year, checked: [], all: years).predicate == nil, "bỏ hết = không lọc, giao diện tự giữ trạng thái trống")
+    }
 }

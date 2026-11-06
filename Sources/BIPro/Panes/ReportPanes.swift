@@ -54,21 +54,21 @@ struct FiltersPane: View {
     @ViewBuilder private func section(_ title: String, filters: [ReportFilter], scope: String, level: ReportFilter.Level,
                                       empty: String) -> some View {
         let shown = filters.filter { search.isEmpty || ($0.field?.label ?? $0.id).localizedCaseInsensitiveContains(search) }
-        SectionLabel(text: title)
-        if shown.isEmpty {
-            Text(empty).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
-                .frame(maxWidth: .infinity).frame(height: 34)
-                .background(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-                .padding(.horizontal, 10)
-        } else {
-            VStack(spacing: 6) {
-                ForEach(shown) { FilterCard(filter: $0, key: key($0, level, scope), interaction: state.interaction) }
-            }
-            .padding(.horizontal, 10)
+        Text(title).font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 6)
+        VStack(spacing: 6) {
+            ForEach(shown) { FilterCard(filter: $0, key: key($0, level, scope), interaction: state.interaction) }
+            Text("Thêm field dữ liệu vào đây").font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
+                .frame(maxWidth: .infinity).frame(height: 40)
+                .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
+                .help("Kéo field vào đây để thêm bộ lọc: chưa hỗ trợ")
         }
+        .padding(.horizontal, 10)
     }
 }
 
+/// Thẻ bộ lọc theo Power BI: chưa lọc thì nền trắng, chữ thường; đang lọc hoặc đang mở thì nền xám, tên đậm.
 struct FilterCard: View {
     let filter: ReportFilter
     let key: UserFilterKey
@@ -78,43 +78,40 @@ struct FilterCard: View {
     var body: some View {
         let editable = FilterEditing.column(of: filter)
         let active = FilterEditing.isActive(filter, key: key, interaction: interaction)
+        let grey = active || open
         VStack(alignment: .leading, spacing: 0) {
-            Button { if editable != nil { open.toggle() } } label: { header(active: active, editable: editable != nil) }
+            Button { if editable != nil { open.toggle() } } label: { header(active: grey) }
                 .buttonStyle(.plain)
             if open, let column = editable {
                 BasicFilterEditor(interaction: interaction, key: key, filter: filter, column: column)
             }
         }
-        .padding(8)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: DS.Radius.control)
-            .strokeBorder(active ? DS.Palette.accent.opacity(0.6) : DS.Palette.separator))
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 3).fill(grey ? Color(hex: "#D2D2D7")! : Color.white))
+        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(grey ? Color.clear : DS.Palette.separator))
         .opacity(filter.isHidden ? 0.7 : 1)
-        .help(editable == nil ? "Loại bộ lọc này chưa sửa được" : "Bấm để chọn giá trị")
+        .help(filter.field.map { "\($0.entity)[\($0.property)]" } ?? "")
     }
 
-    private func header(active: Bool, editable: Bool) -> some View {
+    private func header(active: Bool) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(filter.field?.label ?? filter.id)
-                    .font(DS.Typeface.headlineSmall)
-                    .foregroundStyle(active ? DS.Palette.accent : DS.Palette.label)
-                    .lineLimit(1)
+                    .font(.system(size: 13, weight: active ? .bold : .regular))
+                    .foregroundStyle(DS.Palette.label).lineLimit(1)
                 Text(FilterEditing.summary(of: filter, key: key, interaction: interaction))
-                    .font(DS.Typeface.bodySmall)
-                    .foregroundStyle(DS.Palette.secondaryLabel)
-                    .lineLimit(2)
-                if let field = filter.field {
-                    Text("\(field.entity)[\(field.property)]").font(DS.Typeface.mono).foregroundStyle(DS.Palette.tertiaryLabel).lineLimit(1)
-                }
+                    .font(.system(size: 12)).foregroundStyle(DS.Palette.label).lineLimit(2)
             }
             Spacer(minLength: 0)
+            if interaction.userFilters[key] != nil {
+                Button { interaction.setUserFilter(nil, for: key) } label: { Image(systemName: "eraser") }
+                    .buttonStyle(.plain).help("Đặt lại về bộ lọc trong file")
+            }
             if filter.isHidden { Image(systemName: "eye.slash").help("Ẩn khi xem báo cáo") }
             if filter.isLocked { Image(systemName: "lock").help("Bị khoá khi xem báo cáo") }
-            if editable { Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 9)) }
         }
-        .font(.system(size: 10))
-        .foregroundStyle(DS.Palette.tertiaryLabel)
+        .font(.system(size: 11))
+        .foregroundStyle(DS.Palette.secondaryLabel)
         .contentShape(Rectangle())
     }
 }

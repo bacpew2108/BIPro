@@ -51,8 +51,27 @@ enum FilterEditing {
     static func matching(_ values: [Value], search: String) -> [Value] {
         search.isEmpty ? values : values.filter { UserFilter.display($0).localizedCaseInsensitiveContains(search) }
     }
+
+    /// Tập giá trị đang được đánh dấu, như Basic filtering của Power BI: không lọc = đánh dấu hết; "là" = đúng các giá trị
+    /// đó; "không phải" = đánh dấu phần bù (xem VM-TODO-P.md, P1).
+    static func checked(_ filter: UserFilter?, all: [Value]) -> Set<Value> {
+        guard let filter, filter.isActive else { return Set(all) }
+        return filter.exclude ? Set(all).subtracting(filter.values) : Set(filter.values)
+    }
+
+    /// Bộ lọc ứng với tập đánh dấu: đủ hết = không lọc; ít hơn một nửa = "là"; còn lại = "không phải" phần bỏ đánh dấu
+    /// (cách Power BI lưu `year is not 9999`).
+    static func filter(column: QueryColumn, checked: Set<Value>, all: [Value]) -> UserFilter {
+        let universe = Set(all)
+        let on = checked.intersection(universe)
+        if on.count == universe.count || on.isEmpty { return UserFilter(column: column, values: [], exclude: false) }
+        let off = universe.subtracting(on)
+        if on.count <= off.count { return UserFilter(column: column, values: Array(on).sorted(by: FilterTranslator.valuePrecedes), exclude: false) }
+        return UserFilter(column: column, values: Array(off).sorted(by: FilterTranslator.valuePrecedes), exclude: true)
+    }
 }
 
+/// Thân thẻ khi mở, theo Power BI: Filter type, ô tìm kiếm, "Select all" ba trạng thái, danh sách đánh dấu, "Require single selection".
 struct BasicFilterEditor: View {
     let interaction: ReportInteraction
     let key: UserFilterKey
@@ -62,63 +81,109 @@ struct BasicFilterEditor: View {
     private enum Load { case loading, failed(String), loaded([Value]) }
     @State private var load: Load = .loading
     @State private var search = ""
+    /// Người dùng bỏ đánh dấu hết: không lọc gì nhưng danh sách phải hiện trống.
+    @State private var cleared = false
+    @State private var single = false
     private static let limit = 1000
 
     var body: some View {
-        let current = FilterEditing.current(of: filter, key: key, interaction: interaction)
-            ?? UserFilter(column: column, values: [], exclude: false)
-        VStack(alignment: .leading, spacing: 6) {
-            SegmentedPill(selection: modeBinding(current), options: [
-                .init(value: false, title: "là"), .init(value: true, title: "không phải"),
-            ], fill: true)
-            SearchField(text: $search, prompt: "Tìm giá trị")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Text("Loại bộ lọc").font(.system(size: 12))
+                Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
+                    .help("Basic: chọn giá trị trong danh sách. Advanced chưa hỗ trợ.")
+            }
+            Menu {
+                Button("Basic filtering") {}
+                Button("Advanced filtering") {}.disabled(true)
+            } label: {
+                HStack { Text("Basic filtering").font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+            }
+            .menuStyle(.button).buttonStyle(.plain)
             switch load {
             case .loading:
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity).frame(height: 40)
             case .failed(let message):
                 Text(message).font(DS.Typeface.bodySmall).foregroundStyle(.red).lineLimit(3)
             case .loaded(let values):
-                list(values, current: current)
+                content(values)
             }
-            HStack {
-                Button("Chọn tất cả") { write(FilterEditing.selectAll(in: current)) }
-                Spacer()
-                Button("Đặt lại") { interaction.setUserFilter(nil, for: key) }
-                    .disabled(interaction.userFilters[key] == nil)
-            }
-            .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
         }
-        .padding(.top, 6)
+        .padding(.top, 8)
         .task(id: column) { await fetch() }
     }
 
-    @ViewBuilder private func list(_ values: [Value], current: UserFilter) -> some View {
+    @ViewBuilder private func content(_ values: [Value]) -> some View {
+        let current = interaction.userFilters[key] ?? UserFilter.from(filter)
+        let truncated = values.count >= Self.limit
+        let on: Set<Value> = cleared ? [] : truncated ? Self.legacyChecked(current, values: values) : FilterEditing.checked(current, all: values)
+        SearchField(text: $search, prompt: "Tìm kiếm")
         let shown = FilterEditing.matching(values, search: search)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(shown, id: \.self) { value in
-                    let on = current.values.contains(value)
-                    Button { write(FilterEditing.toggle(value, in: current)) } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: on ? "checkmark.square.fill" : "square")
-                                .foregroundStyle(on ? DS.Palette.accent : DS.Palette.tertiaryLabel)
-                            Text(UserFilter.display(value)).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.label).lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .frame(height: 22).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                if !single, search.isEmpty {
+                    row(title: "Select all", symbol: on.count == values.count ? "checkmark.square.fill" : on.isEmpty ? "square" : "minus.square.fill",
+                        lit: !on.isEmpty) { toggleAll(values, on: on, truncated: truncated) }
                 }
-                if values.count >= Self.limit {
+                ForEach(shown, id: \.self) { value in
+                    row(title: UserFilter.display(value), symbol: on.contains(value) ? "checkmark.square.fill" : "square", lit: on.contains(value)) {
+                        pick(value, values: values, on: on, current: current, truncated: truncated)
+                    }
+                }
+                if truncated {
                     Text("Chỉ hiện \(Self.limit) giá trị đầu").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(.top, 4)
                 }
             }
         }
-        .frame(maxHeight: 180)
+        .frame(maxHeight: 190)
+        Button { single.toggle() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: single ? "checkmark.square.fill" : "square").foregroundStyle(single ? DS.Palette.accent : DS.Palette.tertiaryLabel)
+                Text("Chỉ cho chọn một giá trị").font(.system(size: 12))
+            }
+        }
+        .buttonStyle(.plain)
     }
 
-    private func modeBinding(_ current: UserFilter) -> Binding<Bool> {
-        Binding(get: { current.exclude }, set: { var next = current; next.exclude = $0; write(next) })
+    private func row(title: String, symbol: String, lit: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol).font(.system(size: 13)).foregroundStyle(lit ? DS.Palette.accent : DS.Palette.tertiaryLabel)
+                Text(title).font(.system(size: 12)).foregroundStyle(DS.Palette.label).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .frame(height: 24).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func toggleAll(_ values: [Value], on: Set<Value>, truncated: Bool) {
+        if on.count == values.count {
+            cleared = true
+            write(UserFilter(column: column, values: [], exclude: false))
+        } else {
+            cleared = false
+            write(UserFilter(column: column, values: [], exclude: false))
+        }
+    }
+
+    private func pick(_ value: Value, values: [Value], on: Set<Value>, current: UserFilter?, truncated: Bool) {
+        cleared = false
+        if truncated {
+            // Danh sách bị cắt nên không tính được phần bù: sửa trực tiếp tập giá trị của bộ lọc.
+            write(FilterEditing.toggle(value, in: current ?? UserFilter(column: column, values: [], exclude: false)))
+            return
+        }
+        var next = single ? [value] : on
+        if !single { if next.contains(value) { next.remove(value) } else { next.insert(value) } }
+        write(FilterEditing.filter(column: column, checked: next, all: values))
+    }
+
+    private static func legacyChecked(_ filter: UserFilter?, values: [Value]) -> Set<Value> {
+        guard let filter, filter.isActive else { return Set(values) }
+        return filter.exclude ? Set(values).subtracting(filter.values) : Set(filter.values)
     }
 
     private func write(_ filter: UserFilter) { interaction.setUserFilter(filter, for: key) }

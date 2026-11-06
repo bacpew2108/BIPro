@@ -30,7 +30,7 @@ struct LiveVisualView: View {
 
     var body: some View {
         let state = interaction.state(for: page)
-        let key = LoadKey(state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], userFilters: interaction.userFilters)
+        let key = LoadKey(state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], userFilters: interaction.userFilters.filter { ["", page.id, visual.id].contains($0.key.scope) })
         ZStack {
             content(state: state)
         }
