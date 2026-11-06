@@ -44,6 +44,7 @@ struct MatrixVisualView: View {
                 .frame(minWidth: layout.totalWidth, alignment: .topLeading)
             }
             .background(Color.white)
+            .overlay(WheelScrollAssist())
         } else {
             MatrixGridView(
                 data: data,
@@ -432,5 +433,67 @@ struct MatrixGridView: View {
             }
         }
         return DataPointID(values)
+    }
+}
+
+
+// MARK: - Cuộn bằng con lăn chuột
+
+/// Chuột có con lăn (không có pha cuộn như trackpad) không làm `ScrollView` của matrix cuộn khi trang đang vừa khung
+/// (ScrollView ngoài của trang bị tắt). Lớp này chỉ nhận sự kiện con lăn không có pha, tìm `NSScrollView` nhỏ nhất bên dưới
+/// con trỏ rồi tự cuộn: con lăn cuộn dọc, Shift hoặc con lăn ngang cuộn ngang. Trackpad vẫn do SwiftUI xử lý.
+private struct WheelScrollAssist: NSViewRepresentable {
+    func makeNSView(context: Context) -> AssistView { AssistView() }
+    func updateNSView(_ nsView: AssistView, context: Context) {}
+
+    final class AssistView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            guard let event = NSApp.currentEvent, event.type == .scrollWheel,
+                  event.phase.isEmpty, event.momentumPhase.isEmpty else { return nil }
+            return self
+        }
+
+        override func scrollWheel(with event: NSEvent) {
+            guard let scroll = innermostScrollView(at: event.locationInWindow), scroll.documentView != nil else {
+                nextResponder?.scrollWheel(with: event)
+                return
+            }
+            let unit: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
+            var dx = event.scrollingDeltaX * unit
+            var dy = event.scrollingDeltaY * unit
+            if event.modifierFlags.contains(.shift), dx == 0 { dx = dy; dy = 0 }
+            let clip = scroll.contentView
+            let document = scroll.documentView?.frame ?? .zero
+            let maxX = max(0, document.width - clip.bounds.width), maxY = max(0, document.height - clip.bounds.height)
+            var origin = clip.bounds.origin
+            origin.x = min(max(0, origin.x - dx), maxX)
+            origin.y = min(max(0, origin.y - dy), maxY)
+            guard origin != clip.bounds.origin else { nextResponder?.scrollWheel(with: event); return }
+            clip.scroll(to: origin)
+            scroll.reflectScrolledClipView(clip)
+        }
+
+        private func innermostScrollView(at windowPoint: NSPoint) -> NSScrollView? {
+            guard let root = window?.contentView else { return nil }
+            var best: NSScrollView?
+            func visit(_ view: NSView) {
+                if let scroll = view as? NSScrollView, !scroll.isHidden {
+                    let local = scroll.convert(windowPoint, from: nil)
+                    if scroll.bounds.contains(local), isAncestorOrSelf(self, ofOverlap: scroll) {
+                        if best == nil || scroll.bounds.width * scroll.bounds.height < best!.bounds.width * best!.bounds.height { best = scroll }
+                    }
+                }
+                view.subviews.forEach(visit)
+            }
+            visit(root)
+            return best
+        }
+
+        /// Chỉ nhận `NSScrollView` thuộc cùng visual với lớp này: nằm trong khung của lớp này.
+        private func isAncestorOrSelf(_ me: NSView, ofOverlap scroll: NSScrollView) -> Bool {
+            let mine = me.convert(me.bounds, to: nil)
+            let theirs = scroll.convert(scroll.bounds, to: nil)
+            return mine.intersects(theirs) && theirs.width <= mine.width + 1 && theirs.height <= mine.height + 1
+        }
     }
 }
