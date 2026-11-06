@@ -254,6 +254,15 @@ struct ChartTrendPointDatum: Identifiable, Sendable {
     var y: Double
 }
 
+/// Một điểm dự báo: đường `y` và dải tin cậy `lower…upper`. Điểm đầu nằm đúng điểm dữ liệu cuối (dải rộng 0) để dải nối liền.
+struct ChartForecastDatum: Identifiable, Sendable {
+    var id: String { category }
+    var category: String
+    var y: Double
+    var lower: Double
+    var upper: Double
+}
+
 struct PreparedChartLayout: Sendable {
     var isEmpty: Bool
     var kind: CartesianKind
@@ -281,6 +290,7 @@ struct PreparedChartLayout: Sendable {
     var lineSeries: [ChartLineSeriesDatum]
     var trendPoints: [ChartTrendPointDatum]
     var showTrend: Bool
+    var forecastPoints: [ChartForecastDatum]
     var isScalarAxis: Bool
     var scalarXTicks: [String]
     var scalarXLabels: [String: String]
@@ -667,6 +677,44 @@ struct PreparedChartLayout: Sendable {
             }
         }
         
+        // Dự báo (line chart có trục thời gian): thêm các tháng tương lai vào trục và mở rộng miền Y cho vừa dải tin cậy.
+        var forecastRows: [ChartForecastDatum] = []
+        if kind == .line, format.analytics.forecastShow == true, data.categoryLevels.count == 1,
+           let yIdx = roleYIndices.first, data.series.count <= 1, numCats >= 6,
+           case .dateTime(let lastSerial)? = data.categories.last?.values.first {
+            let params = format.analytics.forecastParameters
+            let length = max(1, Int(params["ForecastLength"] ?? 6))
+            let ignore = max(0, Int(params["IgnoreLast"] ?? 0))
+            let series = (0..<numCats).compactMap { NumberDisplay.numericValue(data.cell(measure: yIdx, series: 0, category: $0).value) }
+            if series.count == numCats, numCats - ignore >= 6,
+               let projected = Forecast.project(Array(series.dropLast(ignore)), length: length, confidence: params["ConfidenceLevel"] ?? 0.95) {
+                let last = DateDisplay.civil(serial: lastSerial)
+                let anchorY = series.last ?? 0
+                if ignore == 0, let anchor = catStrings.last {
+                    forecastRows.append(ChartForecastDatum(category: anchor, y: anchorY, lower: anchorY, upper: anchorY))
+                }
+                var futureCats: [String] = []
+                var seenYears = Set(scXLabels.values)
+                for (k, point) in projected.enumerated() {
+                    let serial = DateDisplay.serial(year: last.year, month: last.month + ignore + k + 1, day: last.day)
+                    let text = data.categoryLevels.text(.dateTime(serial), at: 0)
+                    guard !catStrings.contains(text), !futureCats.contains(text) else { continue }
+                    futureCats.append(text)
+                    forecastRows.append(ChartForecastDatum(category: text, y: point.y, lower: point.lower, upper: point.upper))
+                    minValY1 = Swift.min(minValY1, point.lower)
+                    maxValY1 = Swift.max(maxValY1, point.upper)
+                    let year = String(DateDisplay.civil(serial: serial).year)
+                    if isScalar, seenYears.insert(year).inserted {
+                        scXTicks.append(text)
+                        scXLabels[text] = year
+                    }
+                }
+                self.categories = catStrings + futureCats
+                self.scalarXTicks = scXTicks
+                self.scalarXLabels = scXLabels
+            }
+        }
+
         // Prepare Y1 and Y2 ticks
         // Định dạng trục: định dạng tĩnh của measure; không có thì lấy định dạng động của ô đầu tiên có giá trị (ví dụ "0%").
         func axisFormat(_ mIdx: Int?) -> String {
@@ -816,6 +864,7 @@ struct PreparedChartLayout: Sendable {
         self.lineSeries = computedLines
         self.trendPoints = computedTrend
         self.showTrend = showTrend
+        self.forecastPoints = forecastRows
         
         self.hasSecondaryAxis = hasY2
         self.y2Ticks = y2Ticks
@@ -828,19 +877,31 @@ struct PreparedChartLayout: Sendable {
 
 private struct RightClickDetector: NSViewRepresentable {
     var onRightClick: (CGPoint) -> Void
+    /// Cuộn chuột/trackpad (dx, dy theo điểm ảnh). Trả `true` nếu biểu đồ tự cuộn; `false` thì sự kiện đi tiếp cho trang.
+    var onScroll: (CGFloat, CGFloat) -> Bool = { _, _ in false }
     
     func makeNSView(context: Context) -> ClickInterceptionNSView {
         let view = ClickInterceptionNSView()
         view.onRightClick = onRightClick
+        view.onScroll = onScroll
         return view
     }
     
     func updateNSView(_ nsView: ClickInterceptionNSView, context: Context) {
         nsView.onRightClick = onRightClick
+        nsView.onScroll = onScroll
     }
     
     class ClickInterceptionNSView: NSView {
         var onRightClick: ((CGPoint) -> Void)?
+        var onScroll: ((CGFloat, CGFloat) -> Bool)?
+
+        override func scrollWheel(with event: NSEvent) {
+            let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
+            if onScroll?(event.scrollingDeltaX * scale, event.scrollingDeltaY * scale) != true {
+                nextResponder?.scrollWheel(with: event)
+            }
+        }
         
         override func rightMouseDown(with event: NSEvent) {
             let loc = convert(event.locationInWindow, from: nil)
@@ -849,7 +910,7 @@ private struct RightClickDetector: NSViewRepresentable {
         }
         
         override func hitTest(_ point: NSPoint) -> NSView? {
-            guard let event = NSApp.currentEvent, event.type == .rightMouseDown else {
+            guard let event = NSApp.currentEvent, event.type == .rightMouseDown || event.type == .scrollWheel else {
                 return nil
             }
             return self
@@ -870,6 +931,7 @@ struct CartesianChartView: View {
     @State private var plotWidth: CGFloat = 0
     /// Danh mục đầu tiên đang hiện khi trục cuộn ngang.
     @State private var scrollX: String = ""
+    @State private var scrollRemainder: CGFloat = 0
     
     init(data: CategoricalData, kind: CartesianKind, context: VisualRenderContext, interactive: Bool = true) {
         self.data = data
@@ -939,6 +1001,22 @@ struct CartesianChartView: View {
         return layout.categories.count > visibleCategoryCount
     }
 
+    /// Cuộn trục danh mục bằng bánh xe hoặc trackpad. false nếu trục không cuộn (để trang cuộn).
+    private func scrollCategories(dx: CGFloat, dy: CGFloat) -> Bool {
+        guard needsCategoryScroll else { return false }
+        let delta = abs(dx) >= abs(dy) ? dx : dy
+        let perCategory = Swift.max(1, plotWidth / CGFloat(visibleCategoryCount))
+        scrollRemainder += delta
+        let steps = Int((scrollRemainder / perCategory).rounded(.towardZero))
+        guard steps != 0 else { return true }
+        scrollRemainder -= CGFloat(steps) * perCategory
+        let count = layout.categories.count
+        let current = layout.categories.firstIndex(of: scrollX) ?? 0
+        let next = Swift.max(0, Swift.min(count - visibleCategoryCount, current - steps))
+        scrollX = layout.categories[next]
+        return true
+    }
+
     private var scrollBar: some View {
         let total = CGFloat(layout.categories.count)
         let visible = CGFloat(min(visibleCategoryCount, layout.categories.count))
@@ -951,7 +1029,15 @@ struct CartesianChartView: View {
         }
         .frame(height: 6)
         .padding(.horizontal, 8)
-        .allowsHitTesting(false)
+        // Kéo hoặc bấm thanh để cuộn: giữa thanh trượt nằm tại điểm bấm.
+        .contentShape(Rectangle().inset(by: -6))
+        .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
+            guard plotWidth > 0, !layout.categories.isEmpty else { return }
+            let count = layout.categories.count
+            let center = Int((drag.location.x / plotWidth) * CGFloat(count))
+            let first = Swift.max(0, Swift.min(count - visibleCategoryCount, center - visibleCategoryCount / 2))
+            scrollX = layout.categories[first]
+        })
     }
 
     private var chartViewPadded: some View {
@@ -992,12 +1078,6 @@ struct CartesianChartView: View {
         
         if interactive {
             base
-                .overlay {
-                    RightClickDetector { loc in
-                        let ptID = findPointID(at: loc)
-                        context.actions.contextMenu(ptID, loc)
-                    }
-                }
                 .chartOverlay { proxy in
                     GeometryReader { geo in
                         Rectangle()
@@ -1018,6 +1098,12 @@ struct CartesianChartView: View {
                                 }
                             }
                     }
+                }
+                .overlay {
+                    RightClickDetector(onRightClick: { loc in
+                        let ptID = findPointID(at: loc)
+                        context.actions.contextMenu(ptID, loc)
+                    }, onScroll: { dx, dy in scrollCategories(dx: dx, dy: dy) })
                 }
         } else {
             base
@@ -1214,6 +1300,28 @@ struct CartesianChartView: View {
                     .foregroundStyle(Color(hex: "#333333") ?? .secondary)
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                 }
+            }
+
+            // Dự báo: dải tin cậy xám và đường mảnh đen (Power BI, d1.png).
+            ForEach(layout.forecastPoints) { pt in
+                AreaMark(
+                    x: .value("Category", pt.category),
+                    yStart: .value("Lower", Swift.max(layout.columnYDomain.lowerBound, pt.lower)),
+                    yEnd: .value("Upper", Swift.min(layout.columnYDomain.upperBound, pt.upper)),
+                    series: .value("Series", "ForecastBand")
+                )
+                .foregroundStyle(Color(hex: "#B8B8C4")?.opacity(0.55) ?? .gray.opacity(0.4))
+                .interpolationMethod(.catmullRom)
+            }
+            ForEach(layout.forecastPoints) { pt in
+                LineMark(
+                    x: .value("Category", pt.category),
+                    y: .value("Forecast", pt.y),
+                    series: .value("Series", "Forecast")
+                )
+                .foregroundStyle(Color(hex: "#1F1F1F") ?? .black)
+                .lineStyle(StrokeStyle(lineWidth: 1))
+                .interpolationMethod(.catmullRom)
             }
         }
         .chartXScale(domain: layout.categories)
@@ -1437,6 +1545,11 @@ struct CartesianChartView: View {
             let plotW = plotRect.width
             let relX = location.x - plotRect.origin.x
             guard relX >= 0 && relX <= plotW else { return nil }
+            // Trục có thể đang cuộn hoặc có thêm tháng dự báo: hỏi biểu đồ danh mục tại vị trí này thay vì chia đều theo số điểm.
+            if let name = p.value(atX: relX, as: String.self), let at = layout.categories.firstIndex(of: name) {
+                guard at < data.categories.count else { return nil }
+                return buildPointID(c: at, s: 0)
+            }
             let frac = relX / plotW
             let idx = Int(frac * CGFloat(data.categories.count))
             cIdx = Swift.max(0, Swift.min(data.categories.count - 1, idx))

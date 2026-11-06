@@ -22,6 +22,18 @@ enum DateDisplay {
         return (yoe + era * 400 + (month <= 2 ? 1 : 0), month, day)
     }
 
+    /// Số serial OLE của ngày (năm, tháng, ngày); tháng ngoài 1…12 được quy về năm kế bên.
+    static func serial(year: Int, month: Int, day: Int) -> Double {
+        let y0 = year + (month - 1) / 12 - (month < 1 ? 1 : 0)
+        let m0 = ((month - 1) % 12 + 12) % 12 + 1
+        let y = m0 <= 2 ? y0 - 1 : y0
+        let era = (y >= 0 ? y : y - 399) / 400
+        let yoe = y - era * 400
+        let doy = (153 * (m0 > 2 ? m0 - 3 : m0 + 9) + 2) / 5 + day - 1
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+        return Double(era * 146_097 + doe - 719_468 + 25_569)
+    }
+
     /// Mẫu có chứa ký tự ngày (y, M, d) ngoài dấu nháy.
     static func isDatePattern(_ pattern: String) -> Bool {
         var quoted = false, escaped = false
