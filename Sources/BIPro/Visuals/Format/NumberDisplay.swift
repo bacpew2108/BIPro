@@ -81,6 +81,10 @@ enum NumberDisplay {
     /// Định dạng theo `formatString` của ô, không đổi đơn vị (bảng, tooltip).
     static func plain(_ cell: DataCell) -> String {
         if case .blank = cell.value { return "" }
+        if case .dateTime(let serial) = cell.value, let pattern = cell.formatString, DateDisplay.isDatePattern(pattern),
+           let text = DateDisplay.format(serial: serial, pattern: pattern) {
+            return text
+        }
         if let pattern = cell.formatString, !pattern.isEmpty,
            let text = try? FormatString.format(cell.value, pattern: pattern, culture: culture) {
             return text

@@ -198,4 +198,26 @@ struct FilterEditingTests {
         #expect(!chiMot.exclude && chiMot.values == [.integer(2012)], "chọn ít = là")
         #expect(FilterEditing.filter(column: year, checked: [], all: years).predicate == nil, "bỏ hết = không lọc, giao diện tự giữ trạng thái trống")
     }
+
+    @Test func gioHienTheoDinhDangCuaCot() {
+        let hour = QueryColumn(table: "Fact_Transaction", column: "trans_hour")
+        let format = "00\":00\""
+        let field = FieldInfo(queryRef: "Fact_Transaction.trans_hour", displayName: "Giờ", role: "Rows", formatString: format, isMeasure: false)
+        #expect(field.text(.integer(8)) == "08:00")
+        #expect([field].text(.integer(17), at: 3) == "17:00", "cấp quá số cấp thì dùng cấp cuối")
+        let filter = UserFilter(column: hour, values: [.integer(17)], exclude: true)
+        #expect(filter.summary(format: format) == "không phải 17:00")
+        #expect(filter.summary == "không phải 17", "không có định dạng thì giữ nguyên")
+        #expect(FilterEditing.matching([.integer(8), .integer(17)], search: "17:", format: format) == [.integer(17)])
+    }
+
+    @Test func ngayTheoMauCuaCot() {
+        let jan2013 = Value.dateTime(41275)   // 1/1/2013, thứ ba
+        #expect(NumberDisplay.plain(DataCell(jan2013, formatString: "MMM yyyy")) == "Jan 2013")
+        #expect(NumberDisplay.plain(DataCell(jan2013, formatString: "dd/MM/yyyy")) == "01/01/2013")
+        #expect(NumberDisplay.plain(DataCell(jan2013, formatString: "dddd, MMMM d, yyyy")) == "Tuesday, January 1, 2013")
+        #expect(DateDisplay.civil(serial: 41275.0).year == 2013)
+        #expect(DateDisplay.civil(serial: 41306).month == 2 && DateDisplay.civil(serial: 41306).day == 1)
+        #expect(NumberDisplay.plain(DataCell(jan2013, formatString: nil)) == "1/1/2013 12:00:00 AM", "không có mẫu thì giữ như cũ")
+    }
 }

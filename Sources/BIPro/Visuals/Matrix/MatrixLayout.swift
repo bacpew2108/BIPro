@@ -43,7 +43,7 @@ struct MatrixLayout: Sendable {
             // Tự tính theo nhãn cấp hàng và nội dung hàng
             var maxChars = data.rowLevels.first?.displayName.count ?? 8
             for r in data.rows {
-                let text = r.isGrandTotal ? "Total" : (r.path.last?.asText() ?? "")
+                let text = r.isGrandTotal ? "Total" : (r.path.last.map { data.rowLevels.text($0, at: r.path.count - 1) } ?? "")
                 maxChars = max(maxChars, text.count + (r.level > 0 ? r.level * 2 : 0))
             }
             self.rowHeaderWidth = max(110, min(240, CGFloat(maxChars * 8 + 36)))
@@ -94,7 +94,7 @@ struct MatrixLayout: Sendable {
                 var maxChars = 6
                 if !data.columns.isEmpty && c < data.columns.count {
                     let colHeader = data.columns[c]
-                    let text = colHeader.isGrandTotal ? "Total" : (colHeader.path.last?.asText() ?? "")
+                    let text = colHeader.isGrandTotal ? "Total" : (colHeader.path.last.map { data.columnLevels.text($0, at: colHeader.path.count - 1) } ?? "")
                     maxChars = max(maxChars, text.count)
                 }
                 for m in data.measures {

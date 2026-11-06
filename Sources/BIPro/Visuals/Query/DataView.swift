@@ -23,6 +23,19 @@ struct FieldInfo: Hashable, Sendable {
     var isMeasure: Bool
 }
 
+extension FieldInfo {
+    /// Văn bản của một giá trị thuộc cột này, theo định dạng của cột trong model (`trans_hour` `00":00"` → `08:00`,
+    /// `month_start` `MMM yyyy` → `Jan 2013`). Cột không có định dạng thì như `asText()`.
+    func text(_ value: Value) -> String { NumberDisplay.plain(DataCell(value, formatString: formatString)) }
+}
+
+extension Array where Element == FieldInfo {
+    /// Văn bản của giá trị ở cấp `index` (cấp quá số cấp đang có thì dùng cấp cuối), để dùng cho khoá danh mục nhiều cấp.
+    func text(_ value: Value, at index: Int) -> String {
+        isEmpty ? value.asText() : self[Swift.min(Swift.max(0, index), count - 1)].text(value)
+    }
+}
+
 /// Một ô giá trị đã kèm thông tin định dạng có điều kiện lấy từ measure.
 struct DataCell: Hashable, Sendable {
     var value: Value

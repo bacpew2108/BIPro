@@ -29,7 +29,8 @@ enum FilterEditing {
     }
 
     static func summary(of filter: ReportFilter, key: UserFilterKey, interaction: ReportInteraction) -> String {
-        interaction.userFilters[key]?.summary ?? filter.summary
+        guard let edit = interaction.userFilters[key] ?? UserFilter.from(filter) else { return filter.summary }
+        return edit.summary(format: interaction.formatString(of: edit.column))
     }
 
     /// Thêm hoặc bớt một giá trị. Trả bộ lọc mới.
@@ -48,8 +49,8 @@ enum FilterEditing {
     }
 
     /// Giá trị còn khớp ô tìm kiếm.
-    static func matching(_ values: [Value], search: String) -> [Value] {
-        search.isEmpty ? values : values.filter { UserFilter.display($0).localizedCaseInsensitiveContains(search) }
+    static func matching(_ values: [Value], search: String, format: String? = nil) -> [Value] {
+        search.isEmpty ? values : values.filter { UserFilter.display($0, format: format).localizedCaseInsensitiveContains(search) }
     }
 
     /// Tập giá trị đang được đánh dấu, như Basic filtering của Power BI: không lọc = đánh dấu hết; "là" = đúng các giá trị
@@ -117,10 +118,11 @@ struct BasicFilterEditor: View {
 
     @ViewBuilder private func content(_ values: [Value]) -> some View {
         let current = interaction.userFilters[key] ?? UserFilter.from(filter)
+        let format = interaction.formatString(of: column)
         let truncated = values.count >= Self.limit
         let on: Set<Value> = cleared ? [] : truncated ? Self.legacyChecked(current, values: values) : FilterEditing.checked(current, all: values)
         SearchField(text: $search, prompt: "Tìm kiếm")
-        let shown = FilterEditing.matching(values, search: search)
+        let shown = FilterEditing.matching(values, search: search, format: format)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if !single, search.isEmpty {
@@ -128,7 +130,7 @@ struct BasicFilterEditor: View {
                         lit: !on.isEmpty) { toggleAll(values, on: on, truncated: truncated) }
                 }
                 ForEach(shown, id: \.self) { value in
-                    row(title: UserFilter.display(value), symbol: on.contains(value) ? "checkmark.square.fill" : "square", lit: on.contains(value)) {
+                    row(title: UserFilter.display(value, format: format), symbol: on.contains(value) ? "checkmark.square.fill" : "square", lit: on.contains(value)) {
                         pick(value, values: values, on: on, current: current, truncated: truncated)
                     }
                 }

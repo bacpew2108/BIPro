@@ -22,6 +22,9 @@ struct ReportPageView: View {
                 canvas(scale: scale)
                     .padding(margin)
                     .frame(minWidth: geo.size.width, minHeight: geo.size.height)
+                    // Bấm ra ngoài trang: bỏ chọn visual và lựa chọn điểm dữ liệu.
+                    .contentShape(Rectangle())
+                    .onTapGesture { deselect() }
             }
             .scrollDisabled(zoom == nil)
             .onAppear { onScale(scale) }
@@ -30,10 +33,15 @@ struct ReportPageView: View {
         .background(DS.Palette.backdrop)
     }
 
+    private func deselect() {
+        selectedVisual = nil
+        interaction?.clearSelection(page: page)
+    }
+
     private func canvas(scale: Double) -> some View {
         ZStack(alignment: .topLeading) {
             pageBackground
-                .onTapGesture { selectedVisual = nil }
+                .onTapGesture { deselect() }
             ForEach(page.visuals.filter { !(interaction?.isHidden($0) ?? $0.isHidden) }) { visual in
                 VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
                     .frame(width: visual.width, height: visual.height)

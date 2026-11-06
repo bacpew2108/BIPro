@@ -64,10 +64,20 @@ struct UserFilter: Hashable, Sendable {
     }
 
     /// Chữ tóm tắt như Power BI: `là 2016, 2017` / `không phải 9999`.
-    var summary: String {
+    var summary: String { summary(format: nil) }
+
+    /// Như `summary`, giá trị hiện theo định dạng của cột (`format`, ví dụ `00":00"` → `17:00`).
+    func summary(format: String?) -> String {
         guard isActive else { return "là (Tất cả)" }
-        let text = values.sorted(by: FilterTranslator.valuePrecedes).map(Self.display).joined(separator: ", ")
+        let text = values.sorted(by: FilterTranslator.valuePrecedes).map { Self.display($0, format: format) }.joined(separator: ", ")
         return (exclude ? "không phải " : "là ") + text
+    }
+
+    /// Giá trị theo định dạng của cột; không có định dạng thì như `display(_:)`.
+    static func display(_ value: Value, format: String?) -> String {
+        if case .blank = value { return display(value) }
+        guard let format, !format.isEmpty else { return display(value) }
+        return NumberDisplay.plain(DataCell(value, formatString: format))
     }
 
     static func display(_ value: Value) -> String {

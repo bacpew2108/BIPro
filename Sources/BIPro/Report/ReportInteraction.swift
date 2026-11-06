@@ -69,6 +69,12 @@ final class ReportInteraction {
         }
     }
 
+    /// Bấm ra ngoài mọi visual: bỏ lựa chọn điểm dữ liệu (lọc chéo, tô sáng) của trang, như Power BI.
+    func clearSelection(page: ReportPage) {
+        guard !state(for: page).selection.points.isEmpty else { return }
+        update(page: page) { $0.selection.select(nil, additive: false, from: InteractionTarget(visualID: "", visualType: ""), columns: []) }
+    }
+
     // MARK: - Ẩn/hiện và bookmark (gói P)
 
     func isHidden(_ visual: ReportVisual) -> Bool { visibility.isHidden(visual) }
@@ -86,6 +92,11 @@ final class ReportInteraction {
     /// Đặt bộ lọc Basic cho một thẻ. `nil` hoặc không có giá trị nào = bỏ bộ lọc do người dùng đặt, quay về bản trong file.
     func setUserFilter(_ filter: UserFilter?, for key: UserFilterKey) {
         userFilters[key] = filter
+    }
+
+    /// Chuỗi định dạng của cột trong model (nil nếu không có), để hiện giá trị trong Filters pane như trên visual.
+    func formatString(of column: QueryColumn) -> String? {
+        workspace.metadata?.columns.first { $0.tableName == column.table && $0.name == column.column }?.formatString
     }
 
     /// Bộ lọc thấy được của một thẻ sau khi áp phần người dùng sửa, để Filters pane hiện lại đúng trạng thái.

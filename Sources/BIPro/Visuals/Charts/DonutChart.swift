@@ -335,7 +335,7 @@ struct DonutChartView: View {
 
             var catName = ""
             if let catKey {
-                catName = catKey.values.map { $0.asText() }.joined(separator: " ")
+                catName = catKey.values.enumerated().map { data.categoryLevels.text($1, at: $0) }.joined(separator: " ")
             }
 
             var slice = s

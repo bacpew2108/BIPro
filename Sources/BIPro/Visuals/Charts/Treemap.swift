@@ -228,7 +228,7 @@ enum TreemapLayout {
                 let ptID = DataPointID(ptDict)
 
                 let catVal = c < data.categories.count && !data.categories[c].values.isEmpty ? data.categories[c].values[0] : .blank
-                let label = catVal.asText()
+                let label = data.categoryLevels.text(catVal, at: 0)
 
                 let color = theme.dataColor(c)
                 let fmtVal = NumberDisplay.text(cell, units: format.dataLabels.displayUnits, precision: format.dataLabels.precision)

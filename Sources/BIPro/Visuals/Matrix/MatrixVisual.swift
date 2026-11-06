@@ -137,7 +137,7 @@ struct MatrixGridView: View {
         if col.isGrandTotal {
             label = tier == layout.headerTiers - 1 ? "Total" : ""
         } else if tier < col.path.count {
-            label = col.path[tier].asText()
+            label = data.columnLevels.text(col.path[tier], at: tier)
         } else {
             label = ""
         }
@@ -221,7 +221,7 @@ struct MatrixGridView: View {
 
     private func rowHeaderCell(row: MatrixHeader, rowIndex r: Int) -> some View {
         let isTotal = row.isGrandTotal || row.isSubtotal
-        let label = row.isGrandTotal ? "Total" : (row.path.last?.asText() ?? "")
+        let label = row.isGrandTotal ? "Total" : (row.path.last.map { data.rowLevels.text($0, at: row.path.count - 1) } ?? "")
         let indent = CGFloat(max(0, row.level)) * 16.0
         let pointID = rowPointID(row: r)
         let isSelected = context.selection.contains(pointID)

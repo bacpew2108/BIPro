@@ -323,7 +323,7 @@ struct PreparedChartLayout: Sendable {
         
         var catStrings: [String] = []
         for cat in data.categories {
-            let str = cat.values.map { $0.asText() }.joined(separator: " ")
+            let str = cat.values.enumerated().map { data.categoryLevels.text($1, at: $0) }.joined(separator: " ")
             catStrings.append(str.isEmpty ? "Blank" : str)
         }
         self.categories = catStrings
@@ -407,8 +407,13 @@ struct PreparedChartLayout: Sendable {
         var scXLabels: [String: String] = [:]
         if isScalar {
             var seenYears = Set<String>()
-            for catStr in catStrings {
-                let yr = String(catStr.prefix(4))
+            for (index, catStr) in catStrings.enumerated() {
+                // Năm lấy từ giá trị gốc (chuỗi hiển thị có thể là "Jan 2013" hay "1/1/2013").
+                let raw = data.categories[index].values.first
+                let yr = raw.flatMap { value -> String? in
+                    if case .dateTime(let serial) = value { return String(DateDisplay.civil(serial: serial).year) }
+                    return nil
+                } ?? String(catStr.prefix(4))
                 if !seenYears.contains(yr) {
                     seenYears.insert(yr)
                     scXTicks.append(catStr)
@@ -863,6 +868,8 @@ struct CartesianChartView: View {
     private let layout: PreparedChartLayout
     /// Độ rộng vùng vẽ, đo bằng GeometryReader nền; dùng để quyết định xoay nhãn danh mục (như Power BI).
     @State private var plotWidth: CGFloat = 0
+    /// Danh mục đầu tiên đang hiện khi trục cuộn ngang.
+    @State private var scrollX: String = ""
     
     init(data: CategoricalData, kind: CartesianKind, context: VisualRenderContext, interactive: Bool = true) {
         self.data = data
@@ -922,22 +929,63 @@ struct CartesianChartView: View {
         }
     }
     
-    private var chartViewPadded: some View {
-        chartViewWithEvents
-            .background(GeometryReader { geo in
-                Color.clear
-                    .onAppear { plotWidth = geo.size.width }
-                    .onChange(of: geo.size.width) { _, w in plotWidth = w }
-            })
-            .padding(.top, 14)
-            .padding(.trailing, layout.hasSecondaryAxis ? 16 : 8)
-            .padding(.leading, 8)
-            .padding(.bottom, 6)
+    /// Số danh mục hiện cùng lúc khi nhãn đã xoay dọc mà vẫn không đủ chỗ (Power BI cuộn ngang trục chữ, D1 "Rủi ro thấu chi").
+    private var visibleCategoryCount: Int {
+        max(4, Int(plotWidth / (layout.categoryFontSize * 1.9)))
     }
-    
+
+    private var needsCategoryScroll: Bool {
+        guard !layout.isScalarAxis, kind != .clusteredBar, plotWidth > 0, rotateCategoryLabels else { return false }
+        return layout.categories.count > visibleCategoryCount
+    }
+
+    private var scrollBar: some View {
+        let total = CGFloat(layout.categories.count)
+        let visible = CGFloat(min(visibleCategoryCount, layout.categories.count))
+        let start = CGFloat(layout.categories.firstIndex(of: scrollX) ?? 0)
+        return ZStack(alignment: .leading) {
+            Capsule().fill(Color.black.opacity(0.08))
+            Capsule().fill(Color.black.opacity(0.28))
+                .frame(width: max(16, plotWidth * visible / total))
+                .offset(x: min(plotWidth * start / total, plotWidth * (1 - visible / total)))
+        }
+        .frame(height: 6)
+        .padding(.horizontal, 8)
+        .allowsHitTesting(false)
+    }
+
+    private var chartViewPadded: some View {
+        VStack(spacing: 2) {
+            chartViewWithEvents
+                .background(GeometryReader { geo in
+                    Color.clear
+                        .onAppear { plotWidth = geo.size.width }
+                        .onChange(of: geo.size.width) { _, w in plotWidth = w }
+                })
+            if needsCategoryScroll { scrollBar }
+        }
+        .padding(.top, 14)
+        .padding(.trailing, layout.hasSecondaryAxis ? 16 : 8)
+        .padding(.leading, 8)
+        .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private var scrollingChartBody: some View {
+        if needsCategoryScroll {
+            chartBody
+                .chartScrollableAxes(.horizontal)
+                .chartXVisibleDomain(length: visibleCategoryCount)
+                .chartScrollPosition(x: $scrollX)
+                .onAppear { if scrollX.isEmpty, let first = layout.categories.first { scrollX = first } }
+        } else {
+            chartBody
+        }
+    }
+
     @ViewBuilder
     private var chartViewWithEvents: some View {
-        let base = chartBody
+        let base = scrollingChartBody
             .chartPlotStyle { plot in
                 plot.background(Color.clear)
             }
