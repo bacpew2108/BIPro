@@ -1469,12 +1469,22 @@ struct CartesianChartView: View {
         AxisMarks(position: .bottom, values: layout.categories) { val in
             AxisValueLabel(orientation: rotateCategoryLabels ? .verticalReversed : .horizontal) {
                 if let str = val.as(String.self) {
+                    // Nhãn xoay dọc: cùng độ rộng, căn mép gần trục, để các nhãn thẳng hàng (chữ số "1" hẹp hơn chữ số khác).
+                    let rotated = rotateCategoryLabels
                     Text(str)
-                        .font(.system(size: layout.categoryFontSize))
+                        .font(.system(size: layout.categoryFontSize).monospacedDigit())
                         .foregroundColor(Color(hex: "#252423") ?? .primary)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .frame(width: rotated ? rotatedLabelWidth : nil, alignment: .trailing)
                 }
             }
         }
+    }
+
+    /// Độ rộng chung của nhãn danh mục khi xoay dọc: nhãn dài nhất theo số chữ số cùng độ rộng.
+    private var rotatedLabelWidth: CGFloat {
+        CGFloat(layout.categories.map(\.count).max() ?? 0) * layout.categoryFontSize * 0.62
     }
     
     private func primaryYAxisMarks(ticks: [Double], labels: [String]) -> some AxisContent {
