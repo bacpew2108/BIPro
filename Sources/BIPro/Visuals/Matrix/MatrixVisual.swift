@@ -111,7 +111,9 @@ struct MatrixGridView: View {
 
     private func cornerCell(tier: Int) -> some View {
         let label: String
-        if tier == layout.headerTiers - 1 {
+        // Dòng cuối ghi tên trường hàng ("Nhóm tuổi", như ảnh Power BI b5 với 3 cấp và q1.6 chưa mở). Riêng 2 cấp (mới bấm + lần đầu)
+        // dòng 2 ghi tên cấp ("Bang") theo yêu cầu của người dùng 2026-11-07.
+        if tier == layout.headerTiers - 1, layout.headerTiers != 2 || data.columnLevels.count < 2 {
             label = data.rowLevels.map(\.displayName).joined(separator: ", ")
         } else if tier < data.columnLevels.count {
             label = data.columnLevels[tier].displayName
