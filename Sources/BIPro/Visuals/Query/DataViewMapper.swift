@@ -200,19 +200,22 @@ enum DataViewMapper {
             let si = Index(secondary)
             let colIdx = spec.secondary.map { si.column($0.column) }
             let colTotal = si.result("IsGrandTotalColumnTotal")
-            let childFlag = si.result("IsDM2Total")
-            let childIdx = spec.drillLevels.count >= 2 ? si.column(spec.drillLevels[1].column) : nil
+            // Nhiều cấp mở: cờ `IsDM2Total`, `IsDM4Total`… cho từng cấp con. Dòng thuộc cấp sâu nhất có cờ FALSE (VM C2 b5-1, b5-2).
+            let depth = spec.matrixColumnDepth
+            let flags = (0..<depth).map { si.result(VisualQuerySpec.columnFlagName($0)) }
+            let levelIdx = (0..<(depth >= 2 ? depth : 0)).map { j in si.column(spec.drillLevels[j].column) }
+            let canExpand = spec.drillLevels.count >= 2
             columns = secondary.rows.map { r in
                 if let t = colTotal, isTrue(r[t]) { return MatrixHeader(path: [], level: -1, isGrandTotal: true) }
-                var path = colIdx.map { $0.map { r[$0] } ?? .blank }
-                // Nút đang mở: dòng IsDM2Total = FALSE là cột con [cấp gốc, cấp con].
-                if let f = childFlag, let c = childIdx, !isTrue(r[f]) {
-                    path.append(r[c])
-                    return MatrixHeader(path: path, level: 1)
+                if depth >= 2 {
+                    var level = 0
+                    for j in 1..<depth { if let f = flags[j], !isTrue(r[f]) { level = j } }
+                    let path = (0...level).map { j in levelIdx[j].map { r[$0] } ?? .blank }
+                    return MatrixHeader(path: path, level: level, hasChildren: level + 1 < spec.drillLevels.count,
+                                        isExpanded: spec.expandedPaths.contains(path))
                 }
-                let expandable = spec.drillLevels.count >= 2
-                return MatrixHeader(path: path, level: 0, hasChildren: expandable,
-                                    isExpanded: expandable && path.count == 1 && spec.expanded.contains(path[0]))
+                let path = colIdx.map { $0.map { r[$0] } ?? .blank }
+                return MatrixHeader(path: path, level: 0, hasChildren: canExpand, isExpanded: false)
             }
         }
         let columnCount = max(1, columns.count)
@@ -244,7 +247,7 @@ enum DataViewMapper {
             cells.append(cells.remove(at: t))
         }
         // Cột tổng (cờ ASC nên đã ở cuối trong secondary).
-        return .matrix(MatrixData(rowLevels: spec.primary.map(\.field), columnLevels: (spec.drillLevels.count >= 2 && !spec.expanded.isEmpty ? spec.drillLevels.prefix(2).map(\.field) : spec.secondary.map(\.field)),
+        return .matrix(MatrixData(rowLevels: spec.primary.map(\.field), columnLevels: (spec.matrixColumnDepth >= 2 ? spec.drillLevels.prefix(spec.matrixColumnDepth).map(\.field) : spec.secondary.map(\.field)),
                                   measures: measures.map(\.field), rows: headers, columns: columns, cells: cells,
                                   isReduced: false))
     }

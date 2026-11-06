@@ -96,9 +96,9 @@ struct MatrixGridView: View {
                                 .overlay(cellBorder)
                         }
                     } else {
-                        ForEach(0..<data.columns.count, id: \.self) { c in
-                            columnHeaderCell(colIndex: c, tier: tier)
-                                .frame(width: layout.width(forColumn: c), height: layout.headerHeight)
+                        ForEach(Array(headerSegments(tier: tier).enumerated()), id: \.offset) { _, segment in
+                            segmentHeaderCell(segment)
+                                .frame(width: segment.cols.reduce(0) { $0 + layout.width(forColumn: $1) }, height: layout.headerHeight)
                                 .background(Color(hex: "#FAFAFA") ?? Color.white)
                                 .overlay(cellBorder)
                         }
@@ -127,6 +127,37 @@ struct MatrixGridView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6)
+    }
+
+    private func headerSegments(tier: Int) -> [MatrixHeaderSegment] { data.headerSegments(tier: tier, lastTier: layout.headerTiers - 1) }
+
+    private func segmentHeaderCell(_ segment: MatrixHeaderSegment) -> some View {
+        let pointID = columnPointID(path: segment.path)
+        let isSelected = !segment.path.isEmpty && context.selection.contains(pointID)
+        return HStack(spacing: 4) {
+            if let toggle = segment.toggle {
+                Button(action: { context.actions.drill(.toggle(axis: .columns, path: toggle.path)) }) {
+                    Image(systemName: toggle.expanded ? "minus.square" : "plus.square")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.gray)
+                }
+                .buttonStyle(.plain)
+            }
+            // Power BI căn trái nhãn tiêu đề cột, ngay sau nút +/−.
+            Text(segment.label)
+                .font(.system(size: CGFloat(context.format.matrix.columnHeaderFontSize ?? 10), weight: segment.bold ? .bold : .semibold))
+                .foregroundStyle(context.theme.foregroundColor)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .overlay(selectionOverlay(isSelected))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !segment.path.isEmpty else { return }
+            let flags = NSEvent.modifierFlags
+            context.actions.select(pointID, flags.contains(.command) || flags.contains(.control))
+        }
     }
 
     private func columnHeaderCell(colIndex c: Int, tier: Int) -> some View {
@@ -267,7 +298,7 @@ struct MatrixGridView: View {
         let cell = data.cell(row: r, column: c, measure: m)
         let rowHeader = data.rows[r]
         let colHeader = !data.columns.isEmpty && c < data.columns.count ? data.columns[c] : nil
-        let isTotal = rowHeader.isGrandTotal || rowHeader.isSubtotal || (colHeader?.isGrandTotal == true || colHeader?.isSubtotal == true)
+        let isTotal = rowHeader.isGrandTotal || rowHeader.isSubtotal || (colHeader.map { $0.isGrandTotal || $0.isSubtotal || $0.isExpanded || ($0.level >= 1 && $0.hasChildren) } ?? false)
 
         let pointID = cellPointID(row: r, col: c)
         let isSelected = context.selection.contains(pointID)
@@ -375,6 +406,12 @@ struct MatrixGridView: View {
                 values[data.rowLevels[i].queryRef] = val
             }
         }
+        return DataPointID(values)
+    }
+
+    private func columnPointID(path: [Value]) -> DataPointID {
+        var values: [String: Value] = [:]
+        for (j, val) in path.enumerated() where j < data.columnLevels.count { values[data.columnLevels[j].queryRef] = val }
         return DataPointID(values)
     }
 

@@ -150,7 +150,7 @@ struct DAXQueryBuilderExpandTests {
         let visual = try #require(page.visuals.first { $0.id.hasPrefix("70eec8cd") })
         let filters = (model.filters.visuals[visual.id] ?? []) + (model.filters.pages[page.id] ?? []) + model.filters.report
         var spec = try VisualQuerySpecReader(metadata: model.metadata).spec(for: visual, filters: filters)
-        spec.expanded = [.string("Midwest")]
+        spec.expandedPaths = [[.string("Midwest")]]
         let ours = DAXQueryBuilder.normalized(DAXQueryBuilder.build(spec))
         let theirs = DAXQueryBuilder.normalized(try goldenText("interact/matrix-expand"))
         #expect(ours == theirs, "--- Power BI\n\(theirs)\n--- BI Pro\n\(ours)\n--- lệch từ: \(firstDifference(ours, theirs))")

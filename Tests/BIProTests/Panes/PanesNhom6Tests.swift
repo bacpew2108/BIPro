@@ -1,7 +1,9 @@
 // Test nặng gói P trên file thật: BIPRO_HEAVY=1 và có ~/Downloads/Nhom6_Dashboard.pbix.
+import AppKit
 import DAXEngine
 import Foundation
 import PBIXKit
+import SwiftUI
 import Testing
 @testable import BIPro
 
@@ -273,5 +275,49 @@ struct PanesNhom6Tests {
             )
         """)
         #expect(text.contains(oracle), "\(text)")
+    }
+
+    /// Matrix Q1.6 mở nút nhiều cấp (Vùng › Bang › Chi nhánh): văn bản khớp truy vấn Power BI (VM C2 b5-1, b5-2) và cột trả về đúng.
+    @Test @MainActor func matrixMoNutNhieuCap() async throws {
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/C2_A")
+        guard let one = try? String(contentsOf: dir.appendingPathComponent("b5-1.dax"), encoding: .utf8),
+              let two = try? String(contentsOf: dir.appendingPathComponent("b5-2.dax"), encoding: .utf8) else { return }
+        let workspace = try Workspace(data: Data(contentsOf: nhom6))
+        let interaction = ReportInteraction(workspace: workspace)
+        let page = try #require(workspace.report.pages.first { $0.id == "d1_giaodich" })
+        let visual = try #require(page.visuals.first { $0.type == "pivotTable" && $0.fields.contains { $0.property == "age_group_current" } && $0.fields.contains { $0.entity == "Dim_Account" } })
+        func load() async throws -> LiveVisualData { try await interaction.load(page: page, visual: visual, state: interaction.state(for: page)) }
+        let (reader, _) = (VisualQuerySpecReader(metadata: try #require(workspace.metadata)), 0)
+        let spec = try reader.spec(for: visual, filters: [])
+        interaction.expandMatrix(visual: visual, spec: spec, path: [.string("Midwest")])
+        let first = try await load()
+        #expect(DAXQueryBuilder.normalized(first.query) == DAXQueryBuilder.normalized(one), "\(DAXQueryBuilder.normalized(first.query))")
+        guard case .matrix(let m1) = first.view else { Issue.record("không phải matrix"); return }
+        #expect(m1.columns.contains { $0.path == [.string("Midwest"), .string("Iowa")] && $0.hasChildren && !$0.isExpanded })
+        #expect(m1.columns.contains { $0.path == [.string("Midwest")] && $0.isExpanded }, "cột tổng của nút đang mở")
+
+        interaction.expandMatrix(visual: visual, spec: spec, path: [.string("Midwest"), .string("Iowa")])
+        let second = try await load()
+        #expect(DAXQueryBuilder.normalized(second.query) == DAXQueryBuilder.normalized(two), "\(DAXQueryBuilder.normalized(second.query))")
+        guard case .matrix(let m2) = second.view else { Issue.record("không phải matrix"); return }
+        #expect(m2.columns.contains { $0.path == [.string("Midwest"), .string("Iowa"), .string("Des Moines")] })
+        #expect(m2.columns.contains { $0.path == [.string("Midwest"), .string("Iowa")] && $0.isExpanded })
+        #expect(m2.columnLevels.count == 3)
+        // Xuất ảnh để xem tiêu đề nhiều tầng (build/c-out/visuals/matrixExpand3.png).
+        let out = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("build/c-out/visuals")
+        try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        for (name, data) in [("matrixExpand2", m1), ("matrixExpand3", m2)] {
+            let view = MatrixVisualView(data: data, context: VisualRenderContext(format: VisualFormat(objects: visual.objects)), scrollable: false)
+            let renderer = ImageRenderer(content: view.frame(width: 2300, height: 330, alignment: .topLeading).background(Color.white))
+            renderer.scale = 1.5
+            if let cg = renderer.cgImage, let png = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) {
+                try png.write(to: out.appendingPathComponent(name + ".png"))
+            }
+        }
+
+        // Bấm − ở Midwest đóng cả Midwest lẫn Iowa.
+        interaction.expandMatrix(visual: visual, spec: spec, path: [.string("Midwest")])
+        #expect((interaction.matrixExpansion[visual.id] ?? []).isEmpty)
     }
 }

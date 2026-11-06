@@ -47,9 +47,10 @@ import Testing
         #expect(DonutLayout.percentText(0.948) == "94.8%")
         #expect(DonutLayout.percentText(0.0181) == "1.81%")
         #expect(DonutLayout.percentText(0.0048) == "0.48%")
-        #expect(DonutLayout.percentText(0.50) == "50.0%")
-        #expect(DonutLayout.percentText(0.025) == "2.50%")
-        #expect(DonutLayout.percentText(1.0) == "100.0%")
+        #expect(DonutLayout.percentText(0.50) == "50%")
+        #expect(DonutLayout.percentText(0.025) == "2.5%")
+        #expect(DonutLayout.percentText(0.1075) == "10.75%" && DonutLayout.percentText(0.3865) == "38.65%")
+        #expect(DonutLayout.percentText(1.0) == "100%")
     }
 
     // MARK: - 3. Số ở giữa từ mẫu donutPurpose: precision = 1 và .auto

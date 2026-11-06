@@ -24,7 +24,7 @@ struct MatrixLayout: Sendable {
         // Số tầng tiêu đề
         // Chỉ vẽ các tầng đang hiện (cấp cột sâu nhất đang mở + 1), không phải mọi cấp trong `columnLevels`:
         // matrix "Nhóm tuổi × Vùng/Bang/Chi nhánh" chưa mở thì chỉ có 1 tầng "Vùng" (page-D1.png).
-        let maxActive = data.columns.filter { !$0.isGrandTotal }.map(\.level).max() ?? -1
+        let maxActive = data.columns.filter { !$0.isGrandTotal }.map(Self.leafTier).max() ?? -1
         self.activeHeaderTiers = max(1, maxActive + 1)
         self.headerTiers = activeHeaderTiers
 
@@ -107,6 +107,11 @@ struct MatrixLayout: Sendable {
         self.columnWidths = widths
         self.totalWidth = rowHeaderWidth + widths.reduce(0, +)
         self.totalHeight = headerHeight * CGFloat(headerTiers) + rowHeight * CGFloat(data.rows.count)
+    }
+
+    /// Tầng chứa nhãn của chính cột: cột tổng của nút đang mở nằm sâu hơn một tầng (nhãn "Total" dưới tên nút, như Power BI).
+    static func leafTier(_ header: MatrixHeader) -> Int {
+        header.isExpanded ? header.path.count : max(0, header.path.count - 1)
     }
 
     func width(forColumn index: Int) -> CGFloat {

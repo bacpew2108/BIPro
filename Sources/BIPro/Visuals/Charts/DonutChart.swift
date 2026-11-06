@@ -97,18 +97,18 @@ enum DonutLayout {
         return result
     }
 
-    /// Định dạng phần trăm của lát donut (0.948 -> "94.8%", 0.0181 -> "1.81%", 0.0048 -> "0.48%").
-    /// [SUY ĐOÁN] quy tắc làm tròn: 3 chữ số có nghĩa (>= 10% dùng 1 chữ số thập phân, < 10% dùng 2 chữ số thập phân).
+    /// Định dạng phần trăm của lát donut: làm tròn 2 chữ số thập phân rồi bỏ số 0 thừa (0.948 -> "94.8%", 0.1075 -> "10.75%",
+    /// 0.0044 -> "0.44%", 0.5 -> "50%"). [QUAN SÁT, VM C2 q1.2-2 và b1] 37.39%, 10.75%, 38.65%, 0.29%, 19.5%, 0.3%, 0.08%;
+    /// quy tắc cũ (từ 10% chỉ 1 chữ số thập phân) sai ở 10.75% và 38.65%.
     static func percentText(_ fraction: Double) -> String {
         let p = fraction * 100.0
         guard p.isFinite else { return "" }
-        let precision: Int
-        if p >= 10.0 {
-            precision = 1
-        } else {
-            precision = 2
+        var text = NumberDisplay.decimal(p, precision: 2)
+        if text.contains(".") {
+            while text.hasSuffix("0") { text.removeLast() }
+            if text.hasSuffix(".") { text.removeLast() }
         }
-        return NumberDisplay.decimal(p, precision: precision) + "%"
+        return text + "%"
     }
 
     /// Chuỗi hiển thị ở tâm donut: tổng của measure Y qua `NumberDisplay.text(...)`.
@@ -455,8 +455,10 @@ struct DonutChartView: View {
 
                 // Nhãn ngoài vòng có đường dẫn
                 if context.format.dataLabels.show != false {
+                    let fontSize = ReportUnits.pixels(fromPoints: context.format.dataLabels.fontSize ?? 9)
+                    let ys = Self.labelYs(slices: slices, center: center, radius: outerRadius, height: geo.size.height, fontSize: fontSize)
                     ForEach(slices, id: \.index) { slice in
-                        donutLabel(for: slice, center: center, radius: outerRadius, in: geo.size)
+                        donutLabel(for: slice, center: center, radius: outerRadius, in: geo.size, labelY: ys[slice.index])
                     }
                 }
 
@@ -483,9 +485,32 @@ struct DonutChartView: View {
     }
 
     @ViewBuilder
-    private func donutLabel(for slice: DonutSlice, center: CGPoint, radius: CGFloat, in bounds: CGSize) -> some View {
+    /// Toạ độ y của nhãn từng lát: mỗi nửa (trái, phải) xếp từ trên xuống, cách nhau ít nhất một dòng chữ, dồn ngược lên nếu
+    /// tràn đáy. Nhãn của lát nhỏ kề nhau nhờ vậy không chồng lên nhau, đường dẫn gấp khúc nối về lát (như Power BI).
+    static func labelYs(slices: [DonutSlice], center: CGPoint, radius: CGFloat, height: CGFloat, fontSize: CGFloat) -> [Int: CGFloat] {
+        let gap = fontSize * 1.35
+        var result: [Int: CGFloat] = [:]
+        for right in [true, false] {
+            var side = slices.filter { (cos(($0.startAngle + $0.endAngle) / 2) >= 0) == right }.map { slice -> (index: Int, y: CGFloat) in
+                (slice.index, center.y + sin((slice.startAngle + slice.endAngle) / 2) * (radius + 14))
+            }
+            side.sort { $0.y < $1.y }
+            for i in side.indices.dropFirst() where side[i].y < side[i - 1].y + gap { side[i].y = side[i - 1].y + gap }
+            if let last = side.last, last.y > height - gap / 2 {
+                side[side.count - 1].y = height - gap / 2
+                for i in stride(from: side.count - 2, through: 0, by: -1) where side[i].y > side[i + 1].y - gap { side[i].y = side[i + 1].y - gap }
+            }
+            for entry in side { result[entry.index] = max(gap / 2, entry.y) }
+        }
+        return result
+    }
+
+    private static func textHalfWidth(_ text: String, _ fontSize: CGFloat) -> CGFloat { CGFloat(text.count) * fontSize * 0.28 }
+
+    @ViewBuilder
+    private func donutLabel(for slice: DonutSlice, center: CGPoint, radius: CGFloat, in bounds: CGSize, labelY: CGFloat?) -> some View {
         let midAngle = (slice.startAngle + slice.endAngle) / 2.0
-        let labelDistance = radius + 14.0
+        let labelDistance = radius + 10.0
 
         let pt0 = CGPoint(
             x: center.x + cos(midAngle) * radius,
@@ -496,10 +521,10 @@ struct DonutChartView: View {
             y: center.y + sin(midAngle) * labelDistance
         )
         let isRight = cos(midAngle) >= 0
-        let pt2 = CGPoint(
-            x: pt1.x + (isRight ? 12 : -12),
-            y: pt1.y
-        )
+        // Đoạn cuối nằm ngang ở độ cao đã xếp; nhãn bám cuối đoạn này.
+        let ly = labelY ?? pt1.y
+        let elbowX = center.x + (isRight ? 1 : -1) * (radius + 22)
+        let pt2 = CGPoint(x: elbowX, y: ly)
 
         let labelText: String = {
             let style = context.format.dataLabels.labelStyle ?? "Percent of total"
@@ -529,6 +554,7 @@ struct DonutChartView: View {
                 path.move(to: pt0)
                 path.addLine(to: pt1)
                 path.addLine(to: pt2)
+                path.addLine(to: CGPoint(x: pt2.x + (isRight ? 6 : -6), y: pt2.y))
             }
             .stroke(Color.gray.opacity(0.4), lineWidth: 0.75)
 
@@ -536,7 +562,8 @@ struct DonutChartView: View {
             Text(labelText)
                 .font(.system(size: fontSize, weight: context.format.dataLabels.bold == true ? .bold : .regular))
                 .foregroundColor(fontColor)
-                .position(x: pt2.x + (isRight ? 18 : -18), y: pt2.y)
+                .fixedSize()
+                .position(x: pt2.x + (isRight ? 9 + Self.textHalfWidth(labelText, fontSize) : -9 - Self.textHalfWidth(labelText, fontSize)), y: pt2.y)
         }
     }
 }

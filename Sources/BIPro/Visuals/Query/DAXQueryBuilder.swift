@@ -289,8 +289,12 @@ enum DAXQueryBuilder {
     private static func buildMatrix(_ spec: VisualQuerySpec, filters: [String], into w: inout Writer) {
         let rowCols = groupColumns(spec.primary)
         let colCols = groupColumns(spec.secondary)
-        // Cột có nút đang mở (C1.md §2.2, matrix-expand): cấp gốc kèm cấp con của nút mở, cờ `IsDM2Total`.
-        let expandedColumns = spec.drillLevels.count >= 2 && !spec.expanded.isEmpty && spec.secondary.count == 1 && spec.columnTotals
+        // Cột có nút đang mở (C1.md §2.2, matrix-expand; nhiều cấp: VM C2 b5-1, b5-2): các cấp từ gốc tới cấp sâu nhất đang mở,
+        // cờ tổng `IsGrandTotalColumnTotal`, `IsDM2Total`, `IsDM4Total`…
+        let depth = spec.matrixColumnDepth
+        let expandedColumns = depth >= 2 && spec.columnTotals
+        let levels = Array(spec.drillLevels.prefix(depth))
+        func flag(_ j: Int) -> String { VisualQuerySpec.columnFlagName(j) }
         func rollup(_ groups: [GroupField], _ flag: String) -> String {
             let cols = groupColumns(groups)
             let inner = cols.count > 1 ? inline("ROLLUPGROUP", cols) : cols.first ?? ""
@@ -298,28 +302,43 @@ enum DAXQueryBuilder {
         }
         let rowGroup = spec.rowTotals ? [rollup(spec.primary, "IsGrandTotalRowTotal")] : rowCols
         var colGroup = spec.columnTotals && !spec.secondary.isEmpty ? [rollup(spec.secondary, "IsGrandTotalColumnTotal")] : colCols
-        let l0 = spec.drillLevels.first, l1 = spec.drillLevels.count > 1 ? spec.drillLevels[1] : nil
-        if expandedColumns, let l0, let l1 {
-            colGroup = [call("ROLLUPADDISSUBTOTAL", [l0.column.dax, "\"IsGrandTotalColumnTotal\"", l1.column.dax, "\"IsDM2Total\""])]
+        if expandedColumns {
+            colGroup = [call("ROLLUPADDISSUBTOTAL", levels.enumerated().flatMap { [$1.column.dax, "\"\(flag($0))\""] })]
         }
         let coreName = expandedColumns ? "__DS0CoreNoInstanceFilters" : "__DS0Core"
         let src = expandedColumns ? "__DS0CoreWithInstanceFilters" : "__DS0Core"
         w.variable(coreName, call("SUMMARIZECOLUMNS", rowGroup + colGroup + filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
         var colCols2 = colCols
-        if expandedColumns, let l0, let l1 {
-            let literals = spec.expanded.map { FilterTranslator.literal($0) }.joined(separator: ", ")
-            w.variable(src, call("FILTER", ["KEEPFILTERS(\(coreName))", call("OR", [
-                inline("OR", ["[IsGrandTotalColumnTotal]", "AND(NOT([IsGrandTotalColumnTotal]), [IsDM2Total])"]),
-                "AND(NOT([IsDM2Total]), \(l0.column.dax) IN {\(literals)})"])]))
-            colCols2 = [l0.column.dax, "[IsGrandTotalColumnTotal]", l1.column.dax, "[IsDM2Total]"]
+        if expandedColumns {
+            /// Nút đang mở ở độ dài `i`: `cột IN {…}` (một cấp) hoặc `(c0, c1) IN {(v0, v1), …}`.
+            func opened(_ i: Int) -> String {
+                let cols = levels.prefix(i).map(\.column.dax)
+                let tuples = spec.expandedPaths.filter { $0.count == i }.map { path in
+                    path.map { FilterTranslator.literal($0) }.joined(separator: ", ")
+                }
+                return i == 1 ? "\(cols[0]) IN {\(tuples.joined(separator: ", "))}"
+                    : "(\(cols.joined(separator: ", "))) IN {\(tuples.map { "(\($0))" }.joined(separator: ", "))}"
+            }
+            func and(_ parts: [String]) -> String { parts.dropFirst().reduce(parts[0]) { inline("AND", [$0, $1]) } }
+            var terms = ["[IsGrandTotalColumnTotal]", "AND(NOT([IsGrandTotalColumnTotal]), [IsDM2Total])"]
+            for j in 1..<depth {
+                var parts = ["NOT([\(flag(j))])"]
+                if j < depth - 1 { parts.append("[\(flag(j + 1))]") }
+                parts += (1...j).map(opened)
+                terms.append(and(parts))
+            }
+            let predicate = terms.dropFirst().reduce(terms[0]) { inline("OR", [$0, $1]) }
+            w.variable(src, call("FILTER", ["KEEPFILTERS(\(coreName))", predicate]))
+            colCols2 = levels.enumerated().flatMap { [$1.column.dax, "[\(flag($0))]"] }
         }
 
         let rowFlag = QuerySortKey(target: .result("IsGrandTotalRowTotal"), ascending: false)
         let colFlag = QuerySortKey(target: .result("IsGrandTotalColumnTotal"), ascending: true)
         let rowKeys = (spec.rowTotals ? [rowFlag] : []) + spec.primaryOrder
         var colKeys = (spec.columnTotals ? [colFlag] : []) + spec.secondaryOrder
-        if expandedColumns, let l0, let l1 {
-            colKeys = [colFlag] + ascendingKeys(l0) + [QuerySortKey(target: .result("IsDM2Total"), ascending: true)] + ascendingKeys(l1)
+        if expandedColumns {
+            colKeys = [colFlag] + ascendingKeys(levels[0])
+            for j in 1..<depth { colKeys += [QuerySortKey(target: .result(flag(j)), ascending: true)] + ascendingKeys(levels[j]) }
         }
         let (pTop, sTop): (Int, Int) = { if case .window(let p, let s) = spec.reduction { (p, s) } else { (102, 102) } }()
 
@@ -338,7 +357,7 @@ enum DAXQueryBuilder {
             var conds: [String] = []
             if spec.rowTotals { conds.append("[IsGrandTotalRowTotal] = FALSE") }
             if spec.columnTotals && !spec.secondary.isEmpty { conds.append("[IsGrandTotalColumnTotal] = FALSE") }
-            if expandedColumns { conds.append("[IsDM2Total] = FALSE") }
+            if expandedColumns { for j in 1..<depth { conds.append("[\(flag(j))] = FALSE") } }
             let predicate = conds.count == 1 ? conds[0] : conds.dropFirst().reduce(conds[0]) { inline("AND", [$0, $1]) }
             w.variable("__DS0CoreNoInstanceFiltersNoTotals", call("FILTER", ["KEEPFILTERS(\(coreName))", predicate]))
             minMaxSource = "__DS0CoreNoInstanceFiltersNoTotals"

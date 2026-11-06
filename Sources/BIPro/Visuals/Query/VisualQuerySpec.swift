@@ -136,6 +136,15 @@ struct VisualQuerySpec: Hashable, Sendable {
     var drillLevels: [GroupField] = []
     /// Slicer hierarchy: giá trị cấp gốc đang mở nút (expansionStates). Chỉ có nghĩa khi `drillLevels.count >= 2`.
     var expanded: [Value] = []
+    /// Matrix: các nút cột đang mở, mỗi nút là đường giá trị từ cấp gốc ([vùng], [vùng, bang]…). Mở nút nhiều cấp.
+    var expandedPaths: [[Value]] = []
+    /// Số cấp cột đang hiện của matrix khi có nút mở (1 = chưa mở gì).
+    var matrixColumnDepth: Int {
+        guard drillLevels.count >= 2, !expandedPaths.isEmpty, secondary.count == 1 else { return 1 }
+        return min(drillLevels.count, (expandedPaths.map(\.count).max() ?? 1) + 1)
+    }
+    /// Tên cờ tổng của cấp cột thứ `j` khi mở nút: cấp 0 là tổng chung, các cấp sau `IsDM2Total`, `IsDM4Total`… (VM C2 b5-1, b5-2).
+    static func columnFlagName(_ j: Int) -> String { j == 0 ? "IsGrandTotalColumnTotal" : "IsDM\(2 * j)Total" }
 
     init(visualID: String, visualType: String, primary: [GroupField] = [], secondary: [GroupField] = [],
          measures: [QueryMeasure] = [], filters: [QueryFilter] = [], rowTotals: Bool = false, columnTotals: Bool = false,

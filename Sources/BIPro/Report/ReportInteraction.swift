@@ -28,6 +28,8 @@ final class ReportInteraction {
     var drillDepth: [String: Int] = [:]
     /// Slicer hierarchy: giá trị cấp gốc đang mở nút do người dùng đặt (ghi đè `expansionStates` trong file).
     var slicerExpansion: [String: [Value]] = [:]
+    /// Matrix: các nút cột đang mở (đường giá trị từ cấp gốc) do người dùng đặt, khoá = id visual.
+    var matrixExpansion: [String: [[Value]]] = [:]
 
     /// Ẩn/hiện visual do Selection pane và bookmark đặt (gói P).
     var visibility = VisibilityState()
@@ -232,14 +234,23 @@ final class ReportInteraction {
     /// Mở nút cấp gốc `path[0]` của slicer hierarchy (nạp lại để lấy các cấp con). Đóng nút chỉ ẩn phía giao diện.
     /// Matrix: bấm +/− trên tiêu đề cột cấp gốc thì mở hoặc đóng nút đó.
     func expandSlicer(visual: ReportVisual, spec: VisualQuerySpec, path: [Value]) {
+        if spec.shape == .matrix { return expandMatrix(visual: visual, spec: spec, path: path) }
         guard path.count == 1, spec.drillLevels.count >= 2 else { return }
         var current = slicerExpansion[visual.id] ?? spec.expanded
-        if spec.shape == .matrix, let at = current.firstIndex(of: path[0]) {
-            current.remove(at: at)
-        } else if !current.contains(path[0]) {
-            current.append(path[0])
-        }
+        if !current.contains(path[0]) { current.append(path[0]) }
         slicerExpansion[visual.id] = current
+    }
+
+    /// Matrix: bấm + mở nút `path` (xuống một cấp), bấm − đóng nút đó cùng mọi nút con đang mở. Mở được tới cấp áp chót.
+    func expandMatrix(visual: ReportVisual, spec: VisualQuerySpec, path: [Value]) {
+        guard !path.isEmpty, path.count < spec.drillLevels.count else { return }
+        var current = matrixExpansion[visual.id] ?? spec.expandedPaths
+        if current.contains(path) {
+            current.removeAll { $0.count >= path.count && Array($0.prefix(path.count)) == path }
+        } else {
+            current.append(path)
+        }
+        matrixExpansion[visual.id] = current
     }
 
     // MARK: - Drill
@@ -312,6 +323,7 @@ final class ReportInteraction {
             for: InteractionTarget(visualID: visual.id, visualType: visual.type), staticFilters: statics, state: state)
         VisualQuerySpecReader.applyDrill(&spec, depth: depth(of: visual))
         if let expanded = slicerExpansion[visual.id] { spec.expanded = expanded }
+        if let paths = matrixExpansion[visual.id] { spec.expandedPaths = paths }
         spec.filters = assembled.filters
         spec.valueFilters = valueFilters(for: visual)
         spec.highlight = assembled.highlight

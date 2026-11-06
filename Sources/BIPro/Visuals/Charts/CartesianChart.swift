@@ -1281,6 +1281,7 @@ struct CartesianChartView: View {
                         series: .value("Series", s.name)
                     )
                     .foregroundStyle(s.color.opacity(pt.opacity))
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)) // Power BI: nét mặc định 3 (so ảnh VM)
                     .interpolationMethod(.catmullRom)
                     .annotation(position: .top) {
                         if let label = pt.dataLabel {
@@ -1301,7 +1302,7 @@ struct CartesianChartView: View {
                         series: .value("Series", "TrendLine")
                     )
                     .foregroundStyle(Color(hex: "#333333") ?? .secondary)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
                 }
             }
 
@@ -1323,7 +1324,7 @@ struct CartesianChartView: View {
                     series: .value("Series", "Forecast")
                 )
                 .foregroundStyle(Color(hex: "#1F1F1F") ?? .black)
-                .lineStyle(StrokeStyle(lineWidth: 1))
+                .lineStyle(StrokeStyle(lineWidth: 1.5))
                 .interpolationMethod(.catmullRom)
             }
         }
@@ -1387,6 +1388,7 @@ struct CartesianChartView: View {
                         series: .value("Series", s.name)
                     )
                     .foregroundStyle(s.color.opacity(pt.opacity))
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)) // Power BI: nét mặc định 3 (so ảnh VM)
                     .interpolationMethod(.catmullRom)
                 }
             }
@@ -1441,6 +1443,7 @@ struct CartesianChartView: View {
                         series: .value("Series", s.name)
                     )
                     .foregroundStyle(s.color.opacity(pt.opacity))
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)) // Power BI: nét mặc định 3 (so ảnh VM)
                     .interpolationMethod(.catmullRom)
                 }
             }
