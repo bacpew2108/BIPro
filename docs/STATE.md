@@ -63,7 +63,7 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 
 ## Việc tiếp theo
 
-0. **Đợt 3:** bạn bấm thử 5 mục ở cuối `docs/phase-c-oracle/VM-TODO-P.md`, rồi commit; làm 10 mục P1–P10 trên VM khi tiện.
+0. **Đợt 3:** VM P1–P10 xong (2026-11-06), 9/10 khớp giả định, P9 khác nhưng giữ (xem cuối `VM-TODO-P.md`). Bấm thử 4/5 đạt; **lỗi mục 3**: bộ lọc cấp visual trong Filters pane không đổi visual và sau 1–2 lần bấm thì mọi biểu đồ đứng im. Engine đã kiểm ổn (test `boLocCapVisualTrenMoiThe`), cần tái hiện ở lớp giao diện (cần quyền Accessibility cho `cliclick` hoặc bước bấm cụ thể từ bạn). Chưa làm theo Power BI: Advanced filter, Require single selection, đánh dấu phần bù cho Not In.
 
 1. **Đợt 2 còn tồn:** kiểm tay drill, drillthrough, tô sáng, mở nút trên app ở buổi C2; Edit interactions; mở nút nhiều cấp.
 2. **E3 còn lại (vòng 2 xong 2026-11-05):** combo thấu chi 3,6 → 2,15 s, matrix Giờ × Thứ 2,4 → 1,75 s, matrix mở nút 1,0 s, combo kênh 0,74 s; golden 60/60, khớp byte (chi tiết và chẩn đoán ở `C1.md` §1.5). Chưa dưới 1 s ở hai cái đầu: các sửa nhỏ hết lợi nhuận, còn lại cần đổi cấu trúc (gộp context transition theo nhóm cho `Avg_Account_Balance`, `FilterContext` ít cấp phát). Quyết định cần bạn: chấp nhận ngưỡng hiện tại (visual đầu có số sớm vì chạy song song và nạp dần) hay đầu tư đợt riêng cho E3-cấu-trúc. Test huỷ truy vấn (100 ms) chập chờn từ trước, không phải do E3.

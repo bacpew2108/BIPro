@@ -24,3 +24,22 @@ Mình chưa bấm được giao diện này (không có công cụ điều khi�
 3. Chọn một visual, mở thẻ field của visual, chọn giá trị: chỉ visual đó đổi.
 4. Xem → Lựa chọn: bấm mắt ẩn/hiện từng visual; canvas cập nhật; chân pane đếm số visual ẩn.
 5. Xem → Bookmark: bấm hai bookmark, matrix và line đổi chỗ như `bookmark-thang.png`; bookmark vừa bấm được tô; bấm nút "Giờ × Thứ" trên canvas cũng đổi.
+
+## Kết quả (2026-11-06, bạn làm tay; file ở `~/Downloads/VM-P/`)
+
+| # | Kết quả | So với giả định của BI Pro |
+|---|---|---|
+| P1 | Thẻ `year`: Filter type = Basic (có thêm Advanced), "Select all" ba trạng thái (■), có ô "Require single selection". `Not In 9999` hiện mọi năm khác 9999 được đánh dấu. Thẻ `client_region` thêm ô tìm kiếm (danh sách ngắn) | Khớp ý. BI Pro dùng nút "là / không phải" thay cho đánh dấu phần bù; chưa có Advanced, Require single selection |
+| P2 | `year` = 2016 sinh `TREATAS({2016}, Dim_Date[year])`; thẻ `client_region` giữ nguyên dạng `FILTER(KEEPFILTERS(VALUES(..)), NOT(.. IN {"Unknown"}))` | Khớp về ngữ nghĩa. Văn bản DAX của bộ lọc người dùng sửa (`col IN {..}`) chưa trùng `TREATAS`; chỉ ảnh hưởng nếu so golden theo văn bản |
+| P3 | Select all: không còn bảng lọc nào cho cột (truy vấn thành `ROW(..)` trần, không có `client_region`) | Khớp: bỏ bộ lọc |
+| P4 | Bộ lọc cấp visual `South` = `TREATAS({"South"}, Dim_Client[client_region])` đứng thành VAR | Khớp |
+| P5 | `trans_hour` ở matrix: "Giờ is not 17:00", Basic filtering | Khớp (`Not In`, sửa được) |
+| P6 | Ẩn tay rồi bấm bookmark: visual hiện lại hết | Khớp |
+| P7 | Bookmark khi đang ở D2 không chuyển về D1 | Khớp (`suppressActiveSection`) |
+| P8 | Chỉ line ("Tháng nào trong năm…", 82 ms) chạy lại, cộng hai Button (12 ms); matrix vừa ẩn không chạy | Khớp |
+| P9 | Ở Power BI Desktop nút cần Ctrl+click | Khác: BI Pro bấm thường là áp bookmark (chế độ xem). Giữ nguyên, vì BI Pro là viewer |
+| P10 | Slicer không đổi | Khớp |
+
+Bấm thử trong BI Pro: mục 1, 2, 4, 5 đạt. **Mục 3 không đạt**: chọn một visual rồi chọn giá trị ở thẻ cấp visual thì visual không đổi, và sau 1–2 lần bấm thẻ thì mọi biểu đồ đứng im. Mình đã kiểm cấp engine (test `boLocCapVisualTrenMoiThe`: mọi thẻ cấp visual của D1, đặt một giá trị rồi nạp lại, 12 visual đều ra số trong 0,01–0,31 s), nên lỗi nằm ở lớp giao diện. Chưa tái hiện được vì tự bấm app cần quyền Accessibility.
+
+Ghi chú: `NewMeasure.txt` (Define new measure) vẫn trống ("Measure = ").

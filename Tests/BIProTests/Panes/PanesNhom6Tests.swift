@@ -45,4 +45,22 @@ struct PanesNhom6Tests {
         let capped = try await interaction.distinctValues(of: QueryColumn(table: "Dim_Date", column: "year"), limit: 3)
         #expect(capped.count == 3)
     }
+
+    /// Mỗi thẻ ngầm cấp visual trên D1: đặt một giá trị rồi nạp lại, không được lỗi và không được treo.
+    @Test @MainActor func boLocCapVisualTrenMoiThe() async throws {
+        let workspace = try Workspace(data: Data(contentsOf: nhom6))
+        let interaction = ReportInteraction(workspace: workspace)
+        let page = try #require(workspace.report.pages.first { $0.id == "d1_giaodich" })
+        for visual in page.visuals {
+            for field in visual.fields where field.kind == .column {
+                let column = QueryColumn(table: field.entity, column: field.property)
+                guard let first = try await interaction.distinctValues(of: column, limit: 1).first else { continue }
+                let key = UserFilterKey(level: .visual, scope: visual.id, filterID: "implicit-\(field.queryRef)-\(field.role)")
+                interaction.setUserFilter(UserFilter(column: column, values: [first], exclude: false), for: key)
+                let data = try await interaction.load(page: page, visual: visual, state: interaction.state(for: page))
+                if case .empty(let reason) = data.view { Issue.record("\(visual.type) \(field.property)=\(first): \(reason)") }
+                interaction.setUserFilter(nil, for: key)
+            }
+        }
+    }
 }
