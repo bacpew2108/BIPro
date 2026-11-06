@@ -458,7 +458,8 @@ private struct WheelScrollAssist: NSViewRepresentable {
                 nextResponder?.scrollWheel(with: event)
                 return
             }
-            let unit: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
+            // Mỗi nấc con lăn cuộn khoảng 40 điểm (trước là 12, người dùng thấy chậm).
+            let unit: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 40
             var dx = event.scrollingDeltaX * unit
             var dy = event.scrollingDeltaY * unit
             if event.modifierFlags.contains(.shift), dx == 0 { dx = dy; dy = 0 }
