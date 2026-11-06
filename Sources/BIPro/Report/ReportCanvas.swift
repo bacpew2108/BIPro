@@ -348,7 +348,7 @@ struct ActionButtonVisual: View {
         guard let target = link.target else { return }
         if link.type == "PageNavigation" {
             navigate(target)
-        } else if link.type == "Bookmark", let interaction, let page = interaction.applyBookmark(id: target) {
+        } else if link.type == "Bookmark", let interaction, let page = interaction.applyAnyBookmark(id: target) {
             navigate(page)
         }
     }

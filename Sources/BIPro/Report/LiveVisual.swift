@@ -77,9 +77,18 @@ struct LiveVisualView: View {
             if menu == nil, let hover, let point = hover.point, case .categorical(let categorical) = data.view {
                 let rows = VisualTooltip.rows(for: point, in: categorical)
                 if !rows.isEmpty {
-                    VisualTooltipView(rows: rows)
-                        .offset(x: hover.location.x + 12, y: hover.location.y + 12)
-                        .allowsHitTesting(false)
+                    // Gần mép phải hoặc dưới thì tooltip lật sang trái hoặc lên trên để không bị cắt, như Power BI.
+                    GeometryReader { geo in
+                        let left = hover.location.x > geo.size.width * 0.6
+                        let up = hover.location.y > geo.size.height * 0.7
+                        VisualTooltipView(rows: rows, pointerOnRight: left)
+                            .fixedSize()
+                            .alignmentGuide(.leading) { d in left ? d.width : 0 }
+                            .alignmentGuide(.top) { d in up ? d.height : 0 }
+                            .offset(x: hover.location.x + (left ? -12 : 12), y: hover.location.y + (up ? -12 : 12))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .allowsHitTesting(false)
                 }
             }
             if let menu { contextMenu(menu, spec: data.spec) }

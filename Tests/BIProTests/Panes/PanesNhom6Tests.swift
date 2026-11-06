@@ -131,4 +131,89 @@ struct PanesNhom6Tests {
         interaction.apply(ReportBookmark(id: "B2", displayName: "Chỉ hiển thị", group: nil, suppressData: true))
         #expect(interaction.userFilters == before)
     }
+
+    /// Cấu trúc bookmark lấy từ file thật của Power BI (VM C2 B1): lựa chọn slicer ở `objects.merge.general`,
+    /// thẻ lọc không đổi chỉ có tên, loại và `expression` (không có `filter`).
+    @Test func bookmarkThatCuaPowerBIGhiSlicerODuoiMerge() throws {
+        let json = try JSONDecoder().decode(JSONValue.self, from: Data("""
+        {"name":"a75f","displayName":"Bookmark 3","options":{"targetVisualNames":["c366"],"preserveNewVisualVisibility":true},
+         "explorationState":{"version":"1.3","activeSection":"d1_giaodich",
+          "filters":{"byExpr":[{"name":"fNoUnknownYear","type":"Advanced",
+             "expression":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_Date"}},"Property":"year"}},"howCreated":0}]},
+          "sections":{"d1_giaodich":{"visualContainers":{
+            "83b9":{"filters":{"byExpr":[]},"singleVisual":{"visualType":"slicer","objects":{"merge":{"general":[{"properties":{"filter":{"filter":
+              {"Version":2,"From":[{"Name":"d","Entity":"Dim_Trans_Type","Type":0}],"Where":[{"Condition":{"In":{"Expressions":[{"Column":
+               {"Expression":{"SourceRef":{"Source":"d"}},"Property":"trans_type"}}],"Values":[[{"Literal":{"Value":"'Credit'"}}]]}}}]}}}}]}}}},
+            "f4c4":{"singleVisual":{"visualType":"slicer","objects":{"merge":{"general":[{"properties":{"filter":{"filter":
+              {"Version":2,"From":[{"Name":"d","Entity":"Dim_Date","Type":0}],"Where":[{"Condition":{"In":{"Expressions":[{"Column":
+               {"Expression":{"SourceRef":{"Source":"d"}},"Property":"year"}}],"Values":[[{"Literal":{"Value":"2016L"}}]]}}}]}}}}]}}}}}}}}}
+        """.utf8))
+        let bookmark = ReportBookmark.parse(json, fallbackName: "a75f", group: nil)
+        #expect(bookmark.suppressData == false)
+        #expect(Set(bookmark.data?.slicerFilters.keys ?? [:].keys) == ["83b9", "f4c4"])
+        #expect(ReportInteraction.slicerPaths(try #require(bookmark.data?.slicerFilters["83b9"])) == [[.string("Credit")]])
+        #expect(ReportInteraction.slicerPaths(try #require(bookmark.data?.slicerFilters["f4c4"])) == [[.integer(2016)]])
+        // Thẻ không có `filter` không được coi là bộ lọc người dùng đặt.
+        #expect(bookmark.data?.reportFilters.allSatisfy { UserFilter.from($0) == nil } ?? false)
+    }
+
+    /// File thật của VM C2 B1 (bookmark có Data, slicer trans_type = Credit và năm = 2016): áp lại phải khôi phục đúng hai slicer.
+    @Test @MainActor func bookmarkThatTuFilePbixCuaVM() throws {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/C2_A/bookmark-data.pbix")
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let workspace = try Workspace(data: Data(contentsOf: url))
+        let interaction = ReportInteraction(workspace: workspace)
+        let page = try #require(workspace.page(id: "d1_giaodich"))
+        let bookmark = try #require(workspace.bookmarks.first { $0.id == "a75f6610730ae7536ee0" })
+        #expect(bookmark.suppressData == false && bookmark.data != nil)
+        _ = interaction.apply(bookmark)
+        let slicers = interaction.state(for: page).slicers
+        #expect(slicers["83b988953b0219bc8d85"]?.selection.paths == [[.string("Credit")]])
+        #expect(slicers["f4c48650b7886e94cdb1"]?.selection.paths == [[.integer(2016)]])
+        #expect(slicers["b3cf5dc619216596bec9"]?.selection.paths.isEmpty ?? true, "slicer không ghi lựa chọn = Tất cả")
+    }
+
+    /// Thêm bookmark: chụp bộ lọc, slicer, ẩn/hiện, trang; đổi tiếp rồi áp lại phải về đúng lúc chụp; tuỳ chọn Data/Display/Current page.
+    @Test @MainActor func themBookmarkChupVaKhoiPhuc() throws {
+        let workspace = try Workspace(data: Data(contentsOf: nhom6))
+        let interaction = ReportInteraction(workspace: workspace)
+        let page = try #require(workspace.report.pages.first { $0.id == "d1_giaodich" })
+        let slicer = try #require(page.visuals.first { $0.type == "slicer" && $0.fields.contains { $0.property == "trans_type" } })
+        let other = try #require(page.visuals.first { !interaction.isHidden($0) && $0.type != "slicer" })
+        let column = QueryColumn(table: "Dim_Trans_Type", column: "trans_type")
+        let key = UserFilterKey(level: .report, scope: "", filterID: "added-Dim_Trans_Type.trans_type")
+        interaction.addFilter(column: column, level: .report, scope: "")
+        interaction.setUserFilter(UserFilter(column: column, values: [.string("Credit")], exclude: false), for: key)
+        interaction.setSlicer(page: page, visualID: slicer.id, columns: [column], selection: SlicerSelection([[.string("Credit")]]))
+        let id = interaction.addBookmark(currentPageID: page.id)
+        #expect(interaction.bookmarkRows.contains { $0.id == id && $0.isUser })
+
+        interaction.setUserFilter(nil, for: key)
+        interaction.setSlicer(page: page, visualID: slicer.id, columns: [column], selection: SlicerSelection())
+        interaction.toggleHidden(other)
+        #expect(interaction.isHidden(other))
+        #expect(interaction.applyAnyBookmark(id: id) == page.id)
+        #expect(interaction.userFilters[key]?.values == [.string("Credit")])
+        #expect(interaction.state(for: page).slicers[slicer.id]?.selection.paths == [[.string("Credit")]])
+        #expect(!interaction.isHidden(other), "Display khôi phục ẩn/hiện lúc chụp")
+
+        // Tắt Data: áp lại chỉ đổi hiển thị, không đụng bộ lọc.
+        interaction.setBookmarkOption(id: id, data: false)
+        interaction.setUserFilter(nil, for: key)
+        _ = interaction.applyAnyBookmark(id: id)
+        #expect(interaction.userFilters[key] == nil)
+
+        // Đổi tên, cập nhật, xoá; bookmark trong file cũng xoá và đổi tên được.
+        interaction.renameBookmark(id: id, to: "  Của tôi ")
+        #expect(interaction.bookmarkRows.first { $0.id == id }?.name == "Của tôi")
+        interaction.deleteBookmark(id: id)
+        #expect(!interaction.bookmarkRows.contains { $0.id == id })
+        let fileID = try #require(workspace.bookmarks.first?.id)
+        interaction.renameBookmark(id: fileID, to: "Tên mới")
+        #expect(interaction.bookmarkRows.first { $0.id == fileID }?.name == "Tên mới")
+        interaction.updateBookmark(id: fileID, currentPageID: page.id)
+        #expect(interaction.bookmarkRows.first { $0.id == fileID }?.isUser == true, "cập nhật bookmark của file tạo bản người dùng thế chỗ")
+        interaction.deleteBookmark(id: fileID)
+        #expect(!interaction.bookmarkRows.contains { $0.id == fileID })
+    }
 }

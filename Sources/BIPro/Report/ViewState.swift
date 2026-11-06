@@ -23,6 +23,12 @@ struct VisibilityState: Hashable, Sendable {
 
     mutating func toggle(_ visual: ReportVisual) { setHidden(visual.id, !isHidden(visual)) }
 
+    /// Đánh dấu bookmark đang áp (nil = không có).
+    mutating func markActive(_ id: String?) { activeBookmarkID = id }
+
+    /// Khôi phục ẩn/hiện từ ảnh chụp của bookmark người dùng.
+    mutating func restore(_ other: VisibilityState) { overrides = other.overrides }
+
     /// Áp hiển thị của bookmark. Trả id trang cần chuyển tới (nil nếu bookmark không đổi trang).
     /// [QUAN SÁT] hai bookmark của Nhom6 có `suppressData` + `applyOnlyToTargetVisuals`: chỉ đổi ẩn/hiện của visual đích.
     /// [SUY ĐOÁN] bookmark không `suppressData` còn khôi phục bộ lọc/slicer; chưa làm (ghi ở docs/STATE.md).

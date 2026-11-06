@@ -62,10 +62,10 @@ struct FilterCondition: Hashable, Sendable {
         case .lessOrEqual: return "\(col) <= \(literal)"
         case .greaterThan: return "\(col) > \(literal)"
         case .greaterOrEqual: return "\(col) >= \(literal)"
-        case .contains: return "CONTAINSSTRING(\(col), \(literal))"
-        case .doesNotContain: return "NOT(CONTAINSSTRING(\(col), \(literal)))"
-        case .startsWith: return "LEFT(\(col), \(operand.count)) = \(literal)"
-        case .doesNotStartWith: return "NOT(LEFT(\(col), \(operand.count)) = \(literal))"
+        case .contains: return "SEARCH(\(literal), \(col), 1, 0) >= 1"
+        case .doesNotContain: return "NOT(SEARCH(\(literal), \(col), 1, 0) >= 1)"
+        case .startsWith: return "SEARCH(\(literal), \(col), 1, 0) = 1" // [SUY ĐOÁN] "contains" đã khớp Power BI (C2 A1); "starts with" chưa có mẫu
+        case .doesNotStartWith: return "NOT(SEARCH(\(literal), \(col), 1, 0) = 1)"
         case .isBlank, .isNotBlank: return nil
         }
     }

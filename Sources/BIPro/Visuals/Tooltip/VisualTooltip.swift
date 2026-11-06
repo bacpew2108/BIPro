@@ -16,10 +16,33 @@ struct TooltipRow: Hashable, Sendable {
 }
 
 enum VisualTooltip {
+    /// Khoá phụ trong `DataPointID` của tooltip vùng dự báo (line chart): `category`, `name`, `y`, `lower`, `upper`, `only`.
+    static func forecastKey(_ name: String) -> String { "__forecast." + name }
+
+    private static func forecastRows(_ point: DataPointID, data: CategoricalData) -> [TooltipRow]? {
+        guard case .string(let name)? = point.values[forecastKey("name")],
+              case .double(let y)? = point.values[forecastKey("y")],
+              case .double(let lower)? = point.values[forecastKey("lower")],
+              case .double(let upper)? = point.values[forecastKey("upper")] else { return nil }
+        let format = data.measures.first { $0.role == "Y" || $0.role == "Values" }?.formatString
+        func text(_ v: Double) -> String { NumberDisplay.plain(DataCell(.double(v), formatString: format)) }
+        return [TooltipRow(name: name, value: text(y)), TooltipRow(name: "Upper bound", value: text(upper)),
+                TooltipRow(name: "Lower bound", value: text(lower))]
+    }
+
     /// Thứ tự: các cấp Category (và Series nếu có) của điểm, rồi measure role "Y"/"Values", rồi các "Tooltips" theo thứ tự trong visual.
     /// Giá trị theo định dạng của measure, không đổi đơn vị (qua `NumberDisplay.plain`).
     static func rows(for point: DataPointID, in data: CategoricalData) -> [TooltipRow] {
         var rows: [TooltipRow] = []
+
+        // Tháng dự báo (chưa có dữ liệu thật): chỉ tên tháng và ba số dự báo.
+        if point.values[forecastKey("only")] != nil, let forecast = forecastRows(point, data: data) {
+            let level = data.categoryLevels.first?.displayName ?? ""
+            if case .string(let category)? = point.values[forecastKey("category")] {
+                return [TooltipRow(name: level, value: category)] + forecast
+            }
+            return forecast
+        }
 
         // 1. Tìm chỉ số danh mục `c` phù hợp với point
         var matchedCatIndex: Int? = nil
@@ -94,6 +117,9 @@ enum VisualTooltip {
             }
         }
 
+        // Điểm neo của dự báo (tháng cuối có dữ liệu): thêm dòng dự báo ngay sau giá trị thật, trước các measure Tooltips.
+        if let forecast = forecastRows(point, data: data) { rows += forecast }
+
         // 6. Thêm các measure role "Tooltips" theo thứ tự trong visual
         for (mIdx, m) in data.measures.enumerated() {
             if m.role == "Tooltips" {
@@ -123,18 +149,23 @@ private struct TooltipPointerShape: Shape {
 
 struct VisualTooltipView: View {
     let rows: [TooltipRow]
+    /// Tooltip nằm bên trái điểm trỏ (gần mép phải visual): mũi nhọn ở cạnh phải.
+    var pointerOnRight = false
 
-    init(rows: [TooltipRow]) {
+    init(rows: [TooltipRow], pointerOnRight: Bool = false) {
         self.rows = rows
+        self.pointerOnRight = pointerOnRight
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
             // Mũi nhọn nhỏ ở cạnh trái (như tooltip-bar.png)
-            TooltipPointerShape()
-                .fill(Color.white)
-                .frame(width: 7, height: 12)
-                .shadow(color: Color.black.opacity(0.08), radius: 2, x: -1, y: 0)
+            if !pointerOnRight {
+                TooltipPointerShape()
+                    .fill(Color.white)
+                    .frame(width: 7, height: 12)
+                    .shadow(color: Color.black.opacity(0.08), radius: 2, x: -1, y: 0)
+            }
 
             // Khung nội dung
             VStack(alignment: .leading, spacing: 6) {
@@ -144,6 +175,8 @@ struct VisualTooltipView: View {
                         Text(row.name)
                             .font(.system(size: 13, weight: .regular))
                             .foregroundColor(Color(hex: "#252423") ?? .primary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                             .frame(minWidth: 90, alignment: .trailing)
 
                         // Giá trị căn trái, hai cột thẳng hàng
@@ -161,6 +194,12 @@ struct VisualTooltipView: View {
                     .fill(Color.white)
                     .shadow(color: Color.black.opacity(0.14), radius: 6, x: 2, y: 3)
             )
+            if pointerOnRight {
+                TooltipPointerShape()
+                    .fill(Color.white)
+                    .frame(width: 7, height: 12)
+                    .scaleEffect(x: -1, y: 1)
+            }
         }
     }
 }

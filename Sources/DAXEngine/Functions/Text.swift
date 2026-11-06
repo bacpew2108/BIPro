@@ -14,6 +14,9 @@ public enum TextFunctions: FunctionFamily {
                      impl: .scalar(TextFunctions.containsStringBody)),
         FunctionSpec(name: "CONTAINSSTRINGEXACT", params: [.scalar("within_text"), .scalar("find_text")],
                      impl: .scalar(TextFunctions.containsStringExactBody)),
+        FunctionSpec(name: "SEARCH", params: [.scalar("find_text"), .scalar("within_text"), .scalar("start_num", optional: true),
+                                              .scalar("not_found_value", optional: true)],
+                     impl: .scalar(TextFunctions.searchBody)),
         FunctionSpec(name: "LEFT", params: [.scalar("text"), .scalar("num_chars", optional: true)],
                      impl: .scalar(TextFunctions.leftBody)),
     ]
@@ -28,6 +31,37 @@ public enum TextFunctions: FunctionFamily {
     static func containsStringExactBody(_ frame: CallFrame) throws(DAXError) -> Value {
         let within = try frame.scalar(0).asText(), find = try frame.scalar(1).asText()
         return .boolean(find.isEmpty || within.contains(find))
+    }
+
+    /// SEARCH(find, within[, start[, notFound]]): không phân biệt hoa thường, hiểu `?`, `*` và `~` (như Excel).
+    /// Power BI sinh `SEARCH("x", col, 1, 0) >= 1` cho Advanced filter "contains" (VM C2, A1). Không thấy thì trả `notFound`, thiếu `notFound` là lỗi.
+    static func searchBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let find = try frame.scalar(0).asText(), within = try frame.scalar(1).asText()
+        var start = 1
+        if !frame.isBlankArgument(2) { start = Int(try frame.scalar(2).asDouble()) }
+        if start < 1 || start > within.count + 1 { throw DAXError(.runtime, "SEARCH: start_num ngoài phạm vi") }
+        let hay = String(within.dropFirst(start - 1))
+        var pattern = "", wildcard = false
+        var iterator = find.makeIterator()
+        while let ch = iterator.next() {
+            switch ch {
+            case "?": pattern += "."; wildcard = true
+            case "*": pattern += ".*"; wildcard = true
+            case "~": if let next = iterator.next() { pattern += NSRegularExpression.escapedPattern(for: String(next)) }
+            default: pattern += NSRegularExpression.escapedPattern(for: String(ch))
+            }
+        }
+        var offset: Int?
+        if !wildcard {
+            offset = hay.range(of: find, options: [.caseInsensitive], locale: Locale(identifier: "en_US")).map { hay.distance(from: hay.startIndex, to: $0.lowerBound) }
+        } else if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]),
+                  let match = regex.firstMatch(in: hay, range: NSRange(hay.startIndex..., in: hay)),
+                  let range = Range(match.range, in: hay) {
+            offset = hay.distance(from: hay.startIndex, to: range.lowerBound)
+        }
+        if let offset { return .integer(Int64(start + offset)) }
+        if frame.isBlankArgument(3) { throw DAXError(.runtime, "SEARCH: không tìm thấy văn bản") }
+        return try frame.scalar(3)
     }
 
     /// LEFT(text[, n]): n mặc định 1; n < 0 là lỗi.

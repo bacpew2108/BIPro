@@ -70,4 +70,20 @@ import Testing
         #expect(barRows[3].name == "Số HĐ nợ xấu" && barRows[3].value == "26")
         #expect(barRows[4].name == "Số HĐ" && barRows[4].value == "227")
     }
+
+    /// Tooltip vùng dự báo như Power BI (VM C2 B6): tên dự báo, Upper bound, Lower bound; điểm neo thêm dòng dự báo trước measure Tooltips.
+    @Test func tooltipVungDuBao() {
+        guard case .categorical(let data) = DataViewSamples.donutPurpose else { Issue.record("mẫu sai"); return }
+        func forecast(_ extra: [String: Value]) -> [String: Value] {
+            extra.merging([VisualTooltip.forecastKey("name"): .string("Dự báo 6 tháng"), VisualTooltip.forecastKey("y"): .double(165_196_846),
+                           VisualTooltip.forecastKey("lower"): .double(142_885_293), VisualTooltip.forecastKey("upper"): .double(187_508_399)]) { $1 }
+        }
+        let only = VisualTooltip.rows(for: DataPointID(forecast([
+            "Dim_Loan_Profile.purpose": .string("Jan 2019"), VisualTooltip.forecastKey("only"): .boolean(true),
+            VisualTooltip.forecastKey("category"): .string("Jan 2019")])), in: data)
+        #expect(only.map(\.name) == ["purpose", "Dự báo 6 tháng", "Upper bound", "Lower bound"])
+        #expect(only.map(\.value) == ["Jan 2019", "$165,196,846", "$187,508,399", "$142,885,293"])
+        let anchor = VisualTooltip.rows(for: DataPointID(forecast(["Dim_Loan_Profile.purpose": .string("Mua nhà")])), in: data)
+        #expect(anchor.map(\.name) == ["purpose", "Giá trị", "Dự báo 6 tháng", "Upper bound", "Lower bound", "Kỳ hạn BQ"])
+    }
 }

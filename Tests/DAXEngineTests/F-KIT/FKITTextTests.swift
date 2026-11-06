@@ -22,4 +22,15 @@ import ColumnStore
         #expect(fkChay("LEFT", [fkLit(.string("ab")), fkLit(.integer(9))]) == .success(.string("ab")))
         if case .failure = fkChay("LEFT", [fkLit(.string("ab")), fkLit(.integer(-1))]) {} else { Issue.record("n âm phải là lỗi") }
     }
+
+    /// Dạng Power BI sinh cho "contains" (C2 A1): SEARCH("east", col, 1, 0) >= 1.
+    @Test func searchTraViTriHoacNotFound() {
+        let find = { (a: String, b: String, extra: [Value]) in fkChay("SEARCH", [fkLit(.string(a)), fkLit(.string(b))] + extra.map(fkLit)) }
+        #expect(find("EAST", "Northeast", [.integer(1), .integer(0)]) == .success(.integer(6)))
+        #expect(find("south", "Midwest", [.integer(1), .integer(0)]) == .success(.integer(0)), "không thấy trả not_found_value")
+        #expect(find("n*st", "Northeast", [.integer(1), .integer(0)]) == .success(.integer(1)), "ký tự đại diện *")
+        #expect(find("o?th", "Northeast", [.integer(1), .integer(0)]) == .success(.integer(2)), "ký tự đại diện ?")
+        #expect(find("e", "Northeast", [.integer(6)]) == .success(.integer(6)), "bắt đầu tìm từ start_num")
+        if case .failure = find("x", "abc", []) {} else { Issue.record("không thấy và thiếu not_found_value phải là lỗi") }
+    }
 }

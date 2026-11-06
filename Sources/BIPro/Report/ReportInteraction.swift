@@ -22,19 +22,24 @@ struct LiveVisualData: Sendable {
 final class ReportInteraction {
     let workspace: Workspace
     /// Trạng thái lọc theo trang (khoá = id trang).
-    private(set) var states: [String: FilterState] = [:]
+    var states: [String: FilterState] = [:]
 
     /// Cấp drill hiện tại của từng visual (0 = cấp gốc), khoá = id visual.
-    private(set) var drillDepth: [String: Int] = [:]
+    var drillDepth: [String: Int] = [:]
     /// Slicer hierarchy: giá trị cấp gốc đang mở nút do người dùng đặt (ghi đè `expansionStates` trong file).
-    private(set) var slicerExpansion: [String: [Value]] = [:]
+    var slicerExpansion: [String: [Value]] = [:]
 
     /// Ẩn/hiện visual do Selection pane và bookmark đặt (gói P).
-    private(set) var visibility = VisibilityState()
+    var visibility = VisibilityState()
     /// Bộ lọc Basic người dùng sửa ở Filters pane (gói P). Áp cho mọi visual nên đổi là mọi visual nạp lại (có cache theo văn bản).
-    private(set) var userFilters: [UserFilterKey: UserFilter] = [:]
+    var userFilters: [UserFilterKey: UserFilter] = [:]
     /// Thẻ bộ lọc trong file mà người dùng đã bỏ (không áp nữa).
-    private(set) var removedFilters: Set<UserFilterKey> = []
+    var removedFilters: Set<UserFilterKey> = []
+
+    /// Bookmark thêm hoặc cập nhật trong phiên, bookmark trong file đã xoá hoặc đổi tên (xem `UserBookmark.swift`).
+    var userBookmarks: [UserBookmark] = []
+    var deletedBookmarkIDs: Set<String> = []
+    var renamedBookmarks: [String: String] = [:]
 
     @ObservationIgnored private var servicesTask: Task<(VisualQuerySpecReader, VisualDataLoader), Error>?
     @ObservationIgnored private var topoMap: TopoMap?
@@ -125,7 +130,7 @@ final class ReportInteraction {
         for pageID in data.pageFilters.keys {
             guard let page = workspace.page(id: pageID) else { continue }
             for visual in page.visuals where Self.slicerTypes.contains(visual.type) && data.visualFilters[visual.id] != nil {
-                let columns = visual.fields.filter { $0.kind == .column }.map { QueryColumn(table: $0.entity, column: $0.property) }
+                let columns = slicerColumns(of: visual)
                 guard !columns.isEmpty else { continue }
                 let paths = data.slicerFilters[visual.id].map(Self.slicerPaths) ?? []
                 setSlicer(page: page, visualID: visual.id, columns: columns, selection: SlicerSelection(paths))
@@ -133,10 +138,24 @@ final class ReportInteraction {
         }
     }
 
+    /// Cột của slicer: cột trực tiếp, hoặc cột của từng cấp hierarchy (slicer Năm › Quý), theo thứ tự trường.
+    private func slicerColumns(of visual: ReportVisual) -> [QueryColumn] {
+        visual.fields.compactMap { field -> QueryColumn? in
+            switch field.kind {
+            case .column: return QueryColumn(table: field.entity, column: field.property)
+            case .hierarchyLevel:
+                let level = workspace.metadata?.hierarchies.lazy.filter { $0.tableName == field.entity }
+                    .compactMap { $0.levels.first { $0.name == field.property }?.columnName }.first
+                return level.map { QueryColumn(table: field.entity, column: $0) }
+            default: return nil
+            }
+        }
+    }
+
     private static let slicerTypes: Set<String> = ["slicer", "advancedSlicerVisual", "listSlicer", "textSlicer"]
 
     /// Các đường chọn (một giá trị cho mỗi cấp) trong `Where[0].Condition.In.Values` của lựa chọn slicer.
-    static func slicerPaths(_ filter: JSONValue) -> Set<[Value]> {
+    nonisolated static func slicerPaths(_ filter: JSONValue) -> Set<[Value]> {
         let values = filter["Where"]?[0]?["Condition"]?["In"]?["Values"]?.array ?? []
         var out: Set<[Value]> = []
         for tuple in values {

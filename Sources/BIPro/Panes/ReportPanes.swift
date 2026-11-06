@@ -418,48 +418,76 @@ struct SelectionPane: View {
 struct BookmarksPane: View {
     @Bindable var state: DocumentState
     var collapse: (() -> Void)?
+    @State private var renaming: String?
+    @State private var newName = ""
 
     var body: some View {
-        let bookmarks = state.workspace.bookmarks
+        let interaction = state.interaction
+        let rows = interaction.bookmarkRows
         VStack(spacing: 0) {
-            PaneHeader(title: "Bookmark", symbol: "bookmark", collapse: collapse)
+            PaneHeader(title: "Bookmark", symbol: "bookmark", collapse: collapse) {
+                Button {
+                    interaction.addBookmark(currentPageID: state.pageID)
+                } label: { Image(systemName: "plus") }
+                    .buttonStyle(GhostIconButtonStyle())
+                    .help("Thêm bookmark từ trạng thái hiện tại")
+            }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(groups(bookmarks).enumerated()), id: \.offset) { _, group in
+                    ForEach(Array(groups(rows).enumerated()), id: \.offset) { _, group in
                         if let name = group.name { SectionLabel(text: name) }
-                        ForEach(group.items) { bookmark in
-                            let active = state.interaction.visibility.activeBookmarkID == bookmark.id
-                            Button {
-                                if let page = state.interaction.applyBookmark(id: bookmark.id) { state.pageID = page; state.visualID = nil }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: active ? "bookmark.fill" : "bookmark").font(.system(size: 11))
-                                        .foregroundStyle(active ? DS.Palette.accent : DS.Palette.secondaryLabel)
-                                    Text(bookmark.displayName).font(DS.Typeface.bodySmall).lineLimit(1)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 12)
-                                .frame(height: DS.Metrics.navRow)
-                                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(active ? DS.Palette.accent.opacity(0.12) : .clear).padding(.horizontal, 4))
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(bookmark.suppressData ? "Áp dụng bookmark (chỉ đổi ẩn/hiện)" : "Áp dụng bookmark")
-                        }
+                        ForEach(group.items) { row in row_(row, interaction: interaction) }
                     }
-                    if bookmarks.isEmpty {
-                        Text("Báo cáo chưa có bookmark").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(12)
+                    if rows.isEmpty {
+                        Text("Báo cáo chưa có bookmark. Bấm + để thêm.").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(12)
                     }
                 }
             }
-            PaneFooter(text: "\(bookmarks.count) bookmark")
+            PaneFooter(text: "\(rows.count) bookmark")
         }
         .background(DS.Palette.chrome)
+        .alert("Đổi tên bookmark", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Tên", text: $newName)
+            Button("Đổi tên") { if let id = renaming { interaction.renameBookmark(id: id, to: newName) }; renaming = nil }
+            Button("Huỷ", role: .cancel) { renaming = nil }
+        }
     }
 
-    private func groups(_ items: [ReportBookmark]) -> [(name: String?, items: [ReportBookmark])] {
+    private func row_(_ row: ReportInteraction.BookmarkRow, interaction: ReportInteraction) -> some View {
+        let active = interaction.visibility.activeBookmarkID == row.id
+        let mine = interaction.userBookmarks.first { $0.id == row.id }
+        return Button {
+            if let page = interaction.applyAnyBookmark(id: row.id) { state.pageID = page; state.visualID = nil }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: active ? "bookmark.fill" : "bookmark").font(.system(size: 11))
+                    .foregroundStyle(active ? DS.Palette.accent : DS.Palette.secondaryLabel)
+                Text(row.name).font(DS.Typeface.bodySmall).lineLimit(1)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .frame(height: DS.Metrics.navRow)
+            .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(active ? DS.Palette.accent.opacity(0.12) : .clear).padding(.horizontal, 4))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(row.suppressData ? "Áp dụng bookmark (không đổi bộ lọc, slicer)" : "Áp dụng bookmark")
+        .contextMenu {
+            Button("Cập nhật") { interaction.updateBookmark(id: row.id, currentPageID: state.pageID) }
+            Button("Đổi tên…") { newName = row.name; renaming = row.id }
+            Button("Xoá", role: .destructive) { interaction.deleteBookmark(id: row.id) }
+            if let mine {
+                Divider()
+                Toggle("Data (bộ lọc, slicer, drill)", isOn: Binding(get: { mine.data }, set: { interaction.setBookmarkOption(id: row.id, data: $0) }))
+                Toggle("Display (ẩn/hiện visual)", isOn: Binding(get: { mine.display }, set: { interaction.setBookmarkOption(id: row.id, display: $0) }))
+                Toggle("Current page (chuyển về trang đã lưu)", isOn: Binding(get: { mine.currentPage }, set: { interaction.setBookmarkOption(id: row.id, currentPage: $0) }))
+            }
+        }
+    }
+
+    private func groups(_ items: [ReportInteraction.BookmarkRow]) -> [(name: String?, items: [ReportInteraction.BookmarkRow])] {
         var order: [String?] = []
-        var map: [String?: [ReportBookmark]] = [:]
+        var map: [String?: [ReportInteraction.BookmarkRow]] = [:]
         for b in items {
             if map[b.group] == nil { order.append(b.group) }
             map[b.group, default: []].append(b)

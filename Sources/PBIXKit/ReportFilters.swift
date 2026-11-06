@@ -33,9 +33,8 @@ public struct ReportFilter: Sendable, Hashable, Identifiable {
 }
 
 /// Phần dữ liệu của bookmark (khi không `suppressData`): bộ lọc và lựa chọn slicer đã lưu.
-/// [SUY ĐOÁN] Cấu trúc theo schema PBIR (`explorationState.filters.byExpr`, `sections.<trang>.filters.byExpr`,
-/// `visualContainers.<visual>.filters.byExpr`, lựa chọn slicer ở `singleVisual.objects.general[0].properties.filter.filter`);
-/// chưa có bookmark mẫu từ Power BI (docs/phase-c-oracle/VM-TODO-C2.md).
+/// [QUAN SÁT, VM C2 B1] `explorationState.filters.byExpr`, `sections.<trang>.filters.byExpr`,
+/// `visualContainers.<visual>.filters.byExpr`; lựa chọn slicer ở `singleVisual.objects.merge.general[0].properties.filter.filter`.
 public struct BookmarkData: Sendable, Hashable {
     public var reportFilters: [ReportFilter] = []
     /// Trang có trong bookmark → bộ lọc cấp trang (có thể rỗng).
@@ -100,7 +99,10 @@ public struct ReportBookmark: Sendable, Hashable, Identifiable {
                 d.pageFilters[pageID] = PBIXFile.filters(section["filters"]?["byExpr"], level: .page)
                 for (visualID, container) in section["visualContainers"]?.object ?? [:] {
                     d.visualFilters[visualID] = PBIXFile.filters(container["filters"]?["byExpr"], level: .visual)
-                    if let filter = container["singleVisual"]?["objects"]?["general"]?[0]?["properties"]?["filter"]?["filter"] {
+                    // Bookmark thật của Power BI ghi lựa chọn slicer dưới `objects.merge.general` (xem VM-TODO-C2 B1); file visual dùng `objects.general`.
+                    let objects = container["singleVisual"]?["objects"]
+                    if let filter = objects?["merge"]?["general"]?[0]?["properties"]?["filter"]?["filter"]
+                        ?? objects?["general"]?[0]?["properties"]?["filter"]?["filter"] {
                         d.slicerFilters[visualID] = filter
                     }
                 }

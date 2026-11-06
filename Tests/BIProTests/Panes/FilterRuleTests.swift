@@ -12,7 +12,7 @@ struct FilterRuleTests {
 
     @Test func advancedChuMotDieuKien() {
         let rule = FilterRule.advanced(first: .init(kind: .contains, operand: "east"), second: nil, useOr: false, numeric: false)
-        #expect(rule.predicate(column: region) == "CONTAINSSTRING('Dim_Client'[client_region], \"east\")")
+        #expect(rule.predicate(column: region) == "SEARCH(\"east\", 'Dim_Client'[client_region], 1, 0) >= 1")
         #expect(rule.summary == "chứa east")
     }
 
@@ -32,9 +32,9 @@ struct FilterRuleTests {
 
     @Test func chuoiCoDauNhayKep() {
         let c = FilterCondition(kind: .startsWith, operand: "a\"b")
-        #expect(c.predicate(column: region, numeric: false) == "LEFT('Dim_Client'[client_region], 3) = \"a\"\"b\"")
+        #expect(c.predicate(column: region, numeric: false) == "SEARCH(\"a\"\"b\", 'Dim_Client'[client_region], 1, 0) = 1")
         #expect(FilterCondition(kind: .doesNotContain, operand: "x").predicate(column: region, numeric: false)
-                == "NOT(CONTAINSSTRING('Dim_Client'[client_region], \"x\"))")
+                == "NOT(SEARCH(\"x\", 'Dim_Client'[client_region], 1, 0) >= 1)")
     }
 
     @Test func topN() {
@@ -68,7 +68,7 @@ struct FilterRuleTests {
         let notContains = try json("""
         {"Not":{"Expression":{"Contains":{"Left":{},"Right":{"Literal":{"Value":"'abc'"}}}}}}
         """)
-        #expect(FilterRule.parseAdvanced(notContains)?.predicate(column: region) == "NOT(CONTAINSSTRING('Dim_Client'[client_region], \"abc\"))")
+        #expect(FilterRule.parseAdvanced(notContains)?.predicate(column: region) == "NOT(SEARCH(\"abc\", 'Dim_Client'[client_region], 1, 0) >= 1)")
         let isNull = try json("""
         {"Comparison":{"ComparisonKind":0,"Left":{},"Right":{"Literal":{"Value":"null"}}}}
         """)

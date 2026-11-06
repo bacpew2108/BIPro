@@ -1094,7 +1094,7 @@ struct CartesianChartView: View {
                             .onContinuousHover { phase in
                                 switch phase {
                                 case .active(let loc):
-                                    let ptID = findPointID(at: loc, proxy: proxy, geometry: geo)
+                                    let ptID = hoverPointID(at: loc, proxy: proxy, geometry: geo)
                                     context.actions.hover(ptID, loc)
                                 case .ended:
                                     context.actions.hover(nil, .zero)
@@ -1571,6 +1571,32 @@ struct CartesianChartView: View {
         return buildPointID(c: cIdx, s: 0)
     }
     
+    /// Điểm để hiện tooltip: như `findPointID`, nhưng tháng dự báo và điểm neo (tháng cuối thật) mang thêm số dự báo
+    /// (`VisualTooltip.forecastKey`). Tooltip của Power BI ở vùng dự báo: tên dự báo, Upper bound, Lower bound (VM C2 B6).
+    private func hoverPointID(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) -> DataPointID? {
+        guard !layout.forecastPoints.isEmpty, kind != .clusteredBar,
+              let plot = proxy.plotFrame else { return findPointID(at: location, proxy: proxy, geometry: geometry) }
+        let rect = geometry[plot]
+        let relX = location.x - rect.origin.x
+        guard relX >= 0, relX <= rect.width, let name = proxy.value(atX: relX, as: String.self),
+              let datum = layout.forecastPoints.first(where: { $0.category == name }) else {
+            return findPointID(at: location, proxy: proxy, geometry: geometry)
+        }
+        var dict: [String: Value] = [:]
+        if let at = layout.categories.firstIndex(of: name), at < data.categories.count {
+            dict = buildPointID(c: at, s: 0).values
+        } else if let level = data.categoryLevels.first {
+            dict[level.queryRef] = .string(name)
+            dict[VisualTooltip.forecastKey("only")] = .boolean(true)
+        }
+        dict[VisualTooltip.forecastKey("category")] = .string(name)
+        dict[VisualTooltip.forecastKey("name")] = .string(context.format.analytics.forecastDisplayName ?? "Forecast")
+        dict[VisualTooltip.forecastKey("y")] = .double(datum.y)
+        dict[VisualTooltip.forecastKey("lower")] = .double(datum.lower)
+        dict[VisualTooltip.forecastKey("upper")] = .double(datum.upper)
+        return DataPointID(dict)
+    }
+
     private func buildPointID(c: Int, s: Int) -> DataPointID {
         var dict: [String: Value] = [:]
         for (levelIdx, level) in data.categoryLevels.enumerated() {
