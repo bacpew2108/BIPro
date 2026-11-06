@@ -89,20 +89,6 @@ struct BasicFilterEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 4) {
-                Text("Loại bộ lọc").font(.system(size: 12))
-                Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
-                    .help("Basic: chọn giá trị trong danh sách. Advanced chưa hỗ trợ.")
-            }
-            Menu {
-                Button("Basic filtering") {}
-                Button("Advanced filtering") {}.disabled(true)
-            } label: {
-                HStack { Text("Basic filtering").font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
-                    .padding(.horizontal, 8).frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
-            }
-            .menuStyle(.button).buttonStyle(.plain)
             switch load {
             case .loading:
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity).frame(height: 40)
@@ -193,5 +179,207 @@ struct BasicFilterEditor: View {
     private func fetch() async {
         load = .loading
         do { load = .loaded(try await interaction.distinctValues(of: column, limit: Self.limit)) } catch { load = .failed(String(describing: error)) }
+    }
+}
+
+// MARK: - Thân thẻ: chọn loại bộ lọc
+
+/// Thân thẻ khi mở: ô "Loại bộ lọc" rồi trình sửa theo loại (Basic, Advanced, Top N).
+struct FilterEditorBody: View {
+    enum Mode: String, Hashable { case basic = "Basic filtering", advanced = "Advanced filtering", topN = "Top N" }
+
+    let interaction: ReportInteraction
+    let key: UserFilterKey
+    let filter: ReportFilter
+    let column: QueryColumn
+    @State private var mode: Mode?
+
+    private var current: UserFilter? { interaction.userFilters[key] ?? UserFilter.from(filter) }
+
+    private var effectiveMode: Mode {
+        if let mode { return mode }
+        switch current?.rule {
+        case .advanced: return .advanced
+        case .topN: return .topN
+        case nil: return .basic
+        }
+    }
+
+    /// Top N chỉ có ở bộ lọc cấp visual, như Power BI.
+    private var modes: [Mode] { key.level == .visual ? [.basic, .advanced, .topN] : [.basic, .advanced] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Text("Loại bộ lọc").font(.system(size: 12))
+                Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
+                    .help("Basic: chọn giá trị. Advanced: điều kiện chữ hoặc số. Top N: N mục đầu hoặc cuối theo một measure (chỉ cấp visual).")
+            }
+            Menu {
+                ForEach(modes, id: \.self) { item in Button(item.rawValue) { choose(item) } }
+            } label: {
+                HStack { Text(effectiveMode.rawValue).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+            }
+            .menuStyle(.button).buttonStyle(.plain)
+            switch effectiveMode {
+            case .basic: BasicFilterEditor(interaction: interaction, key: key, filter: filter, column: column)
+            case .advanced: AdvancedFilterEditor(interaction: interaction, key: key, column: column, existing: current?.rule)
+            case .topN: TopNFilterEditor(interaction: interaction, key: key, column: column, existing: current?.rule)
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    private func choose(_ next: Mode) {
+        mode = next
+        // Về Basic thì bỏ điều kiện Advanced/Top N đang áp (chuyển loại không tự lọc gì khi chưa bấm Áp dụng).
+        if next == .basic, current?.rule != nil { interaction.setUserFilter(UserFilter(column: column), for: key) }
+    }
+}
+
+struct AdvancedFilterEditor: View {
+    let interaction: ReportInteraction
+    let key: UserFilterKey
+    let column: QueryColumn
+    let existing: FilterRule?
+
+    @State private var first = FilterCondition(kind: .contains, operand: "")
+    @State private var second = FilterCondition(kind: .contains, operand: "")
+    @State private var useOr = false
+    @State private var loaded = false
+
+    private var numeric: Bool { interaction.isNumeric(column) }
+    private var unsupported: Bool { interaction.isDate(column) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if unsupported {
+                Text("Advanced filter cho cột ngày chưa hỗ trợ.").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+            } else {
+                Text("Hiện các mục khi giá trị").font(.system(size: 12))
+                conditionRow($first)
+                HStack(spacing: 12) {
+                    radio("Và", on: !useOr) { useOr = false }
+                    radio("Hoặc", on: useOr) { useOr = true }
+                }
+                conditionRow($second)
+                HStack {
+                    Button("Áp dụng bộ lọc", action: apply)
+                        .buttonStyle(.borderedProminent).controlSize(.small)
+                    if interaction.userFilters[key]?.rule != nil {
+                        Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column), for: key) }
+                            .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
+                    }
+                }
+            }
+        }
+        .onAppear(perform: load)
+    }
+
+    private func load() {
+        guard !loaded else { return }
+        loaded = true
+        let kinds = ComparisonKind.available(numeric: numeric)
+        first.kind = kinds[0]; second.kind = kinds[0]
+        if case .advanced(let a, let b, let or, _)? = existing {
+            first = a
+            if let b { second = b }
+            useOr = or
+        }
+    }
+
+    private func apply() {
+        guard !first.kind.needsOperand || !first.operand.isEmpty else { return }
+        // Điều kiện thứ hai để trống (phép cần toán hạng mà chưa nhập) thì bỏ qua.
+        let secondUsed = !second.kind.needsOperand || !second.operand.isEmpty
+        let rule = FilterRule.advanced(first: first, second: secondUsed ? second : nil, useOr: useOr, numeric: numeric)
+        interaction.setUserFilter(UserFilter(column: column, rule: rule), for: key)
+    }
+
+    private func conditionRow(_ condition: Binding<FilterCondition>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Menu {
+                ForEach(ComparisonKind.available(numeric: numeric), id: \.self) { kind in
+                    Button(kind.title) { condition.wrappedValue.kind = kind }
+                }
+            } label: {
+                HStack { Text(condition.wrappedValue.kind.title).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
+                    .padding(.horizontal, 8).frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+            }
+            .menuStyle(.button).buttonStyle(.plain)
+            if condition.wrappedValue.kind.needsOperand {
+                TextField(numeric ? "Nhập số" : "Nhập giá trị", text: condition.operand)
+                    .textFieldStyle(.roundedBorder).font(.system(size: 12))
+                    .onSubmit(apply)
+            }
+        }
+    }
+
+    private func radio(_ title: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: on ? "largecircle.fill.circle" : "circle").foregroundStyle(on ? DS.Palette.accent : DS.Palette.tertiaryLabel)
+                Text(title).font(.system(size: 12))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct TopNFilterEditor: View {
+    let interaction: ReportInteraction
+    let key: UserFilterKey
+    let column: QueryColumn
+    let existing: FilterRule?
+
+    @State private var top = true
+    @State private var countText = "10"
+    @State private var measure: ReportInteraction.MeasureRef?
+    @State private var loaded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Hiện các mục").font(.system(size: 12))
+            SegmentedPill(selection: $top, options: [.init(value: true, title: "Top"), .init(value: false, title: "Bottom")], fill: true)
+            TextField("Số mục", text: $countText).textFieldStyle(.roundedBorder).font(.system(size: 12))
+            Text("Theo giá trị").font(.system(size: 12))
+            Menu {
+                ForEach(interaction.measureRefs(), id: \.self) { ref in Button("\(ref.name)  ·  \(ref.table)") { measure = ref } }
+            } label: {
+                HStack {
+                    Text(measure?.name ?? "Chọn measure").font(.system(size: 12)).lineLimit(1)
+                    Spacer(); Image(systemName: "chevron.down").font(.system(size: 9))
+                }
+                .padding(.horizontal, 8).frame(height: 24)
+                .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+            }
+            .menuStyle(.button).buttonStyle(.plain)
+            HStack {
+                Button("Áp dụng bộ lọc", action: apply)
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+                    .disabled(measure == nil || Int(countText) == nil)
+                if interaction.userFilters[key]?.rule != nil {
+                    Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column), for: key) }
+                        .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
+                }
+            }
+        }
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            if case .topN(let rule)? = existing {
+                top = rule.top; countText = String(rule.count)
+                measure = .init(table: rule.measureTable, name: rule.measureName)
+            }
+        }
+    }
+
+    private func apply() {
+        guard let measure, let count = Int(countText), count > 0 else { return }
+        let rule = TopNRule(count: count, top: top, measureTable: measure.table, measureName: measure.name)
+        interaction.setUserFilter(UserFilter(column: column, rule: .topN(rule)), for: key)
     }
 }

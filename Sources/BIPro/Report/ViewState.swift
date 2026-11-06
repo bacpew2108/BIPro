@@ -51,12 +51,22 @@ struct UserFilter: Hashable, Sendable {
     var values: [Value]
     /// `false`: "là" (IN); `true`: "không phải" (NOT IN).
     var exclude: Bool
+    /// Bộ lọc Advanced hoặc Top N. Có thì thay cho `values`/`exclude`.
+    var rule: FilterRule?
 
-    /// Không chọn giá trị nào = "Tất cả" = không lọc.
-    var isActive: Bool { !values.isEmpty }
+    init(column: QueryColumn, values: [Value] = [], exclude: Bool = false, rule: FilterRule? = nil) {
+        self.column = column
+        self.values = values
+        self.exclude = exclude
+        self.rule = rule
+    }
+
+    /// Không chọn giá trị nào = "Tất cả" = không lọc. Advanced/Top N chưa đủ điều kiện cũng chưa lọc.
+    var isActive: Bool { rule.map { $0.predicate(column: column) != nil } ?? !values.isEmpty }
 
     /// Vị từ DAX; nil khi không lọc. Giá trị xếp tăng dần như `FilterTranslator`.
     var predicate: String? {
+        if let rule { return rule.predicate(column: column) }
         guard isActive else { return nil }
         let sorted = values.sorted(by: FilterTranslator.valuePrecedes)
         let inList = "\(column.dax) IN {\(sorted.map(FilterTranslator.literal).joined(separator: ", "))}"
@@ -68,6 +78,7 @@ struct UserFilter: Hashable, Sendable {
 
     /// Như `summary`, giá trị hiện theo định dạng của cột (`format`, ví dụ `00":00"` → `17:00`).
     func summary(format: String?) -> String {
+        if let rule, isActive { return rule.summary }
         guard isActive else { return "là (Tất cả)" }
         let text = values.sorted(by: FilterTranslator.valuePrecedes).map { Self.display($0, format: format) }.joined(separator: ", ")
         return (exclude ? "không phải " : "là ") + text
@@ -95,10 +106,15 @@ struct UserFilter: Hashable, Sendable {
     /// Đọc bộ lọc Categorical `In` / `Not In` trong file thành dạng sửa được. nil nếu bộ lọc phức tạp hơn
     /// (Advanced, TopN, nhiều điều kiện…): khi đó thẻ chỉ hiện, chưa sửa được.
     static func from(_ filter: ReportFilter) -> UserFilter? {
-        guard filter.type == "Categorical",
-              let field = filter.raw["field"]?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,
+        guard filter.type == "Categorical" || filter.type == "Advanced",
+              let field = (filter.raw["field"] ?? filter.raw["expression"])?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,
               let name = field["Property"]?.string else { return nil }
         let column = QueryColumn(table: table, column: name)
+        if filter.type == "Advanced" {
+            guard let conditions = filter.raw["filter"]?["Where"]?.array, conditions.count == 1,
+                  let rule = FilterRule.parseAdvanced(conditions[0]["Condition"]) else { return nil }
+            return UserFilter(column: column, rule: rule)
+        }
         let conditions = filter.raw["filter"]?["Where"]?.array ?? []
         guard conditions.count == 1, var condition = conditions[0]["Condition"] else {
             return conditions.isEmpty ? UserFilter(column: column, values: [], exclude: false) : nil
@@ -108,15 +124,21 @@ struct UserFilter: Hashable, Sendable {
         guard let list = condition["In"]?["Values"]?.array else { return nil }
         var values: [Value] = []
         for entry in list {
-            guard let raw = entry[0]?["Literal"]?["Value"]?.string else { return nil }
-            switch ReportLiteral(literal: raw) {
-            case .string(let s): values.append(.string(s))
-            case .number(let n): values.append(n == n.rounded() && abs(n) < 1e15 ? .integer(Int64(n)) : .double(n))
-            case .bool(let b): values.append(.boolean(b))
-            case .null: values.append(.blank)
-            default: return nil
-            }
+            guard let value = Self.value(of: entry[0]) else { return nil }
+            values.append(value)
         }
         return UserFilter(column: column, values: values, exclude: exclude)
+    }
+
+    /// Giá trị của một literal PBIR (`{"Literal":{"Value":"2016L"}}`). nil nếu không phải chữ, số, logic hoặc null.
+    static func value(of json: JSONValue?) -> Value? {
+        guard let raw = json?["Literal"]?["Value"]?.string else { return nil }
+        switch ReportLiteral(literal: raw) {
+        case .string(let s): return .string(s)
+        case .number(let n): return n == n.rounded() && abs(n) < 1e15 ? .integer(Int64(n)) : .double(n)
+        case .bool(let b): return .boolean(b)
+        case .null: return .blank
+        default: return nil
+        }
     }
 }

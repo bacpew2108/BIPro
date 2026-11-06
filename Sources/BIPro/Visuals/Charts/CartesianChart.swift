@@ -331,6 +331,9 @@ struct PreparedChartLayout: Sendable {
         self.dataLabelBold = format.dataLabels.bold ?? false
         self.dataLabelColor = theme.color(format.dataLabels.color) ?? (Color(hex: "#252423") ?? .primary)
         
+        // Giá trị series cũng hiện theo định dạng của cột series.
+        func seriesText(_ value: Value) -> String { data.seriesField?.text(value) ?? value.asText() }
+
         var catStrings: [String] = []
         for cat in data.categories {
             let str = cat.values.enumerated().map { data.categoryLevels.text($1, at: $0) }.joined(separator: " ")
@@ -383,7 +386,7 @@ struct PreparedChartLayout: Sendable {
                     format: format,
                     theme: theme
                 )
-                legItems.append(LegendItem(id: "s-\(sIdx)", name: sVal.asText(), color: col))
+                legItems.append(LegendItem(id: "s-\(sIdx)", name: seriesText(sVal), color: col))
             }
             // Combo có Series: đường Y2 cũng có mục legend, màu tiếp sau các series (ảnh page-D3).
             if kind == .comboClustered || kind == .comboStacked {
@@ -458,7 +461,7 @@ struct PreparedChartLayout: Sendable {
                 let seriesLimit = hasSeries ? numSeries : 1
                 for sIdx in 0..<seriesLimit {
                     let sVal = hasSeries && sIdx < data.series.count ? data.series[sIdx] : nil
-                    let sName = sVal?.asText() ?? (hasSeries ? "" : mField.displayName)
+                    let sName = sVal.map { seriesText($0) } ?? (hasSeries ? "" : mField.displayName)
                     for cIdx in 0..<numCats {
                         let cell = data.cell(measure: mIdx, series: sIdx, category: cIdx)
                         guard let v = NumberDisplay.numericValue(cell.value) else { continue }
@@ -519,7 +522,7 @@ struct PreparedChartLayout: Sendable {
                 let seriesLimit = hasSeries ? numSeries : 1
                 for sIdx in 0..<seriesLimit {
                     let sVal = hasSeries && sIdx < data.series.count ? data.series[sIdx] : nil
-                    let sName = sVal?.asText() ?? (hasSeries ? "" : mField.displayName)
+                    let sName = sVal.map { seriesText($0) } ?? (hasSeries ? "" : mField.displayName)
                     for cIdx in 0..<numCats {
                         let cell = data.cell(measure: mIdx, series: sIdx, category: cIdx)
                         guard let v = NumberDisplay.numericValue(cell.value) else { continue }
@@ -592,7 +595,7 @@ struct PreparedChartLayout: Sendable {
                 for (sIdx, seg) in segs.enumerated() {
                     guard !seg.isBlank, let v = seg.rawValue, seg.y1 != seg.y0 else { continue }
                     let sVal = hasSeries && sIdx < data.series.count ? data.series[sIdx] : nil
-                    let sName = sVal?.asText() ?? (hasSeries ? "" : (sIdx < roleYIndices.count ? data.measures[roleYIndices[sIdx]].displayName : ""))
+                    let sName = sVal.map { seriesText($0) } ?? (hasSeries ? "" : (sIdx < roleYIndices.count ? data.measures[roleYIndices[sIdx]].displayName : ""))
                     let ptID = makePointID(c: cIdx, s: sIdx)
                     let cell = cells[sIdx]
                     let col = ChartColorResolver.resolveColor(
@@ -770,7 +773,7 @@ struct PreparedChartLayout: Sendable {
             let colorIndex = hasY2 ? (hasSeries ? data.series.count : roleYIndices.count) + mOrder : mOrder
             for sIdx in 0..<mSeriesCount {
                 let sVal = lineSplitsBySeries && sIdx < data.series.count ? data.series[sIdx] : nil
-                let sName = sVal?.asText() ?? mField.displayName
+                let sName = sVal.map { seriesText($0) } ?? mField.displayName
                 var pts: [ChartLinePointDatum] = []
                 let col = ChartColorResolver.resolveColor(
                     cell: data.cell(measure: mIdx, series: sIdx, category: 0),

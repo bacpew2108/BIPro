@@ -30,11 +30,18 @@ struct FiltersPane: View {
     }
 
     private var activeCount: Int {
-        let w = state.workspace
-        let page = state.pageID.flatMap { w.pageFilters[$0] } ?? []
-        let reportCount = w.reportFilters.filter { FilterEditing.isActive($0, key: key($0, .report, ""), interaction: state.interaction) }.count
-        let pageCount = page.filter { FilterEditing.isActive($0, key: key($0, .page, state.pageID ?? ""), interaction: state.interaction) }.count
-        return reportCount + pageCount
+        let w = state.workspace, interaction = state.interaction
+        let pageID = state.pageID ?? ""
+        let page = pageID.isEmpty ? [] : (w.pageFilters[pageID] ?? [])
+        func count(_ filters: [ReportFilter], _ level: ReportFilter.Level, _ scope: String) -> Int {
+            filters.filter { !interaction.removedFilters.contains(key($0, level, scope)) }
+                .filter { FilterEditing.isActive($0, key: key($0, level, scope), interaction: interaction) }.count
+        }
+        let added = interaction.userFilters.filter {
+            $0.key.filterID.hasPrefix("added-") && $0.value.isActive
+                && (($0.key.level == .report) || ($0.key.level == .page && $0.key.scope == pageID))
+        }.count
+        return count(w.reportFilters, .report, "") + count(page, .page, pageID) + added
     }
 
     private func key(_ filter: ReportFilter, _ level: ReportFilter.Level, _ scope: String) -> UserFilterKey {
@@ -51,20 +58,63 @@ struct FiltersPane: View {
         return (explicit + implicit).filter { seen.insert($0.field?.queryRef ?? $0.id).inserted }
     }
 
+    /// Thẻ của một nhóm: bộ lọc trong file (trừ cái đã bỏ), rồi thẻ người dùng thêm.
+    private func cards(_ filters: [ReportFilter], scope: String, level: ReportFilter.Level) -> [ReportFilter] {
+        let interaction = state.interaction
+        let kept = filters.filter { !interaction.removedFilters.contains(key($0, level, scope)) }
+        let added = interaction.userFilters
+            .filter { $0.key.level == level && $0.key.scope == scope && $0.key.filterID.hasPrefix("added-") }
+            .sorted { $0.key.filterID < $1.key.filterID }
+            .map { entry -> ReportFilter in
+                let column = entry.value.column
+                let field = ReportField(role: "Filter", kind: .column, entity: column.table, property: column.column,
+                                        function: nil, displayName: nil, queryRef: "\(column.table).\(column.column)")
+                return ReportFilter(id: entry.key.filterID, level: level, field: field, type: "Categorical",
+                                    summary: "là (Tất cả)", isHidden: false, isLocked: false)
+            }
+        return kept + added
+    }
+
     @ViewBuilder private func section(_ title: String, filters: [ReportFilter], scope: String, level: ReportFilter.Level,
                                       empty: String) -> some View {
-        let shown = filters.filter { search.isEmpty || ($0.field?.label ?? $0.id).localizedCaseInsensitiveContains(search) }
+        let shown = cards(filters, scope: scope, level: level)
+            .filter { search.isEmpty || ($0.field?.label ?? $0.id).localizedCaseInsensitiveContains(search) }
         Text(title).font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 6)
         VStack(spacing: 6) {
-            ForEach(shown) { FilterCard(filter: $0, key: key($0, level, scope), interaction: state.interaction) }
+            ForEach(shown) { filter in
+                FilterCard(filter: filter, key: key(filter, level, scope), interaction: state.interaction,
+                           removable: !filter.id.hasPrefix("implicit-"))
+            }
+            AddFieldMenu(interaction: state.interaction, level: level, scope: scope)
+        }
+        .padding(.horizontal, 10)
+    }
+}
+
+/// Ô "Thêm field dữ liệu vào đây": chọn cột từ danh sách (Power BI kéo field từ pane Dữ liệu; kéo thả chưa làm).
+struct AddFieldMenu: View {
+    let interaction: ReportInteraction
+    let level: ReportFilter.Level
+    let scope: String
+
+    var body: some View {
+        Menu {
+            ForEach(interaction.filterableColumns(), id: \.table) { entry in
+                Menu(entry.table) {
+                    ForEach(entry.columns, id: \.self) { name in
+                        Button(name) { interaction.addFilter(column: QueryColumn(table: entry.table, column: name), level: level, scope: scope) }
+                    }
+                }
+            }
+        } label: {
             Text("Thêm field dữ liệu vào đây").font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
                 .frame(maxWidth: .infinity).frame(height: 40)
                 .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
-                .help("Kéo field vào đây để thêm bộ lọc: chưa hỗ trợ")
         }
-        .padding(.horizontal, 10)
+        .menuStyle(.button).buttonStyle(.plain)
+        .help("Chọn cột để thêm bộ lọc")
     }
 }
 
@@ -73,6 +123,7 @@ struct FilterCard: View {
     let filter: ReportFilter
     let key: UserFilterKey
     let interaction: ReportInteraction
+    var removable = false
     @State private var open = false
 
     var body: some View {
@@ -83,7 +134,7 @@ struct FilterCard: View {
             Button { if editable != nil { open.toggle() } } label: { header(active: grey) }
                 .buttonStyle(.plain)
             if open, let column = editable {
-                BasicFilterEditor(interaction: interaction, key: key, filter: filter, column: column)
+                FilterEditorBody(interaction: interaction, key: key, filter: filter, column: column)
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
@@ -103,9 +154,13 @@ struct FilterCard: View {
                     .font(.system(size: 12)).foregroundStyle(DS.Palette.label).lineLimit(2)
             }
             Spacer(minLength: 0)
-            if interaction.userFilters[key] != nil {
+            if interaction.userFilters[key] != nil, !key.filterID.hasPrefix("added-") {
                 Button { interaction.setUserFilter(nil, for: key) } label: { Image(systemName: "eraser") }
                     .buttonStyle(.plain).help("Đặt lại về bộ lọc trong file")
+            }
+            if removable {
+                Button { interaction.removeFilter(key) } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.plain).help("Bỏ bộ lọc này")
             }
             if filter.isHidden { Image(systemName: "eye.slash").help("Ẩn khi xem báo cáo") }
             if filter.isLocked { Image(systemName: "lock").help("Bị khoá khi xem báo cáo") }

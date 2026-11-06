@@ -60,6 +60,17 @@ public struct ReportField: Sendable, Hashable {
     public var displayName: String?
     public var queryRef: String
 
+    public init(role: String, kind: Kind, entity: String, property: String, function: String? = nil,
+                displayName: String? = nil, queryRef: String) {
+        self.role = role
+        self.kind = kind
+        self.entity = entity
+        self.property = property
+        self.function = function
+        self.displayName = displayName
+        self.queryRef = queryRef
+    }
+
     public var label: String {
         if let displayName, !displayName.isEmpty { return displayName }
         if let function { return "\(function) của \(property)" }

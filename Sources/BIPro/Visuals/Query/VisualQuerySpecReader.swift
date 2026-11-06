@@ -312,6 +312,11 @@ struct VisualQuerySpecReader {
 
     /// Bộ lọc report/page/visual trên một cột, dạng cột + vị từ DAX (để `FilterTranslator.assemble` ghép với tương tác).
     static func staticFilter(_ filter: ReportFilter, scope: FilterScope) -> StaticFilter? {
+        // Bộ lọc Advanced: dịch qua cùng mô hình với Filters pane, để file và giao diện ra cùng văn bản DAX.
+        if filter.type == "Advanced" {
+            guard let user = UserFilter.from(filter), let predicate = user.predicate else { return nil }
+            return StaticFilter(column: user.column, predicate: predicate, scope: scope)
+        }
         let raw = filter.raw
         guard let conditions = raw["filter"]?["Where"]?.array, !conditions.isEmpty,
               let field = raw["field"]?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,

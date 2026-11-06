@@ -33,6 +33,8 @@ final class ReportInteraction {
     private(set) var visibility = VisibilityState()
     /// Bộ lọc Basic người dùng sửa ở Filters pane (gói P). Áp cho mọi visual nên đổi là mọi visual nạp lại (có cache theo văn bản).
     private(set) var userFilters: [UserFilterKey: UserFilter] = [:]
+    /// Thẻ bộ lọc trong file mà người dùng đã bỏ (không áp nữa).
+    private(set) var removedFilters: Set<UserFilterKey> = []
 
     @ObservationIgnored private var servicesTask: Task<(VisualQuerySpecReader, VisualDataLoader), Error>?
     @ObservationIgnored private var topoMap: TopoMap?
@@ -84,7 +86,64 @@ final class ReportInteraction {
     /// Áp bookmark theo id. Trả id trang cần chuyển tới (nếu bookmark đổi trang).
     func applyBookmark(id: String) -> String? {
         guard let bookmark = workspace.bookmarks.first(where: { $0.id == id }) else { return nil }
+        return apply(bookmark)
+    }
+
+    /// Áp một bookmark (tách riêng để test với bookmark dựng tay).
+    @discardableResult
+    func apply(_ bookmark: ReportBookmark) -> String? {
+        // [SUY ĐOÁN] Bookmark không `suppressData` khôi phục bộ lọc và slicer đã lưu (VM-TODO-C2.md, mục B1).
+        if !bookmark.suppressData, let data = bookmark.data { applyBookmarkData(data) }
         return visibility.apply(bookmark)
+    }
+
+    /// Đặt lại bộ lọc người dùng sửa ở các phạm vi bookmark có ghi, rồi áp bộ lọc và lựa chọn slicer của bookmark.
+    private func applyBookmarkData(_ data: BookmarkData) {
+        let scopes = Set([""] + Array(data.pageFilters.keys) + Array(data.visualFilters.keys))
+        userFilters = userFilters.filter { !scopes.contains($0.key.scope) }
+        removedFilters = removedFilters.filter { !scopes.contains($0.scope) }
+
+        func put(_ filters: [ReportFilter], level: ReportFilter.Level, scope: String, existing: [ReportFilter]) {
+            for filter in filters {
+                guard let user = UserFilter.from(filter) else { continue }
+                let known = existing.contains { $0.id == filter.id }
+                // Bộ lọc trong file mà bookmark đặt về "Tất cả" vẫn phải ghi đè bộ lọc của file.
+                guard known || user.isActive else { continue }
+                let id = known ? filter.id : "added-\(user.column.table).\(user.column.column)"
+                userFilters[UserFilterKey(level: level, scope: scope, filterID: id)] = user
+            }
+        }
+        put(data.reportFilters, level: .report, scope: "", existing: workspace.reportFilters)
+        for (pageID, list) in data.pageFilters {
+            put(list, level: .page, scope: pageID, existing: workspace.pageFilters[pageID] ?? [])
+        }
+        for (visualID, list) in data.visualFilters {
+            put(list, level: .visual, scope: visualID, existing: workspace.visualFilters[visualID] ?? [])
+        }
+
+        // Slicer của các trang có trong bookmark: lấy lựa chọn đã lưu, không có thì bỏ chọn.
+        for pageID in data.pageFilters.keys {
+            guard let page = workspace.page(id: pageID) else { continue }
+            for visual in page.visuals where Self.slicerTypes.contains(visual.type) && data.visualFilters[visual.id] != nil {
+                let columns = visual.fields.filter { $0.kind == .column }.map { QueryColumn(table: $0.entity, column: $0.property) }
+                guard !columns.isEmpty else { continue }
+                let paths = data.slicerFilters[visual.id].map(Self.slicerPaths) ?? []
+                setSlicer(page: page, visualID: visual.id, columns: columns, selection: SlicerSelection(paths))
+            }
+        }
+    }
+
+    private static let slicerTypes: Set<String> = ["slicer", "advancedSlicerVisual", "listSlicer", "textSlicer"]
+
+    /// Các đường chọn (một giá trị cho mỗi cấp) trong `Where[0].Condition.In.Values` của lựa chọn slicer.
+    static func slicerPaths(_ filter: JSONValue) -> Set<[Value]> {
+        let values = filter["Where"]?[0]?["Condition"]?["In"]?["Values"]?.array ?? []
+        var out: Set<[Value]> = []
+        for tuple in values {
+            let path = tuple.array.compactMap { UserFilter.value(of: $0) }
+            if !path.isEmpty, path.count == tuple.array.count { out.insert(path) }
+        }
+        return out
     }
 
     // MARK: - Bộ lọc người dùng sửa (gói P)
@@ -92,6 +151,45 @@ final class ReportInteraction {
     /// Đặt bộ lọc Basic cho một thẻ. `nil` hoặc không có giá trị nào = bỏ bộ lọc do người dùng đặt, quay về bản trong file.
     func setUserFilter(_ filter: UserFilter?, for key: UserFilterKey) {
         userFilters[key] = filter
+    }
+
+    struct MeasureRef: Hashable, Sendable { var table: String; var name: String }
+
+    /// Measure của model, để chọn trong Top N. Bỏ measure ẩn và measure phụ của định dạng động.
+    func measureRefs() -> [MeasureRef] {
+        (workspace.metadata?.measures ?? []).filter { !$0.isHidden && !$0.name.hasPrefix("_") }
+            .map { MeasureRef(table: $0.tableName, name: $0.name) }
+            .sorted { ($0.name, $0.table) < ($1.name, $1.table) }
+    }
+
+    private func dataType(of column: QueryColumn) -> ModelMetadata.DataType? {
+        workspace.metadata?.columns.first { $0.tableName == column.table && $0.name == column.column }?.dataType
+    }
+
+    func isNumeric(_ column: QueryColumn) -> Bool { dataType(of: column)?.isNumeric ?? false }
+    func isDate(_ column: QueryColumn) -> Bool { dataType(of: column) == .dateTime }
+
+    /// Cột của các bảng người dùng (không ẩn), theo bảng, để chọn khi thêm thẻ bộ lọc.
+    func filterableColumns() -> [(table: String, columns: [String])] {
+        guard let metadata = workspace.metadata else { return [] }
+        let tables = metadata.tables.filter { $0.isUserTable && !$0.isHidden }.map(\.name).sorted()
+        return tables.map { table in
+            (table, metadata.columns.filter { $0.tableName == table && !$0.isHidden && $0.kind == .data || $0.tableName == table && !$0.isHidden && $0.kind == .calculated }
+                .map(\.name).sorted())
+        }.filter { !$0.columns.isEmpty }
+    }
+
+    /// Thêm thẻ bộ lọc cho một cột ở cấp và phạm vi đã cho (chưa lọc gì cho tới khi người dùng chọn).
+    func addFilter(column: QueryColumn, level: ReportFilter.Level, scope: String) {
+        let key = UserFilterKey(level: level, scope: scope, filterID: "added-\(column.table).\(column.column)")
+        removedFilters.remove(key)
+        if userFilters[key] == nil { userFilters[key] = UserFilter(column: column) }
+    }
+
+    /// Bỏ thẻ: thẻ thêm tay thì xoá hẳn, thẻ trong file thì ẩn đi và không áp nữa.
+    func removeFilter(_ key: UserFilterKey) {
+        userFilters[key] = nil
+        if !key.filterID.hasPrefix("added-") { removedFilters.insert(key) }
     }
 
     /// Chuỗi định dạng của cột trong model (nil nếu không có), để hiện giá trị trong Filters pane như trên visual.
@@ -205,18 +303,20 @@ final class ReportInteraction {
         Self.mergeStatics(
             visual: workspace.visualFilters[visual.id] ?? [], visualID: visual.id,
             page: workspace.pageFilters[page.id] ?? [], pageID: page.id,
-            report: workspace.reportFilters, user: userFilters)
+            report: workspace.reportFilters, user: userFilters, removed: removedFilters)
     }
 
     /// Bộ lọc tĩnh sau khi áp phần người dùng sửa: thẻ trong file mà người dùng sửa thì thay vị từ (giữ vị trí), thẻ ngầm
     /// (field của visual chưa có bộ lọc trong file) thì thêm vào cuối nhóm cấp của nó.
     nonisolated static func mergeStatics(visual: [ReportFilter], visualID: String, page: [ReportFilter], pageID: String,
-                                         report: [ReportFilter], user: [UserFilterKey: UserFilter]) -> [StaticFilter] {
+                                         report: [ReportFilter], user: [UserFilterKey: UserFilter],
+                                         removed: Set<UserFilterKey> = []) -> [StaticFilter] {
         func group(_ list: [ReportFilter], level: ReportFilter.Level, scopeID: String, scope: FilterScope) -> [StaticFilter] {
             var out: [StaticFilter] = []
             var used = Set<String>()
             for filter in list {
                 let key = UserFilterKey(level: level, scope: scopeID, filterID: filter.id)
+                if removed.contains(key) { continue }
                 if let edit = user[key] {
                     used.insert(filter.id)
                     if let predicate = edit.predicate { out.append(StaticFilter(column: edit.column, predicate: predicate, scope: scope)) }

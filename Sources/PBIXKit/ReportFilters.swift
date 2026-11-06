@@ -32,6 +32,22 @@ public struct ReportFilter: Sendable, Hashable, Identifiable {
     static let allLabel = "là (Tất cả)"
 }
 
+/// Phần dữ liệu của bookmark (khi không `suppressData`): bộ lọc và lựa chọn slicer đã lưu.
+/// [SUY ĐOÁN] Cấu trúc theo schema PBIR (`explorationState.filters.byExpr`, `sections.<trang>.filters.byExpr`,
+/// `visualContainers.<visual>.filters.byExpr`, lựa chọn slicer ở `singleVisual.objects.general[0].properties.filter.filter`);
+/// chưa có bookmark mẫu từ Power BI (docs/phase-c-oracle/VM-TODO-C2.md).
+public struct BookmarkData: Sendable, Hashable {
+    public var reportFilters: [ReportFilter] = []
+    /// Trang có trong bookmark → bộ lọc cấp trang (có thể rỗng).
+    public var pageFilters: [String: [ReportFilter]] = [:]
+    /// Visual có trong bookmark → bộ lọc cấp visual (có thể rỗng).
+    public var visualFilters: [String: [ReportFilter]] = [:]
+    /// Visual có trong bookmark → điều kiện lựa chọn slicer (`filter` của `objects.general`), nếu có.
+    public var slicerFilters: [String: JSONValue] = [:]
+
+    public init() {}
+}
+
 public struct ReportBookmark: Sendable, Hashable, Identifiable {
     public let id: String
     public let displayName: String
@@ -46,9 +62,13 @@ public struct ReportBookmark: Sendable, Hashable, Identifiable {
     public let targetVisualNames: [String]?
     /// Hiển thị mà bookmark ghi: id visual → `true` nếu `display.mode == hidden`. Chỉ có visual nằm trong bookmark.
     public let hidden: [String: Bool]
+    /// Bộ lọc và slicer đã lưu; nil khi `suppressData`.
+    public let data: BookmarkData?
 
     public init(id: String, displayName: String, group: String?, activeSection: String? = nil, suppressActiveSection: Bool = false,
-                suppressData: Bool = false, targetVisualNames: [String]? = nil, hidden: [String: Bool] = [:]) {
+                suppressData: Bool = false, targetVisualNames: [String]? = nil, hidden: [String: Bool] = [:],
+                data: BookmarkData? = nil) {
+        self.data = data
         self.id = id
         self.displayName = displayName
         self.group = group
@@ -70,13 +90,30 @@ public struct ReportBookmark: Sendable, Hashable, Identifiable {
             }
         }
         let only = options?["applyOnlyToTargetVisuals"]?.bool ?? false
+        let suppressData = options?["suppressData"]?.bool ?? false
+        var data: BookmarkData?
+        if !suppressData {
+            var d = BookmarkData()
+            let state = json["explorationState"]
+            d.reportFilters = PBIXFile.filters(state?["filters"]?["byExpr"], level: .report)
+            for (pageID, section) in state?["sections"]?.object ?? [:] {
+                d.pageFilters[pageID] = PBIXFile.filters(section["filters"]?["byExpr"], level: .page)
+                for (visualID, container) in section["visualContainers"]?.object ?? [:] {
+                    d.visualFilters[visualID] = PBIXFile.filters(container["filters"]?["byExpr"], level: .visual)
+                    if let filter = container["singleVisual"]?["objects"]?["general"]?[0]?["properties"]?["filter"]?["filter"] {
+                        d.slicerFilters[visualID] = filter
+                    }
+                }
+            }
+            data = d
+        }
         return ReportBookmark(
             id: json["name"]?.string ?? fallbackName, displayName: json["displayName"]?.string ?? fallbackName, group: group,
             activeSection: json["explorationState"]?["activeSection"]?.string,
             suppressActiveSection: options?["suppressActiveSection"]?.bool ?? false,
-            suppressData: options?["suppressData"]?.bool ?? false,
+            suppressData: suppressData,
             targetVisualNames: only ? (options?["targetVisualNames"]?.array ?? []).compactMap(\.string) : nil,
-            hidden: hidden)
+            hidden: hidden, data: data)
     }
 }
 
