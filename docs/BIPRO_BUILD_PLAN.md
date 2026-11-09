@@ -163,8 +163,9 @@ Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md).
 - **Xong khi:** cả 4 trang Nhom6 tương tác như trên Power BI.
 
 ### Phase D: Sửa report + lưu T1 (5–6 tuần)
-- [ ] Build pane (lưới visual, field well, kéo thả), Format pane (sinh từ schema), canvas (chọn, resize, di chuyển, snap 8 px), ribbon Insert, quản lý trang.
-- [ ] **Lưu `.pbix` tầng T1**, Save As, undo/redo, bản sao lưu; app đăng ký là Editor của `.pbix`.
+- [ ] Build pane (lưới visual, field well, kéo thả), Format pane (sinh từ schema), ribbon Insert, quản lý trang (thêm/xoá/đổi tên).
+- [x] **Lát D1** (2026-11-09, `specs/002-d1-canvas-luu-t1/`): canvas chọn (một và nhiều), di chuyển, đổi cỡ, snap 8 px, xoá, nhân bản, chép/dán, hoàn tác/làm lại; **lưu `.pbix` tầng T1** (Lưu, Lưu thành, bản sao lưu, chặn ghi vào Downloads); app đăng ký Editor. Còn chờ bạn kiểm tay trên VM (mở file lưu ra trong Power BI Desktop) và buổi quan sát VM-D1.
+- [ ] Save As trọn vẹn cho thay đổi ngoài bố cục (field, định dạng, trang): theo các lát sau.
 - **Xong khi:** sửa trang Nhom6 trong BI Pro, lưu, rồi mở lại được cả trong BI Pro lẫn Power BI Desktop.
 
 ### Phase E: Mô hình hoá + lưu T2 (4–5 tuần) → **M2**

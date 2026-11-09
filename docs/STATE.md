@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-09. **Phase C: đợt 3, đợt A, buổi C2 và E3-cấu-trúc xong và commit (mới nhất `e5907a2`); `swift test` 819 qua, golden nặng + test gộp 79 qua.** Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-09. **Phase C xong phần chính (commit `710daaf`). Phase D lát D1 (sửa bố cục canvas, lưu `.pbix` T1) xong phần code, chưa commit; `swift test` 911 qua, golden nặng 81 qua.** Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
@@ -21,6 +21,8 @@ Cập nhật: 2026-11-09. **Phase C: đợt 3, đợt A, buổi C2 và E3-cấu-
     - G (ghép): `Report/ReportInteraction.swift` + `Report/LiveVisual.swift`. Card, slicer, matrix, cột/bar/line/combo, donut, treemap, shape map chạy số thật; slicer, lọc chéo, tô sáng chéo (3 golden khớp `interact/xf-*.dax`), drill down/up (nút góc trên phải, chế độ drill, chuột phải), drillthrough (chuột phải → trang đích, tham số đọc từ `pageBinding`), tooltip khi rê chuột. Engine chạy được cả 16 truy vấn trong `observe-c1/interact/` (agy báo thiếu là sai). Bạn đã bấm thử slicer và lọc chéo: ổn. Chưa tự kiểm bấm drill, drillthrough, tô sáng trên app.
     - Mở nút: slicer hierarchy (`expansionStates` trong file + bấm mũi tên) và matrix cột (bấm +/−) đã làm, có golden (`D1-slicer-nam`, `interact/matrix-expand`); mới hỗ trợ mở một cấp ở cấp gốc. `DropdownSlicer` đã dùng `SlicerNode.formatString`.
     - Chưa làm (để sau): drill cho donut chưa có golden; Edit interactions (người dùng đổi lọc/tô sáng giữa hai visual) chưa có giao diện; matrix mở nút theo hàng; mở nút nhiều cấp.
+
+  - **Phase D, lát D1 xong phần code (2026-11-09, Spec Kit `specs/002-d1-canvas-luu-t1/`, chưa commit)**: ⌘E bật chế độ Sửa trên canvas (Xem giữ nguyên lọc chéo/drill): chọn một/nhiều (Shift, khung chọn), kéo di chuyển, 8 tay nắm đổi cỡ (khung bóng), bám lưới 8 px (giữ Option bỏ bám), phím mũi tên, Delete, ⌘D nhân bản, ⌘C/⌘V, ⌘Z/⇧⌘Z. Lưu: ⌘S, ⇧⌘S ghi **tầng T1** bằng ghép byte (`PBIRLayoutPatch`, `PBIXWriter` thêm/bớt phần), dựng+kiểm trong bộ nhớ → file tạm → mở lại → thay; bản sao lưu ở `~/Library/Application Support/BI Pro/Backups/`; file dưới `~/Downloads` buộc Lưu thành; hỏi lưu khi đóng/thoát; app là Editor của `.pbix`. Lưu Nhom6 mất 0,22–0,26 s (SC-004); kéo/đổi cỡ 10–32 ms mỗi khung. Visual trong nhóm (`parentGroupName`) chưa sửa được; báo cáo định dạng cũ (`Report/Layout`) chưa sửa được. Chi tiết ở `specs/002-d1-canvas-luu-t1/` (`measurements.md`, `research.md` R2), ảnh ở `docs/phase-d-evidence/`. Chờ bạn: VM-D1-mở (mở `build/d-out/D1/Nhom6_d1.pbix` trong Power BI Desktop, `CHECKLIST.md`; và `Nhom6_pre.pbix` + `CHECKLIST-pre.md`), VM-D1 quan sát (`VM-D1-QUAN-SAT.md`).
 
   - **Đợt 3 (gói P)** xong phần code (2026-11-05), lead tự làm, không dùng worker (git chưa sạch để tách worktree, phần UI nhỏ và dùng ngay model mới):
     - `PBIXKit/ReportFilters.swift`: `ReportBookmark` đọc thêm `suppressData`, `suppressActiveSection`, `activeSection`, `targetVisualNames`, `hidden` (id visual → ẩn); `ReportVisual` có init public;
@@ -72,6 +74,7 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 ## Việc tiếp theo
 
 **Chờ bạn:**
+- **D1:** mở `build/d-out/D1/Nhom6_d1.pbix` và `Nhom6_pre.pbix` trong Power BI Desktop (VM) theo `CHECKLIST.md` / `CHECKLIST-pre.md`; làm buổi quan sát `VM-D1-QUAN-SAT.md` (chốt các [SUY ĐOÁN] về lưới, nhân bản, bookmark khi xoá visual); bấm thử chế độ Sửa trong app (⌘E).
 - Bấm thử bản mới (`zsh scripts/build-app.sh`): bookmark (menu chuột phải chưa kiểm), thẻ measure, matrix nhiều cấp, tốc độ cuộn (hằng số 100 và 2,5 ở `MatrixVisual.swift` nếu cần chỉnh).
 - Hệ quả E3-cấu-trúc: các visual đã nhanh nên có thể bấm thử lọc/đổi slicer ở trang D1 để cảm nhận (mục tiêu mỗi visual dưới 1 s).
 - Chỉ trường nào "chưa add được bộ lọc" ở trang nào (menu "Thêm field" mới có 77 cột nhìn thấy, chưa có measure, cấp hierarchy).
@@ -82,4 +85,4 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 - Trục Y line "$0bn" của Power BI (đơn vị tự động) chưa biết quy tắc; dự báo từng tháng chưa khớp.
 - Ghi bookmark vào .pbix; test `huyTruyVanNangDungNhanh` nay lặp truy vấn đến khi bị huỷ (truy vấn golden đều xong dưới 0,6 s), vẫn có thể chập chờn khi máy tải cao.
 
-**Sau Phase C:** Phase D (Spec Kit, kiểm tra Phase W trước).
+**Phase D tiếp:** các lát sau theo Spec Kit: Build pane + field well, Format pane, ribbon Insert, thêm/xoá/đổi tên trang, ghi bookmark và bộ lọc người dùng vào file. Phase W đã được bạn xác nhận ổn.

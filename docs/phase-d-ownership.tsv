@@ -1,0 +1,23 @@
+# LÁT	GÓI	glob	(mỗi file chỉ thuộc một gói; lead giữ mọi file không có trong bảng. Lát D1 lead tự làm, không giao worker: DocumentState, ReportCanvas, PBIXWriter giao nhau)
+D1	lead	Sources/PBIXKit/Writing/Contracts.swift
+D1	lead	Sources/PBIXKit/Writing/PBIXWriter.swift
+D1	lead	Sources/PBIXKit/Writing/PBIRLayoutPatch.swift
+D1	lead	Sources/BIPro/Report/Edit/LayoutGeometry.swift
+D1	lead	Sources/BIPro/Report/Edit/LayoutEditor.swift
+D1	lead	Sources/BIPro/Report/Edit/EditCanvasOverlay.swift
+D1	lead	Sources/BIPro/Report/Edit/DocumentSaver.swift
+D1	lead	Sources/BIPro/DocumentState.swift
+D1	lead	Sources/BIPro/App.swift
+D1	lead	Sources/BIPro/Report/ReportCanvas.swift
+D1	lead	Sources/BIPro/Report/ReportWorkspace.swift
+D1	lead	scripts/build-app.sh
+D1	lead	Tests/PBIXKitTests/PBIRLayoutPatchTests.swift
+D1	lead	Tests/PBIXKitTests/PBIXWriterEditTests.swift
+D1	lead	Tests/BIProTests/Edit/**
+D1	lead	Sources/BIPro/Panes/ReportPanes.swift
+D1	lead	Sources/pbix-dump/main.swift
+D1	lead	Tests/PBIXKitTests/EditRoundTripTests.swift
+D1	lead	Sources/BIPro/Report/Edit/SpikeDocumentWindow.swift
+D1	lead	Sources/BIPro/Shell/ShellView.swift
+D1	lead	Sources/PBIXKit/ReportDefinition.swift
+D1	lead	Sources/PBIXKit/Writing/PBIRPatch.swift
