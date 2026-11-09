@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-07. **Phase C: đợt 3, đợt A và buổi C2 đã xong và commit (mới nhất `63f52db`), `swift test` 800 qua, golden nặng 67 qua.** Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-09. **Phase C: đợt 3, đợt A, buổi C2 và E3-cấu-trúc xong và commit (mới nhất `e5907a2`); `swift test` 819 qua, golden nặng + test gộp 79 qua.** Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
@@ -16,7 +16,8 @@ Cập nhật: 2026-11-07. **Phase C: đợt 3, đợt A và buổi C2 đã xong 
     - R2, card, slicer, matrix.
   - **Đợt 2** xong (2026-11-04):
     - R3 (donut, treemap, shape map, tooltip) và I (logic tương tác): agy xong, đã review và merge vào `main`;
-    - E3 (hiệu năng engine): xong phần chính. Đo ở `phase-c-evidence/C1.md` §1.5: combo thấu chi 34 s → 3,7 s, matrix Giờ × Thứ 5,5–8 s → 1,7–2,2 s, matrix mở nút 9 s → 1,1–1,5 s, combo kênh 12,7 s → 0,7 s; golden 57/57, kết quả khớp byte. Chưa đạt ngưỡng 1 s ở combo thấu chi và matrix Giờ × Thứ;
+    - E3 (hiệu năng engine): xong phần chính. Đo ở `phase-c-evidence/C1.md` §1.5: combo thấu chi 34 s → 3,7 s, matrix Giờ × Thứ 5,5–8 s → 1,7–2,2 s, matrix mở nút 9 s → 1,1–1,5 s, combo kênh 12,7 s → 0,7 s; golden 57/57, kết quả khớp byte. Chưa đạt ngưỡng 1 s ở combo thấu chi và matrix Giờ × Thứ (đã đạt ở E3-cấu-trúc, dưới đây);
+    - **E3-cấu-trúc xong (2026-11-09, commit `e5907a2`, Spec Kit `specs/001-e3-cau-truc/`)**: combo thấu chi 2,15 → 0,54 s, matrix Giờ × Thứ 1,72 → 0,41 s, combo kênh 0,73 → 0,10 s, trang D1 song song 3,32 → 1,04 s; khớp byte, khớp 66 truy vấn visual giữa đường gộp và đường cũ. Gồm đường tính gộp theo nhóm cho `SUMX/AVERAGEX/MINX/MAXX` (công tắc `BIPRO_BATCH=0`), và các sửa nghẽn thật: `FilterContext.values`, `RelationshipIndex.manyRows`, `SummarizeColumns.groupCombinations`, `Aggregation.extremeOfColumn`. Đo và chẩn đoán: `specs/001-e3-cau-truc/measurements.md`, `research.md` R9, `phase-c-evidence/C1.md` §1.5. File Nhom6 gốc không còn ở `~/Downloads`: `DAXFixtures.nhom6` và `e3-loop.sh` dùng `~/Downloads/bipro-golden/Nhom6_work.pbix` hoặc `BIPRO_NHOM6`.
     - G (ghép): `Report/ReportInteraction.swift` + `Report/LiveVisual.swift`. Card, slicer, matrix, cột/bar/line/combo, donut, treemap, shape map chạy số thật; slicer, lọc chéo, tô sáng chéo (3 golden khớp `interact/xf-*.dax`), drill down/up (nút góc trên phải, chế độ drill, chuột phải), drillthrough (chuột phải → trang đích, tham số đọc từ `pageBinding`), tooltip khi rê chuột. Engine chạy được cả 16 truy vấn trong `observe-c1/interact/` (agy báo thiếu là sai). Bạn đã bấm thử slicer và lọc chéo: ổn. Chưa tự kiểm bấm drill, drillthrough, tô sáng trên app.
     - Mở nút: slicer hierarchy (`expansionStates` trong file + bấm mũi tên) và matrix cột (bấm +/−) đã làm, có golden (`D1-slicer-nam`, `interact/matrix-expand`); mới hỗ trợ mở một cấp ở cấp gốc. `DropdownSlicer` đã dùng `SlicerNode.formatString`.
     - Chưa làm (để sau): drill cho donut chưa có golden; Edit interactions (người dùng đổi lọc/tô sáng giữa hai visual) chưa có giao diện; matrix mở nút theo hàng; mở nút nhiều cấp.
@@ -72,14 +73,13 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 
 **Chờ bạn:**
 - Bấm thử bản mới (`zsh scripts/build-app.sh`): bookmark (menu chuột phải chưa kiểm), thẻ measure, matrix nhiều cấp, tốc độ cuộn (hằng số 100 và 2,5 ở `MatrixVisual.swift` nếu cần chỉnh).
+- Hệ quả E3-cấu-trúc: các visual đã nhanh nên có thể bấm thử lọc/đổi slicer ở trang D1 để cảm nhận (mục tiêu mỗi visual dưới 1 s).
 - Chỉ trường nào "chưa add được bộ lọc" ở trang nào (menu "Thêm field" mới có 77 cột nhìn thấy, chưa có measure, cấp hierarchy).
-- Bảo bắt đầu **E3-cấu-trúc** (đợt engine riêng, đã quyết định 2026-11-07): gộp context transition theo nhóm cho `Avg_Account_Balance`, `FilterContext` ít cấp phát; vào Spec Kit và dừng cho bạn duyệt.
-- copy văn bản "Define new measure" của Power BI (Phase B).
 
 **Backlog Phase C (chưa có yêu cầu):**
 - Matrix: đọc nút đã mở lưu trong file (`expansionStates`), mở nút theo hàng, ô "Nhóm tuổi" (tên trường hàng) đang bị thay bằng tên cấp theo yêu cầu.
 - Drill cho donut chưa có golden; Edit interactions chưa có giao diện; thêm measure/hierarchy vào Filters pane; kéo field từ pane Dữ liệu; Advanced cho cột ngày; Top N khớp văn bản Power BI (`TOPN` nửa nối).
 - Trục Y line "$0bn" của Power BI (đơn vị tự động) chưa biết quy tắc; dự báo từng tháng chưa khớp.
-- Ghi bookmark vào .pbix; test `huyTruyVanNangDungNhanh` chập chờn khi máy tải cao.
+- Ghi bookmark vào .pbix; test `huyTruyVanNangDungNhanh` nay lặp truy vấn đến khi bị huỷ (truy vấn golden đều xong dưới 0,6 s), vẫn có thể chập chờn khi máy tải cao.
 
 **Sau Phase C:** Phase D (Spec Kit, kiểm tra Phase W trước).
