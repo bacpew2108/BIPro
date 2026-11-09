@@ -1,3 +1,4 @@
+import AppKit
 import PBIXKit
 import SwiftUI
 
@@ -383,9 +384,17 @@ struct SelectionPane: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach((state.page?.visuals ?? []).sorted { $0.z > $1.z }) { visual in
-                        let selected = state.visualID == visual.id
+                        let selected = state.layout.selection.contains(visual.id) || state.visualID == visual.id
                         let hidden = state.interaction.isHidden(visual)
-                        Button { state.visualID = visual.id } label: {
+                        Button {
+                            // Shift-bấm thêm/bớt khỏi vùng chọn (nhiều visual); bấm thường chọn riêng.
+                            if NSEvent.modifierFlags.contains(.shift) {
+                                state.layout.select(visual.id, extend: true)
+                                state.visualID = state.layout.primary
+                            } else {
+                                state.visualID = visual.id
+                            }
+                        } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "line.3.horizontal").font(.system(size: 9)).foregroundStyle(DS.Palette.tertiaryLabel)
                                 Image(systemName: VisualCatalog.symbol(visual.type)).font(.system(size: 11))

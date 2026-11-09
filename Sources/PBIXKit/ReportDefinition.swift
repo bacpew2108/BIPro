@@ -22,6 +22,12 @@ public struct ReportPage: Sendable, Identifiable, Hashable {
     public var isHidden: Bool
     public var objects: ObjectProperties
     public var visuals: [ReportVisual]
+
+    public init(id: String, displayName: String, width: Double, height: Double, isHidden: Bool = false,
+                objects: ObjectProperties = ObjectProperties(nil), visuals: [ReportVisual] = []) {
+        self.id = id; self.displayName = displayName; self.width = width; self.height = height
+        self.isHidden = isHidden; self.objects = objects; self.visuals = visuals
+    }
 }
 
 public struct ReportVisual: Sendable, Identifiable, Hashable {

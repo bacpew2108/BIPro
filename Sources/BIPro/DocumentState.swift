@@ -1,3 +1,4 @@
+import AppKit
 import Observation
 import PBIXKit
 import SwiftUI
@@ -56,6 +57,20 @@ enum RibbonTab: String, Identifiable {
 final class DocumentState {
     let workspace: Workspace
     let fileName: String
+    /// File đang mở (nil nếu không biết). Dùng khi lưu.
+    let fileURL: URL?
+    /// Dấu vết của file lúc mở hoặc lúc lưu gần nhất, để phát hiện file bị đổi ngoài app.
+    var openedStamp: FileStamp?
+    /// Cửa sổ chứa tài liệu (đặt bởi `DocumentWindowBridge`).
+    @ObservationIgnored weak var window: NSWindow?
+    /// Chỉ báo cáo định dạng PBIR sửa được bố cục (`Report/definition/**`); định dạng cũ (`Report/Layout`) chưa hỗ trợ.
+    var canEditLayout: Bool { workspace.pbix.reportFormat == .pbir }
+    /// Bố cục sửa được của báo cáo (D1). `page` trả về trang đã áp phần sửa.
+    let layout: LayoutEditor
+    /// Chế độ Sửa (⌘E): kéo thả visual. Mặc định là Xem: lọc chéo, drill như trước.
+    var editMode = false {
+        didSet { if !editMode { layout.clearSelection(); if visualID != nil { visualID = nil } } }
+    }
     /// Trạng thái lọc/tương tác và nạp dữ liệu của các visual trong báo cáo (gói G).
     let interaction: ReportInteraction
 
@@ -68,8 +83,16 @@ final class DocumentState {
     var ribbonTab: RibbonTab = .home
 
     // Report
-    var pageID: String?
-    var visualID: String? { didSet { if visualID == nil, ribbonTab.isContextual, mode == .report { ribbonTab = .home } } }
+    var pageID: String? { didSet { if pageID != oldValue { layout.showPage(pageID) } } }
+    var visualID: String? {
+        didSet {
+            if visualID == nil, ribbonTab.isContextual, mode == .report { ribbonTab = .home }
+            // Giữ vùng chọn của bộ sửa khớp với visual chọn từ bên ngoài (Selection pane, chế độ Xem).
+            if visualID != layout.primary {
+                if let visualID { layout.select(visualID) } else { layout.clearSelection() }
+            }
+        }
+    }
     var zoom: Double? // nil = fit page
     var showFilters = true
     var showVisualizations = true
@@ -103,12 +126,21 @@ final class DocumentState {
 
     enum VisualizationsTab: Hashable { case build, format }
 
-    init(workspace: Workspace, fileName: String) {
+    init(workspace: Workspace, fileName: String, fileURL: URL? = nil) {
         self.workspace = workspace
         self.fileName = fileName
+        self.fileURL = fileURL
+        self.openedStamp = fileURL.flatMap { try? FileStamp.of($0) }
+        let archive = workspace.pbix.archive
+        self.layout = LayoutEditor(report: workspace.report, sourceJSON: { page, id in
+            try? archive.read(LayoutEditor.visualPath(page: page, id: id))
+        })
         self.interaction = ReportInteraction(workspace: workspace)
         pageID = workspace.activePageID.flatMap { id in workspace.report.pages.contains { $0.id == id } ? id : nil }
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
+        layout.showPage(pageID)
+        DocumentRegistry.shared.add(self)
+        if let fileURL { RecentFiles.record(fileURL) }
         table = workspace.userTables.first?.name
         diagramName = workspace.diagramLayout?.defaultDiagram ?? workspace.diagramLayout?.diagrams.first?.name
         tmdlPath = workspace.tmdlDocuments.first?.path
@@ -123,7 +155,8 @@ final class DocumentState {
         }
     }
 
-    var page: ReportPage? { pageID.flatMap(workspace.page(id:)) }
+    /// Trang đang xem, với bố cục đã sửa (nếu có). Mọi nơi cần bố cục hiện tại phải đọc qua đây.
+    var page: ReportPage? { pageID.flatMap(layout.page(_:)) }
 
     var visual: ReportVisual? {
         guard let visualID else { return nil }

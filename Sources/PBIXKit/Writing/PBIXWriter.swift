@@ -22,11 +22,23 @@ public enum PBIXWriter {
         for path in changes.reportParts.keys.sorted() where archive.entry(path) == nil {
             throw WriteError.invalid("\(path) is not a member of \(source.lastPathComponent)")
         }
+        for path in changes.removedParts.sorted() {
+            guard archive.entry(path) != nil else {
+                throw WriteError.invalid("cannot remove \(path): not a member of \(source.lastPathComponent)")
+            }
+            guard changes.reportParts[path] == nil else {
+                throw WriteError.invalid("\(path) is both replaced and removed")
+            }
+        }
+        for path in changes.addedParts.keys.sorted() where archive.entry(path) != nil {
+            throw WriteError.invalid("cannot add \(path): already a member of \(source.lastPathComponent)")
+        }
         let needsModel = rebuildModel || !changes.measures.isEmpty
         let model = needsModel ? try rebuiltDataModel(archive: archive, measures: changes.measures) : nil
 
         var members: [(path: String, source: ZipWriter.Source)] = []
         for entry in archive.entries {
+            if changes.removedParts.contains(entry.path) { continue }
             if entry.path == "DataModel", let model {
                 // The DataModel member is stored (method 0) in every Power BI file; keep it so.
                 members.append((path: entry.path, source: .bytes(model, method: 0)))
@@ -36,35 +48,86 @@ public enum PBIXWriter {
                 members.append((path: entry.path, source: .rawCopy(archive, entry)))
             }
         }
+        for path in changes.addedParts.keys.sorted() {
+            let index = insertionIndex(for: path, in: members.map(\.path))
+            members.insert((path: path, source: .bytes(changes.addedParts[path]!, method: 8)), at: index)
+        }
         let data = try ZipWriter.write(members, modified: nil)
-        try verify(data, changes: changes)
+        try verify(data, changes: changes, source: archive)
         return Result(data: data, tier: changes.tier)
     }
 
-    /// Builds, verifies and writes the file. The first save keeps a `<name>.pbix.bak` copy of the
-    /// previous file. The write goes through a temporary file in the same folder and is swapped
-    /// in only after it reopens cleanly.
+    /// Where a new part goes: after the last member of the same folder of visuals (or the same page),
+    /// otherwise at the end.
+    static func insertionIndex(for path: String, in existing: [String]) -> Int {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+        if let pages = parts.firstIndex(of: "pages"), parts.count > pages + 2 {
+            let pagePrefix = parts[...(pages + 1)].joined(separator: "/") + "/"
+            for prefix in [pagePrefix + "visuals/", pagePrefix] {
+                if let last = existing.lastIndex(where: { $0.hasPrefix(prefix) }) { return last + 1 }
+            }
+        }
+        return existing.count
+    }
+
+    /// Builds, verifies and writes the file. The write goes through a temporary file in the same folder
+    /// and is swapped in only after it reopens cleanly. `backup` says what is kept of the previous file.
     @discardableResult
-    public static func save(source: URL, to destination: URL, changes: PBIXChanges, rebuildModel: Bool = false) throws -> SaveTier {
+    public static func save(source: URL, to destination: URL, changes: PBIXChanges, rebuildModel: Bool = false,
+                            backup: BackupPolicy = .sideBak) throws -> SaveTier {
         let result = try build(source: source, changes: changes, rebuildModel: rebuildModel)
+        try write(result.data, to: destination, backup: backup)
+        return result.tier
+    }
+
+    /// Writes already verified bytes: through a temporary file next to the destination, reopened before it
+    /// replaces anything. On any failure the destination is unchanged and the temporary file is removed.
+    public static func write(_ data: Data, to destination: URL, backup: BackupPolicy = .sideBak) throws {
         let fm = FileManager.default
         let temp = destination.deletingLastPathComponent()
             .appendingPathComponent(".\(destination.lastPathComponent).\(UUID().uuidString).tmp")
-        try result.data.write(to: temp)
         do {
-            _ = try PBIXFile(url: temp)
+            try data.write(to: temp)
+            do {
+                _ = try PBIXFile(url: temp)
+            } catch {
+                throw WriteError.verificationFailed("\(error)")
+            }
+            if fm.fileExists(atPath: destination.path) {
+                do { try keepBackup(of: destination, policy: backup) } catch { throw WriteError.backupFailed("\(error)") }
+                _ = try fm.replaceItemAt(destination, withItemAt: temp)
+            } else {
+                try fm.moveItem(at: temp, to: destination)
+            }
         } catch {
             try? fm.removeItem(at: temp)
-            throw WriteError.verificationFailed("\(error)")
+            throw error
         }
-        if fm.fileExists(atPath: destination.path) {
+    }
+
+    static func keepBackup(of destination: URL, policy: BackupPolicy) throws {
+        let fm = FileManager.default
+        switch policy {
+        case .none:
+            return
+        case .sideBak:
             let backup = destination.appendingPathExtension("bak")
             if !fm.fileExists(atPath: backup.path) { try fm.copyItem(at: destination, to: backup) }
-            _ = try fm.replaceItemAt(destination, withItemAt: temp)
-        } else {
-            try fm.moveItem(at: temp, to: destination)
+        case .directory(let folder):
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+            let key = destination.standardizedFileURL.resolvingSymlinksInPath().path
+            var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+            for byte in key.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100_0000_01b3 }
+            let name = String(hash, radix: 16).padding(toLength: 16, withPad: "0", startingAt: 0) + "-" + destination.lastPathComponent
+            let backup = folder.appendingPathComponent(name)
+            let staged = folder.appendingPathComponent(".\(name).\(UUID().uuidString).tmp")
+            try fm.copyItem(at: destination, to: staged)
+            if fm.fileExists(atPath: backup.path) {
+                _ = try fm.replaceItemAt(backup, withItemAt: staged)
+            } else {
+                try fm.moveItem(at: staged, to: backup)
+            }
         }
-        return result.tier
     }
 
     /// T2: adds measures to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel.
@@ -84,17 +147,35 @@ public enum PBIXWriter {
         return try DataModelStream.compress(abf: newABF)
     }
 
-    /// Reads the written bytes back and checks every change.
-    static func verify(_ data: Data, changes: PBIXChanges) throws {
+    /// Reads the written bytes back and checks every change. With the source archive it also checks that
+    /// every member that was not touched is unchanged.
+    static func verify(_ data: Data, changes: PBIXChanges, source: ZipArchive? = nil) throws {
         let pbix: PBIXFile
         do {
             pbix = try PBIXFile(data: data)
         } catch {
             throw WriteError.verificationFailed("cannot reopen the new file: \(error)")
         }
-        for (path, expected) in changes.reportParts {
+        for (path, expected) in changes.reportParts.merging(changes.addedParts, uniquingKeysWith: { a, _ in a }) {
             let actual = try pbix.archive.read(path)
             guard actual == expected else { throw WriteError.verificationFailed("\(path) does not read back") }
+        }
+        for path in changes.removedParts where pbix.archive.entry(path) != nil {
+            throw WriteError.verificationFailed("\(path) is still in the file")
+        }
+        if let source {
+            let touched = Set(changes.reportParts.keys).union(changes.removedParts)
+            let isModelRebuilt = !changes.measures.isEmpty
+            for entry in source.entries where !touched.contains(entry.path) {
+                if isModelRebuilt && entry.path == "DataModel" { continue }
+                guard let now = pbix.archive.entry(entry.path), now.crc32 == entry.crc32,
+                      now.uncompressedSize == entry.uncompressedSize else {
+                    throw WriteError.verificationFailed("\(entry.path) changed although it was not meant to")
+                }
+            }
+            guard pbix.archive.entries.count == source.entries.count + changes.addedParts.count - changes.removedParts.count else {
+                throw WriteError.verificationFailed("unexpected number of members")
+            }
         }
         guard !changes.measures.isEmpty else { return }
         let (abf, _) = try pbix.loadDataModel()

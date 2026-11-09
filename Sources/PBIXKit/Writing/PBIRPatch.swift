@@ -125,13 +125,13 @@ public enum PBIRPatch {
 }
 
 /// One step of a path into a JSON document: an object key or an array index.
-fileprivate enum JSONPathStep {
+enum JSONPathStep {
     case key(String)
     case index(Int)
 }
 
 /// Finds the byte range of a value inside a JSON document without re-serialising it.
-private struct JSONCursor {
+struct JSONCursor {
     let b: [UInt8]
     var i = 0
 
@@ -141,20 +141,20 @@ private struct JSONCursor {
         return cursor.find(path)
     }
 
-    private var peek: UInt8? { i < b.count ? b[i] : nil }
+    var peek: UInt8? { i < b.count ? b[i] : nil }
 
-    private mutating func skipWhitespace() {
+    mutating func skipWhitespace() {
         while let c = peek, c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D { i += 1 }
     }
 
-    private mutating func expect(_ c: UInt8) -> Bool {
+    mutating func expect(_ c: UInt8) -> Bool {
         skipWhitespace()
         guard peek == c else { return false }
         i += 1
         return true
     }
 
-    private mutating func find(_ path: ArraySlice<JSONPathStep>) -> Range<Int>? {
+    mutating func find(_ path: ArraySlice<JSONPathStep>) -> Range<Int>? {
         skipWhitespace()
         guard let step = path.first else {
             let start = i
@@ -189,7 +189,7 @@ private struct JSONCursor {
     }
 
     /// Advances past one JSON value. Returns false on malformed input.
-    private mutating func skipValue() -> Bool {
+    mutating func skipValue() -> Bool {
         skipWhitespace()
         guard let c = peek else { return false }
         switch c {
@@ -219,13 +219,13 @@ private struct JSONCursor {
         }
     }
 
-    private func isTokenByte(_ c: UInt8) -> Bool {
+    func isTokenByte(_ c: UInt8) -> Bool {
         (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)
             || c == UInt8(ascii: "-") || c == UInt8(ascii: "+") || c == UInt8(ascii: ".")
     }
 
     /// Scans a string token starting at the opening quote. Returns its range including quotes.
-    private mutating func scanString() -> Range<Int>? {
+    mutating func scanString() -> Range<Int>? {
         guard peek == UInt8(ascii: "\"") else { return nil }
         let start = i
         i += 1
@@ -238,7 +238,7 @@ private struct JSONCursor {
         return nil
     }
 
-    private func decodeString(_ range: Range<Int>) -> String? {
+    func decodeString(_ range: Range<Int>) -> String? {
         let token = Data(b[range])
         return (try? JSONSerialization.jsonObject(with: token, options: [.fragmentsAllowed])) as? String
     }

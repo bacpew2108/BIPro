@@ -1,7 +1,9 @@
 import PBIXKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// One report page drawn at its native size (e.g. 1920×1080), scaled to fit or to an explicit zoom.
+/// Ở chế độ Sửa (`editMode`), nội dung bên trong visual không nhận chuột và `EditCanvasOverlay` lo chọn, kéo, đổi cỡ.
 struct ReportPageView: View {
     let workspace: Workspace
     let page: ReportPage
@@ -11,6 +13,15 @@ struct ReportPageView: View {
     var zoom: Double?
     var onScale: (Double) -> Void = { _ in }
     let navigate: (String) -> Void
+    /// Bộ sửa bố cục và cờ chế độ Sửa (D1). Không có bộ sửa thì luôn là chế độ Xem.
+    var editor: LayoutEditor?
+    var editMode = false
+
+    /// Khung tạm của các visual đang bị kéo (chỉ chế độ Sửa).
+    @State private var preview: [String: Frame] = [:]
+    @FocusState private var canvasFocused: Bool
+
+    private var isEditing: Bool { editMode && editor != nil }
 
     var body: some View {
         GeometryReader { geo in
@@ -29,28 +40,91 @@ struct ReportPageView: View {
             .scrollDisabled(zoom == nil)
             .onAppear { onScale(scale) }
             .onChange(of: scale) { _, value in onScale(value) }
+            .overlay(alignment: .top) { lockedBanner }
         }
         .background(DS.Palette.backdrop)
+        .focusable(isEditing)
+        .focused($canvasFocused)
+        .focusEffectDisabled()
+        .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow, .escape], phases: [.down, .repeat]) { press in
+            handleKey(press)
+        }
+        // Xoá, chép, dán qua menu Sửa chuẩn (⌫, ⌘C, ⌘V) khi canvas đang lấy tiêu điểm ở chế độ Sửa.
+        .onDeleteCommand {
+            guard isEditing, let editor else { return }
+            editor.delete(editor.selection)
+            selectedVisual = editor.primary
+        }
+        .onCopyCommand {
+            guard isEditing, let editor, !editor.selection.isEmpty else { return [] }
+            editor.copy()
+            return [NSItemProvider(object: "BI Pro: visual" as NSString)]
+        }
+        .onPasteCommand(of: [.plainText]) { _ in
+            guard isEditing, let editor else { return }
+            editor.paste()
+            selectedVisual = editor.primary
+        }
+        .onChange(of: editMode) { _, on in canvasFocused = on }
+        .onAppear { canvasFocused = isEditing }
+    }
+
+    @ViewBuilder private var lockedBanner: some View {
+        if isEditing, let message = editor?.lockedReason {
+            Text(message)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Capsule().fill(.regularMaterial))
+                .overlay(Capsule().strokeBorder(Color.black.opacity(0.08)))
+                .padding(.top, 8)
+                .transition(.opacity)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func handleKey(_ press: KeyPress) -> KeyPress.Result {
+        guard isEditing, let editor else { return .ignored }
+        let big = press.modifiers.contains(.shift)
+        let step = big ? LayoutGeometry.nudgeBig : LayoutGeometry.nudge
+        switch press.key {
+        case .leftArrow: editor.move(editor.selection, dx: -step, dy: 0, snap: false, coalescing: true)
+        case .rightArrow: editor.move(editor.selection, dx: step, dy: 0, snap: false, coalescing: true)
+        case .upArrow: editor.move(editor.selection, dx: 0, dy: -step, snap: false, coalescing: true)
+        case .downArrow: editor.move(editor.selection, dx: 0, dy: step, snap: false, coalescing: true)
+        case .escape: deselect()
+        default: return .ignored
+        }
+        return .handled
     }
 
     private func deselect() {
         selectedVisual = nil
+        editor?.clearSelection()
         interaction?.clearSelection(page: page)
     }
+
+    private func isHidden(_ visual: ReportVisual) -> Bool { interaction?.isHidden(visual) ?? visual.isHidden }
 
     private func canvas(scale: Double) -> some View {
         ZStack(alignment: .topLeading) {
             pageBackground
                 .onTapGesture { deselect() }
-            ForEach(page.visuals.filter { !(interaction?.isHidden($0) ?? $0.isHidden) }) { visual in
+            ForEach(page.visuals.filter { !isHidden($0) }) { visual in
+                let frame = preview[visual.id]
                 VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
-                    .frame(width: visual.width, height: visual.height)
+                    .frame(width: frame.map { CGFloat($0.width) } ?? visual.width, height: frame.map { CGFloat($0.height) } ?? visual.height)
+                    .allowsHitTesting(!isEditing)
                     .overlay {
-                        if selectedVisual == visual.id { SelectionHandles(scale: scale) }
+                        if !isEditing, selectedVisual == visual.id { SelectionHandles(scale: scale) }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { selectedVisual = visual.id }
-                    .offset(x: visual.x, y: visual.y)
+                    .onTapGesture { if !isEditing { selectedVisual = visual.id } }
+                    .offset(x: frame.map { CGFloat($0.x) } ?? visual.x, y: frame.map { CGFloat($0.y) } ?? visual.y)
+            }
+            if isEditing, let editor {
+                EditCanvasOverlay(editor: editor, page: page, scale: scale, isHidden: isHidden, preview: $preview,
+                                  onSelectionChange: { selectedVisual = editor.primary },
+                                  onInteract: { canvasFocused = true })
             }
         }
         .frame(width: page.width, height: page.height, alignment: .topLeading)

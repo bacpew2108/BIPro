@@ -17,6 +17,9 @@ usage: pbix-dump <command> <file.pbix> [args]
   roundtrip <in> <out>    rebuild the file with no changes and compare
   set-title <in> <visualID> <title> <out>
   add-measure <in> <table> <name> <expression> <out>
+  move-visual <in> <visualID> <x> <y> <width> <height> <out>   (T1, helper for D1 checks)
+  dup-visual <in> <visualID> <out>                              (T1, copy +16,+16 on top)
+  remove-visual <in> <visualID> <out>                           (T1, also cleans bookmarks/page interactions)
 """
 
 func fail(_ message: String) -> Never {
@@ -225,6 +228,53 @@ do {
         let tier = try PBIXWriter.save(source: url, to: URL(fileURLWithPath: args[6]), changes: changes)
         print("tier \(tier.rawValue): measure \(args[4]) added to \(args[3])")
         print("wrote \(args[6])")
+
+    case "move-visual", "dup-visual", "remove-visual":
+        // D1 helpers: T1 layout edits through PBIRLayoutPatch + PBIXWriter. Prints the time of the whole save.
+        let isMove = args[1] == "move-visual", isDup = args[1] == "dup-visual"
+        let need = isMove ? 9 : 5
+        guard args.count >= need else { fail(usage) }
+        let visualID = args[3]
+        let output = URL(fileURLWithPath: args[need - 1])
+        let suffix = "/visuals/\(visualID)/visual.json"
+        guard let entry = pbix.archive.entries.first(where: { $0.path.hasSuffix(suffix) }) else {
+            fail("no visual \(visualID) in \(url.lastPathComponent)")
+        }
+        let pageDir = entry.path.components(separatedBy: "/visuals/")[0]
+        let started = Date()
+        var changes = PBIXChanges()
+        let json = try pbix.archive.read(entry)
+        if isMove {
+            guard let x = Int(args[4]), let y = Int(args[5]), let w = Int(args[6]), let h = Int(args[7]) else { fail(usage) }
+            changes.reportParts[entry.path] = try PBIRLayoutPatch.setPosition(in: json, x: x, y: y, width: w, height: h)
+        } else if isDup {
+            let p = try PBIRLayoutPatch.position(in: json)
+            let taken = Set(pbix.archive.entries.compactMap { $0.path.components(separatedBy: "/visuals/").last?.components(separatedBy: "/").first })
+            let name = PBIRLayoutPatch.makeVisualName(avoiding: taken)
+            let siblings = try pbix.archive.entries.filter { $0.path.hasPrefix(pageDir + "/visuals/") && $0.path.hasSuffix("/visual.json") }
+                .map { try PBIRLayoutPatch.position(in: try pbix.archive.read($0)).z }
+            let copy = try PBIRLayoutPatch.duplicated(json, newName: name, x: Int(p.x) + 16, y: Int(p.y) + 16,
+                                                      width: Int(p.width), height: Int(p.height), z: Int((siblings.max() ?? p.z) + 1000))
+            changes.addedParts["\(pageDir)/visuals/\(name)/visual.json"] = copy
+            print("new visual \(name)")
+        } else {
+            changes.removedParts.insert(entry.path)
+            let ids: Set<String> = [visualID]
+            for part in pbix.archive.entries {
+                if part.path.hasSuffix(".bookmark.json") {
+                    let data = try pbix.archive.read(part)
+                    let cleaned = try PBIRLayoutPatch.removingVisualReferences(ids, fromBookmark: data)
+                    if cleaned != data { changes.reportParts[part.path] = cleaned; print("cleaned \(part.path)") }
+                } else if part.path.hasSuffix("/page.json") {
+                    let data = try pbix.archive.read(part)
+                    let cleaned = try PBIRLayoutPatch.removingVisualReferences(ids, fromPage: data)
+                    if cleaned != data { changes.reportParts[part.path] = cleaned; print("cleaned \(part.path)") }
+                }
+            }
+        }
+        let tier = try PBIXWriter.save(source: url, to: output, changes: changes, backup: .none)
+        print("tier \(tier.rawValue), \(String(format: "%.3f", Date().timeIntervalSince(started))) s")
+        print("wrote \(output.path)")
 
     default:
         fail(usage)

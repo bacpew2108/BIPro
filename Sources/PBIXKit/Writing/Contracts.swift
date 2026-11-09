@@ -9,12 +9,14 @@ public enum WriteError: Error, CustomStringConvertible {
     case notImplemented(String)
     case invalid(String)
     case verificationFailed(String)
+    case backupFailed(String)
 
     public var description: String {
         switch self {
         case .notImplemented(let what): "not implemented: \(what)"
         case .invalid(let message): "invalid write request: \(message)"
         case .verificationFailed(let message): "written file failed verification: \(message)"
+        case .backupFailed(let message): "could not keep a backup of the previous file: \(message)"
         }
     }
 }
@@ -68,12 +70,26 @@ public struct NewMeasure: Sendable, Equatable {
 
 /// Everything one save changes.
 public struct PBIXChanges: Sendable {
-    /// T1: replaced PBIR parts, keyed by ZIP member path.
+    /// T1: replaced PBIR parts, keyed by ZIP member path. Each path must already exist.
     public var reportParts: [String: Data] = [:]
+    /// T1: PBIR parts to add, keyed by ZIP member path. Each path must not exist yet.
+    /// A part is placed right after the last member of the same page's `visuals/` folder.
+    public var addedParts: [String: Data] = [:]
+    /// T1: ZIP member paths to drop. Each path must exist, and must not also be replaced.
+    public var removedParts: Set<String> = []
     /// T2: measures to add.
     public var measures: [NewMeasure] = []
 
     public init() {}
 
     public var tier: SaveTier { measures.isEmpty ? .report : .metadata }
+}
+
+/// What `PBIXWriter.save` does with the file it is about to replace.
+public enum BackupPolicy: Sendable {
+    /// Keep `<name>.pbix.bak` next to the file, only the first time (the CLI behaviour).
+    case sideBak
+    /// Copy the previous file into this folder as `<hash of its path>-<name>`, replacing any older copy.
+    case directory(URL)
+    case none
 }

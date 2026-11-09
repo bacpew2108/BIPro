@@ -20,6 +20,8 @@ struct ShellView: View {
             }
         }
         .background(DS.Palette.chrome)
+        .background { DocumentWindowBridge(state: state, isDirty: state.layout.isDirty) }
+        .focusedSceneValue(\.documentState, state)
         .ignoresSafeArea(.container, edges: .top)
         .environment(\.colorScheme, .light)
         .tint(DS.Palette.accent)
@@ -50,8 +52,8 @@ struct TitleBar: View {
                 Color.clear.frame(width: 72) // traffic lights
                 Image(systemName: "doc.text.fill").foregroundStyle(DS.Palette.accent)
                 Text(state.fileName).font(DS.Typeface.headlineSmall).foregroundStyle(DS.Palette.label).lineLimit(1)
-                Badge(text: "Chỉ xem")
-                    .help("Chỉnh sửa và lưu .pbix có từ Phase D")
+                Badge(text: state.statusBadge)
+                    .help(state.layout.isDirty ? "Có thay đổi bố cục chưa lưu (⌘S)" : "Bật Sửa (⌘E) để kéo, đổi cỡ visual")
                 Spacer()
                 Menu {
                     Button("PDF…") {}.disabled(true)

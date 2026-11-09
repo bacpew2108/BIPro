@@ -14,8 +14,10 @@ struct ReportWorkspace: View {
                 if let page = state.page {
                     ReportPageView(workspace: state.workspace, page: page, interaction: state.interaction, selectedVisual: $state.visualID,
                                    zoom: state.zoom, onScale: { currentScale = $0 },
-                                   navigate: { state.pageID = $0; state.visualID = nil })
+                                   navigate: { state.pageID = $0; state.visualID = nil },
+                                   editor: state.layout, editMode: state.editMode)
                         .id(page.id)
+                        .overlay(alignment: .topTrailing) { EditModeSwitch(state: state) }
                 } else {
                     ContentUnavailableView("Báo cáo không có trang", systemImage: "doc.richtext")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -116,5 +118,30 @@ struct PageTabs: View {
         .frame(height: DS.Metrics.pageTabs)
         .background(DS.Palette.chrome)
         .hairline(.top)
+    }
+}
+
+/// Nút Xem / Sửa ở góc trên phải canvas (⌘E đổi qua lại).
+struct EditModeSwitch: View {
+    @Bindable var state: DocumentState
+
+    var body: some View {
+        Picker("Chế độ", selection: $state.editMode) {
+            Text("Xem").tag(false)
+            Text("Sửa").tag(true)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 120)
+        .padding(10)
+        .disabled(!state.canEditLayout)
+        .help(state.canEditLayout ? "Sửa bố cục: kéo, đổi cỡ visual (⌘E). Xem: lọc chéo và drill như trong Power BI."
+              : "Báo cáo định dạng cũ (Report/Layout) chưa sửa được bố cục; chỉ báo cáo PBIR.")
+        .background {
+            Button("") { if state.canEditLayout { state.editMode.toggle() } }
+                .keyboardShortcut("e", modifiers: .command)
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
     }
 }

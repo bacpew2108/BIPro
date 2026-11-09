@@ -33,7 +33,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <array>
         <dict>
             <key>CFBundleTypeName</key><string>Power BI Report</string>
-            <key>CFBundleTypeRole</key><string>Viewer</string>
+            <key>CFBundleTypeRole</key><string>Editor</string>
             <key>LSHandlerRank</key><string>Default</string>
             <key>LSItemContentTypes</key><array><string>com.microsoft.powerbi.pbix</string></array>
         </dict>
