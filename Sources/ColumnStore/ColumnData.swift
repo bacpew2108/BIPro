@@ -119,6 +119,12 @@ public final class ColumnIndex: @unchecked Sendable {
         return rankTable()[code]
     }
 
+    /// Bảng hạng sắp xếp của mọi mã (chỉ số là mã), lấy một lần để vòng lặp nóng không gọi `sortRank` từng dòng
+    /// (mỗi lần gọi retain/release bảng dùng chung, nhiều luồng sẽ tranh chấp). `nil` với cột dense.
+    public func sortRankTable() -> [Int]? {
+        codeLimit == nil ? nil : rankTable()
+    }
+
     /// Mã theo thứ tự sắp xếp, bắt đầu từ BLANK. `nil` với cột dense.
     public func codesInSortOrder() -> [Int]? {
         guard let limit = codeLimit else { return nil }

@@ -380,9 +380,35 @@ public struct FilterContext: Sendable, Hashable {
         let index = try guarded { try store.index(column) }
         if index.column.isEncoded {
             // Đọc mã qua ColumnIndex: sortRank để sắp, dictionary để đổi mã thành giá trị.
-            var codes = Set<Int>()
-            rows.forEach { codes.insert(index.column.code(atRow: $0) ?? 0) }
-            let ordered = codes.sorted { (index.sortRank(ofCode: $0) ?? 0) < (index.sortRank(ofCode: $1) ?? 0) }
+            // Đánh dấu mã có mặt bằng mảng cờ (không băm) rồi duyệt theo thứ tự sắp xếp của dictionary: cùng thứ tự
+            // với sắp theo `sortRank` (mỗi mã một hạng riêng), nhưng không gọi `sortRank` trong bộ so sánh, vốn làm
+            // 8 luồng tranh chấp đếm tham chiếu của bảng hạng dùng chung (E3-cấu-trúc, R4).
+            let limit = index.column.dictionaryCount + 1
+            var present = [Bool](repeating: false, count: limit)
+            var presentCount = 0
+            func mark(_ code: Int) {
+                if !present[code] { present[code] = true; presentCount += 1 }
+            }
+            switch index.column.payload {
+            case .encoded(let stored, _):
+                let n = stored.count
+                switch stored {
+                case .u8(let c): c.withUnsafeBufferPointer { p in rows.forEach { mark($0 < n ? Int(p[$0]) : 0) } }
+                case .u16(let c): c.withUnsafeBufferPointer { p in rows.forEach { mark($0 < n ? Int(p[$0]) : 0) } }
+                case .u32(let c): c.withUnsafeBufferPointer { p in rows.forEach { mark($0 < n ? Int(p[$0]) : 0) } }
+                }
+            default:
+                rows.forEach { _ in mark(0) }
+            }
+            let ordered: [Int]
+            if presentCount * 8 < limit {
+                // Ít mã trên từ điển lớn: sắp riêng các mã có mặt.
+                ordered = (0..<limit).filter { present[$0] }.sorted {
+                    (index.sortRank(ofCode: $0) ?? 0) < (index.sortRank(ofCode: $1) ?? 0)
+                }
+            } else {
+                ordered = (index.codesInSortOrder() ?? []).filter { present[$0] }
+            }
             return ordered.compactMap { code -> Value? in
                 if code == 0 { return .blank }
                 return index.column.dictionaryValue(code: code).map { Value(stored: $0) }

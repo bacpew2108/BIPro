@@ -41,6 +41,11 @@ public enum IteratorFunctions: FunctionFamily {
 
     private static let sumxBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
         var acc = FKAccumulator()
+        // Đường gộp (E3-cấu-trúc): cùng dãy giá trị theo thứ tự dòng, đưa vào cùng bộ tích luỹ.
+        if let batched = try BatchedIteration.values(for: frame) {
+            for value in batched { try acc.add(value) }
+            return try acc.total()
+        }
         try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
             try acc.add(try frame.scalar(1, in: inner))
         }
@@ -49,6 +54,10 @@ public enum IteratorFunctions: FunctionFamily {
 
     private static let averagexBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
         var acc = FKAccumulator()
+        if let batched = try BatchedIteration.values(for: frame) {
+            for value in batched { try acc.add(value) }
+            return try acc.average()
+        }
         try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
             try acc.add(try frame.scalar(1, in: inner))
         }
@@ -60,6 +69,10 @@ public enum IteratorFunctions: FunctionFamily {
     private static func extremexBody(wantMax: Bool) -> FunctionSpec.ScalarBody {
         return { (frame: CallFrame) throws(DAXError) -> Value in
             var best: Value?
+            if let batched = try BatchedIteration.values(for: frame) {
+                for value in batched { best = try fkPickExtreme(best, value, wantMax: wantMax) }
+                return best ?? .blank
+            }
             try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
                 best = try fkPickExtreme(best, try frame.scalar(1, in: inner), wantMax: wantMax)
             }

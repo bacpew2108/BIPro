@@ -193,10 +193,16 @@ public enum AggregationFunctions: FunctionFamily {
         let (data, rows) = try visibleColumn(frame, column)
         if data.isEncoded {
             let index = try evaluator.columnIndex(column)
+            // Bảng hạng lấy một lần và đọc mã bằng con trỏ: gọi `sortRank` và `code(atRow:)` từng dòng làm các luồng
+            // song song tranh chấp đếm tham chiếu của dữ liệu cột dùng chung (E3-cấu-trúc). Kiểm huỷ theo đợt.
+            guard let ranks = index.sortRankTable() else { return .blank }
             var best: (code: Int, rank: Int)?
-            try fkForEachRow(rows) { (r: Int) throws(DAXError) in
-                let code = data.code(atRow: r) ?? 0
-                guard code != 0, let rank = index.sortRank(ofCode: code) else { return }
+            var scanned = 0
+            var cancelled = false
+            let rowCount = data.rowCount
+            func consider(_ code: Int) {
+                guard code != 0, code < ranks.count else { return }
+                let rank = ranks[code]
                 guard let current = best else {
                     best = (code, rank)
                     return
@@ -204,6 +210,24 @@ public enum AggregationFunctions: FunctionFamily {
                 let better = wantMax ? rank > current.rank : rank < current.rank
                 if better { best = (code, rank) }
             }
+            func visit(_ r: Int) {
+                scanned &+= 1
+                if scanned & 0xFFF == 0, evaluator.isCancelledNow { cancelled = true }
+            }
+            switch data.payload {
+            case .encoded(let codes, _):
+                switch codes {
+                case .u8(let c):
+                    c.withUnsafeBufferPointer { p in rows.forEach { r in visit(r); consider(r < rowCount ? Int(p[r]) : 0) } }
+                case .u16(let c):
+                    c.withUnsafeBufferPointer { p in rows.forEach { r in visit(r); consider(r < rowCount ? Int(p[r]) : 0) } }
+                case .u32(let c):
+                    c.withUnsafeBufferPointer { p in rows.forEach { r in visit(r); consider(r < rowCount ? Int(p[r]) : 0) } }
+                }
+            default:
+                break   // cột allBlank: mọi mã là 0 nên không có gì để xét
+            }
+            if cancelled { try evaluator.checkCancelled() }
             guard let best, let stored = data.dictionaryValue(code: best.code) else { return .blank }
             return Value(stored: stored)
         }

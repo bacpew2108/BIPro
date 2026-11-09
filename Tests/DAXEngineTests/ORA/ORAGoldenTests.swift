@@ -202,8 +202,9 @@ struct ORACancelLatencyTests {
         let query = try String(contentsOf: GoldenPaths.queries.appendingPathComponent("G1-year__FT.dax"), encoding: .utf8)
         let task = Task { () -> DAXError? in
             do {
-                _ = try await engine.execute(query)
-                return nil
+                // Sau E3-cấu-trúc mỗi truy vấn golden xong dưới 0,6 s nên không còn truy vấn nào chạy quá 0,5 s: lặp
+                // cho tới khi bị huỷ để lúc huỷ vẫn có khối lượng nặng đang chạy (ý định của test không đổi).
+                while true { _ = try await engine.execute(query) }
             } catch let error as DAXError {
                 return error
             } catch {

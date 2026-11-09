@@ -87,6 +87,8 @@ public struct RelationshipIndex: Sendable {
     /// tham chiếu blank row ảo bên một, nên blank row ấy chỉ thấy được khi hàm này trả `true`.
     public func hasUnmatched(in manyRows: RowSet) -> Bool {
         precondition(manyRows.universe == manyRowCount + 1, "RelationshipIndex: universe phía nhiều không khớp")
+        // Không có dòng nào không khớp (đã tính khi dựng chỉ mục): khỏi quét cả bảng nhiều ở mỗi lần gọi.
+        guard hasUnmatched else { return false }
         let blank = Int32(oneRowCount)
         for r in 0..<manyRowCount where fkToPK[r] == blank && manyRows.contains(r) {
             return true
@@ -157,13 +159,17 @@ public struct RelationshipIndex: Sendable {
 
         var out: [UInt32] = []
         if usePostings, let codeToPK, let manyIndex {
-            // Mỗi mã FK có một posting list, và các mã khác nhau có dòng khác nhau. Nên gộp rồi sắp.
+            // Mỗi mã FK có một posting list tăng dần, và các mã khác nhau có dòng khác nhau. Hợp bằng bitset thay vì
+            // nối rồi sắp lại cả triệu dòng (E3-cấu-trúc, R4): cùng tập dòng, cùng dạng lưu của RowSet.
+            var lists: [ArraySlice<UInt32>] = []
             for code in 0..<codeToPK.count where oneRows.contains(Int(codeToPK[code])) {
                 if let slice = manyIndex.postings(forCode: code) {
-                    out.append(contentsOf: slice)
+                    lists.append(slice)
                 }
             }
-            out.sort()
+            // Blank row ảo bên nhiều có FK BLANK, nên khớp với blank row bên một.
+            return RowSet.union(universe: manyRowCount + 1, disjointLists: lists,
+                                extra: blankIncluded ? [UInt32(manyRowCount)] : [])
         } else {
             for i in 0..<manyRowCount where oneRows.contains(Int(fkToPK[i])) {
                 out.append(UInt32(i))

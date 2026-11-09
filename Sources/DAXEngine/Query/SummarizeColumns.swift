@@ -604,6 +604,11 @@ public enum SummarizeColumns {
 
             var seen = Set<[Value]>()
             var tuples: [[Value]] = []
+            if let fast = try distinctEncodedTuples(datas: datas, rows: rowSet, rowCount: rowCount) {
+                // Cột mã hoá: tổ hợp phân biệt lấy theo mã (không băm mảng giá trị cho từng dòng). Thứ tự phát sinh
+                // không quan trọng vì ngay dưới đây tuples được sắp bằng `compareTuples`.
+                tuples = fast
+            } else {
             for (n, raw) in rowSet.rows.enumerated() {
                 if n & 4095 == 0 { try QueryExecutor.checkCancelled() }
                 let row = Int(raw)
@@ -616,6 +621,7 @@ public enum SummarizeColumns {
                 if seen.insert(tuple).inserted {
                     tuples.append(tuple)
                 }
+            }
             }
             tuples.sort { QueryExecutor.compareTuples($0, $1) < 0 }
             perTable.append(tuples)
@@ -639,6 +645,75 @@ public enum SummarizeColumns {
             combos = next
         }
         return combos
+    }
+
+    /// Tổ hợp giá trị phân biệt của các cột mã hoá trên tập dòng, theo mã. nil nếu có cột không mã hoá hoặc tích số mã
+    /// quá lớn để gói vào một số (khi đó dùng đường băm giá trị). Dòng BLANK ảo (chỉ số >= rowCount) có mã 0 ở mọi cột.
+    static func distinctEncodedTuples(datas: [ColumnData], rows: RowSet,
+                                              rowCount: Int) throws(DAXError) -> [[Value]]? {
+        guard !datas.isEmpty, datas.allSatisfy({ $0.isEncoded }) else { return nil }
+        let limits = datas.map { $0.dictionaryCount + 1 }
+        var total: UInt64 = 1
+        for limit in limits {
+            let step = total.multipliedReportingOverflow(by: UInt64(limit))
+            if step.overflow { return nil }
+            total = step.partialValue
+        }
+        // Mã từng cột của mỗi dòng đọc qua bảng mã (một lần switch cho mỗi cột, không retain theo dòng).
+        func mixedKey(_ row: Int) -> UInt64 {
+            var key: UInt64 = 0
+            for (k, data) in datas.enumerated() {
+                let code = row < rowCount ? (data.code(atRow: row) ?? 0) : 0
+                key = key &* UInt64(limits[k]) &+ UInt64(code)
+            }
+            return key
+        }
+        var failure: DAXError?
+        var scanned = 0
+        var keys = Set<UInt64>()
+        if datas.count == 1, total <= 1 << 22 {
+            // Một cột, từ điển nhỏ: mảng cờ thay cho Set.
+            var present = [Bool](repeating: false, count: Int(total))
+            rows.forEach { row in
+                scanned &+= 1
+                if scanned & 4095 == 0, failure == nil {
+                    do throws(DAXError) { try QueryExecutor.checkCancelled() } catch { failure = error }
+                }
+                present[Int(mixedKey(row))] = true
+            }
+            if let failure { throw failure }
+            for (code, hit) in present.enumerated() where hit { keys.insert(UInt64(code)) }
+        } else {
+            rows.forEach { row in
+                scanned &+= 1
+                if scanned & 4095 == 0, failure == nil {
+                    do throws(DAXError) { try QueryExecutor.checkCancelled() } catch { failure = error }
+                }
+                keys.insert(mixedKey(row))
+            }
+            if let failure { throw failure }
+        }
+        var tuples: [[Value]] = []
+        tuples.reserveCapacity(keys.count)
+        for key in keys {
+            var rest = key
+            var codes = [Int](repeating: 0, count: datas.count)
+            for k in stride(from: datas.count - 1, through: 0, by: -1) {
+                codes[k] = Int(rest % UInt64(limits[k]))
+                rest /= UInt64(limits[k])
+            }
+            var tuple: [Value] = []
+            tuple.reserveCapacity(datas.count)
+            for (k, data) in datas.enumerated() {
+                if codes[k] == 0 { tuple.append(.blank) } else if let stored = data.dictionaryValue(code: codes[k]) {
+                    tuple.append(Value(stored: stored))
+                } else {
+                    tuple.append(.blank)
+                }
+            }
+            tuples.append(tuple)
+        }
+        return tuples
     }
 
     /// Giữ dòng nếu có ít nhất một biểu thức không IGNORE khác BLANK; không có biểu thức nào thì giữ.
