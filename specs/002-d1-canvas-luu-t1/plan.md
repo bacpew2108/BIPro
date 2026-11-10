@@ -47,7 +47,7 @@ Hướng chọn:
 | I. Quan sát Power BI trước | Qua, kèm điều kiện | Cấu trúc `position`, `z`, `tabOrder`, id 20 hex đã quan sát trong file thật (research R1). Hành vi kéo/nhân bản/xoá của Power BI Desktop và xử lý bookmark treo chưa quan sát: đánh dấu [SUY ĐOÁN], buổi VM-D1 của bạn kiểm (quickstart §4). Không dịch ngược |
 | II. Power BI là chuẩn | Qua | Chỉ đổi toạ độ, không đổi số liệu. Golden Phase B/C chạy lại (SC-006). Tiêu chuẩn cuối là Power BI Desktop mở được file (bạn kiểm tay) |
 | III. Native, không thư viện ngoài | Qua | Chỉ SwiftUI/AppKit/Foundation |
-| IV. Ranh giới dữ liệu | Qua | Không ghi `~/Downloads` (chặn trong mã, FR-014, test). Test ghi vào `build/d-out/`. `SecurityBindings` chép nguyên byte (rawCopy), không đọc |
+| IV. Ranh giới dữ liệu | Qua | Không ghi `~/Downloads` (chặn trong mã, FR-014, test). Test ghi vào `build/d-out/`. `SecurityBindings` bị bỏ khi sửa phần báo cáo (research R13; bản đầu chép nguyên và Power BI Desktop từ chối file) |
 | V. Hợp đồng trước, mỗi file một chủ | Qua | Hợp đồng ghi ở `contracts/`; sửa `Contracts.swift` có chủ là lead. Lát này lead tự làm, không giao agy: các file chung (`DocumentState`, `ReportCanvas`, `PBIXWriter`) giao nhau, không tách được. Bảng quyền ở `docs/phase-d-ownership.tsv` ghi chủ từng file mới |
 
 Sau thiết kế (Phase 1), kiểm lại: không phát sinh vi phạm. Một điểm theo dõi: bước thử T001 có thể cho thấy `DocumentGroup(viewing:)` không đủ; khi đó dừng và hỏi bạn (không tự đổi sang `FileDocument` vì phạm IV).

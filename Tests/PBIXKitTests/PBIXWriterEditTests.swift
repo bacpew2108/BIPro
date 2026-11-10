@@ -22,7 +22,7 @@ enum SyntheticPBIX {
         func text(_ s: String) -> Data { Data(s.utf8) }
         var out: [(String, Data, UInt16)] = [
             ("Version", text("1.32"), 0),
-            ("[Content_Types].xml", text("<Types/>"), 8),
+            ("[Content_Types].xml", Data("\u{FEFF}<?xml version=\"1.0\" encoding=\"utf-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"json\" ContentType=\"\" /><Override PartName=\"/Version\" ContentType=\"\" /><Override PartName=\"/SecurityBindings\" ContentType=\"\" /><Override PartName=\"/DataModel\" ContentType=\"\" /></Types>".utf8), 8),
             ("DataModel", Data((0..<5000).map { UInt8(truncatingIfNeeded: $0 &* 31 ^ ($0 >> 3)) }), 0),
             ("SecurityBindings", Data([1, 2, 3, 4, 5]), 0),
             ("Report/definition/version.json", text(#"{"version":"2.0.0"}"#), 8),
@@ -85,7 +85,7 @@ enum SyntheticPBIX {
         let last = try #require(paths.firstIndex(of: SyntheticPBIX.visualPath(SyntheticPBIX.pageA, "aaaaaaaaaaaaaaaaaaa3")))
         #expect(paths[last + 1] == path)
         #expect(try archive.read(path) == changes.addedParts[path])
-        #expect(paths.count == SyntheticPBIX.members().count + 1)
+        #expect(paths.count == SyntheticPBIX.members().count + 1 - 1)  // phần mới, và SecurityBindings bị bỏ
         #expect(result.tier == .report)
     }
 
@@ -100,7 +100,7 @@ enum SyntheticPBIX {
         let result = try PBIXWriter.build(source: source, changes: changes)
         let archive = try ZipArchive(data: result.data)
         #expect(archive.entry(path) == nil)
-        #expect(archive.entries.count == SyntheticPBIX.members().count - 1)
+        #expect(archive.entries.count == SyntheticPBIX.members().count - 1 - 1)  // phần bị xoá, và SecurityBindings
         #expect(result.tier == .report)
     }
 
@@ -116,15 +116,65 @@ enum SyntheticPBIX {
 
         let result = try PBIXWriter.build(source: source, changes: changes)
         let written = try ZipArchive(data: result.data)
-        for entry in original.entries where entry.path != changedPath && !changes.removedParts.contains(entry.path) {
+        let dropped: Set = ["SecurityBindings", "[Content_Types].xml"]  // xem reportChangesDropSecurityBinding...
+        for entry in original.entries where entry.path != changedPath && !changes.removedParts.contains(entry.path) && !dropped.contains(entry.path) {
             let now = try #require(written.entry(entry.path), "\(entry.path) missing")
             #expect(now.crc32 == entry.crc32, "\(entry.path)")
             #expect(try written.read(now) == original.read(entry), "\(entry.path)")
         }
         #expect(try written.read(changedPath) == changes.reportParts[changedPath])
-        // DataModel và SecurityBindings còn nguyên.
+        // DataModel còn nguyên.
         #expect(try written.read("DataModel") == original.read("DataModel"))
+    }
+
+    /// Đo trên VM (2026-11-10, Power BI Desktop 2.159): đổi dù một byte của một phần `Report/definition/**` mà
+    /// giữ `SecurityBindings` thì Desktop báo "file is corrupted"; bỏ `SecurityBindings` (cùng dòng Override của
+    /// nó trong `[Content_Types].xml`) thì mở được. Xem `specs/002-d1-canvas-luu-t1/research.md` R13.
+    @Test func reportChangesDropSecurityBindingAndItsContentTypeOverride() throws {
+        let dir = SyntheticPBIX.temporaryDirectory("sb")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = try SyntheticPBIX.make(in: dir)
+        let original = try ZipArchive(url: source)
+        let path = SyntheticPBIX.visualPath(SyntheticPBIX.pageA, "aaaaaaaaaaaaaaaaaaa1")
+        var changes = PBIXChanges()
+        changes.reportParts[path] = Data(SyntheticPBIX.visualJSON(name: "aaaaaaaaaaaaaaaaaaa1", x: 8, y: 8, z: 1000, w: 90, h: 60).utf8)
+
+        let written = try ZipArchive(data: try PBIXWriter.build(source: source, changes: changes).data)
+        #expect(written.entry("SecurityBindings") == nil)
+        #expect(written.entries.count == original.entries.count - 1)
+        // Chỉ dòng Override của SecurityBindings mất; mọi thứ khác (cả dấu BOM đầu file) giữ nguyên.
+        let before = String(decoding: try original.read("[Content_Types].xml"), as: UTF8.self)
+        let after = String(decoding: try written.read("[Content_Types].xml"), as: UTF8.self)
+        #expect(after == before.replacingOccurrences(of: #"<Override PartName="/SecurityBindings" ContentType="" />"#, with: ""))
+        #expect(!after.contains("SecurityBindings"))
+        #expect(after.hasPrefix("\u{FEFF}"))
+        // DataModel và các phần khác còn nguyên.
+        #expect(try written.read("DataModel") == original.read("DataModel"))
+        #expect(try written.read("Version") == original.read("Version"))
+    }
+
+    @Test func addAndRemoveAlsoDropSecurityBinding() throws {
+        let dir = SyntheticPBIX.temporaryDirectory("sb2")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = try SyntheticPBIX.make(in: dir)
+        var removed = PBIXChanges()
+        removed.removedParts.insert(SyntheticPBIX.visualPath(SyntheticPBIX.pageB, "bbbbbbbbbbbbbbbbbbb2"))
+        #expect(try ZipArchive(data: try PBIXWriter.build(source: source, changes: removed).data).entry("SecurityBindings") == nil)
+
+        var added = PBIXChanges()
+        let newID = "aaaaaaaaaaaaaaaaaaa4"
+        added.addedParts[SyntheticPBIX.visualPath(SyntheticPBIX.pageA, newID)] = Data(SyntheticPBIX.visualJSON(name: newID, x: 0, y: 0, z: 4000, w: 10, h: 10).utf8)
+        #expect(try ZipArchive(data: try PBIXWriter.build(source: source, changes: added).data).entry("SecurityBindings") == nil)
+    }
+
+    @Test func noChangeToTheReportKeepsSecurityBinding() throws {
+        let dir = SyntheticPBIX.temporaryDirectory("sb3")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = try SyntheticPBIX.make(in: dir)
+        let original = try ZipArchive(url: source)
+        let written = try ZipArchive(data: try PBIXWriter.build(source: source, changes: PBIXChanges()).data)
         #expect(try written.read("SecurityBindings") == original.read("SecurityBindings"))
+        #expect(try written.read("[Content_Types].xml") == original.read("[Content_Types].xml"))
     }
 
     @Test func invalidChangesAreRejected() throws {

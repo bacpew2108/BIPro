@@ -49,7 +49,7 @@ Hệ quả: ghi lại vị trí chỉ cần thay 4 đến 6 số trong một ph�
 
 ## R6. Xoá visual và tham chiếu treo
 
-**Quyết định**: xoá phần `visual.json` của visual. Dọn tham chiếu tới mã đó ở: `targetVisualNames` và `visualContainers.<mã>` trong bookmark; `visualInteractions` trong `page.json` nếu có (Nhom6 không có). Thực hiện bằng ghép byte (xoá đoạn phần tử cùng dấu phẩy kèm theo), kiểm lại bằng so cấu trúc.
+**Quyết định**: xoá phần `visual.json` của visual. Dọn tham chiếu tới mã đó ở: `visualContainers.<mã>` trong bookmark (**không** động tới `targetVisualNames`: Desktop giữ tên visual đã xoá ở đó, đo ở R14); `visualInteractions` trong `page.json` nếu có (Nhom6 không có). Thực hiện bằng ghép byte (xoá đoạn phần tử cùng dấu phẩy kèm theo), kiểm lại bằng so cấu trúc.
 
 **[SUY ĐOÁN]**: Power BI Desktop có chịu tham chiếu treo hay không, và có tự dọn như vậy không. Chưa biết nên dọn là phương án an toàn hơn cho "mở được". VM-D1 so sánh bookmark sau khi bạn xoá một visual trong Power BI Desktop.
 
@@ -146,3 +146,36 @@ Lưu ý cho T023/T028:
 - `CommandGroup(replacing: .saveItem)` bỏ cả "Mở gần đây", "Đóng tất cả", "Nhân bản", "Đổi tên", "Chuyển tới", "Hoàn nguyên"; ta dựng lại "Đóng" (⌘W) và "Mở gần đây".
 - `URL.resourceValues` có thể trả giá trị đã nhớ (kích thước, ngày sửa cũ): `FileStamp` dùng `FileManager.attributesOfItem` (test bắt được lỗi này).
 - Kiểm trong app thật (không phải test): ⌘S trên bản sao ở Desktop (đổi đúng một phần `visual.json`, các phần còn lại khớp byte, `unzip -t` qua, bản sao lưu xuất hiện ở `~/Library/Application Support/BI Pro/Backups/`); ⌘W và ⌘Q khi còn thay đổi hiện hộp thoại Lưu/Không lưu/Huỷ, Huỷ giữ nguyên, Không lưu thoát; ⌘S trên file dưới `~/Downloads` hiện "File trong Downloads là bản gốc, chỉ đọc" rồi Lưu thành… tạo file mới trên Desktop, file gốc không đổi, cửa sổ chuyển sang file mới. Ảnh: `docs/phase-d-evidence/06-close-prompt.png`, `07-downloads-readonly.png`.
+
+## R13. SecurityBindings: bỏ khi sửa phần báo cáo (đo trên VM, 2026-11-10)
+
+**Triệu chứng:** `Nhom6_d1.pbix` và `Nhom6_pre.pbix` (ghi bản đầu của D1) bị Power BI Desktop 2.159 từ chối: "This file is corrupted or was created by an unrecognized version of Power BI Desktop" (`MashupValidationError`).
+
+**Tìm nguyên nhân** (chia đôi trên VM, các file nằm ở `build/d-out/D1-bisect/`, không commit):
+
+| File | Khác bản gốc | Kết quả |
+|---|---|---|
+| A0 | Bản gốc | Mở được |
+| B1 | Một `visual.json` đổi vị trí; ZIP không có "extra" | Lỗi |
+| C2 | Như B1 nhưng giữ extra của ZIP | Lỗi |
+| E2 | Giữ extra; chỉ thêm 1 ký tự xuống dòng vào `visual.json` | Lỗi |
+| E3 | Giữ extra; thêm 1 ký tự xuống dòng vào một file svg tĩnh | Mở được |
+| F0 | Bỏ `SecurityBindings` (và Override của nó), không đổi gì khác | Mở được |
+| F1 | Bỏ `SecurityBindings`, `visual.json` đổi vị trí, giữ extra | Mở được |
+| F2 | Như F1, ZIP không có extra (cách BI Pro ghi) | Mở được |
+
+**Kết luận:** đổi dù một byte của một phần `Report/definition/**` thì `SecurityBindings` cũ không còn khớp và Desktop từ chối file; bỏ phần đó thì mở được. (Phase W, 31/10, sửa một `visual.json` mà vẫn mở được: có thể bản Desktop lúc đó chưa kiểm; chưa rõ.)
+
+**Quyết định:** khi một save có `reportParts`, `addedParts` hoặc `removedParts` (`PBIXChanges.changesReport`), `PBIXWriter` bỏ thành viên `SecurityBindings` và dòng `<Override PartName="/SecurityBindings" .../>` trong `[Content_Types].xml` (giữ nguyên mọi byte còn lại, kể cả BOM). Save không đổi phần báo cáo (chỉ thêm measure, T2) vẫn chép nguyên `SecurityBindings`. Hệ quả: file lưu từ BI Pro không còn `SecurityBindings`; Nhom6 không có nguồn dữ liệu Power Query nên chưa thấy mất gì. Với file có nguồn dữ liệu, Desktop có thể đòi nhập lại thông tin đăng nhập (chưa kiểm).
+
+**Chưa rõ:** hộp thoại "repair" khi mở file mà ZIP không có 28 byte "extra" (growth hint OPC `0xA220`) ở đầu mỗi phần: C1 (không đổi nội dung, bỏ extra) hiện repair rồi mở được; F2 (bỏ extra, bỏ SecurityBindings) được báo là "mở được", chưa rõ có hiện repair không. Kiểm lại với bản `Nhom6_d1.pbix` mới.
+
+## R14. Quan sát Power BI Desktop về dời, đổi cỡ, nhân bản, xoá (VM, 2026-11-10)
+
+Kết quả đầy đủ ở `docs/phase-d-evidence/vm-d1/QUAN-SAT.md`. Chốt các điểm đang là [SUY ĐOÁN]:
+
+- **Xoá visual có trong bookmark:** Desktop chỉ bỏ khỏi `visualContainers`, giữ nguyên `options.targetVisualNames`. BI Pro làm giống (đã sửa; trước đó bỏ cả hai nơi). Bookmark Q1.3 vẫn mở được.
+- **Nhân bản:** Desktop đặt `z` = z lớn nhất của trang + 1 và `tabOrder` = `z`; vị trí không lệch cố định. BI Pro giữ lệch +16/+16 và `z` = max + 1000 (cả hai hợp lệ).
+- **Dời, đổi cỡ:** Desktop ghi số thực, không bám lưới khi kéo mặc định, giữ `z`/`tabOrder`, đổi `$schema` visual 2.13.0 → 2.14.0. BI Pro ghi số nguyên và giữ `$schema` (Desktop mở được).
+- **Lưới, cỡ nhỏ nhất, phím mũi tên:** mũi tên 1 px, Shift + mũi tên một ô nhỏ (1 ô lớn = 5 ô nhỏ), cỡ nhỏ nhất ≈ một ô nhỏ. Đo từ ảnh lưới: ô vuông ≈ 96, ô nhỏ ≈ 19,2 đơn vị trang (trang 1920). Quyết định: giữ lưới 8, cỡ nhỏ nhất 16, Shift + mũi tên 8 (lựa chọn có chủ ý, sát Desktop, số nguyên; Desktop không bám lưới khi kéo).
+

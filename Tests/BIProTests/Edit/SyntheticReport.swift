@@ -18,7 +18,7 @@ enum SyntheticReport {
         func text(_ s: String) -> Data { Data(s.utf8) }
         return [
             ("Version", text("1.32"), 0),
-            ("[Content_Types].xml", text("<Types/>"), 8),
+            ("[Content_Types].xml", Data("\u{FEFF}<?xml version=\"1.0\" encoding=\"utf-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"json\" ContentType=\"\" /><Override PartName=\"/Version\" ContentType=\"\" /><Override PartName=\"/SecurityBindings\" ContentType=\"\" /><Override PartName=\"/DataModel\" ContentType=\"\" /></Types>".utf8), 8),
             ("DataModel", Data((0..<4000).map { UInt8(truncatingIfNeeded: $0 &* 7 ^ ($0 >> 2)) }), 0),
             ("SecurityBindings", Data([9, 8, 7]), 0),
             ("Report/definition/version.json", text(#"{"version":"2.0.0"}"#), 8),

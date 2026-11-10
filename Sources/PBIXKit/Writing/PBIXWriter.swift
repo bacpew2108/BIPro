@@ -13,6 +13,8 @@ public enum PBIXWriter {
     }
 
     static let metadataPath = "metadata.sqlitedb"
+    static let securityBindingsPath = "SecurityBindings"
+    static let contentTypesPath = "[Content_Types].xml"
 
     /// Builds the new `.pbix` bytes in memory and verifies them. With `rebuildModel`, the DataModel
     /// goes through the ABF rebuild and XPress9 recompression even when nothing in it changed
@@ -36,10 +38,15 @@ public enum PBIXWriter {
         let needsModel = rebuildModel || !changes.measures.isEmpty
         let model = needsModel ? try rebuiltDataModel(archive: archive, measures: changes.measures) : nil
 
+        let dropsBinding = changes.changesReport && archive.entry(Self.securityBindingsPath) != nil
         var members: [(path: String, source: ZipWriter.Source)] = []
         for entry in archive.entries {
             if changes.removedParts.contains(entry.path) { continue }
-            if entry.path == "DataModel", let model {
+            if dropsBinding && entry.path == Self.securityBindingsPath { continue }
+            if dropsBinding && entry.path == Self.contentTypesPath {
+                let types = withoutSecurityBindingsOverride(try archive.read(entry))
+                members.append((path: entry.path, source: types == nil ? .rawCopy(archive, entry) : .bytes(types!, method: 8)))
+            } else if entry.path == "DataModel", let model {
                 // The DataModel member is stored (method 0) in every Power BI file; keep it so.
                 members.append((path: entry.path, source: .bytes(model, method: 0)))
             } else if let part = changes.reportParts[entry.path] {
@@ -55,6 +62,20 @@ public enum PBIXWriter {
         let data = try ZipWriter.write(members, modified: nil)
         try verify(data, changes: changes, source: archive)
         return Result(data: data, tier: changes.tier)
+    }
+
+    /// `[Content_Types].xml` without the `<Override PartName="/SecurityBindings" .../>` element, byte for byte
+    /// otherwise (the BOM and spacing stay). Nil when there is no such element.
+    static func withoutSecurityBindingsOverride(_ xml: Data) -> Data? {
+        let text = [UInt8](xml)
+        let open = Array(#"<Override PartName="/SecurityBindings""#.utf8)
+        guard let start = text.indices.first(where: { text[$0...].starts(with: open) }) else { return nil }
+        var end = start + open.count
+        while end < text.count, text[end] != UInt8(ascii: ">") { end += 1 }
+        guard end < text.count else { return nil }
+        var out = text
+        out.removeSubrange(start...end)
+        return Data(out)
     }
 
     /// Where a new part goes: after the last member of the same folder of visuals (or the same page),
@@ -164,7 +185,18 @@ public enum PBIXWriter {
             throw WriteError.verificationFailed("\(path) is still in the file")
         }
         if let source {
-            let touched = Set(changes.reportParts.keys).union(changes.removedParts)
+            let dropsBinding = changes.changesReport && source.entry(Self.securityBindingsPath) != nil
+            var touched = Set(changes.reportParts.keys).union(changes.removedParts)
+            if dropsBinding {
+                touched.formUnion([Self.securityBindingsPath, Self.contentTypesPath])
+                if pbix.archive.entry(Self.securityBindingsPath) != nil {
+                    throw WriteError.verificationFailed("SecurityBindings is still in the file")
+                }
+                if let types = pbix.archive.entry(Self.contentTypesPath),
+                   String(decoding: try pbix.archive.read(types), as: UTF8.self).contains("SecurityBindings") {
+                    throw WriteError.verificationFailed("[Content_Types].xml still mentions SecurityBindings")
+                }
+            }
             let isModelRebuilt = !changes.measures.isEmpty
             for entry in source.entries where !touched.contains(entry.path) {
                 if isModelRebuilt && entry.path == "DataModel" { continue }
@@ -173,7 +205,8 @@ public enum PBIXWriter {
                     throw WriteError.verificationFailed("\(entry.path) changed although it was not meant to")
                 }
             }
-            guard pbix.archive.entries.count == source.entries.count + changes.addedParts.count - changes.removedParts.count else {
+            let expectedCount = source.entries.count + changes.addedParts.count - changes.removedParts.count - (dropsBinding ? 1 : 0)
+            guard pbix.archive.entries.count == expectedCount else {
                 throw WriteError.verificationFailed("unexpected number of members")
             }
         }

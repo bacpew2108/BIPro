@@ -125,22 +125,19 @@ import Testing
     @Test func removingReferencesFromBookmark() throws {
         let patched = try PBIRLayoutPatch.removingVisualReferences([Self.id1], fromBookmark: Self.bookmark)
         let root = try #require(try JSONSerialization.jsonObject(with: patched) as? [String: Any])
+        // Như Power BI Desktop (đo trên VM): bỏ khỏi visualContainers, còn targetVisualNames giữ nguyên.
         let options = try #require(root["options"] as? [String: Any])
-        #expect(options["targetVisualNames"] as? [String] == [Self.id2])
+        #expect(options["targetVisualNames"] as? [String] == [Self.id1, Self.id2])
         #expect(options["suppressData"] == nil)
         let sections = try #require((root["explorationState"] as? [String: Any])?["sections"] as? [String: Any])
         let containers = try #require((sections["page_a"] as? [String: Any])?["visualContainers"] as? [String: Any])
         #expect(Set(containers.keys) == [Self.id2])
-        // Byte khác giữ nguyên: bỏ mục thứ hai thì ra đúng chuỗi mong đợi.
-        let expectedTarget = text(Self.bookmark).replacingOccurrences(of: #""targetVisualNames":["\#(Self.id1)","\#(Self.id2)"]"#, with: #""targetVisualNames":["\#(Self.id2)"]"#)
-        #expect(text(patched).contains(#""targetVisualNames":["\#(Self.id2)"]"#))
-        #expect(expectedTarget != text(Self.bookmark))
+        #expect(text(patched).contains(#""targetVisualNames":["\#(Self.id1)","\#(Self.id2)"]"#))
     }
 
     @Test func removingAllReferencesLeavesValidEmptyContainers() throws {
         let patched = try PBIRLayoutPatch.removingVisualReferences([Self.id1, Self.id2], fromBookmark: Self.bookmark)
         let root = try #require(try JSONSerialization.jsonObject(with: patched) as? [String: Any])
-        #expect((root["options"] as? [String: Any])?["targetVisualNames"] as? [String] == [])
         let sections = try #require((root["explorationState"] as? [String: Any])?["sections"] as? [String: Any])
         #expect(((sections["page_a"] as? [String: Any])?["visualContainers"] as? [String: Any])?.isEmpty == true)
     }
@@ -170,7 +167,7 @@ import Testing
         """
         let patched = try PBIRLayoutPatch.removingVisualReferences([Self.id2], fromBookmark: Data(pretty.utf8))
         let root = try #require(try JSONSerialization.jsonObject(with: patched) as? [String: Any])
-        #expect(((root["options"] as? [String: Any])?["targetVisualNames"] as? [String]) == [Self.id1, Self.id3])
+        #expect(((root["options"] as? [String: Any])?["targetVisualNames"] as? [String]) == [Self.id1, Self.id2, Self.id3])
         let sections = try #require((root["explorationState"] as? [String: Any])?["sections"] as? [String: Any])
         let containers = try #require(((sections["p"] as? [String: Any])?["visualContainers"]) as? [String: Any])
         #expect(Set(containers.keys) == [Self.id1])
@@ -192,9 +189,11 @@ import Testing
     }
 
     @Test func idsAreMatchedExactlyNotAsSubstrings() throws {
-        let json = #"{"options":{"targetVisualNames":["\#(Self.id1)","\#(Self.id1)x"]}}"#
+        let json = #"{"explorationState":{"sections":{"p":{"visualContainers":{"\#(Self.id1)":{},"\#(Self.id1)x":{}}}}}}"#
         let patched = try PBIRLayoutPatch.removingVisualReferences([Self.id1], fromBookmark: Data(json.utf8))
         let root = try #require(try JSONSerialization.jsonObject(with: patched) as? [String: Any])
-        #expect(((root["options"] as? [String: Any])?["targetVisualNames"] as? [String]) == ["\(Self.id1)x"])
+        let sections = try #require((root["explorationState"] as? [String: Any])?["sections"] as? [String: Any])
+        let containers = try #require((sections["p"] as? [String: Any])?["visualContainers"] as? [String: Any])
+        #expect(Set(containers.keys) == ["\(Self.id1)x"])
     }
 }

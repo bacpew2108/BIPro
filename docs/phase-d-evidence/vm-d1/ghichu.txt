@@ -1,0 +1,4 @@
+5. Ô như ảnh
+6. Cỡ bằng khoảng một ô nhỏ theo lưới grid
+7. Nhấn mũi tên hình như di dời 1 px, còn giữ shift thì di dời 1 ô nhỏ 
+( Trong 1 ô lớn có 5 ô nhỏ)

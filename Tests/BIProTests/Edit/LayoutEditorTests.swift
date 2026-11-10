@@ -481,8 +481,10 @@ import Testing
         #expect(Set(changes.addedParts.keys) == [copyPath])
         #expect(changes.removedParts == [LayoutEditor.visualPath(page: "p1", id: S.a1)])
         let bookmarkPath = "Report/definition/bookmarks/bm1.bookmark.json"
-        let cleaned = String(decoding: try #require(changes.reportParts[bookmarkPath]), as: UTF8.self)
-        #expect(!cleaned.contains(S.a1) && cleaned.contains(S.a2))
+        let cleaned = try #require(changes.reportParts[bookmarkPath])
+        // Như Power BI Desktop: bỏ khỏi visualContainers, targetVisualNames giữ nguyên.
+        #expect(!bookmarkContainerIDs(cleaned).contains(S.a1) && bookmarkContainerIDs(cleaned).contains(S.a2))
+        #expect(String(decoding: cleaned, as: UTF8.self).contains(#""targetVisualNames":["\#(S.a1)","\#(S.a2)"]"#))
         // Ghi ra file thật: mở lại thấy bản sao, không thấy a1.
         let output = env.dir.appendingPathComponent("out.pbix")
         try PBIXWriter.save(source: env.source, to: output, changes: changes, backup: .none)

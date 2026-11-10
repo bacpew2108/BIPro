@@ -105,20 +105,14 @@ public enum PBIRLayoutPatch {
 
     // MARK: - References to removed visuals
 
-    /// A bookmark with every mention of the visuals in `ids` removed: from `options.targetVisualNames` and from
-    /// `explorationState.sections.<page>.visualContainers`. Returns the same bytes when nothing mentions them.
+    /// A bookmark without the visuals in `ids` in `explorationState.sections.<page>.visualContainers`. Returns the
+    /// same bytes when nothing mentions them. `options.targetVisualNames` is left as it is: Power BI Desktop keeps
+    /// the name of a deleted visual there (observed on the VM, 2026-11-10, R-D1-d-delete.pbix).
     public static func removingVisualReferences(_ ids: Set<String>, fromBookmark json: Data) throws -> Data {
         guard !ids.isEmpty else { return json }
         let root = try parseObject(json)
         var bytes = [UInt8](json)
 
-        // options.targetVisualNames
-        if let kids = JSONCursor.children(at: [.key("options"), .key("targetVisualNames")], in: bytes) {
-            let drop = Set(kids.indices.filter { index in
-                JSONCursor.string(in: bytes, kids[index].value).map(ids.contains) ?? false
-            })
-            bytes = JSONCursor.removing(drop, from: kids, in: bytes)
-        }
         // explorationState.sections.<page>.visualContainers.<id>
         if let sections = JSONCursor.children(at: [.key("explorationState"), .key("sections")], in: bytes) {
             let pages = sections.compactMap { child in child.key.flatMap { JSONCursor.string(in: bytes, $0) } }
@@ -136,10 +130,6 @@ public enum PBIRLayoutPatch {
 
         // Expected structure: the same tree with those entries filtered out.
         var expected = root
-        if var options = expected["options"] as? [String: Any], let names = options["targetVisualNames"] as? [String] {
-            options["targetVisualNames"] = names.filter { !ids.contains($0) }
-            expected["options"] = options
-        }
         if var exploration = expected["explorationState"] as? [String: Any],
            var sections = exploration["sections"] as? [String: Any] {
             for (page, value) in sections {

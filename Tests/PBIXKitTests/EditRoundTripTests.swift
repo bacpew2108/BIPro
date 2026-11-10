@@ -26,6 +26,14 @@ enum EditFixture {
     }
 }
 
+/// Mã visual còn trong `explorationState.sections.*.visualContainers` của một bookmark (`options.targetVisualNames`
+/// không tính: Power BI Desktop giữ tên visual đã xoá ở đó).
+func bookmarkContainerIDs(_ data: Data) -> Set<String> {
+    guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let sections = (root["explorationState"] as? [String: Any])?["sections"] as? [String: Any] else { return [] }
+    return Set(sections.values.flatMap { (($0 as? [String: Any])?["visualContainers"] as? [String: Any])?.keys.map { $0 } ?? [] })
+}
+
 @Suite(.enabled(if: EditFixture.nhom6 != nil)) struct EditRoundTripTests {
     static let page = "d1_giaodich"
     /// Có trong bookmark Q1.3 (targetVisualNames và visualContainers).
@@ -89,10 +97,14 @@ enum EditFixture {
         for entry in archive.entries {
             let touched = changes.reportParts[entry.path] != nil || changes.removedParts.contains(entry.path)
             if touched { continue }
+            // Đổi phần báo cáo thì Power BI Desktop đòi bỏ SecurityBindings (R13); Content_Types mất dòng Override của nó.
+            if entry.path == "SecurityBindings" || entry.path == "[Content_Types].xml" { continue }
             let now = try #require(after.archive.entry(entry.path), "\(entry.path)")
             #expect(now.crc32 == entry.crc32, "\(entry.path)")
         }
         #expect(try after.archive.read("DataModel") == archive.read("DataModel"))
+        #expect(after.archive.entry("SecurityBindings") == nil)
+        #expect(!String(decoding: try after.archive.read("[Content_Types].xml"), as: UTF8.self).contains("SecurityBindings"))
         for page in before.pages where page.id != Self.page {
             for visual in page.visuals {
                 let path = "Report/definition/pages/\(page.id)/visuals/\(visual.id)/visual.json"
@@ -113,11 +125,11 @@ enum EditFixture {
         #expect(!page.visuals.contains { $0.id == Self.bookmarked })
         #expect(page.visuals.count == d1.visuals.count)  // +1 bản sao −1 đã xoá
 
-        // Bookmark còn đọc được và không nhắc tới visual đã xoá.
+        // Bookmark còn đọc được và visualContainers không còn visual đã xoá (targetVisualNames giữ nguyên như Desktop).
         let bookmarks = after.loadBookmarks()
         #expect(bookmarks.count == original.loadBookmarks().count)
         for part in after.archive.entries where part.path.hasSuffix(".bookmark.json") {
-            #expect(!String(decoding: try after.archive.read(part), as: UTF8.self).contains(Self.bookmarked), Comment(rawValue: part.path))
+            #expect(!bookmarkContainerIDs(try after.archive.read(part)).contains(Self.bookmarked), Comment(rawValue: part.path))
         }
     }
 }

@@ -18,6 +18,15 @@ private let nhom6: URL? = {
     return nil
 }()
 
+
+/// Mã visual còn trong `explorationState.sections.*.visualContainers` của một bookmark (`options.targetVisualNames`
+/// không tính: Power BI Desktop giữ tên visual đã xoá ở đó).
+func bookmarkContainerIDs(_ data: Data) -> Set<String> {
+    guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let sections = (root["explorationState"] as? [String: Any])?["sections"] as? [String: Any] else { return [] }
+    return Set(sections.values.flatMap { (($0 as? [String: Any])?["visualContainers"] as? [String: Any])?.keys.map { $0 } ?? [] })
+}
+
 @Suite("D1: EditNhom6", .enabled(if: heavy && nhom6 != nil), .serialized)
 @MainActor
 struct EditNhom6Tests {
@@ -96,12 +105,18 @@ struct EditNhom6Tests {
         let beforeZip = original.archive, afterZip = reopened.archive
         let removedPath = LayoutEditor.visualPath(page: Self.page, id: Self.bookmarkedMatrix)
         let addedPath = LayoutEditor.visualPath(page: Self.page, id: copyID)
-        var expectedPaths = beforeZip.entries.map(\.path).filter { $0 != removedPath }
+        // SecurityBindings bị bỏ khi đổi phần báo cáo (research R13).
+        var expectedPaths = beforeZip.entries.map(\.path).filter { $0 != removedPath && $0 != "SecurityBindings" }
         let lastD1 = try #require(expectedPaths.lastIndex { $0.hasPrefix("Report/definition/pages/\(Self.page)/visuals/") })
         expectedPaths.insert(addedPath, at: lastD1 + 1)
         #expect(afterZip.entries.map(\.path) == expectedPaths, "thứ tự thành viên giữ nguyên, bản sao nằm cuối các visual của D1")
         for entry in beforeZip.entries {
             if entry.path == removedPath { #expect(afterZip.entry(entry.path) == nil); continue }
+            if entry.path == "SecurityBindings" { #expect(afterZip.entry(entry.path) == nil); continue }
+            if entry.path == "[Content_Types].xml" {
+                #expect(!String(decoding: try afterZip.read(entry.path), as: UTF8.self).contains("SecurityBindings"))
+                continue
+            }
             let isChanged = changedIDs.contains { entry.path.contains("/visuals/\($0)/visual.json") }
             let isBookmark = entry.path.hasSuffix(".bookmark.json")
             let now = try #require(afterZip.entry(entry.path))
@@ -110,7 +125,7 @@ struct EditNhom6Tests {
         }
         // Bookmark không còn nhắc matrix đã xoá và vẫn đọc được.
         for entry in afterZip.entries where entry.path.hasSuffix(".bookmark.json") {
-            #expect(!String(decoding: try afterZip.read(entry), as: UTF8.self).contains(Self.bookmarkedMatrix), Comment(rawValue: entry.path))
+            #expect(!bookmarkContainerIDs(try afterZip.read(entry)).contains(Self.bookmarkedMatrix), Comment(rawValue: entry.path))
         }
         #expect(reopened.loadBookmarks().count == original.loadBookmarks().count)
         #expect(try afterZip.read("DataModel") == beforeZip.read("DataModel"))

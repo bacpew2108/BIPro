@@ -21,7 +21,8 @@ Trang không sửa không xuất hiện trong ba trường trên (FR-018). `meas
 4. **Kiểm trong bộ nhớ**:
    - `PBIXFile(data:)` mở được;
    - mọi `reportParts` và `addedParts` đọc lại bằng nội dung đã định; mọi `removedParts` không còn;
-   - mọi thành viên khác (gồm `DataModel`, `SecurityBindings`) có CRC và nội dung giống nguồn;
+   - mọi thành viên khác (gồm `DataModel`) có CRC và nội dung giống nguồn, trừ `SecurityBindings` (bị bỏ, xem dưới) và `[Content_Types].xml` (mất dòng Override của `SecurityBindings`);
+   - không còn `SecurityBindings` trong file mới, và `[Content_Types].xml` không nhắc tới nó;
    - `loadReport()` khớp `LayoutEditor` theo mục "Đọc lại" của `layout-editing.md`.
 5. **Ghi tạm**: `.<tên>.<uuid>.tmp` cùng thư mục đích; mở lại bằng `PBIXFile(url:)`; lỗi thì xoá file tạm.
 6. **Sao lưu**: nếu `destination` tồn tại, chép sang `~/Library/Application Support/BI Pro/Backups/<băm đường dẫn tuyệt đối>-<tên>.pbix` (ghi đè bản sao lưu cũ của cùng file); lỗi chép sao lưu = lỗi cả lưu.
@@ -44,6 +45,7 @@ Hộp thoại `NSSavePanel` (đuôi `.pbix`). Xong bước 8 thì mở đích b�
 
 ## Không thay đổi
 
-- `DataModel`, `SecurityBindings`, `Metadata`, `Settings`, `DiagramLayout`, tài nguyên tĩnh, `[Content_Types].xml`: `rawCopy` từng byte.
+- `DataModel`, `Metadata`, `Settings`, `DiagramLayout`, tài nguyên tĩnh: `rawCopy` từng byte.
+- **`SecurityBindings` bị bỏ** (cùng dòng Override của nó trong `[Content_Types].xml`, phần còn lại của file này giữ nguyên byte) mỗi khi save có đổi, thêm hoặc xoá phần báo cáo. Power BI Desktop từ chối file nếu giữ nó (research R13).
 - Thứ tự thành viên ZIP của phần giữ lại: giữ nguyên. Phần thêm đặt ngay sau phần `visual.json` cuối cùng của cùng trang. Phần xoá chỉ bị bỏ.
-- Chế độ: `tier == .report`.
+- Chế độ: `tier == .report`. Số thành viên mới = nguồn + phần thêm − phần xoá − 1 (SecurityBindings, nếu nguồn có).

@@ -83,6 +83,11 @@ public struct PBIXChanges: Sendable {
     public init() {}
 
     public var tier: SaveTier { measures.isEmpty ? .report : .metadata }
+
+    /// True when any `Report/definition/**` part is replaced, added or removed. Power BI Desktop then refuses a
+    /// file that still carries the old `SecurityBindings` ("This file is corrupted..."), so the writer drops that
+    /// member and its `[Content_Types].xml` override (measured on the VM, 2026-11-10).
+    public var changesReport: Bool { !reportParts.isEmpty || !addedParts.isEmpty || !removedParts.isEmpty }
 }
 
 /// What `PBIXWriter.save` does with the file it is about to replace.
