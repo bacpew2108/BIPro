@@ -1,0 +1,47 @@
+// DAX Query
+DEFINE
+	VAR __DS0FilterTable = 
+		FILTER(
+			KEEPFILTERS(VALUES('Fact_Transaction'[trans_hour])),
+			NOT('Fact_Transaction'[trans_hour] IN {17})
+		)
+
+	VAR __DS0FilterTable2 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Date'[year])),
+			NOT('Dim_Date'[year] IN {9999})
+		)
+
+	VAR __DS0FilterTable3 = 
+		FILTER(
+			KEEPFILTERS(VALUES('Dim_Client'[client_region])),
+			NOT('Dim_Client'[client_region] IN {"Unknown"})
+		)
+
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'Dim_Date'[day_name],
+			'Dim_Date'[day_of_week],
+			__DS0FilterTable,
+			__DS0FilterTable2,
+			__DS0FilterTable3,
+			"Trans_Count__k_", 'Fact_Transaction'[Trans Count (k)],
+			"Peak_Hour_Font_Color", IGNORE('Fact_Transaction'[Peak Hour Font Color]),
+			"Peak_Hour_Top10_Icon", IGNORE('Fact_Transaction'[Peak Hour Top10 Icon])
+		)
+
+	VAR __DS0BodyLimited = 
+		TOPN(102, __DS0Core, 'Dim_Date'[day_of_week], 1, 'Dim_Date'[day_name], 1)
+
+EVALUATE
+	GROUPBY(
+		__DS0Core,
+		"MinTrans_Count__k_", MINX(CURRENTGROUP(), [Trans_Count__k_]),
+		"MaxTrans_Count__k_", MAXX(CURRENTGROUP(), [Trans_Count__k_])
+	)
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'Dim_Date'[day_of_week], 'Dim_Date'[day_name]

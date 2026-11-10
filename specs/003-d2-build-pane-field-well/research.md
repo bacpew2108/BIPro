@@ -158,3 +158,14 @@ Làm trên bản sao `Nhom6_work.pbix`; mỗi bước đổi một thứ rồi L
 | `ShellView` tìm kiếm | `v.fields` của trang gốc | giữ bản gốc: tìm trong file lúc mở (chấp nhận được; đổi sang `state.page` nếu cần ở T039) |
 | `ReportPanes.swift:55` (Filters pane: "implicit" = trường của visual chưa có thẻ lọc) | `visual.fields` | dùng bản sửa (cùng `state.visual`) |
 
+## R16. Kết quả buổi VM-D2 (2026-11-10, chốt T031)
+
+Quan sát đầy đủ ở `docs/phase-d-evidence/vm-d2/QUAN-SAT.md`. Đã áp vào mã (D2b):
+
+- **R7 bỏ trường còn được nhắc (đã quan sát):** Desktop không chặn. Mục `objects.*[]` có `selector.metadata` = `queryRef` bị xoá (`PBIRQueryPatch.removingFormatSelectors`, tự chạy trong `apply` cho trường rời khỏi visual); thẻ lọc giữ nguyên; `FieldReferences.blocking` chỉ còn chặn khi `sortDefinition` nhắc trường (chưa quan sát).
+- **R8 ô trống (đã quan sát):** khoá ô bị xoá (bộ ghi đã làm vậy).
+- **Thêm trùng (đã quan sát):** measure thêm hai lần được (`WellRules` cho; cột trùng vẫn từ chối vì chưa quan sát); bộ ghi bỏ kiểm tra trùng `queryRef` trong ô; bộ sinh truy vấn vẽ được (test `D2Nhom6`).
+- **Đổi tên (đã quan sát):** ghi cả `displayName` và `nativeQueryRef`; bỏ tên riêng thì `nativeQueryRef` về tên của trường (suy đoán, chưa quan sát việc xoá).
+- **R6 phép gộp:** chưa quan sát; vẫn chặn (T032).
+- Ô "chưa kiểm" của loại cũ: không có quan sát mới (T034 vẫn chờ).
+

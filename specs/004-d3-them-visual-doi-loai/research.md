@@ -138,3 +138,23 @@ Làm trên bản sao `Nhom6_work.pbix`; mỗi bước đổi một thứ rồi L
 | Format pane (`ReportPanes`) | `visual.objects`, `containerObjects` | hiển thị bản sửa; đọc-only (Format pane là lát sau) |
 | `DataPlaceholders` | `visual.type`, `objects`, `fields` | đã dùng bản sửa |
 
+
+## R16. Kết quả buổi VM-D3 (2026-11-10, chốt T033)
+
+Quan sát đầy đủ ở `docs/phase-d-evidence/vm-d3/QUAN-SAT.md` (file `R-D3-*.pbix`, `R-D3-*-query.txt`). Claude điều khiển VM theo lời cho phép một lần của người dùng. Điều đã quan sát, và chỗ khác với phương án thận trọng của R3 đến R9:
+
+| Mục | Quan sát | Khác BI Pro hiện tại |
+|---|---|---|
+| R3 khoá `visual.json` mới | `$schema`, `name`, `position{x,y,z,height,width,tabOrder}`, `visual{visualType, drillFilterOtherVisuals:true}`; hộp văn bản mới không có `objects` | trùng, trừ hộp văn bản: BI Pro thêm đoạn "Hộp văn bản" mặc định |
+| R4 `queryState` | visual có trường mới: `query.queryState` + `sortDefinition` (measure: giảm dần theo chính nó; cột: tăng dần) `isDefaultSort:true`; bỏ hết trường: về dạng trống, không giữ `queryState` rỗng | BI Pro chưa ghi `sortDefinition` |
+| R5 đặt và cỡ | trang đã có visual: (100,100), 300×300, `z` = max+1, không dời giữa các lần thêm, không theo thu phóng; trang trống: lưới 280×280 | BI Pro đặt giữa vùng nhìn thấy, cỡ 302×108 / 616×380 |
+| R7 đổi loại: ô | tên ô giữ khi loại mới có ô đó (kể cả `Y2` ở đường); combo→đường giữ `Y2`; donut→treemap `Category`→`Group`, `Y`→`Values`, giữ cả 3 cấp; combo→donut gộp `Y2` vào `Y`; card(measure)→slicer không đổi | BI Pro gộp `Y2` vào `Y` ở combo→đường và bỏ hai cấp Category ở donut→treemap |
+| R8 `objects` | chỉ bỏ khoá không hợp lệ cho loại mới (`forecast` khi đường→cột/thanh, `value` khi donut→treemap, `valueAxis` khi combo→donut); giữ `trend`, `valueAxis`, `labels`, `categoryAxis`, `dataPoint`, `legend` | BI Pro bỏ `valueAxis`, `trend`, `forecast` khi đường→thanh |
+| R9 hộp văn bản | `objects.general[0].properties.paragraphs[].textRuns[].value`; Enter thêm một `paragraphs[]`; sửa chữ đưa `z` lên 10000 | trùng cấu trúc |
+| Mới | thư viện "Card" ghi `cardVisual` (ô `Data`), không phải `card`; `lineChart` có ô `Y2`; cột trong ô có `"active": true`; slicer có `objects.data.mode='Basic'` | cần thêm `cardVisual`, ô `Y2` của `lineChart`, `sortDefinition`, `active` khi D3b |
+
+T034 và T035 hết chặn (phần việc là D3b: sửa `TypeChange`, `WellRules`, `PBIRNewVisual`, `PBIRQueryPatch` theo bảng trên, thêm loại cột nhóm/xếp chồng/vùng sau khi quan sát thêm).
+
+### R16 bổ sung (2026-11-10): loại cột
+
+`R-D3-t-clusteredColumn.pbix`, `R-D3-t-stackedColumn.pbix`: cột nhóm là `clusteredColumnChart`, **cột xếp chồng là `columnChart`** (không phải `stackedColumnChart`). Cả hai có ô `Category` (cột, `active:true`), `Series` (cột), `Y` (measure); không có `sortDefinition` khi thêm theo thứ tự trục, chú giải, giá trị. Đã thêm hai loại vào `VisualTypes`, `WellRules`, bộ vẽ (`CartesianKind` nhận `columnChart`), thư viện, `PBIRNewVisual`; `Nhom6_d3.pbix` có hai visual cột mới và mở được trong Desktop (`k-nhom6-d3-cot-moi-mo-duoc.png`). Loại thanh xếp chồng, vùng, ruy băng… BI Pro chưa vẽ nên chưa thêm.

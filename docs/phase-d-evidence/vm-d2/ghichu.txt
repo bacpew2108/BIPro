@@ -1,0 +1,10 @@
+1. Loại card trong biểu đồ tôi kéo amount vào không được, tôi phải sửa thành card mặc định của power bi, nó nhảy vào Categories thành list chứ không nhảy vào Value
+2. Không làm được
+3. Tương tự như 1 nhảy vào Categories
+4. Amount không kéo vào được
+5. Không kéo được
+7. Làm ở biểu đồ Chất lượng nợ A/B/C/D thay đổi theo năm giải ngân? thuộc D2. Ảnh 7_G.png
+8. a. Đổi chỗ tiền vào/tiền ra của Tiền vào, tiền ra và dòng tiền ròng biến động thế nào?
+b. Vẫn biểu đồ Tiền vào, tiền ra và dòng tiền ròng biến động thế nào?
+c. Tiền vào, tiền ra và dòng tiền ròng biến động thế nào?
+d. Dup 2 lần Giải ngân ở visual Giải ngân thay đổi thế nào ...
