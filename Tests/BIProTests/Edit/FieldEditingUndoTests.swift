@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import PBIXKit
 import Testing
@@ -92,6 +93,71 @@ import Testing
         for _ in 0..<depth { env.editor.redo() }
         #expect(env.editor.page("p1") == end && env.editor.edited == endEdited)
         _ = applied
+    }
+}
+
+extension FieldEditingUndoTests {
+    /// D3: thêm visual, thả trường, đổi loại, dời, xoá: hoàn tác từng bước về đúng trạng thái trước đó.
+    @Test func insertDropRetypeMoveDeleteUndoStepByStep() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        let view = CGRect(x: 0, y: 0, width: 1000, height: 600)
+        var states: [PageEdit?] = []
+        func mark() { states.append(env.editor.edited["p1"]) }
+        mark()
+        let id = try #require(env.editor.insertVisual(type: "lineChart", visibleRect: view)); mark()
+        env.editor.addField(FieldRef(kind: .column, entity: "Dim_Date", property: "month_name", family: .text), to: "Category", visual: id); mark()
+        env.editor.addField(Self.measure, to: "Y", visual: id); mark()
+        #expect(env.editor.changeType(of: id, to: "clusteredBarChart") == nil); mark()
+        env.editor.move([id], dx: 40, dy: 24, snap: true); mark()
+        env.editor.delete([id]); mark()
+        for expected in states.dropLast().reversed() {
+            env.editor.undo()
+            #expect(env.editor.edited["p1"] == expected)
+        }
+        #expect(!env.editor.isDirty)
+        for _ in 0..<(states.count - 1) { env.editor.redo() }
+        #expect(env.editor.edited["p1"] == states.last!)
+    }
+
+    /// Chuỗi ngẫu nhiên có cả D3: thêm visual loại ngẫu nhiên, đổi loại ngẫu nhiên, sửa chữ hộp văn bản.
+    @Test func randomChainWithInsertRetypeAndTextUndoesAndRedoes() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        var rng = SplitMix(seed: 20261111)
+        let view = CGRect(x: 0, y: 0, width: 1400, height: 800)
+        let start = env.editor.page("p1")
+        let startEdited = env.editor.edited
+        let measures = ["Balance", "Avg", "Credit", "Net"].map { FieldRef(kind: .measure, entity: "Fact", property: $0) }
+        let columns = ["region", "age"].map { FieldRef(kind: .column, entity: "Dim_Client", property: $0, family: .text) }
+        let types = VisualTypes.supported
+        for _ in 0..<180 {
+            let visuals = env.editor.visuals(of: "p1")
+            guard let target = visuals.randomElement(using: &rng) else { break }
+            let id = target.id
+            let roles = ["Category", "Y", "Y2", "Tooltips", "Series", "Values", "Group", "Rows", "Columns"]
+            switch Int.random(in: 0..<12, using: &rng) {
+            case 0: env.editor.move([id], dx: Int.random(in: -40...40, using: &rng), dy: Int.random(in: -40...40, using: &rng), snap: true)
+            case 1: if visuals.count > 4 { env.editor.delete([id]) }
+            case 2: if visuals.count < 16 { env.editor.select(id); _ = env.editor.duplicate([id]) }
+            case 3, 4: if visuals.count < 16 { env.editor.insertVisual(type: types.randomElement(using: &rng)!, visibleRect: view) }
+            case 5, 6: env.editor.changeType(of: id, to: types.randomElement(using: &rng)!)
+            case 7: env.editor.setText(["", "Một", "Một\nHai", "A\nB\nC"].randomElement(using: &rng)!, visual: id)
+            case 8: env.editor.addField((measures + columns).randomElement(using: &rng)!, to: roles.randomElement(using: &rng)!, visual: id)
+            case 9: env.editor.removeField(role: roles.randomElement(using: &rng)!, index: Int.random(in: 0..<3, using: &rng), visual: id)
+            case 10: env.editor.moveField(role: ["Y", "Y2", "Tooltips"].randomElement(using: &rng)!, index: 0, to: ["Y", "Y2", "Tooltips"].randomElement(using: &rng)!, visual: id)
+            default: env.editor.renameField(role: roles.randomElement(using: &rng)!, index: 0, to: ["", "Tên A"].randomElement(using: &rng)!, visual: id)
+            }
+        }
+        #expect(env.editor.undoDepth > 40, "chuỗi phải thực sự đổi nhiều thứ (\(env.editor.undoDepth) bước)")
+        let end = env.editor.page("p1"), endEdited = env.editor.edited
+        let depth = env.editor.undoDepth
+        for _ in 0..<depth { env.editor.undo() }
+        #expect(env.editor.page("p1") == start && env.editor.edited == startEdited && !env.editor.isDirty)
+        for _ in 0..<depth { env.editor.redo() }
+        #expect(env.editor.page("p1") == end && env.editor.edited == endEdited)
+        // Mọi visual trong kết quả có JSON hợp lệ: loại của `raw` khớp `type`.
+        for visual in env.editor.visuals(of: "p1") {
+            #expect(visual.raw["visual"]?["visualType"]?.string == visual.type, Comment(rawValue: visual.id))
+        }
     }
 }
 

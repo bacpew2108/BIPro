@@ -55,6 +55,8 @@ struct RibbonButton: View {
     var tint: Color = DS.Palette.secondaryLabel
     var isOn = false
     var phase: String?
+    /// Nút đã nối nhưng chưa dùng được lúc này (ví dụ cần chế độ Sửa): mờ, `.help` nêu lý do.
+    var disabledReason: String?
     var action: () -> Void = {}
 
     var body: some View {
@@ -81,9 +83,9 @@ struct RibbonButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(phase != nil)
-        .opacity(phase != nil ? 0.55 : 1)
-        .help(phase.map { "\(title): có ở \($0)" } ?? title)
+        .disabled(phase != nil || disabledReason != nil)
+        .opacity(phase != nil || disabledReason != nil ? 0.55 : 1)
+        .help(phase.map { "\(title): có ở \($0)" } ?? disabledReason ?? title)
     }
 }
 

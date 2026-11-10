@@ -12,6 +12,8 @@ struct ReportPageView: View {
     /// nil = fit page.
     var zoom: Double?
     var onScale: (Double) -> Void = { _ in }
+    /// Vùng trang đang nhìn thấy (toạ độ trang), báo mỗi khi cuộn hoặc đổi cỡ; nil = cả trang.
+    var onViewport: (CGRect?) -> Void = { _ in }
     let navigate: (String) -> Void
     /// Bộ sửa bố cục và cờ chế độ Sửa (D1). Không có bộ sửa thì luôn là chế độ Xem.
     var editor: LayoutEditor?
@@ -38,7 +40,12 @@ struct ReportPageView: View {
                     .onTapGesture { deselect() }
             }
             .scrollDisabled(zoom == nil)
-            .onAppear { onScale(scale) }
+            .onScrollGeometryChange(for: CGRect.self) { scroll in
+                CGRect(origin: scroll.contentOffset, size: scroll.containerSize)
+            } action: { _, visible in
+                reportViewport(visible, scale: scale, margin: margin)
+            }
+            .onAppear { onScale(scale); reportViewport(nil, scale: scale, margin: margin, container: geo.size) }
             .onChange(of: scale) { _, value in onScale(value) }
             .overlay(alignment: .top) { lockedBanner }
         }
@@ -95,6 +102,14 @@ struct ReportPageView: View {
         default: return .ignored
         }
         return .handled
+    }
+
+    private func reportViewport(_ visible: CGRect?, scale: Double, margin: Double, container: CGSize? = nil) {
+        guard zoom != nil else { onViewport(nil); return }   // vừa trang: nhìn thấy cả trang
+        let size = visible?.size ?? container ?? .zero
+        let rect = CanvasViewport.visibleRect(offset: visible?.origin ?? .zero, container: size,
+                                              pageSize: CGSize(width: page.width, height: page.height), scale: scale, margin: margin)
+        onViewport(rect)
     }
 
     private func deselect() {

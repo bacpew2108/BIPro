@@ -68,6 +68,8 @@ final class DocumentState {
     /// Bố cục sửa được của báo cáo (D1). `page` trả về trang đã áp phần sửa.
     let layout: LayoutEditor
     /// Chế độ Sửa (⌘E): kéo thả visual. Mặc định là Xem: lọc chéo, drill như trước.
+    /// Vùng trang đang nhìn thấy trong canvas (toạ độ trang); nil = cả trang. Dùng khi thêm visual mới (D3).
+    var visibleRect: CGRect?
     var editMode = false {
         didSet { if !editMode { layout.clearSelection(); if visualID != nil { visualID = nil } } }
     }
@@ -166,6 +168,36 @@ final class DocumentState {
     /// `Entity.Property` of every field the selected visual uses.
     var usedFields: Set<String> {
         Set(visual?.fields.map { "\($0.entity).\($0.property)" } ?? [])
+    }
+
+    /// Lý do chưa thêm hoặc đổi loại visual được (chế độ Xem, báo cáo định dạng cũ), hoặc nil.
+    var visualEditingBlocker: String? {
+        if mode != .report { return "Chỉ thêm visual được ở chế độ Báo cáo." }
+        if !canEditLayout { return "Báo cáo định dạng cũ (Report/Layout) chưa sửa được." }
+        if !editMode { return "Bật chế độ Sửa (⌘E) để thêm hoặc đổi loại visual." }
+        return nil
+    }
+
+    /// Thêm một visual mới của `type` vào trang đang mở và chọn nó (D3). Trả mã visual mới, hoặc nil kèm lý do ở
+    /// `layout.fieldRefusal`.
+    @discardableResult
+    func insertVisual(_ type: String) -> String? {
+        if let blocker = visualEditingBlocker { layout.noteFieldRefusal(blocker); return nil }
+        guard let id = layout.insertVisual(type: type, visibleRect: visibleRect) else { return nil }
+        visualID = id
+        return id
+    }
+
+    /// Đổi loại visual đang chọn sang `type` (D3). Trả lý do từ chối hoặc nil.
+    @discardableResult
+    func changeType(_ type: String) -> String? {
+        if let blocker = visualEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
+        guard layout.selection.count == 1, let id = layout.primary else {
+            let message = "Chọn đúng một visual để đổi loại."
+            layout.noteFieldRefusal(message)
+            return message
+        }
+        return layout.changeType(of: id, to: type)
     }
 
     var tabs: [RibbonTab] {

@@ -45,7 +45,7 @@ struct RibbonView: View {
     @ViewBuilder private var commands: some View {
         switch (state.mode, state.ribbonTab) {
         case (.report, .home): ReportHomeCommands(state: state)
-        case (.report, .insert): InsertCommands()
+        case (.report, .insert): InsertCommands(state: state)
         case (_, .modeling): ModelingCommands(state: state)
         case (.report, .view): ReportViewCommands(state: state)
         case (.report, .format): FormatCommands()
@@ -106,8 +106,10 @@ private struct ReportHomeCommands: View {
         DataSourceCommands()
         RibbonDivider()
         RibbonGroup(title: "Chèn") {
-            RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent, phase: "Phase D")
-            RibbonButton(title: "Hộp văn bản", symbol: "textformat", phase: "Phase D")
+            RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("card") }
+            RibbonButton(title: "Hộp văn bản", symbol: "textformat",
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
         }
         RibbonDivider()
         CalculationCommands()
@@ -115,18 +117,21 @@ private struct ReportHomeCommands: View {
 }
 
 private struct InsertCommands: View {
+    let state: DocumentState
     var body: some View {
         RibbonGroup(title: "Trang") {
             RibbonButton(title: "Trang mới", symbol: "doc.badge.plus", phase: "Phase D")
         }
         RibbonDivider()
         RibbonGroup(title: "Visual") {
-            RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent, phase: "Phase D")
+            RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("card") }
             RibbonButton(title: "Thêm visual", symbol: "square.grid.3x3", phase: "Phase D")
         }
         RibbonDivider()
         RibbonGroup(title: "Thành phần") {
-            RibbonButton(title: "Hộp văn bản", symbol: "textformat", phase: "Phase D")
+            RibbonButton(title: "Hộp văn bản", symbol: "textformat",
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
             RibbonButton(title: "Nút", symbol: "rectangle.and.hand.point.up.left", phase: "Phase D")
             RibbonButton(title: "Hình", symbol: "square.on.circle", phase: "Phase D")
             RibbonButton(title: "Ảnh", symbol: "photo", phase: "Phase D")

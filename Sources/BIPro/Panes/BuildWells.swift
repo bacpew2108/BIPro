@@ -32,21 +32,17 @@ struct BuildWells: View {
         let blocker = blocker
         let rules = WellRules.rules(for: visual)
         VStack(alignment: .leading, spacing: 0) {
-            if let blocker {
+            if let blocker, visual.type != "textbox" {
                 Text(blocker)
                     .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                     .padding(.horizontal, 10).padding(.top, 8)
             }
+            if visual.type == "textbox" {
+                TextboxContentEditor(layout: layout, visual: visual, editable: state.editMode && layout.selection.count <= 1)
+                    .id(visual.id)
+            }
             ForEach(rules, id: \.role) { rule in
                 well(rule, editable: blocker == nil, rules: rules)
-            }
-            if let message = layout.fieldRefusal {
-                Text(message)
-                    .font(DS.Typeface.bodySmall).foregroundStyle(Color.red)
-                    .padding(.horizontal, 10).padding(.top, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onTapGesture { layout.clearFieldRefusal() }
-                    .help("Bấm để ẩn")
             }
         }
         .alert("Đổi tên trường trong visual này", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
@@ -193,3 +189,52 @@ struct BuildWells: View {
         }
     }
 }
+
+/// Ô "Nội dung" của hộp văn bản ở Build pane (D3): mỗi dòng là một đoạn; xong chỉnh (mất tiêu điểm hoặc bấm Áp dụng) là một
+/// bước hoàn tác. Chỉ sửa chữ: kiểu chữ là việc của Format pane.
+struct TextboxContentEditor: View {
+    let layout: LayoutEditor
+    let visual: ReportVisual
+    let editable: Bool
+
+    @State private var text = ""
+    @State private var loaded = false
+    @FocusState private var focused: Bool
+
+    private var current: String { LayoutEditor.paragraphTexts(of: visual.raw).joined(separator: "\n") }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SectionLabel(text: "Nội dung")
+            TextEditor(text: $text)
+                .font(DS.Typeface.bodySmall)
+                .focused($focused)
+                .disabled(!editable)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 90, maxHeight: 160)
+                .padding(4)
+                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(focused ? DS.Palette.accent : DS.Palette.separator))
+                .padding(.horizontal, 10)
+            HStack {
+                Text(editable ? "Mỗi dòng là một đoạn." : "Bật chế độ Sửa (⌘E) để sửa nội dung.")
+                    .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                Spacer()
+                if editable && text != current { Button("Áp dụng") { commit() }.controlSize(.small) }
+            }
+            .padding(.horizontal, 10)
+        }
+        .onAppear { if !loaded { text = current; loaded = true } }
+        .onChange(of: focused) { _, isFocused in if !isFocused { commit() } }
+        // Bấm ra ngoài làm bỏ chọn visual: ô biến mất mà chưa kịp mất tiêu điểm thì vẫn áp nội dung đang gõ.
+        .onDisappear { commit() }
+        // Hoàn tác, làm lại hoặc đổi từ nơi khác: nội dung trong visual đổi thì ô theo (khi không đang gõ).
+        .onChange(of: current) { _, value in if !focused { text = value } }
+    }
+
+    private func commit() {
+        guard editable, text != current else { return }
+        layout.setText(text, visual: visual.id)
+    }
+}
+

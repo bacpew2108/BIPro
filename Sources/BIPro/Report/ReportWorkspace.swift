@@ -13,7 +13,7 @@ struct ReportWorkspace: View {
             VStack(spacing: 0) {
                 if let page = state.page {
                     ReportPageView(workspace: state.workspace, page: page, interaction: state.interaction, selectedVisual: $state.visualID,
-                                   zoom: state.zoom, onScale: { currentScale = $0 },
+                                   zoom: state.zoom, onScale: { currentScale = $0 }, onViewport: { state.visibleRect = $0 },
                                    navigate: { state.pageID = $0; state.visualID = nil },
                                    editor: state.layout, editMode: state.editMode)
                         .id(page.id)

@@ -11,6 +11,16 @@ struct PageEdit: Equatable {
     var added: [String: Data] = [:]
     /// Cấu hình trường đã sửa của visual (mã visual → các ô theo thứ tự), D2. Chỉ có khoá cho visual đã sửa trường.
     var queries: [String: [PBIRQueryPatch.Well]] = [:]
+    /// Công thức đổi loại của visual có trong file (D3). Visual mới nằm trong `added` nên không cần khoá ở đây.
+    var retyped: [String: Retype] = [:]
+    /// Các dòng văn bản của hộp văn bản có trong file (D3). Hộp văn bản mới nằm trong `added`.
+    var texts: [String: [String]] = [:]
+}
+
+/// Công thức đổi loại một visual đã có trong file: loại mới và các khoá `visual.objects` cần bỏ (tích luỹ qua các lần đổi).
+struct Retype: Equatable {
+    var type: String
+    var dropObjectKeys: Set<String>
 }
 
 /// Một bước hoàn tác: trạng thái sửa của một trang (nil = trang chưa bị sửa) cùng vùng chọn, tại một thời điểm.
@@ -35,6 +45,8 @@ final class LayoutEditor {
     private(set) var currentPageID: String?
     /// Lý do gần nhất thao tác bị bỏ qua (ví dụ visual trong nhóm), để giao diện hiện cho người dùng.
     private(set) var lockedReason: String?
+    /// Thông báo sau một thao tác (trường hoặc định dạng bị bỏ khi đổi loại, D3); xoá ở thao tác kế.
+    private(set) var notice: String?
     /// Lý do gần nhất một thao tác sửa trường bị từ chối (D2); nil khi thao tác gần nhất được chấp nhận.
     private(set) var fieldRefusal: String?
 
@@ -223,10 +235,11 @@ final class LayoutEditor {
 
     /// `visual.json` hiện tại của visual (đã áp phần sửa trường, chưa áp vị trí): dùng khi nhân bản và dán.
     private func json(of visual: ReportVisual, page pageID: String) -> Data? {
-        if let added = edited[pageID]?.added[visual.id] { return added }
-        guard let source = sourceJSON(pageID, visual.id) else { return nil }
-        if let wells = edited[pageID]?.queries[visual.id], let applied = try? PBIRQueryPatch.apply(wells, to: source) { return applied }
-        return source
+        guard var json = baseJSON(of: visual.id, page: pageID) else { return nil }
+        guard edited[pageID]?.added[visual.id] == nil else { return json }
+        if let lines = edited[pageID]?.texts[visual.id], let applied = try? PBIRVisualPatch.setText(in: json, lines: lines) { json = applied }
+        if let wells = edited[pageID]?.queries[visual.id], let applied = try? PBIRQueryPatch.apply(wells, to: json) { json = applied }
+        return json
     }
 
     private func makeCopies(_ entries: [(visual: ReportVisual, json: Data)], shifts: Int) -> [String] {
@@ -288,14 +301,22 @@ final class LayoutEditor {
         guard let pageID = currentPageID, visual(id) != nil else { return "Chọn một visual để sửa trường." }
         if isLockedByGroup(id) { return "Visual nằm trong nhóm, chưa sửa trường được." }
         guard let base = baseJSON(of: id, page: pageID) else { return "Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được)." }
-        guard (try? PBIRQueryPatch.wells(in: base)) != nil, hasQueryState(base) else {
-            return "Visual này chưa có cấu hình trường, D2 chưa tạo mới được."
+        // Visual dữ liệu mới thêm trong phiên chưa có query: được tạo khi thả trường đầu tiên (D3).
+        let isNewHere = createdIDs[pageID]?.contains(id) == true
+        guard (try? PBIRQueryPatch.wells(in: base)) != nil, hasQueryState(base) || (isNewHere && !WellRules.rules(for: visual(id)!).isEmpty) else {
+            return "Visual này chưa có cấu hình trường, chưa tạo mới được."
         }
         return nil
     }
 
+    /// `visual.json` gốc của visual (bản mới thêm: bản hiện tại) đã áp công thức đổi loại, chưa áp trường và vị trí.
     private func baseJSON(of id: String, page pageID: String) -> Data? {
-        edited[pageID]?.added[id] ?? sourceJSON(pageID, id)
+        if let added = edited[pageID]?.added[id] { return added }
+        guard let source = sourceJSON(pageID, id) else { return nil }
+        if let retype = edited[pageID]?.retyped[id], let applied = try? PBIRVisualPatch.setVisualType(in: source, to: retype.type, dropObjectKeys: retype.dropObjectKeys) {
+            return applied
+        }
+        return source
     }
 
     func clearFieldRefusal() { fieldRefusal = nil }
@@ -335,6 +356,7 @@ final class LayoutEditor {
     /// `fields` của visual từ chính chuỗi byte đó (cái vẽ chính là cái sẽ lưu).
     private func editFields(_ id: String, _ body: ([PBIRQueryPatch.Well], ReportVisual, Data) -> FieldEditor.Result) -> String? {
         fieldRefusal = nil
+        notice = nil
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
         guard let pageID = currentPageID else { return refuse("Chưa mở trang nào.") }
         if let blocker = fieldEditingBlocker(for: id) { return refuse(blocker) }
@@ -363,6 +385,156 @@ final class LayoutEditor {
             }
             return nil
         }
+    }
+
+    // MARK: Thêm visual mới (D3)
+
+    /// Thêm một visual trống của `type` vào trang hiện tại, ở giữa `visibleRect` (toạ độ trang; nil = cả trang), trên cùng,
+    /// và chọn nó. Trả mã visual mới, hoặc nil kèm lý do ở `fieldRefusal`.
+    @discardableResult
+    func insertVisual(type: String, visibleRect: CGRect?) -> String? {
+        fieldRefusal = nil
+        notice = nil
+        guard let pageID = currentPageID, let bounds = pageBounds(pageID) else {
+            fieldRefusal = "Chưa mở trang nào."
+            return nil
+        }
+        guard let info = VisualTypes.info(for: type) else {
+            fieldRefusal = VisualTypes.refusal(for: type)
+            return nil
+        }
+        let width = min(info.defaultSize.width, bounds.width), height = min(info.defaultSize.height, bounds.height)
+        let area = visibleRect ?? CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        var frame = Frame(x: Int((area.midX - Double(width) / 2).rounded()), y: Int((area.midY - Double(height) / 2).rounded()),
+                          width: width, height: height)
+        frame = LayoutGeometry.move(frame, dx: 0, dy: 0, page: bounds, snap: true)
+        // Khung bị một visual đã có che từ 90% trở lên (ví dụ vừa thêm lần trước): lệch một bậc, tối đa 10 lần.
+        let others = visuals(of: pageID).map(Frame.init)
+        var steps = 0
+        while steps < 10, others.contains(where: { Self.coverage(of: frame, by: $0) >= 0.9 }) {
+            let next = LayoutGeometry.move(frame, dx: LayoutGeometry.duplicateOffset, dy: LayoutGeometry.duplicateOffset, page: bounds, snap: false)
+            if next == frame { break }
+            frame = next
+            steps += 1
+        }
+
+        let id = PBIRLayoutPatch.makeVisualName(avoiding: usedIDs)
+        let z = (visuals(of: pageID).map(\.z).max() ?? 0) + Double(LayoutGeometry.zStep)
+        let siblings = baseline.pages.first { $0.id == pageID }?.visuals.prefix(5).compactMap { sourceJSON(pageID, $0.id) } ?? []
+        guard let json = try? PBIRNewVisual.makeJSON(name: id, type: type, x: frame.x, y: frame.y, width: frame.width, height: frame.height,
+                                                    z: Int(z), schema: PBIRNewVisual.schemaURL(from: Array(siblings))),
+              let raw = try? JSONValue.parse(json) else {
+            fieldRefusal = "Không dựng được visual mới."
+            return nil
+        }
+        usedIDs.insert(id)
+        let visual = ReportVisual(id: id, type: type, x: Double(frame.x), y: Double(frame.y), z: z,
+                                  width: Double(frame.width), height: Double(frame.height),
+                                  objects: ObjectProperties(raw["visual"]?["objects"]),
+                                  containerObjects: ObjectProperties(raw["visual"]?["visualContainerObjects"]),
+                                  fields: [], raw: raw)
+        commit(pageID: pageID) { edit in
+            edit.visuals.append(visual)
+            edit.added[id] = json
+        }
+        createdIDs[pageID, default: []].insert(id)
+        selection = [id]
+        primary = id
+        return id
+    }
+
+    /// Đổi loại visual `id` sang `type`, giữ vị trí, cỡ, `z`; chuyển trường sang ô tương ứng (R7), tỉa định dạng (R8).
+    /// Trả lý do từ chối (cũng ghi ở `fieldRefusal`) hoặc nil. Trường hoặc định dạng bị bỏ được báo ở `notice`.
+    @discardableResult
+    func changeType(of id: String, to type: String) -> String? {
+        fieldRefusal = nil
+        notice = nil
+        func refuse(_ message: String) -> String { fieldRefusal = message; return message }
+        guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một visual để đổi loại.") }
+        if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa đổi loại được.") }
+        guard let base = baseJSON(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).") }
+        let isNew = edited[pageID]?.added[id] != nil
+        let wells = edited[pageID]?.queries[id] ?? ((try? PBIRQueryPatch.wells(in: base)) ?? [])
+        let currentKeys = Array((visual.raw["visual"]?["objects"]?.object.keys).map { Array($0) } ?? []).sorted()
+        var seen = Set<String>()
+        for page in baseline.pages {
+            for other in page.visuals where other.type == type { seen.formUnion(other.raw["visual"]?["objects"]?.object.keys.map { $0 } ?? []) }
+        }
+        let plan = TypeChange.plan(visual: visual, wells: wells, to: type, objectKeys: currentKeys, seenObjectKeys: seen) { field in
+            FieldReferences.find(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
+        }
+        if let blocked = plan.blocked { return refuse(blocked) }
+        if plan.isNoOp { return nil }
+
+        let drop = Set(plan.droppedObjectKeys)
+        let bytes: Data, raw: JSONValue, fields: [ReportField]
+        do {
+            let retyped = try PBIRVisualPatch.setVisualType(in: base, to: type, dropObjectKeys: drop)
+            bytes = try PBIRQueryPatch.apply(plan.wells, to: retyped)
+            raw = try JSONValue.parse(bytes)
+            fields = try PBIRQueryPatch.fields(in: bytes)
+        } catch {
+            return refuse("Không đổi loại được: \(error)")
+        }
+        commit(pageID: pageID) { edit in
+            guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }
+            edit.visuals[index].type = type
+            edit.visuals[index].raw = raw
+            edit.visuals[index].fields = fields
+            edit.visuals[index].objects = ObjectProperties(raw["visual"]?["objects"])
+            edit.visuals[index].containerObjects = ObjectProperties(raw["visual"]?["visualContainerObjects"])
+            // Công thức luôn được ghi (kể cả visual mới thêm: sau lần lưu đầu nó đã nằm trong file và lần lưu sau áp công thức);
+            // visual mới còn cập nhật byte hiện tại ở `added`.
+            edit.queries[id] = plan.wells
+            edit.retyped[id] = Retype(type: type, dropObjectKeys: (edit.retyped[id]?.dropObjectKeys ?? []).union(drop))
+            if isNew { edit.added[id] = bytes }
+        }
+        notice = plan.notice
+        return nil
+    }
+
+    /// Phần diện tích của `frame` bị `other` che (0...1).
+    private static func coverage(of frame: Frame, by other: Frame) -> Double {
+        let width = min(frame.right, other.right) - max(frame.x, other.x)
+        let height = min(frame.bottom, other.bottom) - max(frame.y, other.y)
+        guard width > 0, height > 0, frame.width > 0, frame.height > 0 else { return 0 }
+        return Double(width * height) / Double(frame.width * frame.height)
+    }
+
+    // MARK: Hộp văn bản (D3)
+
+    /// Văn bản mỗi đoạn của một hộp văn bản (các lượt của một đoạn ghép lại), đọc từ JSON của visual.
+    static func paragraphTexts(of raw: JSONValue) -> [String] {
+        let paragraphs = raw["visual"]?["objects"]?["general"]?[0]?["properties"]?["paragraphs"]?.array ?? []
+        return paragraphs.map { paragraph in (paragraph["textRuns"]?.array ?? []).map { $0["value"]?.string ?? "" }.joined() }
+    }
+
+    /// Đặt nội dung hộp văn bản `id`: mỗi dòng là một đoạn (R9). Trả lý do từ chối hoặc nil. Không đổi gì thì không tạo bước.
+    @discardableResult
+    func setText(_ text: String, visual id: String) -> String? {
+        fieldRefusal = nil
+        notice = nil
+        func refuse(_ message: String) -> String { fieldRefusal = message; return message }
+        guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một hộp văn bản để sửa.") }
+        guard visual.type == "textbox" else { return refuse("Chỉ hộp văn bản mới sửa được nội dung.") }
+        if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa sửa được.") }
+        guard let base = baseJSON(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này.") }
+        let lines = text.components(separatedBy: "\n")
+        let bytes: Data, raw: JSONValue
+        do {
+            bytes = try PBIRVisualPatch.setText(in: base, lines: lines)
+            raw = try JSONValue.parse(bytes)
+        } catch {
+            return refuse("Không ghi được nội dung: \(error)")
+        }
+        commit(pageID: pageID) { edit in
+            guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }
+            edit.visuals[index].raw = raw
+            edit.visuals[index].objects = ObjectProperties(raw["visual"]?["objects"])
+            edit.texts[id] = lines
+            if edit.added[id] != nil { edit.added[id] = bytes }
+        }
+        return nil
     }
 
     // MARK: Hoàn tác
@@ -460,6 +632,10 @@ final class LayoutEditor {
                 if archive.entry(path) != nil {
                     let onDisk = try archive.read(path)
                     var json = onDisk
+                    if let retype = edit.retyped[visual.id] {
+                        json = try PBIRVisualPatch.setVisualType(in: json, to: retype.type, dropObjectKeys: retype.dropObjectKeys)
+                    }
+                    if let lines = edit.texts[visual.id] { json = try PBIRVisualPatch.setText(in: json, lines: lines) }
                     if let wells = edit.queries[visual.id] { json = try PBIRQueryPatch.apply(wells, to: json) }
                     if let patched = try Self.patch(json, to: visual) { json = patched }
                     if json != onDisk { changes.reportParts[path] = json }

@@ -197,21 +197,43 @@ struct VisualizationsPane: View {
 
     // MARK: Build
 
+    /// Biểu tượng của thư viện: không chọn visual thì thêm visual mới, chọn một visual thì đổi loại (D3).
+    @ViewBuilder private func galleryButton(_ entry: VisualCatalog.Entry) -> some View {
+        let selected = state.visual.map { VisualCatalog.matches($0.type, entry.type) } ?? false
+        let supported = VisualTypes.isSupported(entry.type)
+        let blocker = state.visualEditingBlocker
+        let enabled = supported && blocker == nil
+        let help = blocker ?? (supported ? (state.layout.selection.isEmpty ? "Thêm \(entry.name)" : (selected ? entry.name : "Đổi thành \(entry.name)"))
+                                         : VisualTypes.refusal(for: entry.type))
+        Button { galleryTap(entry.type) } label: {
+            Image(systemName: entry.symbol)
+                .font(.system(size: 13))
+                .foregroundStyle(selected ? Color.white : DS.Palette.secondaryLabel)
+                .frame(width: 32, height: 28)
+                .background(RoundedRectangle(cornerRadius: 5).fill(selected ? DS.Palette.accent : Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: selected ? 0 : 1))
+                .opacity(enabled || selected ? 1 : 0.4)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+
+    private func galleryTap(_ type: String) {
+        if let blocker = state.visualEditingBlocker { state.layout.noteFieldRefusal(blocker); return }
+        guard VisualTypes.isSupported(type) else { state.layout.noteFieldRefusal(VisualTypes.refusal(for: type)); return }
+        if state.layout.selection.isEmpty { state.insertVisual(type) } else { state.changeType(type) }
+    }
+
     private var build: some View {
         VStack(alignment: .leading, spacing: 0) {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(32), spacing: 4), count: 6), spacing: 4) {
                 ForEach(VisualCatalog.gallery, id: \.type) { entry in
-                    let selected = state.visual.map { VisualCatalog.matches($0.type, entry.type) } ?? false
-                    Image(systemName: entry.symbol)
-                        .font(.system(size: 13))
-                        .foregroundStyle(selected ? Color.white : DS.Palette.secondaryLabel)
-                        .frame(width: 32, height: 28)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(selected ? DS.Palette.accent : Color.white))
-                        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: selected ? 0 : 1))
-                        .help(entry.name + (selected ? "" : " (đổi loại visual: Phase D)"))
+                    galleryButton(entry)
                 }
             }
             .padding(.horizontal, 10)
+            FieldMessages(layout: state.layout)
 
             if let visual = state.visual {
                 BuildWells(state: state, visual: visual)
@@ -252,6 +274,28 @@ struct VisualizationsPane: View {
             Text("Chọn một visual để xem định dạng của nó.")
                 .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(12)
         }
+    }
+}
+
+/// Thông báo của các thao tác sửa visual: lý do từ chối (đỏ, bấm để ẩn) và thông báo sau thao tác (D2, D3).
+struct FieldMessages: View {
+    let layout: LayoutEditor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let message = layout.fieldRefusal {
+                Text(message).font(DS.Typeface.bodySmall).foregroundStyle(Color.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onTapGesture { layout.clearFieldRefusal() }
+                    .help("Bấm để ẩn")
+            }
+            if let notice = layout.notice {
+                Text(notice).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, layout.fieldRefusal == nil && layout.notice == nil ? 0 : 8)
     }
 }
 

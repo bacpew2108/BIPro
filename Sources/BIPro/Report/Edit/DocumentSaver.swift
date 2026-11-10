@@ -132,6 +132,12 @@ enum DocumentSaver {
                       Frame(actual) == Frame(visual), Int(actual.z) == Int(visual.z) else {
                     throw SaveError.verificationFailed("vị trí của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
                 }
+                guard actual.type == visual.type else {
+                    throw SaveError.verificationFailed("loại của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                }
+                if visual.type == "textbox", LayoutEditor.paragraphTexts(of: actual.raw) != LayoutEditor.paragraphTexts(of: visual.raw) {
+                    throw SaveError.verificationFailed("nội dung hộp văn bản \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                }
                 guard actual.fields == visual.fields else {
                     throw SaveError.verificationFailed("các ô và trường của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
                 }

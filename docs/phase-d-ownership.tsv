@@ -31,3 +31,24 @@ D2	lead	Sources/BIPro/Panes/BuildWells.swift
 D2	lead	Sources/BIPro/Panes/DataPane.swift
 D2	lead	Sources/BIPro/Report/LiveVisual.swift
 D2	lead	Tests/PBIXKitTests/PBIRQueryPatchTests.swift
+# Lát D3 (thêm visual mới, đổi loại): lead tự làm; LayoutEditor, ReportPanes, BuildWells, PBIRQueryPatch giao nhau với D1 và D2, không tách worker được
+D3	lead	Sources/PBIXKit/Writing/PBIRNewVisual.swift
+D3	lead	Sources/PBIXKit/Writing/PBIRVisualPatch.swift
+D3	lead	Sources/PBIXKit/Writing/PBIRQueryPatch.swift
+D3	lead	Sources/BIPro/Report/Edit/VisualTypes.swift
+D3	lead	Sources/BIPro/Report/Edit/TypeChange.swift
+D3	lead	Sources/BIPro/Report/Edit/CanvasViewport.swift
+D3	lead	Sources/BIPro/Report/Edit/LayoutEditor.swift
+D3	lead	Sources/BIPro/Report/Edit/DocumentSaver.swift
+D3	lead	Sources/BIPro/Panes/ReportPanes.swift
+D3	lead	Sources/BIPro/Panes/BuildWells.swift
+D3	lead	Sources/BIPro/Shell/Ribbon.swift
+D3	lead	Sources/BIPro/DesignSystem/Components.swift
+D3	lead	Sources/BIPro/Report/ReportCanvas.swift
+D3	lead	Sources/BIPro/Report/ReportWorkspace.swift
+D3	lead	Sources/BIPro/DocumentState.swift
+D3	lead	Sources/BIPro/Report/LiveVisual.swift
+D3	lead	Sources/pbix-dump/main.swift
+D3	lead	Tests/PBIXKitTests/PBIRNewVisualTests.swift
+D3	lead	Tests/PBIXKitTests/PBIRVisualPatchTests.swift
+D3	lead	Tests/BIProTests/Edit/**

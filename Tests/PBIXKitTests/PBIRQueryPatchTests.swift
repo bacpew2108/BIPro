@@ -183,7 +183,11 @@ import Testing
 
     @Test func invalidInputsAreRejected() throws {
         expectInvalid("không phải JSON object") { _ = try PBIRQueryPatch.wells(in: Data("[1]".utf8)) }
-        expectInvalid("không có queryState") { _ = try PBIRQueryPatch.apply([], to: Data(#"{"name":"x","visual":{"visualType":"textbox"}}"#.utf8)) }
+        // không có queryState và không có gì để ghi: giữ nguyên byte (D3); có gì để ghi mà không có `visual` thì lỗi
+        let textbox = Data(#"{"name":"x","visual":{"visualType":"textbox"}}"#.utf8)
+        #expect(try PBIRQueryPatch.apply([], to: textbox) == textbox)
+        let element = PBIRQueryPatch.newElement(kind: .measure, entity: "F", property: "P", displayName: nil, role: "Y")
+        expectInvalid("không có visual") { _ = try PBIRQueryPatch.apply([.init(role: "Y", elements: [element])], to: Data(#"{"name":"x"}"#.utf8)) }
         let ok = try PBIRQueryPatch.wells(in: Self.compact)
         var empty = ok
         empty[1].elements.append(PBIRQueryPatch.newElement(kind: .measure, entity: "", property: "P", displayName: nil, role: "Y"))
@@ -211,4 +215,51 @@ import Testing
         #expect(byRef["Fact.Credit"]?.active == nil && byRef["Fact.Credit"]?.nativeQueryRef == "Credit" && byRef["Fact.Credit"]?.displayName == "Tiền vào")
         #expect(visual.fields.count == 3)
     }
+
+    // MARK: D3: visual chưa có query.queryState
+
+    /// Visual mới: chỉ có loại và khoá lọc, như `PBIRNewVisual` ghi.
+    static let bare = Data(#"{"$schema":"s","name":"aaaaaaaaaaaaaaaaaaa1","position":{"x":1,"y":2,"z":3,"height":4,"width":5,"tabOrder":3},"visual":{"visualType":"lineChart","drillFilterOtherVisuals":true}}"#.utf8)
+
+    @Test func creatingQueryStateOnAVisualWithoutOne() throws {
+        #expect(try PBIRQueryPatch.wells(in: Self.bare).isEmpty)
+        let cat = PBIRQueryPatch.newElement(kind: .column, entity: "Dim_Date", property: "month_name", displayName: nil, role: "Category")
+        let y = PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Credit", displayName: "Tiền vào", role: "Y")
+        let out = try PBIRQueryPatch.apply([.init(role: "Category", elements: [cat]), .init(role: "Y", elements: [y])], to: Self.bare)
+        let catText = #"{"field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_Date"}},"Property":"month_name"}},"queryRef":"Dim_Date.month_name","nativeQueryRef":"month_name"}"#
+        let yText = #"{"field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"Credit"}},"queryRef":"Fact.Credit","nativeQueryRef":"Credit","displayName":"Tiền vào"}"#
+        let want = text(Self.bare).replacingOccurrences(of: #""visualType":"lineChart","#, with: #""visualType":"lineChart","query":{"queryState":{"Category":{"projections":[\#(catText)]},"Y":{"projections":[\#(yText)]}}},"#)
+        #expect(text(out) == want)
+        let back = try PBIRQueryPatch.wells(in: out)
+        #expect(back.map(\.role) == ["Category", "Y"] && back[1].elements[0].field.displayName == "Tiền vào")
+        // thêm trường nữa vào visual đã có queryState đi đường cũ
+        var more = back
+        more[1].elements.append(PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Debit", displayName: nil, role: "Y"))
+        let again = try PBIRQueryPatch.apply(more, to: out)
+        #expect(try PBIRQueryPatch.wells(in: again)[1].elements.map(\.field.property) == ["Credit", "Debit"])
+    }
+
+    @Test func nothingToWriteLeavesAVisualWithoutQueryAlone() throws {
+        #expect(try PBIRQueryPatch.apply([], to: Self.bare) == Self.bare)
+        #expect(try PBIRQueryPatch.apply([.init(role: "Y", elements: [])], to: Self.bare) == Self.bare)
+    }
+
+    @Test func queryWithoutQueryStateGetsOneInside() throws {
+        let json = Data(#"{"name":"x","visual":{"visualType":"lineChart","query":{"sortDefinition":{"sort":[]}}}}"#.utf8)
+        let y = PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Credit", displayName: nil, role: "Y")
+        let out = try PBIRQueryPatch.apply([.init(role: "Y", elements: [y])], to: json)
+        let root = try #require(try JSONSerialization.jsonObject(with: out) as? [String: Any])
+        let query = try #require((root["visual"] as? [String: Any])?["query"] as? [String: Any])
+        #expect(query["sortDefinition"] != nil && query["queryState"] != nil)
+        #expect(try PBIRQueryPatch.wells(in: out).map(\.role) == ["Y"])
+    }
+
+    @Test func removingEveryWellKeepsAnEmptyQueryState() throws {
+        let y = PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Credit", displayName: nil, role: "Y")
+        let created = try PBIRQueryPatch.apply([.init(role: "Y", elements: [y])], to: Self.bare)
+        let emptied = try PBIRQueryPatch.apply([], to: created)
+        #expect(text(emptied).contains(#""query":{"queryState":{}}"#))
+        #expect(try PBIRQueryPatch.wells(in: emptied).isEmpty)
+    }
 }
+

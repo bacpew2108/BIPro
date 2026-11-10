@@ -24,6 +24,9 @@ usage: pbix-dump <command> <file.pbix> [args]
   remove-field <in> <visualID> <well> <index> <out>                        (T1, D2 helper)
   move-field <in> <visualID> <well> <index> <toWell> <out>                 (T1, D2 helper)
   rename-field <in> <visualID> <well> <index> <name> <out>                 (T1, D2 helper)
+  add-visual <in> <pageID> <type> <x> <y> <out>                            (T1, D3 helper: new empty visual on top)
+  set-visual-type <in> <visualID> <type> <out>                             (T1, D3 helper: no field mapping; prunes objects)
+  set-text <in> <visualID> <line1|line2|...> <out>                         (T1, D3 helper: text box content)
 """
 
 func fail(_ message: String) -> Never {
@@ -232,6 +235,50 @@ do {
         let tier = try PBIXWriter.save(source: url, to: URL(fileURLWithPath: args[6]), changes: changes)
         print("tier \(tier.rawValue): measure \(args[4]) added to \(args[3])")
         print("wrote \(args[6])")
+
+    case "add-visual", "set-visual-type", "set-text":
+        // D3 helpers: T1 edits of the visual itself through PBIRNewVisual / PBIRVisualPatch + PBIXWriter.
+        let command = args[1]
+        let need = command == "add-visual" ? 8 : 6
+        guard args.count >= need else { fail(usage) }
+        let output = URL(fileURLWithPath: args[need - 1])
+        var changes = PBIXChanges()
+        if command == "add-visual" {
+            let pageDir = "Report/definition/pages/\(args[3])"
+            let siblings = pbix.archive.entries.filter { $0.path.hasPrefix(pageDir + "/visuals/") && $0.path.hasSuffix("/visual.json") }
+            guard !siblings.isEmpty || pbix.archive.entry(pageDir + "/page.json") != nil else { fail("no page \(args[3])") }
+            guard let x = Int(args[5]), let y = Int(args[6]), let size = PBIRNewVisual.defaultSize(for: args[4]) else { fail(usage) }
+            let taken = Set(pbix.archive.entries.compactMap { $0.path.components(separatedBy: "/visuals/").last?.components(separatedBy: "/").first })
+            let name = PBIRLayoutPatch.makeVisualName(avoiding: taken)
+            let jsons = try siblings.map { try pbix.archive.read($0) }
+            let z = Int((try jsons.map { try PBIRLayoutPatch.position(in: $0).z }.max() ?? 0) + 1000)
+            changes.addedParts["\(pageDir)/visuals/\(name)/visual.json"] = try PBIRNewVisual.makeJSON(
+                name: name, type: args[4], x: x, y: y, width: size.width, height: size.height, z: z, schema: PBIRNewVisual.schemaURL(from: jsons))
+            print("new visual \(name)")
+        } else {
+            let suffix = "/visuals/\(args[3])/visual.json"
+            guard let entry = pbix.archive.entries.first(where: { $0.path.hasSuffix(suffix) }) else {
+                fail("no visual \(args[3]) in \(url.lastPathComponent)")
+            }
+            let json = try pbix.archive.read(entry)
+            if command == "set-visual-type" {
+                var seen = Set<String>()
+                for other in pbix.archive.entries where other.path.hasSuffix("/visual.json") {
+                    let data = try pbix.archive.read(other)
+                    if (try? PBIRVisualPatch.visualType(in: data)) == args[4] { seen.formUnion((try? PBIRVisualPatch.objectKeys(in: data)) ?? []) }
+                }
+                let drop = Set(try PBIRVisualPatch.objectKeys(in: json)).subtracting(seen)
+                changes.reportParts[entry.path] = try PBIRVisualPatch.setVisualType(in: json, to: args[4], dropObjectKeys: drop)
+                print("dropped objects: \(drop.sorted())")
+            } else {
+                changes.reportParts[entry.path] = try PBIRVisualPatch.setText(in: json, lines: args[4].components(separatedBy: "|"))
+            }
+        }
+        let started = Date()
+        let tier = try PBIXWriter.save(source: url, to: output, changes: changes)
+        print("tier \(tier.rawValue)")
+        print(String(format: "saved in %.2f s", Date().timeIntervalSince(started)))
+        print("wrote \(output.path)")
 
     case "add-field", "remove-field", "move-field", "rename-field":
         // D2 helpers: T1 field edits of one visual through PBIRQueryPatch + PBIXWriter (no editor rules applied).

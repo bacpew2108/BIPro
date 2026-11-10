@@ -82,11 +82,13 @@ public enum PBIRQueryPatch {
     public static func apply(_ wells: [Well], to json: Data) throws -> Data {
         let root = try parseObject(json)
         var bytes = [UInt8](json)
-        guard JSONCursor.locate(statePath[...], in: bytes) != nil,
-              let roles = JSONCursor.children(at: statePath, in: bytes) else {
-            throw WriteError.invalid("visual.json has no query.queryState")
-        }
         try validate(wells)
+        guard JSONCursor.locate(statePath[...], in: bytes) != nil else {
+            return try createQueryState(wells, in: json, root: root)
+        }
+        guard let roles = JSONCursor.children(at: statePath, in: bytes) else {
+            throw WriteError.invalid("visual.json has an invalid query.queryState")
+        }
 
         // Current state: role name → (children of its object, children of its projections).
         struct Current { var role: String; var kids: [JSONCursor.Child]; var projections: [JSONCursor.Child]?; var extraKeys: Bool }
@@ -189,6 +191,49 @@ public enum PBIRQueryPatch {
             throw WriteError.verificationFailed("queryState splice changed other content")
         }
         return result
+    }
+
+    /// A visual that has no `queryState` yet (a new visual): `"query":{"queryState":{…}}` goes right after `visualType`
+    /// (or `"queryState"` goes inside a `query` that exists without one). Nothing to write leaves the bytes alone.
+    private static func createQueryState(_ wells: [Well], in json: Data, root: [String: Any]) throws -> Data {
+        let wanted = wells.filter { !$0.elements.isEmpty }
+        guard !wanted.isEmpty else { return json }
+        guard root["visual"] is [String: Any] else { throw WriteError.invalid("visual.json has no visual") }
+        var state: [UInt8] = [UInt8(ascii: "{")]
+        var expectedRoles: [String: Any] = [:]
+        for (index, well) in wanted.enumerated() {
+            let texts = try well.elements.map { try elementBytes($0) }
+            if index > 0 { state.append(UInt8(ascii: ",")) }
+            state += PBIRPatch.jsonStringToken(well.role) + Array(#":{"projections":["#.utf8)
+            state += Array(texts.joined(separator: [UInt8(ascii: ",")]))
+            state += Array("]}".utf8)
+            expectedRoles[well.role] = ["projections": try texts.map { try JSONSerialization.jsonObject(with: Data($0)) }]
+        }
+        state.append(UInt8(ascii: "}"))
+
+        var bytes = [UInt8](json)
+        let queryPath: [JSONPathStep] = [.key("visual"), .key("query")]
+        if let query = JSONCursor.locate(queryPath[...], in: bytes) {
+            guard bytes[query.lowerBound] == UInt8(ascii: "{") else { throw WriteError.invalid("query is not an object") }
+            let hasKeys = !(JSONCursor.children(at: queryPath, in: bytes) ?? []).isEmpty
+            bytes.insert(contentsOf: Array(#""queryState":"#.utf8) + state + (hasKeys ? [UInt8(ascii: ",")] : []), at: query.lowerBound + 1)
+        } else {
+            let typePath: [JSONPathStep] = [.key("visual"), .key("visualType")]
+            guard let type = JSONCursor.locate(typePath[...], in: bytes) else { throw WriteError.invalid("visual.json has no visualType") }
+            bytes.insert(contentsOf: Array(#","query":{"queryState":"#.utf8) + state + Array("}".utf8), at: type.upperBound)
+        }
+
+        var expected = root
+        var visual = root["visual"] as! [String: Any]
+        var query = (visual["query"] as? [String: Any]) ?? [:]
+        query["queryState"] = expectedRoles
+        visual["query"] = query
+        expected["visual"] = visual
+        guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
+              (expected as NSDictionary).isEqual(to: actual) else {
+            throw WriteError.verificationFailed("queryState creation changed other content")
+        }
+        return Data(bytes)
     }
 
     // MARK: - Helpers
