@@ -75,6 +75,15 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 - `dax-run profile <pbix> --filter "<DAX>"`: đo thời gian truy vấn của từng visual.
 - Test sập SIGBUS sau khi đổi struct dùng chung giữa các module: xoá `.build` rồi build lại.
 
+## D5 sau khi quay lại (2026-11-10)
+
+- **Chưa commit** gì của D5 và hai việc cuối D3b. Commit khi bạn bảo; để các file `docs/phase-d-evidence/**/*.pbix` ngoài git như trước.
+- **Đã kiểm xong sửa cuối** (bộ lọc cấp trang của trang nhân bản): `swift build` qua, `swift test` 1116 qua, golden nặng 88 qua (gồm `banSaoTrangDrillthroughApDungBoLocCapTrang`).
+- **`/speckit-converge` đã chạy** (T038): thêm Giai đoạn 9 vào `tasks.md` (T039 đến T041, đều xong).
+- **Đã bấm thử trong app** (T039, bản sao Nhom6 trên Desktop, đã xoá): Nhân bản D1 ra "Duplicate of D1 · Giao dịch" ở cuối (trang 5/5, vẽ đủ số liệu, thanh điều hướng tự liệt kê); Xoá… hiện hộp xác nhận, xoá xong mở trang liền kề (4/4); ⌘Z phục hồi trang 5/5. Ảnh: `docs/phase-d-evidence/vm-d5/app-nhan-ban.png`, `app-xoa.png`, `app-hoan-tac-xoa.png`. Lưu ý nhỏ: sau ⌘Z dòng thông báo "Đã xoá trang…" ở thanh dưới vẫn còn (chưa sửa).
+- Chưa quan sát: xoá trang có nút `PageNavigation` trỏ tới (đang chặn).
+- Mẹo chụp app khi VM đang chạy: ẩn Parallels (`osascript -e 'tell application "System Events" to set visible of process "Parallels Desktop" to false'`) rồi mở app; cửa sổ Parallels che app thì bấm chuột rơi vào Windows.
+
 ## Việc tiếp theo
 
 **Chờ bạn (theo thứ tự nên làm):**
@@ -95,8 +104,8 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 
 **Phase D tiếp (kế hoạch, theo Spec Kit, mỗi lát dừng cho bạn duyệt sau spec, plan, tasks):**
 1. **D2b và D3b** (chờ VM-D2, VM-D3; mỗi cái khoảng nửa tuần): phép gộp Sum/Average/… và ghi đúng cấu trúc `Aggregation`; nâng các ô "(chưa kiểm)" lên được thêm; xử lý sắp xếp/bộ lọc/định dạng khi bỏ trường hoặc đổi loại theo cách Desktop làm; thêm cột nhóm, cột/thanh xếp chồng, vùng; chốt khoá `visual.json` mới, cỡ mặc định, ánh xạ ô khi đổi loại. Trong lúc chờ có thể làm D4 hoặc D5.
-2. **D4 Format pane** (lát lớn nhất, 1–2 tuần): sinh từ schema (`objects`, `visualContainerObjects`), ghi lại bằng ghép byte; cần buổi quan sát VM riêng (Desktop ghi khoá nào khi đổi từng thuộc tính).
-3. **D5 Quản lý trang** (khoảng nửa tuần): thêm, xoá, đổi tên, đổi thứ tự trang (`pages.json`, `page.json`); xoá trang phải dọn bookmark và tương tác tham chiếu tới trang.
+2. **D4 Format pane (xong 2026-11-10, Spec Kit `specs/006-d4-format-pane/`, chưa commit)**: ở Sửa, tab Định dạng sửa được: công tắc, ô số, danh sách, bảng màu (lưới theme 6 hàng + ô hex + "Đặt lại"), ô chữ; hai phạm vi Visual (`objects`) và Chung (`visualContainerObjects`); thẻ theo danh mục đã quan sát (`FormatCatalog`), thuộc tính chưa quan sát chỉ-đọc; thêm thuộc tính chưa có, đặt lại thẻ hoặc thuộc tính; hoàn tác chung với D1 đến D5 (sửa liên tiếp một thuộc tính gộp một bước); lưu T1 bằng ghép byte (`PBIRFormatPatch`), `verifyLayout` so định dạng. Bằng chứng: `docs/phase-d-evidence/vm-d4/` (`QUAN-SAT.md` hai vòng, `CHECKLIST-KET-QUA.md`: `Nhom6_d4.pbix` mở được ở Desktop, hiện đúng); ảnh app `app-d4-*.png`. Số: `swift test` 1200 qua, golden nặng 89 qua; mỗi nhóm sửa 1 đến 19 ms, lưu 0,18 s. Chưa quan sát: matrix thêm mới (`subTotals`), `dataPoint`/mục theo trường, phông, màu nền/bóng, khoảng ô số, reset thẻ cuối làm `objects` rỗng (danh mục Nhom6 chưa phủ 33 cặp, xem `measurements.md`). `/speckit-converge` và `/code-review` đã chạy và xử lý (sửa: lỗi áp định dạng không còn bị nuốt khi nhân bản, chỉ xoá thư mục trang đã biết, nhóm bookmark mất con khi xoá trang). **Review còn lại, chưa sửa (D5):** (a) `verifyPages` tìm mã trang đã xoá như chuỗi trong mọi file `definition/`, có thể chặn lưu nếu chỗ lạ nhắc mã (chỉ báo lỗi, không ghi hỏng); (b) hoàn tác sau khi lưu việc xoá trang: trang về dãy nhưng file đã mất thư mục, lần lưu sau bị `verify` chặn; (c) thả tab nhận mọi chuỗi `page:`; (d) `removePage` và `LayoutEditor.pages` tính lại nhiều khi báo cáo lớn.
+3. **D5 Quản lý trang (xong 2026-11-10, Spec Kit `specs/005-d5-quan-ly-trang/`, chưa commit)**: ở Sửa (⌘E) thanh tab có "+", bấm đúp đổi tên, kéo tab đổi thứ tự, chuột phải: Đổi tên, Nhân bản ("Duplicate of …" ở cuối), Sang trái/phải, Xoá (xác nhận; gỡ bookmark trỏ trang, báo bookmark nào; chặn khi có nút `PageNavigation` trỏ tới hoặc chỉ còn một trang); hoàn tác chung; lưu T1 so với file trên đĩa (`makeChanges`), `verifyLayout` kiểm thứ tự, tên, bookmark, tham chiếu treo. Số đo: nhân bản D1 (36 visual) 90 đến 113 ms, xoá 150 đến 175 ms, lưu 0,19 đến 0,27 s. VM: `Nhom6_d5.pbix` mở được trong Desktop (`docs/phase-d-evidence/vm-d5/CHECKLIST-KET-QUA.md`). Khác Desktop có chủ ý: gỡ bookmark mồ côi; nhân bản trang drillthrough không sao `pageBinding` (Desktop sao). Chưa quan sát: xoá trang có nút `PageNavigation`; chưa tự bấm Nhân bản/Xoá trong app (có test). Sửa kèm: bộ lọc cấp visual của visual mã mới (bản sao) nay được áp (`ReportInteraction.visualFilters(of:)`).
 4. **D6 Bookmark và bộ lọc người dùng ghi vào file** (khoảng 1 tuần): Add/Update/Delete bookmark, Filters pane sửa và ghi `filterConfig`.
 5. **Sau đó (nếu còn thời gian của Phase D):** nhóm visual, sửa báo cáo định dạng cũ (`Report/Layout`), chép dán giữa các trang, căn lề/phân bố.
 

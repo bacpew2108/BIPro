@@ -226,7 +226,7 @@ extension PBIXFile {
         return value
     }
 
-    static func filters(_ list: JSONValue?, level: ReportFilter.Level) -> [ReportFilter] {
+    public static func filters(_ list: JSONValue?, level: ReportFilter.Level) -> [ReportFilter] {
         (list?.array ?? []).enumerated().map { index, f in
             let field = parseFieldExpression(f["field"] ?? f["expression"])
             return ReportFilter(

@@ -274,7 +274,7 @@ struct VisualContentView: View {
         case "actionButton":
             ActionButtonVisual(workspace: workspace, visual: visual, interaction: interaction, navigate: navigate)
         case "pageNavigator":
-            PageNavigatorVisual(workspace: workspace, currentPage: page.id, navigate: navigate)
+            PageNavigatorVisual(workspace: workspace, pages: interaction?.visiblePages, currentPage: page.id, navigate: navigate)
         case "card", "cardVisual", "multiRowCard", "kpi":
             CardPlaceholder(visual: visual, theme: workspace.theme)
         case "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer":
@@ -445,13 +445,15 @@ struct ActionButtonVisual: View {
 
 struct PageNavigatorVisual: View {
     let workspace: Workspace
+    /// Trang hiện (đã sửa); nil: trang của file.
+    var pages: [ReportPage]?
     let currentPage: String
     let navigate: (String) -> Void
 
     var body: some View {
         let accent = workspace.theme.dataColor(0)
         HStack(spacing: 6) {
-            ForEach(workspace.visiblePages) { page in
+            ForEach(pages ?? workspace.visiblePages) { page in
                 let selected = page.id == currentPage
                 Button { navigate(page.id) } label: {
                     Text(page.displayName)

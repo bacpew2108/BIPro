@@ -35,7 +35,8 @@ extension ReportInteraction {
 
     var bookmarkRows: [BookmarkRow] {
         var rows: [BookmarkRow] = []
-        for bookmark in workspace.bookmarks where !deletedBookmarkIDs.contains(bookmark.id) {
+        let pageRemoved = removedBookmarksProvider?() ?? []
+        for bookmark in workspace.bookmarks where !deletedBookmarkIDs.contains(bookmark.id) && !pageRemoved.contains(bookmark.id) {
             if let mine = userBookmarks.first(where: { $0.id == bookmark.id }) {
                 rows.append(BookmarkRow(id: mine.id, name: mine.name, group: bookmark.group, isUser: true, suppressData: !mine.data))
             } else {

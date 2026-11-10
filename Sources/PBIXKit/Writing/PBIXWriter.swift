@@ -78,8 +78,8 @@ public enum PBIXWriter {
         return Data(out)
     }
 
-    /// Where a new part goes: after the last member of the same folder of visuals (or the same page),
-    /// otherwise at the end.
+    /// Where a new part goes: after the last member of the same folder of visuals (or the same page), for a page that
+    /// is new to the file after the last member under `pages/`, otherwise at the end.
     static func insertionIndex(for path: String, in existing: [String]) -> Int {
         let parts = path.split(separator: "/", omittingEmptySubsequences: false)
         if let pages = parts.firstIndex(of: "pages"), parts.count > pages + 2 {
@@ -87,6 +87,9 @@ public enum PBIXWriter {
             for prefix in [pagePrefix + "visuals/", pagePrefix] {
                 if let last = existing.lastIndex(where: { $0.hasPrefix(prefix) }) { return last + 1 }
             }
+            // A page that is new to the file: after the last member under `pages/`.
+            let pagesPrefix = parts[...pages].joined(separator: "/") + "/"
+            if let last = existing.lastIndex(where: { $0.hasPrefix(pagesPrefix) }) { return last + 1 }
         }
         return existing.count
     }

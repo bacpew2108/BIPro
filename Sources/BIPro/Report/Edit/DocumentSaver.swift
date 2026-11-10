@@ -114,12 +114,15 @@ enum DocumentSaver {
     /// Đọc lại bytes đã dựng: bố cục của mọi trang phải khớp với `editor` (cùng tập visual, cùng khung và `z`).
     static func verifyLayout(_ data: Data, editor: LayoutEditor) throws {
         let report: ReportDefinition
+        let pbix: PBIXFile
         do {
-            report = try PBIXFile(data: data).loadReport()
+            pbix = try PBIXFile(data: data)
+            report = try pbix.loadReport()
         } catch {
             throw SaveError.verificationFailed("không đọc lại được: \(error)")
         }
-        for page in editor.baseline.pages {
+        try verifyPages(report: report, pbix: pbix, editor: editor)
+        for page in editor.pages {
             guard let written = report.pages.first(where: { $0.id == page.id }) else {
                 throw SaveError.verificationFailed("thiếu trang \(page.id)")
             }
@@ -138,10 +141,54 @@ enum DocumentSaver {
                 if visual.type == "textbox", LayoutEditor.paragraphTexts(of: actual.raw) != LayoutEditor.paragraphTexts(of: visual.raw) {
                     throw SaveError.verificationFailed("nội dung hộp văn bản \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
                 }
+                guard actual.objects.json == visual.objects.json, actual.containerObjects.json == visual.containerObjects.json else {
+                    throw SaveError.verificationFailed("định dạng của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                }
                 guard actual.fields == visual.fields else {
                     throw SaveError.verificationFailed("các ô và trường của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
                 }
             }
         }
     }
+
+    /// Cấu trúc trang (D5): thứ tự và tên khớp `editor.pages`; bookmark không trỏ trang không còn và khớp `bookmarks.json`;
+    /// không mã trang đã xoá còn trong `definition/` (`contracts/page-save.md`).
+    private static func verifyPages(report: ReportDefinition, pbix: PBIXFile, editor: LayoutEditor) throws {
+        let expected = editor.pages
+        guard report.pages.map(\.id) == expected.map(\.id) else {
+            throw SaveError.verificationFailed("thứ tự trang trong file khác trạng thái đang sửa")
+        }
+        for (written, wanted) in zip(report.pages, expected) where written.displayName != wanted.displayName {
+            throw SaveError.verificationFailed("tên trang \(wanted.id) trong file khác trạng thái đang sửa")
+        }
+        let alive = Set(expected.map(\.id))
+        var bookmarkNames = Set<String>()
+        for entry in pbix.archive.entries where entry.path.hasPrefix(LayoutEditor.bookmarksFolder) && entry.path.hasSuffix(".bookmark.json") {
+            guard let info = BookmarkInfo(json: try pbix.archive.read(entry)) else { continue }
+            bookmarkNames.insert(info.name)
+            if let active = info.activeSection, !alive.contains(active) {
+                throw SaveError.verificationFailed("bookmark \(info.name) trỏ tới trang \(active) không còn")
+            }
+            if !info.sections.isSubset(of: alive) {
+                throw SaveError.verificationFailed("bookmark \(info.name) còn phần của trang không còn")
+            }
+        }
+        if pbix.archive.entry(LayoutEditor.bookmarksJSONPath) != nil,
+           let items = (try? JSONValue.parse(try pbix.archive.read(LayoutEditor.bookmarksJSONPath)))?["items"]?.array {
+            guard Set(items.compactMap { $0["name"]?.string }) == bookmarkNames else {
+                throw SaveError.verificationFailed("bookmarks.json không khớp các file bookmark")
+            }
+        }
+        let gone = editor.usedPageIDs.subtracting(alive)
+        guard !gone.isEmpty else { return }
+        for entry in pbix.archive.entries where entry.path.hasPrefix("Report/definition/") {
+            let text = String(decoding: try pbix.archive.read(entry), as: UTF8.self)
+            for id in gone {
+                if entry.path.contains("/pages/\(id)/") || text.contains("\"\(id)\"") {
+                    throw SaveError.verificationFailed("\(entry.path) còn nhắc tới trang đã xoá \(id)")
+                }
+            }
+        }
+    }
 }
+

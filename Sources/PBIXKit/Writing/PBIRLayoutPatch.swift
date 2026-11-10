@@ -94,6 +94,9 @@ public enum PBIRLayoutPatch {
         name.utf8.count == 20 && name.utf8.allSatisfy { ($0 >= 0x30 && $0 <= 0x39) || ($0 >= 0x61 && $0 <= 0x66) }
     }
 
+    /// A random name (visual or page, 20 lowercase hex characters) that is not in `taken`.
+    public static func makeObjectName(avoiding taken: Set<String>) -> String { makeVisualName(avoiding: taken) }
+
     /// A random visual name that is not in `taken`.
     public static func makeVisualName(avoiding taken: Set<String>) -> String {
         var generator = SystemRandomNumberGenerator()

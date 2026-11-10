@@ -15,6 +15,12 @@ struct PageEdit: Equatable {
     var retyped: [String: Retype] = [:]
     /// Các dòng văn bản của hộp văn bản có trong file (D3). Hộp văn bản mới nằm trong `added`.
     var texts: [String: [String]] = [:]
+    /// `visual.json` của container không phải visual (nhóm visual, `visualGroup`) đã sao sang trang nhân bản (D5):
+    /// mã mới → byte. Trang của file không có khoá này (chúng nằm sẵn trong file).
+    var extraParts: [String: Data] = [:]
+    /// Phần sửa định dạng đã gộp của visual có trong file (mã visual → danh sách `FormatEdit`), D4. Visual mới nằm trong `added`
+    /// (định dạng đã nằm trong byte), nên không có khoá ở đây.
+    var formats: [String: [FormatEdit]] = [:]
 }
 
 /// Công thức đổi loại một visual đã có trong file: loại mới và các khoá `visual.objects` cần bỏ (tích luỹ qua các lần đổi).
@@ -23,10 +29,14 @@ struct Retype: Equatable {
     var dropObjectKeys: Set<String>
 }
 
-/// Một bước hoàn tác: trạng thái sửa của một trang (nil = trang chưa bị sửa) cùng vùng chọn, tại một thời điểm.
+/// Một bước hoàn tác: toàn bộ trạng thái sửa (các trang đã sửa và cấu trúc trang) cùng trang đang mở và vùng chọn,
+/// tại một thời điểm (D5: thêm hay xoá cả trang là một bước như mọi bước khác; lịch sử là một dòng nên tương đương
+/// ảnh chụp từng trang của D1). Từ điển và mảng là giá trị copy-on-write nên chụp rẻ.
 struct LayoutSnapshot {
+    /// Trang đưa người dùng tới khi khôi phục (trang đang mở lúc chụp).
     var pageID: String
-    var edit: PageEdit?
+    var edited: [String: PageEdit]
+    var structure: PageStructure
     var selection: Set<String>
     var primary: String?
 }
@@ -40,6 +50,8 @@ final class LayoutEditor {
     private(set) var baseline: ReportDefinition
     /// Trang đã sửa → phần sửa. Trang chưa đụng tới không có mục.
     private(set) var edited: [String: PageEdit] = [:]
+    /// Thứ tự tab, tên đổi, trang tạo và trang xoá (D5).
+    private(set) var structure: PageStructure
     private(set) var selection: Set<String> = []
     private(set) var primary: String?
     private(set) var currentPageID: String?
@@ -63,17 +75,57 @@ final class LayoutEditor {
     /// `visual.json` của một visual có trong file đã mở: `(mã trang, mã visual)` → byte. Dùng khi nhân bản.
     @ObservationIgnored private let sourceJSON: (String, String) -> Data?
     /// Mọi mã visual đã có hoặc đã được sinh trong phiên (không bao giờ dùng lại, kể cả sau hoàn tác).
-    @ObservationIgnored private var usedIDs: Set<String>
+    @ObservationIgnored private(set) var usedIDs: Set<String>
+    /// Mọi mã trang đã có hoặc đã sinh trong phiên (không bao giờ dùng lại, kể cả sau hoàn tác).
+    @ObservationIgnored var usedPageIDs: Set<String>
     /// Mã bản sao đã tạo, theo trang (không hoàn tác được): để biết phần nào có thể đã nằm trong file khi xoá.
     @ObservationIgnored private var createdIDs: [String: Set<String>] = [:]
     /// Bộ nhớ tạm cho Chép/Dán trong cùng tài liệu.
     private var clipboard: [(visual: ReportVisual, json: Data)] = []
     private var pasteCount = 0
 
-    init(report: ReportDefinition, sourceJSON: @escaping (String, String) -> Data? = { _, _ in nil }) {
+    /// `page.json` của một trang có trong file đã mở (mã trang → byte). Dùng khi nhân bản trang và lấy `$schema`.
+    @ObservationIgnored let pageSource: (String) -> Data?
+    /// Các bookmark của file đã mở: tên và byte của từng `*.bookmark.json`. Dùng khi xoá trang để biết bookmark nào bị ảnh hưởng.
+    @ObservationIgnored let bookmarkSource: () -> [(name: String, json: Data)]
+    /// Container không phải visual (nhóm visual) của một trang có trong file: mã và byte `visual.json`.
+    @ObservationIgnored let containerSource: (String) -> [(id: String, json: Data)]
+
+    init(report: ReportDefinition, sourceJSON: @escaping (String, String) -> Data? = { _, _ in nil },
+         pageSource: @escaping (String) -> Data? = { _ in nil },
+         bookmarkSource: @escaping () -> [(name: String, json: Data)] = { [] },
+         containerSource: @escaping (String) -> [(id: String, json: Data)] = { _ in [] }) {
         baseline = report
+        self.containerSource = containerSource
         self.sourceJSON = sourceJSON
+        self.pageSource = pageSource
+        self.bookmarkSource = bookmarkSource
         usedIDs = Set(report.pages.flatMap { $0.visuals.map(\.id) })
+        structure = PageStructure(order: report.pages.map(\.id))
+        usedPageIDs = Set(report.pages.map(\.id))
+    }
+
+    /// Editor đọc `visual.json`, `page.json` và bookmark từ `archive` (file đang mở).
+    static func reading(archive: ZipArchive, report: ReportDefinition) -> LayoutEditor {
+        LayoutEditor(report: report,
+                     sourceJSON: { page, id in try? archive.read(LayoutEditor.visualPath(page: page, id: id)) },
+                     pageSource: { page in try? archive.read(LayoutEditor.pagePath(page)) },
+                     bookmarkSource: {
+                         archive.entries.compactMap { entry in
+                             guard entry.path.hasPrefix(LayoutEditor.bookmarksFolder), entry.path.hasSuffix(".bookmark.json"),
+                                   let data = try? archive.read(entry), let info = BookmarkInfo(json: data) else { return nil }
+                             return (info.name, data)
+                         }
+                     },
+                     containerSource: { page in
+                         let prefix = "\(LayoutEditor.pagesFolder)\(page)/visuals/"
+                         return archive.entries.compactMap { entry in
+                             guard entry.path.hasPrefix(prefix), entry.path.hasSuffix("/visual.json"),
+                                   let data = try? archive.read(entry), let value = try? JSONValue.parse(data),
+                                   value["visual"] == nil, let name = value["name"]?.string else { return nil }
+                             return (name, data)
+                         }
+                     })
     }
 
     // MARK: Đọc
@@ -84,15 +136,27 @@ final class LayoutEditor {
     var isDirty: Bool { undoStack.count != cleanMark }
 
     func visuals(of pageID: String) -> [ReportVisual] {
-        edited[pageID]?.visuals ?? baseline.pages.first { $0.id == pageID }?.visuals ?? []
+        edited[pageID]?.visuals ?? basePage(pageID)?.visuals ?? []
     }
 
-    /// Trang gốc với bố cục đã sửa.
+    /// Trang cơ sở: trang của file (bản gốc lúc mở) hoặc trang tạo trong phiên (trống, chỉ có tên và cỡ).
+    func basePage(_ pageID: String) -> ReportPage? {
+        if let page = baseline.pages.first(where: { $0.id == pageID }) { return page }
+        return structure.created[pageID].map {
+            ReportPage(id: $0.id, displayName: $0.displayName, width: $0.width, height: $0.height, isHidden: false, visuals: [])
+        }
+    }
+
+    /// Trang với tên và bố cục đã sửa.
     func page(_ pageID: String) -> ReportPage? {
-        guard var page = baseline.pages.first(where: { $0.id == pageID }) else { return nil }
+        guard var page = basePage(pageID) else { return nil }
+        if let name = structure.renamed[pageID] { page.displayName = name }
         if let edit = edited[pageID] { page.visuals = edit.visuals }
         return page
     }
+
+    /// Các trang theo thứ tự tab, đã sửa (thêm, xoá, đổi tên, đổi thứ tự, bố cục).
+    var pages: [ReportPage] { structure.order.compactMap(page(_:)) }
 
     func visual(_ id: String, page pageID: String? = nil) -> ReportVisual? {
         guard let pageID = pageID ?? currentPageID else { return nil }
@@ -192,11 +256,11 @@ final class LayoutEditor {
 
     /// Xoá các visual (bỏ qua visual trong nhóm). Vùng chọn trống sau khi xoá.
     func delete(_ ids: Set<String>) {
-        guard let pageID = currentPageID, let basePage = baseline.pages.first(where: { $0.id == pageID }) else { return }
+        guard let pageID = currentPageID, let base = basePage(pageID) else { return }
         let present = Set(visuals(of: pageID).map(\.id))
         let target = unlocked(ids).intersection(present)
         guard !target.isEmpty else { return }
-        let baselineIDs = Set(basePage.visuals.map(\.id))
+        let baselineIDs = Set(base.visuals.map(\.id))
         let changed = commit(pageID: pageID) { edit in
             edit.visuals.removeAll { target.contains($0.id) }
             for id in target {
@@ -233,14 +297,46 @@ final class LayoutEditor {
 
     var hasClipboard: Bool { !clipboard.isEmpty }
 
-    /// `visual.json` hiện tại của visual (đã áp phần sửa trường, chưa áp vị trí): dùng khi nhân bản và dán.
+    /// `visual.json` hiện tại của visual (đã áp phần sửa trường, văn bản và định dạng, chưa áp vị trí): dùng khi nhân bản và dán.
     private func json(of visual: ReportVisual, page pageID: String) -> Data? {
-        guard var json = baseJSON(of: visual.id, page: pageID) else { return nil }
-        guard edited[pageID]?.added[visual.id] == nil else { return json }
-        if let lines = edited[pageID]?.texts[visual.id], let applied = try? PBIRVisualPatch.setText(in: json, lines: lines) { json = applied }
-        if let wells = edited[pageID]?.queries[visual.id], let applied = try? PBIRQueryPatch.apply(wells, to: json) { json = applied }
+        guard let json = jsonBeforeFormats(of: visual.id, page: pageID) else { return nil }
+        // Lỗi áp định dạng không được nuốt: bản sao thiếu định dạng lặng lẽ là sai (D4, review).
+        return try? withFormats(json, page: pageID, id: visual.id)
+    }
+
+    /// Như `json(of:page:)` nhưng chưa áp định dạng đang chờ (D4): nền để áp lại cả danh sách `FormatEdit`.
+    func jsonBeforeFormats(of id: String, page pageID: String) -> Data? {
+        guard var json = baseJSON(of: id, page: pageID) else { return nil }
+        guard edited[pageID]?.added[id] == nil else { return json }
+        if let lines = edited[pageID]?.texts[id], let applied = try? PBIRVisualPatch.setText(in: json, lines: lines) { json = applied }
+        if let wells = edited[pageID]?.queries[id], let applied = try? PBIRQueryPatch.apply(wells, to: json) { json = applied }
         return json
     }
+
+    /// `data` với phần sửa định dạng đang chờ của visual có trong file (visual mới đã mang định dạng trong byte).
+    func withFormats(_ data: Data, page pageID: String, id: String, formats override: [FormatEdit]? = nil) throws -> Data {
+        guard edited[pageID]?.added[id] == nil, let formats = override ?? edited[pageID]?.formats[id], !formats.isEmpty else { return data }
+        return try PBIRFormatPatch.apply(formats, to: data)
+    }
+
+    /// `visual.json` hiện tại của visual với vị trí đã sửa (D5: nhân bản trang).
+    func currentVisualJSON(_ visual: ReportVisual, page pageID: String) -> Data? {
+        guard let json = json(of: visual, page: pageID) else { return nil }
+        return (try? Self.patch(json, to: visual)).flatMap { $0 } ?? json
+    }
+
+    /// Container không phải visual đã sao sang trang `pageID` trong phiên (D5); nil nếu trang không có.
+    func pageExtraParts(_ pageID: String) -> [String: Data]? { edited[pageID]?.extraParts }
+
+    /// Mã visual mới chưa dùng (và đánh dấu đã dùng).
+    func reserveVisualID(avoiding extra: Set<String> = []) -> String {
+        let id = PBIRLayoutPatch.makeVisualName(avoiding: usedIDs.union(extra))
+        usedIDs.insert(id)
+        return id
+    }
+
+    /// Ghi nhớ các visual đã tạo trong phiên cho trang (để biết phần nào có thể đã nằm trong file khi xoá).
+    func registerCreatedVisuals(_ ids: Set<String>, page pageID: String) { createdIDs[pageID, default: []].formUnion(ids) }
 
     private func makeCopies(_ entries: [(visual: ReportVisual, json: Data)], shifts: Int) -> [String] {
         guard let pageID = currentPageID, let bounds = pageBounds(pageID), !entries.isEmpty else { return [] }
@@ -310,7 +406,7 @@ final class LayoutEditor {
     }
 
     /// `visual.json` gốc của visual (bản mới thêm: bản hiện tại) đã áp công thức đổi loại, chưa áp trường và vị trí.
-    private func baseJSON(of id: String, page pageID: String) -> Data? {
+    func baseJSON(of id: String, page pageID: String) -> Data? {
         if let added = edited[pageID]?.added[id] { return added }
         guard let source = sourceJSON(pageID, id) else { return nil }
         if let retype = edited[pageID]?.retyped[id], let applied = try? PBIRVisualPatch.setVisualType(in: source, to: retype.type, dropObjectKeys: retype.dropObjectKeys) {
@@ -318,6 +414,10 @@ final class LayoutEditor {
         }
         return source
     }
+
+    /// Xoá thông báo và lý do từ chối cũ trước một thao tác mới (D5); đặt thông báo sau thao tác.
+    func resetMessages() { fieldRefusal = nil; notice = nil }
+    func setNotice(_ message: String?) { notice = message }
 
     func clearFieldRefusal() { fieldRefusal = nil }
     func noteFieldRefusal(_ message: String) { fieldRefusal = message }
@@ -370,7 +470,7 @@ final class LayoutEditor {
         case .changed(let next):
             let bytes: Data, raw: JSONValue, fields: [ReportField]
             do {
-                bytes = try PBIRQueryPatch.apply(next, to: base)
+                bytes = try withFormats(try PBIRQueryPatch.apply(next, to: base), page: pageID, id: id)
                 raw = try JSONValue.parse(bytes)
                 fields = try PBIRQueryPatch.fields(in: bytes)
             } catch {
@@ -380,6 +480,9 @@ final class LayoutEditor {
                 guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }
                 edit.visuals[index].raw = raw
                 edit.visuals[index].fields = fields
+                // Sửa trường có thể bỏ định dạng riêng của trường (selector); `objects` theo cùng byte (D4 kiểm khi lưu).
+                edit.visuals[index].objects = ObjectProperties(raw["visual"]?["objects"])
+                edit.visuals[index].containerObjects = ObjectProperties(raw["visual"]?["visualContainerObjects"])
                 edit.queries[id] = next
                 if edit.added[id] != nil { edit.added[id] = bytes }
             }
@@ -420,7 +523,7 @@ final class LayoutEditor {
 
         let id = PBIRLayoutPatch.makeVisualName(avoiding: usedIDs)
         let z = (visuals(of: pageID).map(\.z).max() ?? 0) + Double(LayoutGeometry.zStep)
-        let siblings = baseline.pages.first { $0.id == pageID }?.visuals.prefix(5).compactMap { sourceJSON(pageID, $0.id) } ?? []
+        let siblings = basePage(pageID)?.visuals.prefix(5).compactMap { sourceJSON(pageID, $0.id) } ?? []
         guard let json = try? PBIRNewVisual.makeJSON(name: id, type: type, x: frame.x, y: frame.y, width: frame.width, height: frame.height,
                                                     z: Int(z), schema: PBIRNewVisual.schemaURL(from: Array(siblings))),
               let raw = try? JSONValue.parse(json) else {
@@ -467,10 +570,12 @@ final class LayoutEditor {
         if plan.isNoOp { return nil }
 
         let drop = Set(plan.droppedObjectKeys)
+        let keptFormats = (edited[pageID]?.formats[id] ?? []).filter { !($0.scope == .objects && drop.contains($0.object)) }
         let bytes: Data, raw: JSONValue, fields: [ReportField]
         do {
             let retyped = try PBIRVisualPatch.setVisualType(in: base, to: type, dropObjectKeys: drop)
-            bytes = try PBIRQueryPatch.apply(plan.wells, to: retyped)
+            // Định dạng chờ của khoá bị bỏ cũng bỏ, nếu không áp lại sẽ tạo lại khoá vừa bỏ (D4, R8).
+            bytes = try withFormats(try PBIRQueryPatch.apply(plan.wells, to: retyped), page: pageID, id: id, formats: keptFormats)
             raw = try JSONValue.parse(bytes)
             fields = try PBIRQueryPatch.fields(in: bytes)
         } catch {
@@ -486,6 +591,7 @@ final class LayoutEditor {
             // Công thức luôn được ghi (kể cả visual mới thêm: sau lần lưu đầu nó đã nằm trong file và lần lưu sau áp công thức);
             // visual mới còn cập nhật byte hiện tại ở `added`.
             edit.queries[id] = plan.wells
+            edit.formats[id] = keptFormats.isEmpty ? nil : keptFormats
             edit.retyped[id] = Retype(type: type, dropObjectKeys: (edit.retyped[id]?.dropObjectKeys ?? []).union(drop))
             if isNew { edit.added[id] = bytes }
         }
@@ -522,7 +628,7 @@ final class LayoutEditor {
         let lines = text.components(separatedBy: "\n")
         let bytes: Data, raw: JSONValue
         do {
-            bytes = try PBIRVisualPatch.setText(in: base, lines: lines)
+            bytes = try withFormats(try PBIRVisualPatch.setText(in: base, lines: lines), page: pageID, id: id)
             raw = try JSONValue.parse(bytes)
         } catch {
             return refuse("Không ghi được nội dung: \(error)")
@@ -541,15 +647,17 @@ final class LayoutEditor {
 
     func undo() {
         guard let step = undoStack.popLast() else { return }
-        redoStack.append(snapshot(of: step.pageID))
+        redoStack.append(snapshot(of: currentPageID ?? step.pageID))
         restore(step)
+        resetMessages()
         lastCoalesce = nil
     }
 
     func redo() {
         guard let step = redoStack.popLast() else { return }
-        undoStack.append(snapshot(of: step.pageID))
+        undoStack.append(snapshot(of: currentPageID ?? step.pageID))
         restore(step)
+        resetMessages()
         lastCoalesce = nil
     }
 
@@ -562,7 +670,7 @@ final class LayoutEditor {
     // MARK: Nội bộ
 
     private func pageBounds(_ pageID: String) -> PageBounds? {
-        baseline.pages.first { $0.id == pageID }.map(PageBounds.init)
+        basePage(pageID).map(PageBounds.init)
     }
 
     /// Bỏ visual trong nhóm; nếu có bỏ thì ghi lý do.
@@ -573,12 +681,15 @@ final class LayoutEditor {
     }
 
     private func snapshot(of pageID: String) -> LayoutSnapshot {
-        LayoutSnapshot(pageID: pageID, edit: edited[pageID], selection: selection, primary: primary)
+        LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary)
     }
 
     private func restore(_ step: LayoutSnapshot) {
-        edited[step.pageID] = step.edit
-        if currentPageID != step.pageID { currentPageID = step.pageID }
+        edited = step.edited
+        structure = step.structure
+        // Trang của bước có thể không còn trong dãy (hoàn tác thêm trang): về trang đầu.
+        let target = structure.order.contains(step.pageID) ? step.pageID : structure.order.first
+        if currentPageID != target { currentPageID = target }
         selection = step.selection
         primary = step.primary
     }
@@ -588,9 +699,10 @@ final class LayoutEditor {
     @discardableResult
     func commit(pageID: String, coalesceIDs: Set<String>? = nil, _ body: (inout PageEdit) -> Void) -> Bool {
         let before = edited[pageID]
-        var working = before ?? PageEdit(visuals: baseline.pages.first { $0.id == pageID }?.visuals ?? [])
+        let initial = PageEdit(visuals: basePage(pageID)?.visuals ?? [])
+        var working = before ?? initial
         body(&working)
-        guard working != (before ?? PageEdit(visuals: baseline.pages.first { $0.id == pageID }?.visuals ?? [])) else { return false }
+        guard working != (before ?? initial) else { return false }
 
         let time = now()
         var merged = false
@@ -613,20 +725,73 @@ final class LayoutEditor {
         return true
     }
 
+    /// Một thao tác cấp báo cáo (D5): sửa `structure` và các `PageEdit` cùng lúc, đúng một bước hoàn tác, không gộp theo
+    /// thời gian. Không đổi gì thì không tạo bước. Người gọi tự đặt trang đang mở sau khi xong.
+    @discardableResult
+    func commitStructure(_ body: (inout PageStructure, inout [String: PageEdit]) -> Void) -> Bool {
+        var newStructure = structure, newEdited = edited
+        body(&newStructure, &newEdited)
+        guard newStructure != structure || newEdited != edited else { return false }
+        if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+        undoStack.append(snapshot(of: currentPageID ?? structure.order.first ?? ""))
+        if undoStack.count > Self.historyLimit {
+            undoStack.removeFirst()
+            cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+        }
+        redoStack.removeAll()
+        structure = newStructure
+        edited = newEdited
+        lastCoalesce = nil
+        return true
+    }
+
+    /// Chuyển trang đang mở không tạo bước hoàn tác; trang phải có trong dãy.
+    func openPage(_ pageID: String) {
+        guard structure.order.contains(pageID) else { return }
+        showPage(pageID)
+    }
+
     // MARK: Gói thay đổi để lưu
 
     nonisolated static func visualPath(page: String, id: String) -> String {
         "Report/definition/pages/\(page)/visuals/\(id)/visual.json"
     }
 
-    /// Các thay đổi cần ghi vào file `archive` (file đang có trên đĩa, không nhất thiết bản lúc mở), chỉ cho
-    /// trang đã sửa: `visual.json` ghép byte cho visual đổi vị trí, phần mới cho bản sao, bỏ phần của visual đã xoá,
-    /// và dọn tham chiếu tới visual đã xoá trong bookmark và `page.json`.
+    nonisolated static func pagePath(_ page: String) -> String { "Report/definition/pages/\(page)/page.json" }
+    nonisolated static let pagesFolder = "Report/definition/pages/"
+    nonisolated static let pagesJSONPath = "Report/definition/pages/pages.json"
+    nonisolated static let bookmarksFolder = "Report/definition/bookmarks/"
+    nonisolated static let bookmarksJSONPath = "Report/definition/bookmarks/bookmarks.json"
+
+    /// Mã trang của các thư mục trang có trong `archive`, và các part của từng trang.
+    private static func pageParts(in archive: ZipArchive) -> [String: [String]] {
+        var parts: [String: [String]] = [:]
+        for entry in archive.entries where entry.path.hasPrefix(pagesFolder) {
+            let rest = entry.path.dropFirst(pagesFolder.count).split(separator: "/", omittingEmptySubsequences: false)
+            guard rest.count >= 2 else { continue }      // `pages.json`
+            parts[String(rest[0]), default: []].append(entry.path)
+        }
+        return parts
+    }
+
+    /// Các thay đổi cần ghi vào file `archive` (file đang có trên đĩa, không nhất thiết bản lúc mở): `visual.json` ghép
+    /// byte cho visual đổi vị trí, phần mới cho bản sao, bỏ phần của visual đã xoá, dọn tham chiếu tới visual đã xoá trong
+    /// bookmark và `page.json`; và (D5) trang mới, tên trang, thứ tự trang, trang bị xoá cùng bookmark trỏ tới chúng.
+    /// Mọi thay đổi trang so với file trên đĩa nên lưu lần hai không ghi lại gì.
     func makeChanges(archive: ZipArchive) throws -> PBIXChanges {
         var changes = PBIXChanges()
         var removedIDs = Set<String>()
-        for pageID in edited.keys.sorted() {
-            guard let edit = edited[pageID], let basePage = baseline.pages.first(where: { $0.id == pageID }) else { continue }
+        let diskPages = Self.pageParts(in: archive)
+        let order = structure.order
+        // Chỉ trang người dùng đã xoá trong phiên; thư mục trang lạ trong file (không có trong pageOrder) giữ nguyên (review).
+        let known = structure.removed.union(usedPageIDs)   // trang của báo cáo lúc mở hoặc tạo trong phiên
+        let removedPages = Set(diskPages.keys).subtracting(order).intersection(known)
+
+        for pageID in edited.keys.sorted() where order.contains(pageID) {
+            guard let edit = edited[pageID], let base = basePage(pageID) else { continue }
+            for (id, data) in edit.extraParts where archive.entry(Self.visualPath(page: pageID, id: id)) == nil {
+                changes.addedParts[Self.visualPath(page: pageID, id: id)] = data
+            }
             for visual in edit.visuals {
                 let path = Self.visualPath(page: pageID, id: visual.id)
                 if archive.entry(path) != nil {
@@ -637,6 +802,7 @@ final class LayoutEditor {
                     }
                     if let lines = edit.texts[visual.id] { json = try PBIRVisualPatch.setText(in: json, lines: lines) }
                     if let wells = edit.queries[visual.id] { json = try PBIRQueryPatch.apply(wells, to: json) }
+                    if let formats = edit.formats[visual.id] { json = try PBIRFormatPatch.apply(formats, to: json) }
                     if let patched = try Self.patch(json, to: visual) { json = patched }
                     if json != onDisk { changes.reportParts[path] = json }
                 } else if let data = edit.added[visual.id] {
@@ -645,7 +811,7 @@ final class LayoutEditor {
             }
             // Bị xoá: visual của file gốc hoặc bản sao đã tạo trong phiên mà không còn trong bố cục, và có trong file.
             let current = Set(edit.visuals.map(\.id))
-            let candidates = Set(basePage.visuals.map(\.id)).union(createdIDs[pageID] ?? [])
+            let candidates = Set(base.visuals.map(\.id)).union(createdIDs[pageID] ?? [])
             for id in candidates.sorted() where !current.contains(id) {
                 let path = Self.visualPath(page: pageID, id: id)
                 if archive.entry(path) != nil {
@@ -654,16 +820,71 @@ final class LayoutEditor {
                 }
             }
         }
-        if !removedIDs.isEmpty {
+
+        // Trang (D5): tên và trang mới, so với file trên đĩa.
+        for pageID in order {
+            let path = Self.pagePath(pageID)
+            if let created = structure.created[pageID] {
+                if archive.entry(path) == nil {
+                    changes.addedParts[path] = created.pageJSON
+                } else {
+                    let onDisk = try archive.read(path)
+                    if onDisk != created.pageJSON { changes.reportParts[path] = created.pageJSON }
+                }
+            } else if archive.entry(path) != nil, let name = page(pageID)?.displayName {
+                let onDisk = try archive.read(path)
+                if (try? JSONValue.parse(onDisk))?["displayName"]?.string != name {
+                    changes.reportParts[path] = try PBIRPagePatch.setPageDisplayName(name, in: onDisk)
+                }
+            }
+        }
+        // Trang bị xoá: mọi part của nó; visual của nó tính là visual bị xoá (dọn bookmark như D1).
+        for pageID in removedPages.sorted() {
+            for path in diskPages[pageID] ?? [] {
+                changes.removedParts.insert(path)
+                let parts = path.split(separator: "/")
+                if parts.count >= 6, parts[4] == "visuals" { removedIDs.insert(String(parts[5])) }
+            }
+        }
+        // Thứ tự: chỉ ghi khi khác file; `activePageName` = trang đang mở (như Desktop).
+        if archive.entry(Self.pagesJSONPath) != nil {
+            let onDisk = try archive.read(Self.pagesJSONPath)
+            let diskOrder = (try? JSONValue.parse(onDisk))?["pageOrder"]?.array.compactMap(\.string) ?? []
+            if diskOrder != order {
+                let active = currentPageID.flatMap { order.contains($0) ? $0 : nil } ?? order.first
+                changes.reportParts[Self.pagesJSONPath] = try PBIRPagePatch.setPageOrder(order, activePage: active, in: onDisk)
+            }
+        }
+
+        // Bookmark và page.json còn lại: dọn tham chiếu tới trang và visual đã xoá.
+        if !removedIDs.isEmpty || !removedPages.isEmpty {
+            var removedBookmarks = Set<String>()
             for entry in archive.entries {
                 let isBookmark = entry.path.hasSuffix(".bookmark.json")
-                let isPage = entry.path.hasSuffix("/page.json") && entry.path.hasPrefix("Report/definition/pages/")
-                guard isBookmark || isPage else { continue }
-                let data = try archive.read(entry)
+                let isPage = entry.path.hasSuffix("/page.json") && entry.path.hasPrefix(Self.pagesFolder)
+                guard isBookmark || isPage, !changes.removedParts.contains(entry.path) else { continue }
+                let original = try archive.read(entry)
+                var data = changes.reportParts[entry.path] ?? original
+                if isBookmark, !removedPages.isEmpty {
+                    switch try PBIRPagePatch.removingPageReferences(removedPages, fromBookmark: data) {
+                    case .remove:
+                        changes.removedParts.insert(entry.path)
+                        changes.reportParts[entry.path] = nil
+                        if let name = BookmarkInfo(json: original)?.name { removedBookmarks.insert(name) }
+                        continue
+                    case .trimmed(let trimmed): data = trimmed
+                    case .unchanged: break
+                    }
+                }
                 let cleaned = isBookmark
                     ? try PBIRLayoutPatch.removingVisualReferences(removedIDs, fromBookmark: data)
                     : try PBIRLayoutPatch.removingVisualReferences(removedIDs, fromPage: data)
-                if cleaned != data { changes.reportParts[entry.path] = cleaned }
+                if cleaned != original { changes.reportParts[entry.path] = cleaned }
+            }
+            if !removedBookmarks.isEmpty, archive.entry(Self.bookmarksJSONPath) != nil {
+                let onDisk = try archive.read(Self.bookmarksJSONPath)
+                let items = try PBIRPagePatch.bookmarkItemsRemoving(removedBookmarks, from: onDisk)
+                if items != onDisk { changes.reportParts[Self.bookmarksJSONPath] = items }
             }
         }
         return changes

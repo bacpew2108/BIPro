@@ -21,6 +21,14 @@ struct LiveVisualData: Sendable {
 @Observable
 final class ReportInteraction {
     let workspace: Workspace
+    /// Trang của báo cáo đang sửa (D5: thêm, xoá, đổi tên). `DocumentState` đặt; không đặt thì là trang của file.
+    @ObservationIgnored var pagesProvider: (() -> [ReportPage])?
+    /// Bookmark của file mà thao tác xoá trang đã gỡ trong phiên (ẩn khỏi danh sách).
+    @ObservationIgnored var removedBookmarksProvider: (() -> Set<String>)?
+    /// `page.json` của trang tạo trong phiên (nhân bản): để đọc bộ lọc cấp trang của chúng.
+    @ObservationIgnored var pageJSONProvider: ((String) -> Data?)?
+    var pages: [ReportPage] { pagesProvider?() ?? workspace.report.pages }
+    var visiblePages: [ReportPage] { pages.filter { !$0.isHidden } }
     /// Trạng thái lọc theo trang (khoá = id trang).
     var states: [String: FilterState] = [:]
 
@@ -130,7 +138,7 @@ final class ReportInteraction {
 
         // Slicer của các trang có trong bookmark: lấy lựa chọn đã lưu, không có thì bỏ chọn.
         for pageID in data.pageFilters.keys {
-            guard let page = workspace.page(id: pageID) else { continue }
+            guard let page = pages.first(where: { $0.id == pageID }) else { continue }
             for visual in page.visuals where Self.slicerTypes.contains(visual.type) && data.visualFilters[visual.id] != nil {
                 let columns = slicerColumns(of: visual)
                 guard !columns.isEmpty else { continue }
@@ -289,8 +297,9 @@ final class ReportInteraction {
 
     /// Trang drillthrough mà điểm này dùng được: điểm có giá trị cho ít nhất một cột tham số của trang.
     func drillthroughTargets(from page: ReportPage, point: DataPointID) -> [(page: ReportPage, values: [ColumnValues])] {
-        workspace.drillthroughPages.compactMap { entry in
-            guard entry.page.id != page.id else { return nil }
+        let alive = Set(pages.map(\.id))
+        return workspace.drillthroughPages.compactMap { entry in
+            guard entry.page.id != page.id, alive.contains(entry.page.id) else { return nil }
             let values = entry.columns.compactMap { column -> ColumnValues? in
                 point.values["\(column.table).\(column.column)"].map { ColumnValues(column: column, values: [$0]) }
             }
@@ -341,10 +350,24 @@ final class ReportInteraction {
             }
     }
 
+    /// Bộ lọc cấp visual của một visual: của file (theo mã visual), hoặc đọc từ `filterConfig` của chính visual khi mã là mới
+    /// trong phiên (bản sao visual hoặc trang nhân bản, D1 và D5) để bản sao vẽ cùng dữ liệu với bản gốc.
+    func visualFilters(of visual: ReportVisual) -> [ReportFilter] {
+        if let list = workspace.visualFilters[visual.id] { return list }
+        return PBIXFile.filters(visual.raw["filterConfig"]?["filters"], level: .visual)
+    }
+
+    /// Bộ lọc cấp trang: của file (theo mã trang), hoặc đọc từ `filterConfig` của `page.json` khi trang tạo trong phiên (bản nhân bản).
+    func pageFilters(of pageID: String) -> [ReportFilter] {
+        if let list = workspace.pageFilters[pageID] { return list }
+        guard let json = pageJSONProvider?(pageID), let value = try? JSONValue.parse(json) else { return [] }
+        return PBIXFile.filters(value["filterConfig"]?["filters"], level: .page)
+    }
+
     func staticFilters(page: ReportPage, visual: ReportVisual) -> [StaticFilter] {
         Self.mergeStatics(
-            visual: workspace.visualFilters[visual.id] ?? [], visualID: visual.id,
-            page: workspace.pageFilters[page.id] ?? [], pageID: page.id,
+            visual: visualFilters(of: visual), visualID: visual.id,
+            page: pageFilters(of: page.id), pageID: page.id,
             report: workspace.reportFilters, user: userFilters, removed: removedFilters)
     }
 

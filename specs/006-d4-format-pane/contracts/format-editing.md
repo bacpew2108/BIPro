@@ -1,0 +1,39 @@
+# Hợp đồng hành vi: sửa định dạng trong Format pane
+
+Cho `LayoutEditor` (setFormat, resetFormat) và `FormatPane`. Quyết định ở [../research.md](../research.md); cấu trúc ở [../data-model.md](../data-model.md).
+
+## Điều kiện cho phép
+
+| Điều kiện | Kết quả |
+|---|---|
+| Chế độ Xem, hoặc báo cáo định dạng cũ (`Report/Layout`) | mờ kèm lý do ("Bật chế độ Sửa" / "Báo cáo định dạng cũ chưa sửa được"); không đổi gì |
+| Không chọn, hoặc chọn nhiều visual | hiện "Chọn một visual"; không sửa hàng loạt |
+| Visual trong nhóm (`isLockedByGroup`) | từ chối "Visual nằm trong nhóm, chưa sửa được." (như D2) |
+| Visual chưa có trường | pane không hiện thẻ ("Thêm trường để bắt đầu định dạng", như Desktop); visual không có truy vấn (hộp văn bản, ảnh, nút) hiện thẻ của loại đó nếu danh mục có |
+| Thuộc tính ngoài danh mục, hoặc mục có selector khác `default` | chỉ-đọc kèm lý do |
+
+## Điều khiển và kiểm giá trị
+
+Theo bảng R5. Mọi từ chối: không ghi, không tạo bước hoàn tác, giữ giá trị cũ, hiện lý do (đỏ, bấm để ẩn như `FieldMessages`).
+
+- Số: ngoài khoảng hoặc không phải số → "Nhập số từ A đến B." Ô số kẹp giá trị khi dùng mũi tên.
+- Chuỗi `title.text`: rỗng → từ chối ("Muốn bỏ tiêu đề thì tắt công tắc Tiêu đề"); dài hơn 200 ký tự → từ chối.
+- Màu hex: không đủ 6 chữ số hex → từ chối; hợp lệ ghi chữ hoa.
+- Danh sách: chỉ giá trị trong danh mục.
+
+## Bước hoàn tác
+
+- Mỗi lần đổi thuộc tính hoặc đặt lại là đúng một bước, chung ngăn xếp D1 đến D5.
+- Đổi liên tiếp cùng `(visual, phạm vi, khoá, thuộc tính)` gộp thành một bước (khoá gộp, như kéo visual ở D1); đổi thuộc tính khác thì bước mới.
+- Giá trị mới bằng giá trị hiện có: không tạo bước, không ghi.
+- Hoàn tác trả lại đúng `objects` và `visualContainerObjects` (so cả khoá vắng mặt); `isDirty` về false khi về trạng thái đã lưu.
+
+## Đặt lại
+
+- "Đặt lại" thẻ: xoá cả khoá (`removeObject`), thẻ hiện lại giá trị mặc định (công tắc tắt hoặc mặc định của danh mục).
+- "Đặt lại" một thuộc tính màu: bỏ thuộc tính đó (`removeProperty`).
+- Đặt lại khi khoá không có trong file: không làm gì, không tạo bước.
+
+## Thông báo
+
+Đổi sang giá trị mà đường vẽ chưa đọc (`rendered == false`): giữ ghi chú cố định ở hàng điều khiển ("BI Pro chưa vẽ thuộc tính này; Power BI Desktop vẫn vẽ"); không dùng hộp thoại.

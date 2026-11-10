@@ -105,7 +105,7 @@ struct CommandResults: View {
         let q = query.lowercased()
         let w = state.workspace
         var result: [Hit] = []
-        for page in w.report.pages where page.displayName.lowercased().contains(q) {
+        for page in state.pages where page.displayName.lowercased().contains(q) {
             result.append(Hit(symbol: "doc.richtext", title: page.displayName, detail: "Trang") { [state] in
                 state.mode = .report; state.pageID = page.id
             })
@@ -126,7 +126,7 @@ struct CommandResults: View {
                 state.mode = .table; state.select(table: c.tableName, column: c.name)
             })
         }
-        for page in w.report.pages {
+        for page in state.pages {
             for v in page.visuals where v.fields.contains(where: { $0.label.lowercased().contains(q) }) {
                 result.append(Hit(symbol: "chart.bar", title: v.fields.map(\.label).joined(separator: ", "), detail: "Visual \(v.type) · \(page.displayName)") { [state] in
                     state.mode = .report; state.pageID = page.id; state.visualID = v.id

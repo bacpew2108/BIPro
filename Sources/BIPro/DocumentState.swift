@@ -134,10 +134,12 @@ final class DocumentState {
         self.fileURL = fileURL
         self.openedStamp = fileURL.flatMap { try? FileStamp.of($0) }
         let archive = workspace.pbix.archive
-        self.layout = LayoutEditor(report: workspace.report, sourceJSON: { page, id in
-            try? archive.read(LayoutEditor.visualPath(page: page, id: id))
-        })
+        self.layout = LayoutEditor.reading(archive: archive, report: workspace.report)
         self.interaction = ReportInteraction(workspace: workspace)
+        let layout = self.layout
+        self.interaction.pagesProvider = { layout.pages }
+        self.interaction.removedBookmarksProvider = { layout.structure.removedBookmarks }
+        self.interaction.pageJSONProvider = { layout.structure.created[$0]?.pageJSON }
         pageID = workspace.activePageID.flatMap { id in workspace.report.pages.contains { $0.id == id } ? id : nil }
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
         layout.showPage(pageID)
@@ -159,6 +161,9 @@ final class DocumentState {
 
     /// Trang đang xem, với bố cục đã sửa (nếu có). Mọi nơi cần bố cục hiện tại phải đọc qua đây.
     var page: ReportPage? { pageID.flatMap(layout.page(_:)) }
+
+    /// Các trang theo thứ tự tab, với thêm, xoá, đổi tên, đổi thứ tự và bố cục đã sửa (D5). Mọi nơi liệt kê trang đọc qua đây.
+    var pages: [ReportPage] { layout.pages }
 
     var visual: ReportVisual? {
         guard let visualID else { return nil }
@@ -198,6 +203,37 @@ final class DocumentState {
             return message
         }
         return layout.changeType(of: id, to: type)
+    }
+
+    // MARK: Định dạng (D4)
+
+    /// Lý do chưa sửa định dạng của visual đang chọn (chế độ Xem, báo cáo cũ, nhiều visual, visual trong nhóm), hoặc nil.
+    var formatEditingBlocker: String? {
+        if mode != .report { return "Chỉ sửa định dạng được ở chế độ Báo cáo." }
+        if !canEditLayout { return "Báo cáo định dạng cũ (Report/Layout) chưa sửa được." }
+        if !editMode { return "Bật chế độ Sửa (⌘E) để sửa định dạng." }
+        if layout.selection.count > 1 { return "Chọn đúng một visual để sửa định dạng." }
+        guard let id = visual?.id else { return "Chọn một visual để sửa định dạng." }
+        return layout.formatEditingBlocker(for: id)
+    }
+
+    /// Thẻ, giá trị và phần chỉ-đọc của định dạng visual đang chọn.
+    var formatState: FormatState? { visual.flatMap { layout.formatState(of: $0.id) } }
+
+    /// Đặt một thuộc tính định dạng của visual đang chọn. Trả lý do từ chối hoặc nil.
+    @discardableResult
+    func setFormat(_ value: FormatValue, scope: FormatScope, object: String, property: String) -> String? {
+        if let blocker = formatEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
+        guard let id = visual?.id else { return nil }
+        return layout.setFormat(value, scope: scope, object: object, property: property, visual: id)
+    }
+
+    /// Đặt lại về mặc định cả thẻ (`property` nil) hoặc một thuộc tính của visual đang chọn.
+    @discardableResult
+    func resetFormat(scope: FormatScope, object: String, property: String? = nil) -> String? {
+        if let blocker = formatEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
+        guard let id = visual?.id else { return nil }
+        return layout.resetFormat(scope: scope, object: object, property: property, visual: id)
     }
 
     var tabs: [RibbonTab] {

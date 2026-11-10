@@ -19,7 +19,7 @@ struct FiltersPane: View {
                     if let visual = state.visual {
                         section("Bộ lọc trên visual này", filters: visualLevelFilters(visual), scope: visual.id, level: .visual, empty: "Visual chưa có field")
                     }
-                    section("Bộ lọc trên trang này", filters: state.pageID.flatMap { w.pageFilters[$0] } ?? [], scope: state.pageID ?? "",
+                    section("Bộ lọc trên trang này", filters: state.pageID.map { state.interaction.pageFilters(of: $0) } ?? [], scope: state.pageID ?? "",
                             level: .page, empty: "Chưa có bộ lọc trang")
                     section("Bộ lọc trên mọi trang", filters: w.reportFilters, scope: "", level: .report, empty: "Chưa có bộ lọc báo cáo")
                 }
@@ -33,7 +33,7 @@ struct FiltersPane: View {
     private var activeCount: Int {
         let w = state.workspace, interaction = state.interaction
         let pageID = state.pageID ?? ""
-        let page = pageID.isEmpty ? [] : (w.pageFilters[pageID] ?? [])
+        let page = pageID.isEmpty ? [] : state.interaction.pageFilters(of: pageID)
         func count(_ filters: [ReportFilter], _ level: ReportFilter.Level, _ scope: String) -> Int {
             filters.filter { !interaction.removedFilters.contains(key($0, level, scope)) }
                 .filter { FilterEditing.isActive($0, key: key($0, level, scope), interaction: interaction) }.count
@@ -51,7 +51,7 @@ struct FiltersPane: View {
 
     /// Power BI lists every field of the selected visual as a filter card, plus explicit visual filters.
     private func visualLevelFilters(_ visual: ReportVisual) -> [ReportFilter] {
-        let explicit = state.workspace.visualFilters[visual.id] ?? []
+        let explicit = state.interaction.visualFilters(of: visual)
         let implicit = visual.fields.filter { field in !explicit.contains { $0.field?.property == field.property } }
             .map { ReportFilter(id: "implicit-\($0.queryRef)-\($0.role)", level: .visual, field: $0,
                                 type: "Categorical", summary: "là (Tất cả)", isHidden: false, isLocked: false) }
@@ -248,33 +248,7 @@ struct VisualizationsPane: View {
 
     // MARK: Format
 
-    @State private var formatScope: FormatScope = .visual
-    enum FormatScope: Hashable { case visual, general }
-
-    @ViewBuilder private var format: some View {
-        if let visual = state.visual {
-            VStack(spacing: 8) {
-                SegmentedPill(selection: $formatScope, options: [
-                    .init(value: .visual, title: "Visual"),
-                    .init(value: .general, title: "Chung"),
-                ], fill: true)
-                let objects = formatScope == .visual ? visual.objects : visual.containerObjects
-                let keys = (objects.json.object.keys).sorted()
-                if keys.isEmpty {
-                    Text("Đang dùng định dạng mặc định của theme.")
-                        .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 8)
-                }
-                ForEach(keys, id: \.self) { key in
-                    FormatCard(title: FormatNames.object(key), properties: objects.json[key]?.array ?? [], theme: state.workspace.theme)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 12)
-        } else {
-            Text("Chọn một visual để xem định dạng của nó.")
-                .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(12)
-        }
-    }
+    private var format: some View { FormatPane(state: state) }
 }
 
 /// Thông báo của các thao tác sửa visual: lý do từ chối (đỏ, bấm để ẩn) và thông báo sau thao tác (D2, D3).
@@ -296,97 +270,6 @@ struct FieldMessages: View {
         }
         .padding(.horizontal, 10)
         .padding(.top, layout.fieldRefusal == nil && layout.notice == nil ? 0 : 8)
-    }
-}
-
-/// One collapsible card in the Format pane (read-only until Phase D).
-struct FormatCard: View {
-    let title: String
-    let properties: [JSONValue]
-    let theme: ReportTheme
-    @State private var open = true
-
-    var body: some View {
-        let merged = mergedProperties
-        VStack(alignment: .leading, spacing: 0) {
-            Button { open.toggle() } label: {
-                HStack {
-                    Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(DS.Palette.tertiaryLabel).frame(width: 10)
-                    Text(title).font(DS.Typeface.headlineSmall).foregroundStyle(DS.Palette.label)
-                    Spacer()
-                    if let show = merged.first(where: { $0.key == "show" }), case .bool(let on)? = ReportLiteral(expression: show.value["expr"]) {
-                        SwitchMark(isOn: on)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 32)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            if open {
-                VStack(spacing: 0) {
-                    ForEach(merged.filter { $0.key != "show" }, id: \.key) { property in
-                        HStack {
-                            Text(FormatNames.property(property.key)).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
-                            Spacer(minLength: 8)
-                            valueView(property.value)
-                        }
-                        .frame(minHeight: 24)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 8)
-            }
-        }
-        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
-    }
-
-    private var mergedProperties: [(key: String, value: JSONValue)] {
-        var merged: [String: JSONValue] = [:]
-        for instance in properties {
-            if let id = instance["selector"]?["id"]?.string, id != "default" { continue }
-            for (k, v) in instance["properties"]?.object ?? [:] { merged[k] = v }
-        }
-        return merged.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
-    }
-
-    @ViewBuilder private func valueView(_ value: JSONValue) -> some View {
-        if let color = value["solid"]?["color"]?["expr"], let literal = ReportLiteral(expression: color) {
-            HStack(spacing: 4) {
-                RoundedRectangle(cornerRadius: 3).fill(theme.color(literal) ?? .gray).frame(width: 12, height: 12)
-                    .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color.black.opacity(0.1)))
-                Text(colorText(literal)).font(DS.Typeface.mono).foregroundStyle(DS.Palette.secondaryLabel)
-            }
-            .valueBox()
-        } else if let literal = ReportLiteral(expression: value["expr"]) {
-            switch literal {
-            case .bool(let on): SwitchMark(isOn: on)
-            case .number(let n): Text(n == n.rounded() ? String(Int(n)) : String(n)).font(DS.Typeface.bodySmall).valueBox()
-            case .string(let s): Text(s).font(DS.Typeface.bodySmall).lineLimit(1).valueBox()
-            case .resource(let r): Text(r).font(DS.Typeface.bodySmall).lineLimit(1).valueBox()
-            default: Text("—").valueBox()
-            }
-        } else {
-            Text("…").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).valueBox()
-        }
-    }
-
-    private func colorText(_ literal: ReportLiteral) -> String {
-        switch literal {
-        case .string(let hex): hex.uppercased()
-        case .themeColor(let id, let percent): "Theme \(id)" + (percent == 0 ? "" : " \(Int(percent * 100))%")
-        default: "—"
-        }
-    }
-}
-
-private extension View {
-    func valueBox() -> some View {
-        self.padding(.horizontal, 6).frame(height: 20)
-            .background(RoundedRectangle(cornerRadius: 4).fill(DS.Palette.chrome))
-            .frame(maxWidth: 130, alignment: .trailing)
     }
 }
 

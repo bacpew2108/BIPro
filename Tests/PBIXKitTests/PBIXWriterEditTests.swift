@@ -89,6 +89,42 @@ enum SyntheticPBIX {
         #expect(result.tier == .report)
     }
 
+    @Test func partsOfANewPageGoAfterTheLastPagePartInOrder() throws {
+        let dir = SyntheticPBIX.temporaryDirectory("newpage")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = try SyntheticPBIX.make(in: dir)
+        let page = "cccccccccccccccccccc"
+        let pagePath = "Report/definition/pages/\(page)/page.json"
+        let v1 = SyntheticPBIX.visualPath(page, "ccccccccccccccccccc1"), v2 = SyntheticPBIX.visualPath(page, "ccccccccccccccccccc2")
+        var changes = PBIXChanges()
+        changes.addedParts[pagePath] = PBIRPagePatch.newPageJSON(id: page, displayName: "Page 1", schema: nil)
+        changes.addedParts[v1] = Data(SyntheticPBIX.visualJSON(name: "ccccccccccccccccccc1", x: 0, y: 0, z: 0, w: 10, h: 10).utf8)
+        changes.addedParts[v2] = Data(SyntheticPBIX.visualJSON(name: "ccccccccccccccccccc2", x: 0, y: 0, z: 1000, w: 10, h: 10).utf8)
+
+        let result = try PBIXWriter.build(source: source, changes: changes)
+        let paths = try ZipArchive(data: result.data).entries.map(\.path)
+        let lastOld = try #require(paths.firstIndex(of: SyntheticPBIX.visualPath(SyntheticPBIX.pageB, "bbbbbbbbbbbbbbbbbbb2")))
+        #expect(Array(paths[(lastOld + 1)...(lastOld + 3)]) == [pagePath, v1, v2])
+        #expect(paths.count == SyntheticPBIX.members().count + 3 - 1)
+        // Trang nằm sau cả `bookmarks/` thì vẫn ra ngay sau trang cuối (không ở cuối file)
+        #expect(paths.last.map { $0.contains("/pages/") } == true)
+    }
+
+    @Test func removingEveryPartOfAPageLeavesAValidFile() throws {
+        let dir = SyntheticPBIX.temporaryDirectory("droppage")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let source = try SyntheticPBIX.make(in: dir)
+        let doomed = SyntheticPBIX.members().map(\.path).filter { $0.hasPrefix("Report/definition/pages/\(SyntheticPBIX.pageB)/") }
+        #expect(doomed.count == 1 + SyntheticPBIX.visualsB.count)
+        var changes = PBIXChanges()
+        changes.removedParts = Set(doomed)
+        let result = try PBIXWriter.build(source: source, changes: changes)
+        let archive = try ZipArchive(data: result.data)
+        #expect(doomed.allSatisfy { archive.entry($0) == nil })
+        #expect(archive.entries.count == SyntheticPBIX.members().count - doomed.count - 1)
+        #expect(archive.entry("Report/definition/pages/\(SyntheticPBIX.pageA)/page.json") != nil)
+    }
+
     @Test func removedPartIsDroppedAndNothingElse() throws {
         let dir = SyntheticPBIX.temporaryDirectory("remove")
         defer { try? FileManager.default.removeItem(at: dir) }
