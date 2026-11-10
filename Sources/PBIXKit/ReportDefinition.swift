@@ -65,9 +65,12 @@ public struct ReportField: Sendable, Hashable {
     public var function: String?
     public var displayName: String?
     public var queryRef: String
+    /// `nativeQueryRef` và `active` của phần tử `projections[]` (PBIR); nil khi file không có.
+    public var nativeQueryRef: String?
+    public var active: Bool?
 
     public init(role: String, kind: Kind, entity: String, property: String, function: String? = nil,
-                displayName: String? = nil, queryRef: String) {
+                displayName: String? = nil, queryRef: String, nativeQueryRef: String? = nil, active: Bool? = nil) {
         self.role = role
         self.kind = kind
         self.entity = entity
@@ -75,6 +78,8 @@ public struct ReportField: Sendable, Hashable {
         self.function = function
         self.displayName = displayName
         self.queryRef = queryRef
+        self.nativeQueryRef = nativeQueryRef
+        self.active = active
     }
 
     public var label: String {
@@ -159,7 +164,7 @@ extension PBIXFile {
                                 customThemeName: themes?["customTheme"]?["name"]?.string)
     }
 
-    private static func pbirFields(_ queryState: JSONValue?) -> [ReportField] {
+    static func pbirFields(_ queryState: JSONValue?) -> [ReportField] {
         var fields: [ReportField] = []
         for (role, state) in (queryState?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
             for projection in state["projections"]?.array ?? [] {
@@ -167,10 +172,23 @@ extension PBIXFile {
                 field.role = role
                 field.displayName = projection["displayName"]?.string
                 field.queryRef = projection["queryRef"]?.string ?? field.queryRef
+                field.nativeQueryRef = projection["nativeQueryRef"]?.string
+                field.active = projection["active"]?.bool
                 fields.append(field)
             }
         }
         return fields
+    }
+
+    /// Một phần tử `projections[]` của PBIR thành `ReportField` (dùng bởi `PBIRQueryPatch`).
+    static func pbirField(_ projection: JSONValue, role: String) -> ReportField? {
+        guard var field = parseField(projection["field"], aliases: [:]) else { return nil }
+        field.role = role
+        field.displayName = projection["displayName"]?.string
+        field.queryRef = projection["queryRef"]?.string ?? field.queryRef
+        field.nativeQueryRef = projection["nativeQueryRef"]?.string
+        field.active = projection["active"]?.bool
+        return field
     }
 
     // MARK: Legacy Report/Layout

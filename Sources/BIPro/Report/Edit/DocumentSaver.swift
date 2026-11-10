@@ -132,6 +132,9 @@ enum DocumentSaver {
                       Frame(actual) == Frame(visual), Int(actual.z) == Int(visual.z) else {
                     throw SaveError.verificationFailed("vị trí của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
                 }
+                guard actual.fields == visual.fields else {
+                    throw SaveError.verificationFailed("các ô và trường của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                }
             }
         }
     }

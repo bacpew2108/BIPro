@@ -9,6 +9,8 @@ struct PageEdit: Equatable {
     var deleted: Set<String> = []
     /// `visual.json` của bản sao mới (khoá là mã bản sao), chưa có trong file.
     var added: [String: Data] = [:]
+    /// Cấu hình trường đã sửa của visual (mã visual → các ô theo thứ tự), D2. Chỉ có khoá cho visual đã sửa trường.
+    var queries: [String: [PBIRQueryPatch.Well]] = [:]
 }
 
 /// Một bước hoàn tác: trạng thái sửa của một trang (nil = trang chưa bị sửa) cùng vùng chọn, tại một thời điểm.
@@ -33,6 +35,8 @@ final class LayoutEditor {
     private(set) var currentPageID: String?
     /// Lý do gần nhất thao tác bị bỏ qua (ví dụ visual trong nhóm), để giao diện hiện cho người dùng.
     private(set) var lockedReason: String?
+    /// Lý do gần nhất một thao tác sửa trường bị từ chối (D2); nil khi thao tác gần nhất được chấp nhận.
+    private(set) var fieldRefusal: String?
 
     // Hoàn tác
     private var undoStack: [LayoutSnapshot] = []
@@ -217,8 +221,12 @@ final class LayoutEditor {
 
     var hasClipboard: Bool { !clipboard.isEmpty }
 
+    /// `visual.json` hiện tại của visual (đã áp phần sửa trường, chưa áp vị trí): dùng khi nhân bản và dán.
     private func json(of visual: ReportVisual, page pageID: String) -> Data? {
-        edited[pageID]?.added[visual.id] ?? sourceJSON(pageID, visual.id)
+        if let added = edited[pageID]?.added[visual.id] { return added }
+        guard let source = sourceJSON(pageID, visual.id) else { return nil }
+        if let wells = edited[pageID]?.queries[visual.id], let applied = try? PBIRQueryPatch.apply(wells, to: source) { return applied }
+        return source
     }
 
     private func makeCopies(_ entries: [(visual: ReportVisual, json: Data)], shifts: Int) -> [String] {
@@ -263,6 +271,98 @@ final class LayoutEditor {
         selection = []
         primary = nil
         if !keepingMessage { lockedReason = nil }
+    }
+
+    // MARK: Sửa trường (D2)
+
+    /// Các ô và trường hiện tại của visual (đã áp phần sửa), theo thứ tự trong file. Rỗng khi không đọc được.
+    func fieldWells(of id: String) -> [PBIRQueryPatch.Well] {
+        guard let pageID = currentPageID else { return [] }
+        if let wells = edited[pageID]?.queries[id] { return wells }
+        guard let base = baseJSON(of: id, page: pageID) else { return [] }
+        return (try? PBIRQueryPatch.wells(in: base)) ?? []
+    }
+
+    /// Lý do visual này chưa sửa được trường, hoặc nil nếu sửa được.
+    func fieldEditingBlocker(for id: String) -> String? {
+        guard let pageID = currentPageID, visual(id) != nil else { return "Chọn một visual để sửa trường." }
+        if isLockedByGroup(id) { return "Visual nằm trong nhóm, chưa sửa trường được." }
+        guard let base = baseJSON(of: id, page: pageID) else { return "Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được)." }
+        guard (try? PBIRQueryPatch.wells(in: base)) != nil, hasQueryState(base) else {
+            return "Visual này chưa có cấu hình trường, D2 chưa tạo mới được."
+        }
+        return nil
+    }
+
+    private func baseJSON(of id: String, page pageID: String) -> Data? {
+        edited[pageID]?.added[id] ?? sourceJSON(pageID, id)
+    }
+
+    func clearFieldRefusal() { fieldRefusal = nil }
+    func noteFieldRefusal(_ message: String) { fieldRefusal = message }
+
+    /// Thêm `field` vào ô `role`. Trả lý do nếu bị từ chối (và ghi vào `fieldRefusal`), nil nếu thành công.
+    @discardableResult
+    func addField(_ field: FieldRef, to role: String, visual id: String) -> String? {
+        editFields(id) { wells, visual, _ in FieldEditor.add(field, to: role, wells: wells, visual: visual) }
+    }
+
+    @discardableResult
+    func removeField(role: String, index: Int, visual id: String) -> String? {
+        editFields(id) { wells, visual, base in
+            FieldEditor.remove(role: role, index: index, wells: wells, visual: visual) { field in
+                FieldReferences.find(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
+            }
+        }
+    }
+
+    @discardableResult
+    func moveField(role: String, index: Int, to target: String, visual id: String) -> String? {
+        editFields(id) { wells, visual, _ in FieldEditor.move(role: role, index: index, to: target, wells: wells, visual: visual) }
+    }
+
+    @discardableResult
+    func reorderField(role: String, from: Int, to: Int, visual id: String) -> String? {
+        editFields(id) { wells, _, _ in FieldEditor.reorder(role: role, from: from, to: to, wells: wells) }
+    }
+
+    @discardableResult
+    func renameField(role: String, index: Int, to name: String, visual id: String) -> String? {
+        editFields(id) { wells, _, _ in FieldEditor.rename(role: role, index: index, to: name, wells: wells) }
+    }
+
+    /// Chạy một thao tác sửa trường như đúng một `commit`: dựng `visual.json` mới từ bản gốc, rồi cập nhật `raw` và
+    /// `fields` của visual từ chính chuỗi byte đó (cái vẽ chính là cái sẽ lưu).
+    private func editFields(_ id: String, _ body: ([PBIRQueryPatch.Well], ReportVisual, Data) -> FieldEditor.Result) -> String? {
+        fieldRefusal = nil
+        func refuse(_ message: String) -> String { fieldRefusal = message; return message }
+        guard let pageID = currentPageID else { return refuse("Chưa mở trang nào.") }
+        if let blocker = fieldEditingBlocker(for: id) { return refuse(blocker) }
+        guard let visual = visual(id), let base = baseJSON(of: id, page: pageID) else { return refuse("Không tìm thấy visual.") }
+        let wells = edited[pageID]?.queries[id] ?? ((try? PBIRQueryPatch.wells(in: base)) ?? [])
+        switch body(wells, visual, base) {
+        case .refused(let message):
+            return refuse(message)
+        case .unchanged:
+            return nil
+        case .changed(let next):
+            let bytes: Data, raw: JSONValue, fields: [ReportField]
+            do {
+                bytes = try PBIRQueryPatch.apply(next, to: base)
+                raw = try JSONValue.parse(bytes)
+                fields = try PBIRQueryPatch.fields(in: bytes)
+            } catch {
+                return refuse("Không ghi được cấu hình trường: \(error)")
+            }
+            commit(pageID: pageID) { edit in
+                guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }
+                edit.visuals[index].raw = raw
+                edit.visuals[index].fields = fields
+                edit.queries[id] = next
+                if edit.added[id] != nil { edit.added[id] = bytes }
+            }
+            return nil
+        }
     }
 
     // MARK: Hoàn tác
@@ -358,8 +458,11 @@ final class LayoutEditor {
             for visual in edit.visuals {
                 let path = Self.visualPath(page: pageID, id: visual.id)
                 if archive.entry(path) != nil {
-                    let json = try archive.read(path)
-                    if let patched = try Self.patch(json, to: visual) { changes.reportParts[path] = patched }
+                    let onDisk = try archive.read(path)
+                    var json = onDisk
+                    if let wells = edit.queries[visual.id] { json = try PBIRQueryPatch.apply(wells, to: json) }
+                    if let patched = try Self.patch(json, to: visual) { json = patched }
+                    if json != onDisk { changes.reportParts[path] = json }
                 } else if let data = edit.added[visual.id] {
                     changes.addedParts[path] = try Self.patch(data, to: visual) ?? data
                 }
@@ -402,4 +505,11 @@ final class LayoutEditor {
         guard x != nil || y != nil || width != nil || height != nil else { return nil }
         return try PBIRLayoutPatch.setPosition(in: json, x: x, y: y, width: width, height: height)
     }
+}
+
+/// `visual.json` có `visual.query.queryState` là đối tượng (D2 chỉ sửa visual đã có cấu hình trường).
+private func hasQueryState(_ json: Data) -> Bool {
+    guard let value = try? JSONValue.parse(json) else { return false }
+    if case .object = value["visual"]?["query"]?["queryState"] ?? .null { return true }
+    return false
 }

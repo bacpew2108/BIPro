@@ -214,22 +214,7 @@ struct VisualizationsPane: View {
             .padding(.horizontal, 10)
 
             if let visual = state.visual {
-                ForEach(VisualCatalog.wells(for: visual), id: \.role) { well in
-                    SectionLabel(text: well.label)
-                    VStack(spacing: 4) {
-                        let fields = visual.fields.filter { $0.role == well.role }
-                        if fields.isEmpty {
-                            Text("+ Thêm field").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
-                                .frame(maxWidth: .infinity).frame(height: 28)
-                                .background(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-                        }
-                        ForEach(fields, id: \.self) { field in
-                            FieldChip(symbol: fieldSymbol(field), tint: field.kind == .measure ? DS.Palette.measure : DS.Palette.secondaryLabel,
-                                      title: field.label, subtitle: field.label == field.property ? field.entity : "\(field.entity)[\(field.property)]")
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                }
+                BuildWells(state: state, visual: visual)
             } else {
                 Text("Chọn một visual trên trang để xem các field của nó.")
                     .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
@@ -237,16 +222,6 @@ struct VisualizationsPane: View {
             }
         }
         .padding(.bottom, 12)
-    }
-
-    private func fieldSymbol(_ field: ReportField) -> String {
-        switch field.kind {
-        case .measure: return "function"
-        case .aggregation: return "sum"
-        case .hierarchyLevel: return "list.bullet.indent"
-        case .column, .other:
-            return state.workspace.column(table: field.entity, name: field.property).map(columnSymbol) ?? "textformat.abc"
-        }
     }
 
     // MARK: Format

@@ -26,11 +26,11 @@ struct LiveVisualView: View {
     @State private var hover: MenuTarget?
 
     private struct MenuTarget: Equatable { var point: DataPointID?; var location: CGPoint }
-    private struct LoadKey: Hashable { var state: FilterState; var depth: Int; var expansion: [Value]; var matrixExpansion: [[Value]]; var userFilters: [UserFilterKey: UserFilter]; var removed: Set<UserFilterKey> }
+    private struct LoadKey: Hashable { var query: JSONValue?; var state: FilterState; var depth: Int; var expansion: [Value]; var matrixExpansion: [[Value]]; var userFilters: [UserFilterKey: UserFilter]; var removed: Set<UserFilterKey> }
 
     var body: some View {
         let state = interaction.state(for: page)
-        let key = LoadKey(state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.userFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
+        let key = LoadKey(query: visual.raw["visual"]?["query"], state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.userFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
                          removed: interaction.removedFilters.filter { ["", page.id, visual.id].contains($0.scope) })
         ZStack {
             content(state: state)
@@ -52,8 +52,25 @@ struct LiveVisualView: View {
         }
     }
 
+    /// Visual có cấu hình trường nhưng chưa còn trường nào để vẽ (vừa bỏ hết trường ở Build pane).
+    private var needsFields: Bool {
+        visual.raw["visual"]?["query"]?["queryState"] != nil && !visual.fields.contains { $0.role != "Tooltips" }
+    }
+
     @ViewBuilder
     private var placeholder: some View {
+        if needsFields {
+            ZStack {
+                Rectangle().fill(Color.white)
+                Text("Thêm trường để vẽ").font(.system(size: 12)).foregroundStyle(DS.Palette.tertiaryLabel)
+            }
+        } else {
+            typedPlaceholder
+        }
+    }
+
+    @ViewBuilder
+    private var typedPlaceholder: some View {
         switch visual.type {
         case "card", "cardVisual", "multiRowCard", "kpi":
             CardPlaceholder(visual: visual, theme: workspace.theme)
@@ -246,6 +263,7 @@ struct LiveVisualView: View {
 
     private func load(_ state: FilterState) async {
         guard interaction.isAvailable else { return }
+        if needsFields { phase = .loading; return }
         do {
             let data = try await interaction.load(page: page, visual: visual, state: state)
             phase = .loaded(data)

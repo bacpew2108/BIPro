@@ -229,7 +229,9 @@ struct DataPane: View {
         case .measure(let m):
             return AnyView(TreeRow(level: level, symbol: "function", tint: DS.Palette.measure, title: m.name,
                                    isHidden: m.isHidden, checkbox: checkbox(table, m.name),
-                                   help: m.expression.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                                   help: m.expression.trimmingCharacters(in: .whitespacesAndNewlines),
+                                   dragField: purpose == .report && !m.isHidden ? FieldRef(measure: m) : nil,
+                                   onCheck: purpose == .report ? { toggleUsage(FieldRef(measure: m)) } : nil) {
                 if purpose == .query {
                     state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
                 }
@@ -282,7 +284,9 @@ struct DataPane: View {
             return AnyView(TreeRow(level: level, symbol: columnSymbol(c), tint: c.kind == .calculated ? DS.Palette.indigo : DS.Palette.secondaryLabel,
                                    title: c.name, isHidden: c.isHidden, checkbox: checkbox(table, c.name),
                                    isSelected: purpose == .table && state.table == table && state.column == c.name,
-                                   help: c.expression) {
+                                   help: c.expression,
+                                   dragField: purpose == .report ? FieldRef(column: c) : nil,
+                                   onCheck: purpose == .report ? { toggleUsage(FieldRef(column: c)) } : nil) {
                 if purpose == .table { state.select(table: table, column: c.name) }
             }
             .leftContextMenu {
@@ -363,6 +367,23 @@ struct DataPane: View {
     private func toggle(_ key: String) {
         if expanded.contains(key) { expanded.remove(key) } else { expanded.insert(key) }
     }
+
+    /// Ô tick: bỏ trường khỏi visual đang chọn nếu đã dùng, ngược lại thêm vào ô mặc định (D2).
+    private func toggleUsage(_ ref: FieldRef) {
+        let layout = state.layout
+        guard state.editMode, let visual = state.visual, layout.selection.count <= 1 else {
+            layout.noteFieldRefusal("Bật chế độ Sửa (⌘E) và chọn một visual để thêm hoặc bỏ trường.")
+            return
+        }
+        if let used = visual.fields.first(where: { $0.queryRef == ref.queryRef && $0.kind != .hierarchyLevel }),
+           let index = visual.fields.filter({ $0.role == used.role }).firstIndex(of: used) {
+            layout.removeField(role: used.role, index: index, visual: visual.id)
+        } else if let role = WellRules.defaultRole(for: ref, in: visual) {
+            layout.addField(ref, to: role, visual: visual.id)
+        } else {
+            layout.noteFieldRefusal("Visual này chưa có ô nhận \"\(ref.property)\".")
+        }
+    }
 }
 
 func columnSymbol(_ c: ModelMetadata.Column) -> String {
@@ -395,12 +416,30 @@ struct TreeRow: View {
     var isSelected = false
     var trailing: String?
     var help: String?
+    /// Trường kéo được sang Build pane. Hàng kéo được dùng cử chỉ chạm thay cho `Button`, vì `Button` nuốt thao tác kéo.
+    var dragField: FieldRef?
+    /// Bấm vào ô tick (chỉ pane Dữ liệu của báo cáo): thêm hoặc bỏ trường khỏi visual đang chọn.
+    var onCheck: (() -> Void)?
     var action: () -> Void
 
     @State private var hovering = false
 
     var body: some View {
-        Button(action: action) {
+        if let dragField {
+            row
+                .onTapGesture(perform: action)
+                .onDrag { dragField.itemProvider }
+                .onHover { hovering = $0 }
+                .help(help ?? title)
+        } else {
+            Button(action: action) { row }
+                .buttonStyle(.plain)
+                .onHover { hovering = $0 }
+                .help(help ?? title)
+        }
+    }
+
+    private var row: some View {
             HStack(spacing: 5) {
                 Group {
                     if hasChildren {
@@ -411,7 +450,15 @@ struct TreeRow: View {
                 }
                 .foregroundStyle(DS.Palette.tertiaryLabel)
                 .frame(width: 10)
-                if let checkbox { CheckboxMark(isOn: checkbox) }
+                if let checkbox {
+                    if let onCheck {
+                        Button(action: onCheck) { CheckboxMark(isOn: checkbox).frame(width: 18, height: 18).contentShape(Rectangle()) }
+                            .buttonStyle(.plain)
+                            .help("Thêm hoặc bỏ khỏi visual đang chọn")
+                    } else {
+                        CheckboxMark(isOn: checkbox)
+                    }
+                }
                 Image(systemName: symbol)
                     .font(.system(size: 11))
                     .foregroundStyle(isSelected ? .white : (isDimmed ? DS.Palette.tertiaryLabel : tint))
@@ -433,10 +480,6 @@ struct TreeRow: View {
                 .fill(isSelected ? DS.Palette.accent : (hovering ? Color.black.opacity(0.04) : .clear))
                 .padding(.horizontal, 4))
             .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help(help ?? title)
     }
 }
 

@@ -20,6 +20,10 @@ usage: pbix-dump <command> <file.pbix> [args]
   move-visual <in> <visualID> <x> <y> <width> <height> <out>   (T1, helper for D1 checks)
   dup-visual <in> <visualID> <out>                              (T1, copy +16,+16 on top)
   remove-visual <in> <visualID> <out>                           (T1, also cleans bookmarks/page interactions)
+  add-field <in> <visualID> <well> <table> <name> <column|measure> <out>   (T1, D2 helper)
+  remove-field <in> <visualID> <well> <index> <out>                        (T1, D2 helper)
+  move-field <in> <visualID> <well> <index> <toWell> <out>                 (T1, D2 helper)
+  rename-field <in> <visualID> <well> <index> <name> <out>                 (T1, D2 helper)
 """
 
 func fail(_ message: String) -> Never {
@@ -228,6 +232,46 @@ do {
         let tier = try PBIXWriter.save(source: url, to: URL(fileURLWithPath: args[6]), changes: changes)
         print("tier \(tier.rawValue): measure \(args[4]) added to \(args[3])")
         print("wrote \(args[6])")
+
+    case "add-field", "remove-field", "move-field", "rename-field":
+        // D2 helpers: T1 field edits of one visual through PBIRQueryPatch + PBIXWriter (no editor rules applied).
+        let command = args[1]
+        let need = command == "add-field" ? 9 : (command == "remove-field" ? 7 : 8)
+        guard args.count >= need else { fail(usage) }
+        let visualID = args[3]
+        let output = URL(fileURLWithPath: args[need - 1])
+        let suffix = "/visuals/\(visualID)/visual.json"
+        guard let entry = pbix.archive.entries.first(where: { $0.path.hasSuffix(suffix) }) else {
+            fail("no visual \(visualID) in \(url.lastPathComponent)")
+        }
+        let json = try pbix.archive.read(entry)
+        var wells = try PBIRQueryPatch.wells(in: json)
+        let role = args[4]
+        func wellIndex(_ name: String) -> Int? { wells.firstIndex { $0.role == name } }
+        switch command {
+        case "add-field":
+            guard let kind: ReportField.Kind = args[7] == "measure" ? .measure : (args[7] == "column" ? .column : nil) else { fail(usage) }
+            let element = PBIRQueryPatch.newElement(kind: kind, entity: args[5], property: args[6], displayName: nil, role: role)
+            if let i = wellIndex(role) { wells[i].elements.append(element) } else { wells.append(.init(role: role, elements: [element])) }
+        case "remove-field":
+            guard let i = wellIndex(role), let n = Int(args[5]), wells[i].elements.indices.contains(n) else { fail("no such field") }
+            wells[i].elements.remove(at: n)
+        case "move-field":
+            guard let i = wellIndex(role), let n = Int(args[5]), wells[i].elements.indices.contains(n) else { fail("no such field") }
+            var element = wells[i].elements.remove(at: n)
+            element.field.role = args[6]
+            if let t = wellIndex(args[6]) { wells[t].elements.append(element) } else { wells.append(.init(role: args[6], elements: [element])) }
+        default:
+            guard let i = wellIndex(role), let n = Int(args[5]), wells[i].elements.indices.contains(n) else { fail("no such field") }
+            wells[i].elements[n].field.displayName = args[6].isEmpty ? nil : args[6]
+        }
+        var changes = PBIXChanges()
+        changes.reportParts[entry.path] = try PBIRQueryPatch.apply(wells, to: json)
+        let started = Date()
+        let tier = try PBIXWriter.save(source: url, to: output, changes: changes)
+        print("tier \(tier.rawValue): \(entry.path)")
+        print(String(format: "saved in %.2f s", Date().timeIntervalSince(started)))
+        print("wrote \(output.path)")
 
     case "move-visual", "dup-visual", "remove-visual":
         // D1 helpers: T1 layout edits through PBIRLayoutPatch + PBIXWriter. Prints the time of the whole save.

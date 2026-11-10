@@ -21,3 +21,13 @@ D1	lead	Sources/BIPro/Report/Edit/SpikeDocumentWindow.swift
 D1	lead	Sources/BIPro/Shell/ShellView.swift
 D1	lead	Sources/PBIXKit/ReportDefinition.swift
 D1	lead	Sources/PBIXKit/Writing/PBIRPatch.swift
+# Lát D2 (Build pane, field well): lead tự làm; LayoutEditor, ReportPanes, LiveVisual, DocumentSaver giao nhau với D1, không tách worker được
+D2	lead	Sources/PBIXKit/Writing/PBIRQueryPatch.swift
+D2	lead	Sources/BIPro/Report/Edit/FieldRef.swift
+D2	lead	Sources/BIPro/Report/Edit/WellRules.swift
+D2	lead	Sources/BIPro/Report/Edit/FieldReferences.swift
+D2	lead	Sources/BIPro/Report/Edit/FieldEditor.swift
+D2	lead	Sources/BIPro/Panes/BuildWells.swift
+D2	lead	Sources/BIPro/Panes/DataPane.swift
+D2	lead	Sources/BIPro/Report/LiveVisual.swift
+D2	lead	Tests/PBIXKitTests/PBIRQueryPatchTests.swift
