@@ -18,7 +18,7 @@ struct VisualTypeInfo: Equatable {
 enum VisualTypes {
     private static let families: [(type: String, family: VisualTypeInfo.Family)] = [
         ("card", .value), ("slicer", .slicer),
-        ("clusteredBarChart", .xy), ("hundredPercentStackedColumnChart", .xy), ("lineChart", .xy),
+        ("clusteredBarChart", .xy), ("clusteredColumnChart", .xy), ("columnChart", .xy), ("hundredPercentStackedColumnChart", .xy), ("lineChart", .xy),
         ("lineClusteredColumnComboChart", .xy), ("lineStackedColumnComboChart", .xy),
         ("donutChart", .circular), ("treemap", .circular),
         ("pivotTable", .matrix), ("shapeMap", .map), ("textbox", .text),
@@ -36,7 +36,7 @@ enum VisualTypes {
 
     /// Lý do (tiếng Việt) một loại chưa thêm được hoặc chưa đổi tới được.
     static func refusal(for type: String) -> String {
-        let needsObservation: Set<String> = ["clusteredColumnChart", "stackedColumnChart", "stackedBarChart", "hundredPercentStackedBarChart",
+        let needsObservation: Set<String> = ["stackedColumnChart", "stackedBarChart", "hundredPercentStackedBarChart",
                                              "areaChart", "stackedAreaChart", "ribbonChart", "waterfallChart", "funnel", "pieChart"]
         let needsResources: Set<String> = ["image", "actionButton", "pageNavigator", "shape", "basicShape", "bookmarkNavigator"]
         if needsObservation.contains(type) {

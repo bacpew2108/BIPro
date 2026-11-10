@@ -133,6 +133,7 @@ import Testing
         #expect(CartesianKind(visualType: "clusteredBarChart") == .clusteredBar)
         #expect(CartesianKind(visualType: "clusteredColumnChart") == .clusteredColumn)
         #expect(CartesianKind(visualType: "stackedColumnChart") == .stackedColumn)
+        #expect(CartesianKind(visualType: "columnChart") == .stackedColumn)   // tên Desktop ghi (VM-D3)
         #expect(CartesianKind(visualType: "hundredPercentStackedColumnChart") == .hundredPercentStackedColumn)
         #expect(CartesianKind(visualType: "lineChart") == .line)
         #expect(CartesianKind(visualType: "lineClusteredColumnComboChart") == .comboClustered)

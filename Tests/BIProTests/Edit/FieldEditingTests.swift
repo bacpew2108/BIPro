@@ -61,7 +61,9 @@ import Testing
         #expect(reason?.contains("measure") == true)
         #expect(env.editor.undoDepth == depth)
         #expect(env.editor.fieldRefusal == reason)
-        #expect(env.editor.addField(FieldRef(kind: .measure, entity: "Fact", property: "Credit"), to: "Y", visual: S.c1)?.contains("đã có") == true)
+        // measure trùng thì thêm được (VM-D2 R-D2-h-dup)
+        #expect(env.editor.addField(FieldRef(kind: .measure, entity: "Fact", property: "Credit"), to: "Y", visual: S.c1) == nil)
+        #expect(props(env, "Y").filter { $0 == "Credit" }.count == 2)
     }
 
     // MARK: bỏ

@@ -8,7 +8,7 @@ public enum PBIRNewVisual {
         var table: [String: (Int, Int)] = [
             "card": (302, 108), "slicer": (364, 64), "textbox": (400, 100),
         ]
-        for type in ["clusteredBarChart", "hundredPercentStackedColumnChart", "lineChart", "lineClusteredColumnComboChart",
+        for type in ["clusteredBarChart", "clusteredColumnChart", "columnChart", "hundredPercentStackedColumnChart", "lineChart", "lineClusteredColumnComboChart",
                      "lineStackedColumnComboChart", "donutChart", "treemap", "pivotTable", "shapeMap"] {
             table[type] = (616, 380)
         }

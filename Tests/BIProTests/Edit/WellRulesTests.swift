@@ -17,13 +17,15 @@ import Testing
     static let observed: [(type: String, role: String, kind: WellKind, single: Bool)] = [
         ("card", "Values", .measure, true),
         ("slicer", "Values", .column, true),
+        ("clusteredColumnChart", "Category", .column, true), ("clusteredColumnChart", "Series", .column, true), ("clusteredColumnChart", "Y", .measure, false),
+        ("columnChart", "Category", .column, true), ("columnChart", "Series", .column, true), ("columnChart", "Y", .measure, false),
         ("clusteredBarChart", "Category", .column, true), ("clusteredBarChart", "Y", .measure, false),
         ("clusteredBarChart", "Series", .column, true), ("clusteredBarChart", "Tooltips", .measure, false),
-        ("donutChart", "Category", .column, true), ("donutChart", "Y", .measure, true), ("donutChart", "Tooltips", .measure, false),
+        ("donutChart", "Category", .column, false), ("donutChart", "Y", .measure, false), ("donutChart", "Tooltips", .measure, false),
         ("hundredPercentStackedColumnChart", "Category", .column, true), ("hundredPercentStackedColumnChart", "Series", .column, true),
         ("hundredPercentStackedColumnChart", "Y", .measure, false),
         ("lineChart", "Category", .column, true), ("lineChart", "Series", .column, true),
-        ("lineChart", "Tooltips", .measure, false), ("lineChart", "Y", .measure, false),
+        ("lineChart", "Tooltips", .measure, false), ("lineChart", "Y", .measure, false), ("lineChart", "Y2", .measure, false),
         ("lineClusteredColumnComboChart", "Category", .column, true), ("lineClusteredColumnComboChart", "Tooltips", .measure, false),
         ("lineClusteredColumnComboChart", "Y", .measure, false), ("lineClusteredColumnComboChart", "Y2", .measure, false),
         ("lineStackedColumnComboChart", "Category", .column, true), ("lineStackedColumnComboChart", "Series", .column, true),
@@ -31,7 +33,7 @@ import Testing
         ("lineStackedColumnComboChart", "Y2", .measure, false),
         ("pivotTable", "Columns", .column, true), ("pivotTable", "Rows", .column, true), ("pivotTable", "Values", .measure, false),
         ("shapeMap", "Category", .column, true), ("shapeMap", "Tooltips", .measure, false),
-        ("treemap", "Group", .column, true), ("treemap", "Tooltips", .measure, false), ("treemap", "Values", .measure, true),
+        ("treemap", "Group", .column, false), ("treemap", "Tooltips", .measure, false), ("treemap", "Values", .measure, true),
     ]
 
     @Test func everyObservedWellAcceptsItsKindAndRejectsTheOther() {
@@ -77,7 +79,10 @@ import Testing
 
     @Test func duplicatesAreRefusedAndSingleWellsReplace() {
         let v = Self.visual("clusteredBarChart", fields: [Self.field("Y", .measure, "Fact", "Credit"), Self.field("Category", .column, "Dim", "Vùng")])
-        #expect(WellRules.refusal(adding: Self.measure, to: "Y", in: v)?.contains("đã có") == true)
+        // measure trùng thì được (Desktop cho thêm hai lần, VM-D2 R-D2-h-dup); cột trùng thì từ chối
+        #expect(WellRules.refusal(adding: Self.measure, to: "Y", in: v) == nil)
+        let withColumn = Self.visual("clusteredBarChart", fields: [Self.field("Category", .column, "Dim", "Vùng")])
+        #expect(WellRules.refusal(adding: Self.column, to: "Category", in: withColumn)?.contains("đã có") == true)
         // ô một trường: thêm trường khác thì thay, không từ chối
         #expect(WellRules.refusal(adding: FieldRef(kind: .column, entity: "Dim", property: "Khác", family: .text), to: "Category", in: v) == nil)
         #expect(WellRules.rule(for: v, role: "Category")?.isSingle == true)

@@ -63,6 +63,15 @@ struct D3Nhom6Tests {
         #expect(editor.addField(FieldRef(kind: .column, entity: "Dim_Date", property: "month_name", family: .text), to: "Category", visual: bar) == nil)
         #expect(editor.addField(FieldRef(kind: .measure, entity: "Fact_Transaction", property: "Total_Credit_Inflow"), to: "Y", visual: bar) == nil)
 
+        // Hai loại cột (VM-D3): cột nhóm và cột xếp chồng (visualType `columnChart` của Desktop), cột sau có Series.
+        let month = FieldRef(kind: .column, entity: "Dim_Date", property: "month_name", family: .text)
+        let inflow = FieldRef(kind: .measure, entity: "Fact_Transaction", property: "Total_Credit_Inflow")
+        let clustered = try #require(editor.insertVisual(type: "clusteredColumnChart", visibleRect: Self.view))
+        #expect(editor.addField(month, to: "Category", visual: clustered) == nil && editor.addField(inflow, to: "Y", visual: clustered) == nil)
+        let stacked = try #require(editor.insertVisual(type: "columnChart", visibleRect: Self.view))
+        #expect(editor.addField(month, to: "Category", visual: stacked) == nil && editor.addField(inflow, to: "Y", visual: stacked) == nil)
+        #expect(editor.addField(FieldRef(kind: .column, entity: "Dim_Client", property: "client_region", family: .text), to: "Series", visual: stacked) == nil)
+
         // 2. Đổi loại: đường → thanh nhóm, combo → đường, donut → treemap. In kết quả để theo dõi.
         var results: [String: String?] = [:]
         results["line→bar"] = editor.changeType(of: Self.line, to: "clusteredBarChart")
@@ -89,7 +98,7 @@ struct D3Nhom6Tests {
         // 3. Vẽ các visual đã sửa bằng engine (trước khi lưu).
         let interaction = ReportInteraction(workspace: workspace)
         let editedPage = try #require(editor.page(Self.page))
-        let ids = [card, bar, Self.line, Self.donut, Self.combo]
+        let ids = [card, bar, clustered, stacked, Self.line, Self.donut, Self.combo]
         var queriesBefore: [String: String] = [:]
         var redrawMs: [String: Double] = [:]
         for id in ids {

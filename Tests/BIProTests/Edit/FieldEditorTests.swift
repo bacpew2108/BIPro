@@ -44,7 +44,9 @@ import Testing
         #expect(props(r ?? [], "Category") == ["region"])
         #expect(refused(FieldEditor.add(Self.newColumn, to: "Y", wells: Self.wells, visual: Self.visual()))?.contains("measure") == true)
         #expect(refused(FieldEditor.add(Self.newMeasure, to: "Series", wells: Self.wells, visual: Self.visual()))?.contains("chưa kiểm") == true)
-        #expect(refused(FieldEditor.add(FieldRef(kind: .measure, entity: "Fact", property: "Credit"), to: "Y", wells: Self.wells, visual: Self.visual()))?.contains("đã có") == true)
+        // measure trùng thì thêm được lần hai (VM-D2 R-D2-h-dup); cột trùng ở ô một trường chỉ thay
+        let twice = ok(FieldEditor.add(FieldRef(kind: .measure, entity: "Fact", property: "Credit"), to: "Y", wells: Self.wells, visual: Self.visual()))
+        #expect(props(twice ?? [], "Y").filter { $0 == "Credit" }.count == 2)
     }
 
     @Test func removeDropsTheElementAndTheEmptyWell() {

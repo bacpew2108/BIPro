@@ -90,7 +90,7 @@ import Testing
         wells[0].elements.append(column)
         let out = try PBIRQueryPatch.apply(wells, to: Self.compact)
         let expectedY = #"{"field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"Ví \"dụ\" \\ ñ"}},"queryRef":"Fact.Ví \"dụ\" \\ ñ","nativeQueryRef":"Ví \"dụ\" \\ ñ"}"#
-        let expectedC = #"{"field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim"}},"Property":"Cột"}},"queryRef":"Dim.Cột","nativeQueryRef":"Cột","displayName":"Tên mới"}"#
+        let expectedC = #"{"field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim"}},"Property":"Cột"}},"queryRef":"Dim.Cột","nativeQueryRef":"Tên mới","displayName":"Tên mới"}"#
         let want = text(Self.compact)
             .replacingOccurrences(of: "\(Self.meaB)]", with: "\(Self.meaB),\(expectedY)]")
             .replacingOccurrences(of: "\(Self.catA)]", with: "\(Self.catA),\(expectedC)]")
@@ -136,7 +136,8 @@ import Testing
         let y = try #require(well("Y", in: back))
         #expect(y.elements[0].field.displayName == "Doanh thu \"mới\"" && y.elements[0].field.queryRef == "Fact.Credit")
         #expect(y.elements[1].field.displayName == "Chi" && y.elements[1].field.queryRef == "Fact.Debit")
-        #expect(text(out).contains(#""queryRef":"Fact.Credit","nativeQueryRef":"Credit","displayName":"Doanh thu \"mới\"""#))
+        // Desktop ghi tên mới cả vào nativeQueryRef (VM-D2 R-D2-h-rename); queryRef giữ nguyên.
+        #expect(text(out).contains(#""queryRef":"Fact.Credit","nativeQueryRef":"Doanh thu \"mới\"","displayName":"Doanh thu \"mới\"""#))
         // bỏ displayName: ra đúng phần tử của meaA không có khoá (với meaB về nguyên byte)
         back[1].elements[1].field.displayName = nil
         out = try PBIRQueryPatch.apply(back, to: out)
@@ -145,6 +146,7 @@ import Testing
         var wells2 = try PBIRQueryPatch.wells(in: Self.compact)
         wells2[1].elements[0].field.displayName = nil
         let cleared = try PBIRQueryPatch.apply(wells2, to: Self.compact)
+        // bỏ tên riêng: nativeQueryRef về tên của trường, đúng phần tử gốc không displayName
         #expect(text(cleared).contains(Self.mea("Fact", "Credit")))
         #expect(!text(cleared).contains("Tiền vào"))
     }
@@ -192,9 +194,10 @@ import Testing
         var empty = ok
         empty[1].elements.append(PBIRQueryPatch.newElement(kind: .measure, entity: "", property: "P", displayName: nil, role: "Y"))
         expectInvalid("tên bảng rỗng") { _ = try PBIRQueryPatch.apply(empty, to: Self.compact) }
+        // trùng queryRef trong ô thì được (Desktop cho thêm hai lần, VM-D2 R-D2-h-dup); chặn ở luật ô, không ở bộ ghi
         var dup = ok
         dup[1].elements.append(dup[1].elements[0])
-        expectInvalid("trùng queryRef trong ô") { _ = try PBIRQueryPatch.apply(dup, to: Self.compact) }
+        _ = try PBIRQueryPatch.apply(dup, to: Self.compact)
         var broken = ok
         broken[1].elements.append(.init(field: .init(role: "Y", kind: .measure, entity: "F", property: "Z", queryRef: "F.Z"), source: Data("{not json".utf8)))
         expectInvalid("source hỏng") { _ = try PBIRQueryPatch.apply(broken, to: Self.compact) }
@@ -227,7 +230,7 @@ import Testing
         let y = PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Credit", displayName: "Tiền vào", role: "Y")
         let out = try PBIRQueryPatch.apply([.init(role: "Category", elements: [cat]), .init(role: "Y", elements: [y])], to: Self.bare)
         let catText = #"{"field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_Date"}},"Property":"month_name"}},"queryRef":"Dim_Date.month_name","nativeQueryRef":"month_name"}"#
-        let yText = #"{"field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"Credit"}},"queryRef":"Fact.Credit","nativeQueryRef":"Credit","displayName":"Tiền vào"}"#
+        let yText = #"{"field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"Credit"}},"queryRef":"Fact.Credit","nativeQueryRef":"Tiền vào","displayName":"Tiền vào"}"#
         let want = text(Self.bare).replacingOccurrences(of: #""visualType":"lineChart","#, with: #""visualType":"lineChart","query":{"queryState":{"Category":{"projections":[\#(catText)]},"Y":{"projections":[\#(yText)]}}},"#)
         #expect(text(out) == want)
         let back = try PBIRQueryPatch.wells(in: out)
@@ -261,5 +264,75 @@ import Testing
         #expect(text(emptied).contains(#""query":{"queryState":{}}"#))
         #expect(try PBIRQueryPatch.wells(in: emptied).isEmpty)
     }
-}
 
+    // MARK: D2b: quan sát VM-D2
+
+    /// Matrix như `2132ddc1…` của Nhom6: Rows (hour), Values (count), định dạng riêng theo trường và bộ lọc cấp visual.
+    static var withFormats: Data {
+        let hour = col("Fact", "trans_hour"), count = mea("Fact", "Count")
+        return Data(#"""
+        {"name":"aaaaaaaaaaaaaaaaaaa1","visual":{"visualType":"pivotTable","query":{"queryState":{"Rows":{"projections":[\#(hour)]},"Values":{"projections":[\#(count)]}}},
+         "objects":{"columnWidth":[{"properties":{"value":{"expr":{"Literal":{"Value":"70D"}}}},"selector":{"metadata":"Fact.trans_hour"}},{"properties":{"value":{"expr":{"Literal":{"Value":"95D"}}}},"selector":{"metadata":"Fact.Count"}}],
+                    "values":[{"properties":{"backColor":{}},"selector":{"metadata":"Fact.Count"}},{"properties":{"fontSize":{"expr":{"Literal":{"Value":"12D"}}}}}],
+                    "grid":[{"properties":{"x":{}}}]}},
+         "filterConfig":{"filters":[{"name":"f","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"trans_hour"}},"type":"Categorical"}]}}
+        """#.utf8)
+    }
+
+    @Test func aRemovedFieldTakesItsPerFieldFormattingAndKeepsTheFilter() throws {
+        var wells = try PBIRQueryPatch.wells(in: Self.withFormats)
+        wells.removeAll { $0.role == "Rows" }   // bỏ trans_hour
+        let out = try PBIRQueryPatch.apply(wells, to: Self.withFormats)
+        let root = try #require(try JSONSerialization.jsonObject(with: out) as? [String: Any])
+        let objects = try #require((root["visual"] as? [String: Any])?["objects"] as? [String: Any])
+        let widths = try #require(objects["columnWidth"] as? [[String: Any]])
+        #expect(widths.count == 1 && ((widths[0]["selector"] as? [String: Any])?["metadata"] as? String) == "Fact.Count")
+        #expect((objects["values"] as? [[String: Any]])?.count == 2)      // Count còn trong visual: giữ
+        #expect(objects["grid"] != nil)
+        #expect(text(out).contains(#""filterConfig":{"filters":[{"name":"f""#))   // bộ lọc giữ nguyên
+    }
+
+    @Test func formattingOfTheLastMeasureGoesAndAnEmptiedObjectIsRemoved() throws {
+        var wells = try PBIRQueryPatch.wells(in: Self.withFormats)
+        wells.removeAll { $0.role == "Values" }   // bỏ Count: columnWidth còn trans_hour, values còn mục không selector
+        let out = try PBIRQueryPatch.apply(wells, to: Self.withFormats)
+        let objects = try #require(((try JSONSerialization.jsonObject(with: out) as? [String: Any])?["visual"] as? [String: Any])?["objects"] as? [String: Any])
+        #expect((objects["columnWidth"] as? [[String: Any]])?.count == 1)
+        let values = try #require(objects["values"] as? [[String: Any]])
+        #expect(values.count == 1 && values[0]["selector"] == nil)
+        // bỏ cả hai trường: columnWidth rỗng bị xoá hẳn khoá
+        let none = try PBIRQueryPatch.apply([], to: Self.withFormats)
+        let after = try #require(((try JSONSerialization.jsonObject(with: none) as? [String: Any])?["visual"] as? [String: Any])?["objects"] as? [String: Any])
+        #expect(after["columnWidth"] == nil && after["values"] != nil && after["grid"] != nil)
+    }
+
+    @Test func aFieldThatMovesBetweenWellsKeepsItsFormatting() throws {
+        var wells = try PBIRQueryPatch.wells(in: Self.withFormats)
+        let moved = wells[1].elements.removeLast()   // Count sang Rows: vẫn còn trong visual
+        wells[0].elements.append(moved)
+        let out = try PBIRQueryPatch.apply(wells, to: Self.withFormats)
+        #expect(text(out).contains(#""selector":{"metadata":"Fact.Count"}"#))
+    }
+
+    @Test func formatCleanupLeavesAVisualWithoutObjectsAlone() throws {
+        let out = try PBIRQueryPatch.removingFormatSelectors(forQueryRefs: ["Fact.Credit"], in: Self.bare)
+        #expect(out == Self.bare)
+        let all = try PBIRQueryPatch.removingFormatSelectors(forQueryRefs: ["Fact.trans_hour", "Fact.Count"],
+                                                              in: Data(#"{"visual":{"visualType":"x","objects":{"a":[{"selector":{"metadata":"Fact.Count"}}]},"z":1}}"#.utf8))
+        #expect(text(all) == #"{"visual":{"visualType":"x","z":1}}"#)
+    }
+
+    @Test func theSameMeasureCanSitTwiceInAWell() throws {
+        var wells = try PBIRQueryPatch.wells(in: Self.compact)
+        wells[1].elements.append(wells[1].elements[1])   // Debit lần hai
+        let out = try PBIRQueryPatch.apply(wells, to: Self.compact)
+        let y = try #require(well("Y", in: try PBIRQueryPatch.wells(in: out)))
+        #expect(y.elements.map(\.field.queryRef) == ["Fact.Credit", "Fact.Debit", "Fact.Debit"])
+    }
+
+    @Test func newElementWithDisplayNameWritesItAsNativeQueryRefToo() throws {
+        let element = PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Credit", displayName: "Thu", role: "Y")
+        let out = try PBIRQueryPatch.apply([.init(role: "Y", elements: [element])], to: Self.bare)
+        #expect(text(out).contains(#""queryRef":"Fact.Credit","nativeQueryRef":"Thu","displayName":"Thu""#))
+    }
+}

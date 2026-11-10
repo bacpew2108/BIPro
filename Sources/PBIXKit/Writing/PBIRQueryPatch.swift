@@ -83,6 +83,7 @@ public enum PBIRQueryPatch {
         let root = try parseObject(json)
         var bytes = [UInt8](json)
         try validate(wells)
+        let oldRefs = Set(((try? Self.wells(in: json)) ?? []).flatMap { $0.elements.map(\.field.queryRef) })
         guard JSONCursor.locate(statePath[...], in: bytes) != nil else {
             return try createQueryState(wells, in: json, root: root)
         }
@@ -190,7 +191,66 @@ public enum PBIRQueryPatch {
               (expected as NSDictionary).isEqual(to: actual) else {
             throw WriteError.verificationFailed("queryState splice changed other content")
         }
-        return result
+        // A field that left the visual takes its per-field formatting with it, as Power BI Desktop does (VM-D2, R-D2-f-*).
+        let newRefs = Set(wells.flatMap { $0.elements.map(\.field.queryRef) })
+        return try removingFormatSelectors(forQueryRefs: oldRefs.subtracting(newRefs), in: result)
+    }
+
+    /// `json` without the entries of `visual.objects.*` whose `selector.metadata` is one of `refs` (the formatting a
+    /// removed field carried: column width, conditional formatting…). An object left with no entry is removed, and
+    /// `objects` with it when nothing is left. Observed in Power BI Desktop (VM-D2 `R-D2-f-remove-filter`, `-format`).
+    /// Filters (`filterConfig`) are not touched: Desktop keeps the filter of a removed field.
+    public static func removingFormatSelectors(forQueryRefs refs: Set<String>, in json: Data) throws -> Data {
+        guard !refs.isEmpty else { return json }
+        let root = try parseObject(json)
+        guard let visual = root["visual"] as? [String: Any], let objects = visual["objects"] as? [String: Any] else { return json }
+        var keptObjects: [String: Any] = [:]
+        var dropKeys = Set<String>()
+        var dropEntries: [String: Set<Int>] = [:]
+        for (key, value) in objects {
+            guard let entries = value as? [Any] else { keptObjects[key] = value; continue }
+            var drop = Set<Int>()
+            for (index, entry) in entries.enumerated() {
+                let selector = (entry as? [String: Any])?["selector"] as? [String: Any]
+                if let metadata = selector?["metadata"] as? String, refs.contains(metadata) { drop.insert(index) }
+            }
+            if drop.isEmpty { keptObjects[key] = value }
+            else if drop.count == entries.count { dropKeys.insert(key) }
+            else {
+                dropEntries[key] = drop
+                keptObjects[key] = entries.enumerated().filter { !drop.contains($0.offset) }.map(\.element)
+            }
+        }
+        guard !dropKeys.isEmpty || !dropEntries.isEmpty else { return json }
+        var bytes = [UInt8](json)
+        let objectsPath: [JSONPathStep] = [.key("visual"), .key("objects")]
+        for (key, drop) in dropEntries.sorted(by: { $0.key < $1.key }) {
+            guard let kids = JSONCursor.children(at: objectsPath + [.key(key)], in: bytes) else {
+                throw WriteError.invalid("objects.\(key) is not an array")
+            }
+            bytes = JSONCursor.removing(drop, from: kids, in: bytes)
+        }
+        var expectedVisual = visual
+        if keptObjects.isEmpty {
+            guard let kids = JSONCursor.children(at: [.key("visual")], in: bytes),
+                  let index = kids.firstIndex(where: { key(of: $0, in: bytes) == "objects" }) else { throw WriteError.invalid("objects vanished") }
+            bytes = JSONCursor.removing([index], from: kids, in: bytes)
+            expectedVisual["objects"] = nil
+        } else {
+            if !dropKeys.isEmpty {
+                guard let kids = JSONCursor.children(at: objectsPath, in: bytes) else { throw WriteError.invalid("objects vanished") }
+                let indices = Set(kids.indices.filter { key(of: kids[$0], in: bytes).map(dropKeys.contains) ?? false })
+                bytes = JSONCursor.removing(indices, from: kids, in: bytes)
+            }
+            expectedVisual["objects"] = keptObjects
+        }
+        var expected = root
+        expected["visual"] = expectedVisual
+        guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
+              (expected as NSDictionary).isEqual(to: actual) else {
+            throw WriteError.verificationFailed("removing format selectors changed other content")
+        }
+        return Data(bytes)
     }
 
     /// A visual that has no `queryState` yet (a new visual): `"query":{"queryState":{…}}` goes right after `visualType`
@@ -241,7 +301,6 @@ public enum PBIRQueryPatch {
     private static func validate(_ wells: [Well]) throws {
         for well in wells {
             guard !well.role.isEmpty else { throw WriteError.invalid("a well has no name") }
-            var seen = Set<String>()
             for element in well.elements {
                 let field = element.field
                 if element.source == nil {
@@ -250,9 +309,6 @@ public enum PBIRQueryPatch {
                     }
                 } else if (try? JSONValue.parse(element.source!)).map({ $0.object.isEmpty }) ?? true {
                     throw WriteError.invalid("the source of a field of \(well.role) is not a JSON object")
-                }
-                guard seen.insert(field.queryRef).inserted else {
-                    throw WriteError.invalid("\(field.queryRef) appears twice in \(well.role)")
                 }
             }
         }
@@ -274,7 +330,8 @@ public enum PBIRQueryPatch {
             out += Array(#"}},"Property":"#.utf8)
             out += PBIRPatch.jsonStringToken(field.property)
             out += Array(#"}},"queryRef":"#.utf8) + PBIRPatch.jsonStringToken(ref)
-            out += Array(#","nativeQueryRef":"#.utf8) + PBIRPatch.jsonStringToken(field.nativeQueryRef ?? field.property)
+            let native = (field.displayName?.isEmpty ?? true) ? (field.nativeQueryRef ?? field.property) : field.displayName!
+            out += Array(#","nativeQueryRef":"#.utf8) + PBIRPatch.jsonStringToken(native)
             if let name = field.displayName, !name.isEmpty {
                 out += Array(#","displayName":"#.utf8) + PBIRPatch.jsonStringToken(name)
             }
@@ -296,6 +353,13 @@ public enum PBIRQueryPatch {
         } else if let wanted {
             guard let close = bytes.lastIndex(of: UInt8(ascii: "}")) else { throw WriteError.invalid("element is not an object") }
             bytes.insert(contentsOf: Array(#","displayName":"#.utf8) + PBIRPatch.jsonStringToken(wanted), at: close)
+        }
+        // Power BI Desktop writes the new name to `nativeQueryRef` too (VM-D2 `R-D2-h-rename`); `queryRef` stays.
+        // Clearing the name goes back to the field's own name.
+        let native = wanted ?? field.property
+        if let existing = JSONCursor.locate([.key("nativeQueryRef")][...], in: bytes),
+           JSONCursor.string(in: bytes, existing) != native {
+            bytes.replaceSubrange(existing, with: PBIRPatch.jsonStringToken(native))
         }
         return bytes
     }

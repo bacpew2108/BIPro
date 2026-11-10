@@ -54,10 +54,14 @@ import Testing
         }
     }
 
-    @Test func comboToLineMovesY2IntoYWhenThereIsNoY2() {
+    @Test func comboToLineKeepsY2AndComboToDonutMergesItIntoY() {
+        // VM-D3 R-D3-c-combo-sang-duong: lineChart có ô Y2, Desktop giữ nguyên Y2
         let p = plan("lineClusteredColumnComboChart", Self.combo, to: "lineChart")
         #expect(p.blocked == nil)
-        #expect(roles(p)["Y"] == ["Credit", "Debit", "Net"])
+        #expect(roles(p)["Y"] == ["Credit", "Debit"] && roles(p)["Y2"] == ["Net"])
+        // R-D3-c-combo-sang-donut: donut không có Y2 nên Y2 gộp vào Y
+        let donut = plan("lineClusteredColumnComboChart", Self.combo, to: "donutChart")
+        #expect(roles(donut)["Y"] == ["Credit", "Debit", "Net"])
         #expect(roles(p)["Category"] == ["month_name"] && roles(p)["Tooltips"] == ["Avg"])
         #expect(p.droppedFields.isEmpty)
         // phần tử đã chuyển mang ô mới
@@ -79,11 +83,21 @@ import Testing
 
     @Test func singleWellsKeepOnlyTheFirstFieldAndReportTheRest() {
         let line: [Well] = [
-            .init(role: "Category", elements: [Self.element("Category", .column, "Dim", "a")]),
-            .init(role: "Y", elements: [Self.element("Y", .measure, "Fact", "M1"), Self.element("Y", .measure, "Fact", "M2")]),
+            .init(role: "Category", elements: [Self.element("Category", .column, "Dim", "a"), Self.element("Category", .column, "Dim", "b")]),
+            .init(role: "Y", elements: [Self.element("Y", .measure, "Fact", "M1")]),
         ]
-        let p = plan("lineChart", line, to: "donutChart")      // donut: Y là ô một trường
-        #expect(roles(p)["Y"] == ["M1"] && p.droppedFields.map(\.property) == ["M2"])
+        let p = plan("lineChart", line, to: "clusteredBarChart")      // thanh: Category là ô một trường
+        #expect(roles(p)["Category"] == ["a"] && p.droppedFields.map(\.property) == ["b"])
+    }
+
+    @Test func donutKeepsEveryLevelAndEveryMeasureWhenRetypedFromACombo() {
+        // VM-D3 R-D3-c-donut-sang-treemap: cả ba cấp sang Group; Y sang Values
+        let donut: [Well] = [
+            .init(role: "Category", elements: [Self.element("Category", .column, "Dim", "type"), Self.element("Category", .column, "Dim", "op"), Self.element("Category", .column, "Dim", "purpose")]),
+            .init(role: "Y", elements: [Self.element("Y", .measure, "Fact", "Amount")]),
+        ]
+        let p = plan("donutChart", donut, to: "treemap")
+        #expect(roles(p)["Group"] == ["type", "op", "purpose"] && roles(p)["Values"] == ["Amount"] && p.droppedFields.isEmpty)
     }
 
     @Test func cardAndSlicerCannotHoldEachOthersFields() {
@@ -128,13 +142,20 @@ import Testing
 
     // MARK: định dạng (objects)
 
-    @Test func objectKeysAreKeptOnlyWhenSeenOnAVisualOfTheTargetType() {
-        let p = plan("clusteredBarChart", Self.combo, to: "lineChart", keys: ["dataPoint", "labels", "categoryAxis"],
-                     seen: ["valueAxis", "labels", "categoryAxis", "trend"])
-        #expect(p.droppedObjectKeys == ["dataPoint"])
-        // loại đích không có visual nào trong báo cáo: bỏ hết
-        let none = plan("clusteredBarChart", Self.combo, to: "lineChart", keys: ["dataPoint", "labels"], seen: [])
-        #expect(none.droppedObjectKeys == ["dataPoint", "labels"])
+    @Test func onlyObjectKeysThatStopMakingSenseAreDropped() {
+        // VM-D3: đường → thanh/cột bỏ `forecast`, giữ `trend`, `valueAxis`, `labels`, `categoryAxis`
+        let line = plan("lineChart", Self.combo, to: "clusteredBarChart",
+                        keys: ["categoryAxis", "forecast", "labels", "trend", "valueAxis"], seen: [])
+        #expect(line.droppedObjectKeys == ["forecast"])
+        // donut → treemap bỏ `value`, giữ `dataPoint`, `labels`, `legend`
+        let donut = plan("donutChart", Self.combo, to: "treemap", keys: ["dataPoint", "labels", "legend", "value"], seen: [])
+        #expect(donut.droppedObjectKeys == ["value"])
+        // combo → donut bỏ `valueAxis`
+        let combo = plan("lineClusteredColumnComboChart", Self.combo, to: "donutChart",
+                         keys: ["dataPoint", "labels", "legend", "valueAxis"], seen: [])
+        #expect(combo.droppedObjectKeys == ["valueAxis"])
+        // đã thấy trên visual cùng loại đích trong báo cáo thì giữ
+        #expect(plan("lineChart", Self.combo, to: "clusteredBarChart", keys: ["forecast"], seen: ["forecast"]).droppedObjectKeys.isEmpty)
         // không có định dạng thì không có gì bỏ
         #expect(plan("clusteredBarChart", Self.combo, to: "lineChart", keys: [], seen: []).droppedObjectKeys.isEmpty)
     }
@@ -150,9 +171,9 @@ import Testing
     }
 
     @Test func noticeListsEverythingThatWasDropped() {
-        let p = plan("lineClusteredColumnComboChart", Self.combo, to: "hundredPercentStackedColumnChart", keys: ["dataPoint"], seen: [])
+        let p = plan("lineClusteredColumnComboChart", Self.combo, to: "hundredPercentStackedColumnChart", keys: ["forecast"], seen: [])
         let notice = p.notice
-        #expect(notice?.contains("Avg") == true && notice?.contains("dataPoint") == true)
+        #expect(notice?.contains("Avg") == true && notice?.contains("forecast") == true)
         #expect(plan("lineChart", Self.combo, to: "clusteredBarChart").notice == nil)
     }
 }

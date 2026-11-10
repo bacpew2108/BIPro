@@ -44,4 +44,11 @@ import Testing
         let json = Data(#"{"visual":{"query":{"sortDefinition":{"sort":[{"field":{"Aggregation":{"Expression":{"Column":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"amount"}},"Function":0}},"direction":"Descending"}]}}}}"#.utf8)
         #expect(FieldReferences.find(in: json, entity: "Fact", property: "amount", queryRef: "Sum(Fact.amount)").map(\.kind) == [.sort])
     }
+
+    @Test func onlySortStillBlocksRemoval() {
+        // VM-D2: bỏ trường thì Desktop xoá định dạng riêng của nó và giữ thẻ lọc; chỉ sắp xếp chưa quan sát
+        #expect(FieldReferences.blocking(in: Self.json, entity: "Dim_Date", property: "month_name", queryRef: "Dim_Date.month_name").map(\.kind) == [.sort])
+        #expect(FieldReferences.blocking(in: Self.json, entity: "Fact", property: "trans_hour", queryRef: "Fact.trans_hour").isEmpty)
+        #expect(FieldReferences.blocking(in: Self.json, entity: "Fact", property: "Credit", queryRef: "Fact.Credit").isEmpty)
+    }
 }

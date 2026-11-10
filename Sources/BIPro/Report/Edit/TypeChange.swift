@@ -7,7 +7,7 @@ struct TypeChangePlan {
     var wells: [PBIRQueryPatch.Well]
     /// Trường không có ô nhận trong loại mới.
     var droppedFields: [ReportField] = []
-    /// Khoá `visual.objects` (định dạng) sẽ bị bỏ vì không thấy trên visual cùng loại đích trong báo cáo.
+    /// Khoá `visual.objects` (định dạng) sẽ bị bỏ vì không dùng được cho loại đích (xem `TypeChange.keepsObjectKey`).
     var droppedObjectKeys: [String] = []
     /// Lý do chặn cả thao tác (nil: đổi được).
     var blocked: String?
@@ -86,7 +86,29 @@ enum TypeChange {
                 return plan
             }
         }
-        plan.droppedObjectKeys = objectKeys.filter { !seenObjectKeys.contains($0) }
+        plan.droppedObjectKeys = objectKeys.filter { !keepsObjectKey($0, to: type, seen: seenObjectKeys) }
         return plan
+    }
+
+    // MARK: Định dạng (objects)
+
+    private static let axisKeys: Set<String> = ["valueAxis", "categoryAxis", "trend", "forecast", "y1AxisReferenceLine", "zoom"]
+
+    /// Loại có trục (cột, thanh, đường, vùng, combo…).
+    static func hasAxes(_ type: String) -> Bool {
+        type.hasSuffix("BarChart") || type.hasSuffix("ColumnChart") || type == "columnChart" || type.contains("Combo")
+            || ["lineChart", "areaChart", "stackedAreaChart", "ribbonChart", "waterfallChart"].contains(type)
+    }
+
+    /// Khoá `objects` có giữ khi đổi sang `type` không. Quan sát VM-D3: Desktop chỉ bỏ khoá không còn hợp lệ
+    /// (`forecast` khi đường → cột/thanh, `value` khi donut → treemap, `valueAxis` khi combo → donut) và giữ phần còn lại
+    /// (`trend`, `valueAxis`, `labels`, `categoryAxis`, `dataPoint`, `legend`…). Khoá đã thấy trên visual cùng loại đích
+    /// trong báo cáo thì chắc chắn dùng được.
+    static func keepsObjectKey(_ key: String, to type: String, seen: Set<String>) -> Bool {
+        if seen.contains(key) { return true }
+        if key == "forecast" { return type == "lineChart" }
+        if key == "value" { return type == "donutChart" || type == "pieChart" }
+        if axisKeys.contains(key) { return hasAxes(type) }
+        return true
     }
 }

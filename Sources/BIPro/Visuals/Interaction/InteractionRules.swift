@@ -23,7 +23,7 @@ enum InteractionRules {
     static func canSelect(visualType: String) -> Bool {
         switch visualType {
         case "clusteredBarChart", "clusteredColumnChart",
-             "stackedBarChart", "stackedColumnChart",
+             "stackedBarChart", "stackedColumnChart", "columnChart",
              "hundredPercentStackedColumnChart",
              "lineChart", "areaChart",
              "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
@@ -46,7 +46,7 @@ enum InteractionRules {
             return true
         case "pieChart", "treemap", // [SUY ĐOÁN]
              "clusteredBarChart", "clusteredColumnChart", // [SUY ĐOÁN]
-             "stackedBarChart", "stackedColumnChart": // [SUY ĐOÁN]
+             "stackedBarChart", "stackedColumnChart", "columnChart": // [SUY ĐOÁN]
             return true
         default:
             return false

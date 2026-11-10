@@ -14,7 +14,7 @@ enum CartesianKind: Hashable, Sendable {
             self = .clusteredBar
         case "clusteredColumnChart", "clusteredColumn":
             self = .clusteredColumn
-        case "stackedColumnChart", "stackedColumn":
+        case "stackedColumnChart", "stackedColumn", "columnChart":   // Desktop ghi `columnChart` cho cột xếp chồng (VM-D3)
             self = .stackedColumn
         case "hundredPercentStackedColumnChart", "hundredPercentStackedColumn":
             self = .hundredPercentStackedColumn

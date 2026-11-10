@@ -8,7 +8,7 @@ enum VisualCatalog {
 
     static let gallery: [Entry] = [
         Entry(type: "stackedBarChart", name: "Biểu đồ thanh xếp chồng", symbol: "chart.bar.xaxis"),
-        Entry(type: "stackedColumnChart", name: "Biểu đồ cột xếp chồng", symbol: "chart.bar.fill"),
+        Entry(type: "columnChart", name: "Biểu đồ cột xếp chồng", symbol: "chart.bar.fill"),
         Entry(type: "clusteredBarChart", name: "Biểu đồ thanh nhóm", symbol: "text.alignleft"),
         Entry(type: "clusteredColumnChart", name: "Biểu đồ cột nhóm", symbol: "chart.bar"),
         Entry(type: "hundredPercentStackedBarChart", name: "Thanh xếp chồng 100%", symbol: "rectangle.split.3x1"),
@@ -71,7 +71,7 @@ enum VisualCatalog {
                      Well(role: "Y2", label: "Trục Y (đường)"), Well(role: "Series", label: "Chú giải cột")]
         case _ where t.hasSuffix("BarChart"):
             wells = [Well(role: "Category", label: "Trục Y"), Well(role: "Y", label: "Trục X"), Well(role: "Series", label: "Chú giải")]
-        case _ where t.hasSuffix("ColumnChart") || t == "ribbonChart" || t == "waterfallChart":
+        case _ where t.hasSuffix("ColumnChart") || t == "columnChart" || t == "ribbonChart" || t == "waterfallChart":
             wells = [Well(role: "Category", label: "Trục X"), Well(role: "Y", label: "Trục Y"), Well(role: "Series", label: "Chú giải")]
         case "lineChart", "areaChart", "stackedAreaChart":
             wells = [Well(role: "Category", label: "Trục X"), Well(role: "Y", label: "Trục Y"),

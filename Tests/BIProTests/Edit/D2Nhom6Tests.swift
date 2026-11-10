@@ -53,6 +53,19 @@ struct D2Nhom6Tests {
 
     private func milliseconds(_ d: Duration) -> Double { Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
 
+    /// Mọi giá trị `metadata` (của `selector`) trong một đoạn JSON.
+    static func metadata(in value: JSONValue) -> Set<String> {
+        switch value {
+        case .object(let dict):
+            var out = Set<String>()
+            if let m = dict["metadata"]?.string { out.insert(m) }
+            for child in dict.values { out.formUnion(metadata(in: child)) }
+            return out
+        case .array(let items): return items.reduce(into: Set<String>()) { $0.formUnion(metadata(in: $1)) }
+        default: return []
+        }
+    }
+
     static let card = "b6ab8c5d5ef62b8ad9b1"      // card Avg_Account_Balance
     static let donut = "b1106ee1bf9281ad7b51"     // Category 3 cột, Y Trans Amount, Tooltips 2 measure
     static let combo = "bd7c2a2d8369e704295f"     // Năm › Quý › Tháng, Y: Credit, Debit; Y2: Net
@@ -79,16 +92,26 @@ struct D2Nhom6Tests {
         #expect(editor.moveField(role: "Y", index: debitIndex, to: "Y2", visual: Self.combo) == nil)
         #expect(editor.reorderField(role: "Y2", from: 1, to: 0, visual: Self.combo) == nil)
         #expect(editor.renameField(role: "Values", index: 0, to: "GD / KH", visual: Self.matrix) == nil)
-        // 2. Từ chối đúng: measure vào ô Chú giải; bỏ trường còn dùng sắp xếp hoặc định dạng riêng.
+        // 2. Từ chối đúng: measure vào ô Chú giải. Bỏ trường còn có định dạng riêng thì được và xoá định dạng đó (VM-D2).
         #expect(editor.addField(netCash, to: "Series", visual: Self.line) != nil)
+        let lineJSON = try archive.read(LayoutEditor.visualPath(page: Self.page, id: Self.line))
         let lineRefs = (editor.visual(Self.line)?.fields ?? []).map { field in
-            (field, FieldReferences.find(in: try! archive.read(LayoutEditor.visualPath(page: Self.page, id: Self.line)),
-                                         entity: field.entity, property: field.property, queryRef: field.queryRef))
+            (field, FieldReferences.find(in: lineJSON, entity: field.entity, property: field.property, queryRef: field.queryRef))
         }
         for (field, refs) in lineRefs where !refs.isEmpty {
             let index = (editor.visual(Self.line)?.fields.filter { $0.role == field.role } ?? []).firstIndex(of: field) ?? 0
-            #expect(editor.removeField(role: field.role, index: index, visual: Self.line) != nil, Comment(rawValue: "\(field.queryRef) còn được dùng nên phải bị chặn"))
+            let result = editor.removeField(role: field.role, index: index, visual: Self.line)
+            if refs.contains(where: { $0.kind == .sort }) {
+                #expect(result != nil, Comment(rawValue: "\(field.queryRef) còn được dùng để sắp xếp nên phải bị chặn"))
+            } else {
+                #expect(result == nil, Comment(rawValue: "\(field.queryRef) chỉ có định dạng/bộ lọc riêng nên bỏ được"))
+                let left = Self.metadata(in: editor.visual(Self.line)?.raw["visual"]?["objects"] ?? .null)
+                #expect(!left.contains(field.queryRef), Comment(rawValue: "định dạng riêng của \(field.queryRef) phải đi cùng trường"))
+            }
         }
+        // Thêm trùng một measure vào ô (Desktop cho): visual vẫn vẽ được.
+        let credit = FieldRef(kind: .measure, entity: "Fact_Transaction", property: "Total_Credit_Inflow")
+        #expect(editor.addField(credit, to: "Y", visual: Self.combo) == nil)
         #expect(editor.isDirty)
 
         // 3. Vẽ các visual đã sửa bằng engine (trước khi lưu).
@@ -155,7 +178,7 @@ struct D2Nhom6Tests {
         }
         // Visual không sửa khớp từng byte; phần ngoài báo cáo khớp CRC (trừ SecurityBindings và Content_Types như D1).
         let afterZip = try ZipArchive(url: output)
-        let editedPaths = Set(ids.map { LayoutEditor.visualPath(page: Self.page, id: $0) })
+        let editedPaths = Set((ids + [Self.line]).map { LayoutEditor.visualPath(page: Self.page, id: $0) })
         for entry in archive.entries where !editedPaths.contains(entry.path) {
             if entry.path == "SecurityBindings" { #expect(afterZip.entry(entry.path) == nil); continue }
             if entry.path == "[Content_Types].xml" { continue }

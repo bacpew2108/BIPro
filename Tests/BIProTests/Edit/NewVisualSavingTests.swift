@@ -70,7 +70,8 @@ import Testing
         _ = try env.save()
         let actual = try env.reloaded()
         #expect(actual.type == "lineChart" && actual.fields == env.editor.visual(S.c1)?.fields)
-        #expect(actual.fields.filter { $0.role == "Y" }.map(\.property) == ["Credit", "Debit", "Net"])
+        #expect(actual.fields.filter { $0.role == "Y" }.map(\.property) == ["Credit", "Debit"])
+        #expect(actual.fields.filter { $0.role == "Y2" }.map(\.property) == ["Net"])   // VM-D3: đường giữ Y2
         // Ngoài visualType và queryState, visual.json giữ nguyên.
         let after = try ZipArchive(url: env.source).read(path(S.c1))
         func stripped(_ data: Data) throws -> NSDictionary {

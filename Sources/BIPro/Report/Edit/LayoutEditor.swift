@@ -332,7 +332,7 @@ final class LayoutEditor {
     func removeField(role: String, index: Int, visual id: String) -> String? {
         editFields(id) { wells, visual, base in
             FieldEditor.remove(role: role, index: index, wells: wells, visual: visual) { field in
-                FieldReferences.find(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
+                FieldReferences.blocking(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
             }
         }
     }
@@ -461,7 +461,7 @@ final class LayoutEditor {
             for other in page.visuals where other.type == type { seen.formUnion(other.raw["visual"]?["objects"]?.object.keys.map { $0 } ?? []) }
         }
         let plan = TypeChange.plan(visual: visual, wells: wells, to: type, objectKeys: currentKeys, seenObjectKeys: seen) { field in
-            FieldReferences.find(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
+            FieldReferences.blocking(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
         }
         if let blocked = plan.blocked { return refuse(blocked) }
         if plan.isNoOp { return nil }

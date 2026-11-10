@@ -6,8 +6,8 @@ import Testing
     @Test func supportedTypesAreTheObservedOnesPlusTheTextbox() {
         #expect(Set(VisualTypes.supported) == ["card", "slicer", "clusteredBarChart", "hundredPercentStackedColumnChart", "lineChart",
                                                "lineClusteredColumnComboChart", "lineStackedColumnComboChart", "donutChart", "treemap",
-                                               "pivotTable", "shapeMap", "textbox"])
-        #expect(VisualTypes.supported.count == 12)
+                                               "pivotTable", "shapeMap", "textbox", "clusteredColumnChart", "columnChart"])
+        #expect(VisualTypes.supported.count == 14)
     }
 
     @Test func everySupportedTypeHasAnObservedWellAndAMatchingDefaultSize() throws {
@@ -29,7 +29,8 @@ import Testing
             #expect(!reason.isEmpty, Comment(rawValue: entry.type))
             #expect(VisualTypes.info(for: entry.type) == nil, Comment(rawValue: entry.type))
         }
-        #expect(VisualTypes.refusal(for: "clusteredColumnChart").contains("VM-D3"))
+        #expect(VisualTypes.refusal(for: "stackedBarChart").contains("VM-D3"))
+        #expect(VisualTypes.isSupported("clusteredColumnChart") && VisualTypes.isSupported("columnChart"))
         #expect(VisualTypes.refusal(for: "image").contains("tài nguyên"))
         #expect(VisualTypes.refusal(for: "scatterChart").contains("chưa vẽ"))
         #expect(!VisualTypes.refusal(for: "unknownType").isEmpty)

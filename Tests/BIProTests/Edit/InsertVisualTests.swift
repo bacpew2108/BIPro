@@ -57,7 +57,7 @@ import Testing
     @Test func unsupportedTypesAreRefusedWithAReasonAndNothingChanges() throws {
         let env = try Env(); defer { env.cleanUp() }
         let depth = env.editor.undoDepth, count = env.editor.visuals(of: "p1").count
-        for type in ["scatterChart", "image", "clusteredColumnChart", "madeUpType"] {
+        for type in ["scatterChart", "image", "stackedBarChart", "madeUpType"] {
             #expect(env.editor.insertVisual(type: type, visibleRect: Self.view) == nil, Comment(rawValue: type))
             #expect(env.editor.fieldRefusal?.isEmpty == false)
         }

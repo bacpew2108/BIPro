@@ -35,20 +35,25 @@ struct WellRule: Equatable {
 }
 
 enum WellRules {
-    /// Bảng đã quan sát: (loại visual, ô) → (loại trường nhận, ô một trường). Nguồn: research R1.
+    /// Bảng đã quan sát: (loại visual, ô) → (loại trường nhận, ô một trường). Nguồn: research R1 (Nhom6) và VM-D3
+    /// (donut → treemap giữ cả ba cấp ở `Category`/`Group`, nên hai ô đó nhận nhiều cột).
     private static let observed: [String: [String: (kind: WellKind, single: Bool)]] = [
         "card": ["Values": (.measure, true)],
         "slicer": ["Values": (.column, true)],
+        // VM-D3 (`R-D3-t-clusteredColumn`, `-stackedColumn`): cột xếp chồng của Desktop có visualType `columnChart`.
+        "clusteredColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
+        "columnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
         "clusteredBarChart": ["Category": (.column, true), "Y": (.measure, false), "Series": (.column, true), "Tooltips": (.measure, false)],
-        "donutChart": ["Category": (.column, true), "Y": (.measure, true), "Tooltips": (.measure, false)],
+        "donutChart": ["Category": (.column, false), "Y": (.measure, false), "Tooltips": (.measure, false)],
         "hundredPercentStackedColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
-        "lineChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false), "Y": (.measure, false)],
+        "lineChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false), "Y": (.measure, false),
+                      "Y2": (.measure, false)],   // VM-D3: combo → đường giữ Y2 ("Trục Y phụ")
         "lineClusteredColumnComboChart": ["Category": (.column, true), "Tooltips": (.measure, false), "Y": (.measure, false), "Y2": (.measure, false)],
         "lineStackedColumnComboChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false),
                                         "Y": (.measure, false), "Y2": (.measure, false)],
         "pivotTable": ["Columns": (.column, true), "Rows": (.column, true), "Values": (.measure, false)],
         "shapeMap": ["Category": (.column, true), "Tooltips": (.measure, false)],
-        "treemap": ["Group": (.column, true), "Tooltips": (.measure, false), "Values": (.measure, true)],
+        "treemap": ["Group": (.column, false), "Tooltips": (.measure, false), "Values": (.measure, true)],
     ]
 
     /// Các ô của visual, theo thứ tự hiện trong Build pane, mỗi ô kèm luật.
@@ -75,7 +80,7 @@ enum WellRules {
     // MARK: Từ chối
 
     static let unverifiedReason = "Ô này chưa kiểm với Power BI Desktop (buổi VM-D2), nên chưa thêm trường được."
-    static let aggregationReason = "Cột số cần phép gộp (Sum, Average…): chưa làm, đang chờ quan sát Power BI Desktop (D2b)."
+    static let aggregationReason = "Ô này cần measure. Mô hình đặt \"discourage implicit measures\" (như Nhom6) nên Power BI Desktop cũng không cho cột số vào ô giá trị (VM-D2b); phép gộp ngầm cho mô hình khác chưa làm."
 
     /// Lý do không thêm được `field` vào ô `role` của `visual`, hoặc nil nếu thêm được.
     static func refusal(adding field: FieldRef, to role: String, in visual: ReportVisual) -> String? {
@@ -86,7 +91,8 @@ enum WellRules {
             if kind == .column, rule.accepts == [.measure], field.family == .numeric { return aggregationReason }
             return "Ô \"\(rule.label)\" chỉ nhận \(rule.accepts.map(\.label).sorted().joined(separator: " hoặc "))."
         }
-        if visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
+        // Desktop cho thêm cùng một measure hai lần vào một ô (VM-D2 `R-D2-h-dup`); cột trùng thì chưa quan sát nên từ chối.
+        if kind == .column, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
             return "Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
         }
         return nil
@@ -99,7 +105,7 @@ enum WellRules {
         guard let kind = WellKind(field.kind), rule.accepts.contains(kind) else {
             return "Ô \"\(rule.label)\" không nhận loại trường này."
         }
-        if field.role != role, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
+        if field.role != role, kind == .column, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
             return "Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
         }
         return nil

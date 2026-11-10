@@ -1,8 +1,9 @@
 import Foundation
 import PBIXKit
 
-/// Một chỗ trong `visual.json` (ngoài `queryState`) nhắc tới một trường. Bỏ trường còn được nhắc ở đây có thể làm
-/// Power BI Desktop từ chối file, nên D2 chặn việc đó cho tới khi quan sát được cách Desktop xử lý (research R7).
+/// Một chỗ trong `visual.json` (ngoài `queryState`) nhắc tới một trường. Quan sát VM-D2: bỏ trường thì Desktop xoá
+/// các mục định dạng riêng của trường (`selector.metadata`) và giữ nguyên thẻ lọc, nên chỉ còn sắp xếp là chặn việc bỏ
+/// (Desktop chưa quan sát được trường hợp `sortDefinition` trỏ tới trường bị bỏ; research R7).
 struct FieldReference: Equatable {
     enum Kind: Equatable { case sort, filter, format }
     let kind: Kind
@@ -18,6 +19,11 @@ struct FieldReference: Equatable {
 }
 
 enum FieldReferences {
+    /// Các chỗ nhắc còn chặn việc bỏ trường (hoặc đổi loại làm mất trường): chỉ sắp xếp.
+    static func blocking(in json: Data, entity: String, property: String, queryRef: String) -> [FieldReference] {
+        find(in: json, entity: entity, property: property, queryRef: queryRef).filter { $0.kind == .sort }
+    }
+
     /// Các nơi trong `json` nhắc tới trường (`entity`, `property`, `queryRef`): sắp xếp, thẻ lọc cấp visual, định dạng
     /// theo trường (`selector.metadata` bằng `queryRef`). Không đọc được thì trả rỗng.
     static func find(in json: Data, entity: String, property: String, queryRef: String) -> [FieldReference] {
