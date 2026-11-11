@@ -122,6 +122,7 @@ enum DocumentSaver {
             throw SaveError.verificationFailed("không đọc lại được: \(error)")
         }
         try verifyPages(report: report, pbix: pbix, editor: editor)
+        try verifyReportEdits(pbix: pbix, editor: editor)
         for page in editor.pages {
             guard let written = report.pages.first(where: { $0.id == page.id }) else {
                 throw SaveError.verificationFailed("thiếu trang \(page.id)")
@@ -146,6 +147,113 @@ enum DocumentSaver {
                 }
                 guard actual.fields == visual.fields else {
                     throw SaveError.verificationFailed("các ô và trường của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                }
+            }
+            try verifyGroups(written: written, editor: editor, expected: expected)
+        }
+    }
+
+    /// Nhóm visual (D7, `contracts/group-editing.md`): cùng tập nhóm với `editor`, khung và `z` khớp; con đọc lại có đúng nhóm cha
+    /// và vị trí tuyệt đối khớp (đã kiểm ở `verifyLayout`); nhóm mới tạo có ít nhất một con; con nằm trong khung nhóm (sai số 1 điểm).
+    private static func verifyGroups(written: ReportPage, editor: LayoutEditor, expected: [ReportVisual]) throws {
+        let groups = editor.groups(of: written.id)
+        guard Set(groups.map(\.id)) == Set(written.groups.map(\.id)) else {
+            throw SaveError.verificationFailed("tập nhóm của trang \(written.id) khác trạng thái đang sửa")
+        }
+        let preexisting = Set(editor.basePage(written.id)?.groups.map(\.id) ?? [])
+        for group in groups {
+            guard let actual = written.groups.first(where: { $0.id == group.id }), Frame(actual) == Frame(group), Int(actual.z) == Int(group.z) else {
+                throw SaveError.verificationFailed("khung của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa")
+            }
+            let kids = written.visuals.filter { $0.parentGroup == group.id }
+            if kids.isEmpty, !preexisting.contains(group.id) {
+                throw SaveError.verificationFailed("nhóm \(group.id) trong trang \(written.id) không có visual con")
+            }
+            // Chỉ kiểm phần editor đã đổi hoặc tạo: nhóm của Desktop có thể sẵn có con nằm ngoài khung.
+            let baseGroup = editor.basePage(written.id)?.groups.first { $0.id == group.id }
+            let baseKids = Dictionary((editor.basePage(written.id)?.visuals ?? []).map { ($0.id, Frame($0)) }, uniquingKeysWith: { first, _ in first })
+            let groupChanged = baseGroup.map { Frame($0) != Frame(group) } ?? true
+            for kid in kids where (groupChanged || baseKids[kid.id] != Frame(kid)) && (kid.x < actual.x - 1 || kid.y < actual.y - 1
+                || kid.x + kid.width > actual.x + actual.width + 1 || kid.y + kid.height > actual.y + actual.height + 1) {
+                throw SaveError.verificationFailed("visual \(kid.id) nằm ngoài khung nhóm \(group.id)")
+            }
+        }
+        let known = Set(groups.map(\.id))
+        for visual in expected {
+            guard let actual = written.visuals.first(where: { $0.id == visual.id }) else { continue }
+            if let parent = visual.parentGroup, known.contains(parent), actual.parentGroup != parent {
+                throw SaveError.verificationFailed("nhóm cha của \(visual.id) trong trang \(written.id) khác trạng thái đang sửa")
+            }
+            if visual.parentGroup == nil, actual.parentGroup != nil {
+                throw SaveError.verificationFailed("\(visual.id) trong trang \(written.id) còn nằm trong nhóm sau khi bỏ nhóm")
+            }
+        }
+    }
+
+    /// Bookmark và bộ lọc người dùng sửa (D6, `contracts/bookmark-filter-save.md`): bookmark đã ghi chỉ trỏ visual và trang có thật,
+    /// tên hiển thị khớp; thẻ lọc đã ghi nằm đúng part, đúng loại, đọc lại được; thẻ đã bỏ không còn.
+    private static func verifyReportEdits(pbix: PBIXFile, editor: LayoutEditor) throws {
+        let edits = editor.reportEdits
+        guard !edits.isEmpty else { return }
+        let alive = Set(editor.pages.map(\.id))
+        // Bookmark.
+        var wanted: [String: String] = [:]   // mã → tên hiển thị
+        for added in edits.bookmarks.added where !edits.bookmarks.deleted.contains(added.id) { wanted[added.id] = added.name }
+        for (id, fresh) in edits.bookmarks.updated where !edits.bookmarks.deleted.contains(id) { wanted[id] = edits.bookmarks.renamed[id] ?? fresh.name }
+        for (id, name) in edits.bookmarks.renamed where wanted[id] == nil && !edits.bookmarks.deleted.contains(id) { wanted[id] = name }
+        for entry in pbix.archive.entries where entry.path.hasPrefix(LayoutEditor.bookmarksFolder) && entry.path.hasSuffix(".bookmark.json") {
+            let data = try pbix.archive.read(entry)
+            guard let value = try? JSONValue.parse(data), let name = value["name"]?.string else {
+                throw SaveError.verificationFailed("\(entry.path) không đọc lại được")
+            }
+            if edits.bookmarks.deleted.contains(name) { throw SaveError.verificationFailed("bookmark \(name) đã xoá vẫn còn trong file") }
+            guard let display = wanted[name] else { continue }
+            if let shown = value["displayName"]?.string, shown != display {
+                throw SaveError.verificationFailed("tên bookmark \(name) trong file khác trạng thái đang sửa")
+            }
+            let isWritten = edits.bookmarks.added.contains { $0.id == name } || edits.bookmarks.updated[name] != nil
+            guard isWritten else { continue }
+            for (pageID, section) in value["explorationState"]?["sections"]?.object ?? [:] {
+                guard alive.contains(pageID) else { throw SaveError.verificationFailed("bookmark \(name) trỏ tới trang \(pageID) không còn") }
+                let ids = Set(editor.visuals(of: pageID).map(\.id))
+                for visualID in (section["visualContainers"]?.object ?? [:]).keys where !ids.contains(visualID) {
+                    throw SaveError.verificationFailed("bookmark \(name) trỏ tới visual \(visualID) không có trong trang \(pageID)")
+                }
+            }
+        }
+        // Bộ lọc.
+        func cards(at path: String) -> [JSONValue] {
+            guard let data = try? pbix.archive.read(path), let value = try? JSONValue.parse(data) else { return [] }
+            return value["filterConfig"]?["filters"]?.array ?? []
+        }
+        for (key, change) in edits.filters {
+            let path: String
+            switch key.level {
+            case .report: path = LayoutEditor.reportJSONPath
+            case .page:
+                guard alive.contains(key.scope) else { continue }
+                path = LayoutEditor.pagePath(key.scope)
+            case .visual:
+                guard let page = editor.pages.first(where: { p in editor.visuals(of: p.id).contains { $0.id == key.scope } }) else { continue }
+                path = LayoutEditor.visualPath(page: page.id, id: key.scope)
+            }
+            let found = cards(at: path)
+            switch change {
+            case .remove(let name):
+                if let name, found.contains(where: { $0["name"]?.string == name }) {
+                    throw SaveError.verificationFailed("thẻ lọc \(name) đã bỏ vẫn còn trong \(path)")
+                }
+            case .set(let filter):
+                guard case .writable(let spec) = FilterExport.card(for: filter, key: key) else { continue }
+                guard let card = found.first(where: { $0["name"]?.string == spec.name }) else {
+                    throw SaveError.verificationFailed("thiếu thẻ lọc \(spec.name) trong \(path)")
+                }
+                guard card["type"]?.string == spec.type else { throw SaveError.verificationFailed("loại thẻ lọc \(spec.name) trong \(path) khác trạng thái đang sửa") }
+                if spec.type == "Categorical" {
+                    let parsed = PBIXFile.filters(.array([card]), level: key.level).first.flatMap(UserFilter.from)
+                    guard let parsed, Set(parsed.values) == Set(filter.values), parsed.exclude == filter.exclude || filter.values.isEmpty else {
+                        throw SaveError.verificationFailed("thẻ lọc \(spec.name) trong \(path) không khớp trạng thái đang sửa")
+                    }
                 }
             }
         }

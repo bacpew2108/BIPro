@@ -30,8 +30,8 @@ struct LiveVisualView: View {
 
     var body: some View {
         let state = interaction.state(for: page)
-        let key = LoadKey(visualType: visual.type, query: visual.raw["visual"]?["query"], state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.userFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
-                         removed: interaction.removedFilters.filter { ["", page.id, visual.id].contains($0.scope) })
+        let key = LoadKey(visualType: visual.type, query: visual.raw["visual"]?["query"], state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.effectiveUserFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
+                         removed: interaction.effectiveRemovedFilters.filter { ["", page.id, visual.id].contains($0.scope) })
         ZStack {
             content(state: state)
         }

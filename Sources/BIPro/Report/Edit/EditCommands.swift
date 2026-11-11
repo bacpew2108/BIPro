@@ -55,6 +55,18 @@ struct EditCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Button("Nhân bản visual") { state?.duplicateSelection() }
                 .keyboardShortcut("d", modifiers: .command)
+            Menu("Căn lề") {
+                ForEach(AlignCommand.allCases, id: \.self) { command in
+                    Button(command.title) { state?.align(command) }
+                        .disabled(state?.alignBlocker(command) != nil)
+                }
+            }
+            Button("Nhóm visual") { state?.groupSelection() }
+                .keyboardShortcut("g", modifiers: .command)
+                .disabled(state?.groupBlocker != nil)
+            Button("Bỏ nhóm") { state?.ungroupSelection() }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .disabled(state?.ungroupBlocker != nil)
         }
         CommandGroup(replacing: .undoRedo) {
             Button("Hoàn tác") { perform(text: Selector(("undo:"))) { $0.undoLayout() } }

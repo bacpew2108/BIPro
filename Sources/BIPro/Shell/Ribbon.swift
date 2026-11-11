@@ -112,7 +112,39 @@ private struct ReportHomeCommands: View {
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
         }
         RibbonDivider()
+        ArrangeCommands(state: state)
+        RibbonDivider()
         CalculationCommands()
+    }
+}
+
+/// Căn lề, phân bố, nhóm (D7). Mờ ở chế độ Xem; `help` nêu lý do.
+private struct ArrangeCommands: View {
+    let state: DocumentState
+    var body: some View {
+        RibbonGroup(title: "Sắp xếp") {
+            Menu {
+                ForEach(AlignCommand.allCases, id: \.self) { command in
+                    Button { state.align(command) } label: { Label(command.title, systemImage: command.systemImage) }
+                        .disabled(state.alignBlocker(command) != nil)
+                }
+            } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "align.horizontal.left").font(.system(size: 17)).foregroundStyle(DS.Palette.secondaryLabel).frame(height: 20)
+                    Text("Căn lề").font(DS.Typeface.label).foregroundStyle(DS.Palette.label)
+                }
+                .padding(.horizontal, 6)
+                .frame(minWidth: 44, minHeight: 50)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(state.arrangeBlocker != nil)
+            .opacity(state.arrangeBlocker != nil ? 0.55 : 1)
+            .help(state.arrangeBlocker ?? "Căn lề và phân bố các visual đang chọn")
+            RibbonButton(title: "Nhóm", symbol: "square.on.square.dashed", disabledReason: state.groupBlocker) { state.groupSelection() }
+            RibbonButton(title: "Bỏ nhóm", symbol: "square.on.square", disabledReason: state.ungroupBlocker) { state.ungroupSelection() }
+        }
     }
 }
 

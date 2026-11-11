@@ -65,6 +65,8 @@ final class DocumentState {
     @ObservationIgnored weak var window: NSWindow?
     /// Chỉ báo cáo định dạng PBIR sửa được bố cục (`Report/definition/**`); định dạng cũ (`Report/Layout`) chưa hỗ trợ.
     var canEditLayout: Bool { workspace.pbix.reportFormat == .pbir }
+    /// Sửa được bố cục trên canvas: PBIR, và báo cáo định dạng cũ (D7: chỉ di chuyển, đổi cỡ, căn, xoá, nhân bản, chép dán).
+    var canEditCanvas: Bool { workspace.pbix.reportFormat == .pbir || workspace.pbix.reportFormat == .legacyLayout }
     /// Bố cục sửa được của báo cáo (D1). `page` trả về trang đã áp phần sửa.
     let layout: LayoutEditor
     /// Chế độ Sửa (⌘E): kéo thả visual. Mặc định là Xem: lọc chéo, drill như trước.
@@ -134,12 +136,15 @@ final class DocumentState {
         self.fileURL = fileURL
         self.openedStamp = fileURL.flatMap { try? FileStamp.of($0) }
         let archive = workspace.pbix.archive
-        self.layout = LayoutEditor.reading(archive: archive, report: workspace.report)
+        self.layout = workspace.pbix.reportFormat == .legacyLayout
+            ? LayoutEditor.readingLegacy(archive: archive, report: workspace.report)
+            : LayoutEditor.reading(archive: archive, report: workspace.report)
         self.interaction = ReportInteraction(workspace: workspace)
         let layout = self.layout
         self.interaction.pagesProvider = { layout.pages }
         self.interaction.removedBookmarksProvider = { layout.structure.removedBookmarks }
         self.interaction.pageJSONProvider = { layout.structure.created[$0]?.pageJSON }
+        wireReportEditing()
         pageID = workspace.activePageID.flatMap { id in workspace.report.pages.contains { $0.id == id } ? id : nil }
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
         layout.showPage(pageID)

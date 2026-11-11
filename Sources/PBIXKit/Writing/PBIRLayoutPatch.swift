@@ -31,19 +31,30 @@ public enum PBIRLayoutPatch {
     /// `width`, `height` are at least 1. A field the document does not have is an error.
     public static func setPosition(in json: Data, x: Int? = nil, y: Int? = nil, width: Int? = nil, height: Int? = nil,
                                    z: Int? = nil, tabOrder: Int? = nil) throws -> Data {
+        try setPosition(in: json, x: x.map(Double.init), y: y.map(Double.init), width: width.map(Double.init),
+                        height: height.map(Double.init), z: z.map(Double.init), tabOrder: tabOrder.map(Double.init))
+    }
+
+    /// Like the whole-number overload but values may have a fraction (Power BI Desktop writes fractions after a group
+    /// is moved or scaled, and a group member's position is relative to its group). A whole value is written without a
+    /// decimal point, any other as the shortest text that reads back as the same number. `x`, `y` are not negative
+    /// (in a group they are relative, never negative), `width`, `height` at least 1.
+    public static func setPosition(in json: Data, x: Double?, y: Double?, width: Double? = nil, height: Double? = nil,
+                                   z: Double? = nil, tabOrder: Double? = nil) throws -> Data {
         if let x, x < 0 { throw WriteError.invalid("x must not be negative") }
         if let y, y < 0 { throw WriteError.invalid("y must not be negative") }
         if let width, width < 1 { throw WriteError.invalid("width must be at least 1") }
         if let height, height < 1 { throw WriteError.invalid("height must be at least 1") }
-        let wanted: [(key: String, value: Int?)] = [("x", x), ("y", y), ("width", width), ("height", height), ("z", z), ("tabOrder", tabOrder)]
+        let wanted: [(key: String, value: Double?)] = [("x", x), ("y", y), ("width", width), ("height", height), ("z", z), ("tabOrder", tabOrder)]
 
         let root = try parseObject(json)
         guard root["position"] is [String: Any] else { throw WriteError.invalid("visual.json has no position") }
         let bytes = [UInt8](json)
 
-        var edits: [(range: Range<Int>, value: Int, key: String)] = []
+        var edits: [(range: Range<Int>, value: Double, key: String)] = []
         for (key, requested) in wanted {
             guard let value = requested else { continue }
+            guard value.isFinite else { throw WriteError.invalid("position.\(key) is not a number") }
             guard let range = JSONCursor.locate([.key("position"), .key(key)][...], in: bytes),
                   let first = bytes[safe: range.lowerBound], first == UInt8(ascii: "-") || (first >= 0x30 && first <= 0x39) else {
                 throw WriteError.invalid("position.\(key) not found in visual.json")
@@ -52,7 +63,7 @@ public enum PBIRLayoutPatch {
         }
         var out = bytes
         for edit in edits.sorted(by: { $0.range.lowerBound > $1.range.lowerBound }) {
-            out.replaceSubrange(edit.range, with: Array(String(edit.value).utf8))
+            out.replaceSubrange(edit.range, with: Array(numberText(edit.value).utf8))
         }
 
         var expected = root
@@ -61,6 +72,12 @@ public enum PBIRLayoutPatch {
         expected["position"] = position
         try verify(Data(out), equals: expected, what: "position splice")
         return Data(out)
+    }
+
+    /// JSON text of a position number: whole values without a decimal point, others as the shortest round-trip text.
+    static func numberText(_ value: Double) -> String {
+        if value == value.rounded(), abs(value) < 1e15 { return String(Int(value)) }
+        return String(value)
     }
 
     // MARK: - Duplicate

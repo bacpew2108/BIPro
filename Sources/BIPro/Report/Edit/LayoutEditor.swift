@@ -5,6 +5,8 @@ import PBIXKit
 /// Phần sửa của một trang: bố cục hiện tại, mã đã xoá khỏi bản gốc, và `visual.json` của các bản sao chưa lưu.
 struct PageEdit: Equatable {
     var visuals: [ReportVisual]
+    /// Nhóm visual của trang (D7): khung tuyệt đối. `visual.json` của nhóm mới nằm trong `added` như visual mới.
+    var groups: [ReportVisual] = []
     /// Mã visual có trong file gốc mà đã bị xoá (khi lưu thì bỏ phần của chúng).
     var deleted: Set<String> = []
     /// `visual.json` của bản sao mới (khoá là mã bản sao), chưa có trong file.
@@ -39,6 +41,8 @@ struct LayoutSnapshot {
     var structure: PageStructure
     var selection: Set<String>
     var primary: String?
+    /// Bookmark và bộ lọc người dùng sửa ở lớp tài liệu (D6).
+    var edits = ReportEdits()
 }
 
 /// Bố cục có thể sửa của báo cáo. `Workspace` giữ bản gốc bất biến; mọi thay đổi nằm ở đây
@@ -52,11 +56,17 @@ final class LayoutEditor {
     private(set) var edited: [String: PageEdit] = [:]
     /// Thứ tự tab, tên đổi, trang tạo và trang xoá (D5).
     private(set) var structure: PageStructure
+    /// Bookmark và thẻ lọc người dùng sửa (D6); lưu so với file trên đĩa.
+    private(set) var reportEdits = ReportEdits()
+    /// `reportEdits` ở lần lưu thành công gần nhất: để hoàn tác sau khi lưu đưa được bookmark và thẻ lọc đã ghi về như cũ (D6).
+    var savedEdits = ReportEdits()
+    /// Phần bookmark và bộ lọc bị bỏ qua ở lần dựng gói lưu gần nhất vì chưa lưu được vào file (kèm lý do).
+    var saveNotes: [String] = []
     private(set) var selection: Set<String> = []
     private(set) var primary: String?
     private(set) var currentPageID: String?
     /// Lý do gần nhất thao tác bị bỏ qua (ví dụ visual trong nhóm), để giao diện hiện cho người dùng.
-    private(set) var lockedReason: String?
+    internal(set) var lockedReason: String?
     /// Thông báo sau một thao tác (trường hoặc định dạng bị bỏ khi đổi loại, D3); xoá ở thao tác kế.
     private(set) var notice: String?
     /// Lý do gần nhất một thao tác sửa trường bị từ chối (D2); nil khi thao tác gần nhất được chấp nhận.
@@ -79,7 +89,7 @@ final class LayoutEditor {
     /// Mọi mã trang đã có hoặc đã sinh trong phiên (không bao giờ dùng lại, kể cả sau hoàn tác).
     @ObservationIgnored var usedPageIDs: Set<String>
     /// Mã bản sao đã tạo, theo trang (không hoàn tác được): để biết phần nào có thể đã nằm trong file khi xoá.
-    @ObservationIgnored private var createdIDs: [String: Set<String>] = [:]
+    @ObservationIgnored var createdIDs: [String: Set<String>] = [:]
     /// Bộ nhớ tạm cho Chép/Dán trong cùng tài liệu.
     private var clipboard: [(visual: ReportVisual, json: Data)] = []
     private var pasteCount = 0
@@ -91,10 +101,16 @@ final class LayoutEditor {
     /// Container không phải visual (nhóm visual) của một trang có trong file: mã và byte `visual.json`.
     @ObservationIgnored let containerSource: (String) -> [(id: String, json: Data)]
 
+    /// Báo cáo định dạng cũ (`Report/Layout`, D7): chỉ sửa bố cục; `sourceJSON` trả byte của container, không phải `visual.json`.
+    let isLegacy: Bool
+    static let legacyMessage = "Báo cáo định dạng cũ (Report/Layout) mới sửa được bố cục: di chuyển, đổi cỡ, căn, xoá, nhân bản, chép dán."
+
     init(report: ReportDefinition, sourceJSON: @escaping (String, String) -> Data? = { _, _ in nil },
          pageSource: @escaping (String) -> Data? = { _ in nil },
          bookmarkSource: @escaping () -> [(name: String, json: Data)] = { [] },
-         containerSource: @escaping (String) -> [(id: String, json: Data)] = { _ in [] }) {
+         containerSource: @escaping (String) -> [(id: String, json: Data)] = { _ in [] },
+         isLegacy: Bool = false) {
+        self.isLegacy = isLegacy
         baseline = report
         self.containerSource = containerSource
         self.sourceJSON = sourceJSON
@@ -139,6 +155,28 @@ final class LayoutEditor {
         edited[pageID]?.visuals ?? basePage(pageID)?.visuals ?? []
     }
 
+    /// Nhóm visual của trang (D7), đã sửa.
+    func groups(of pageID: String) -> [ReportVisual] {
+        edited[pageID]?.groups ?? basePage(pageID)?.groups ?? []
+    }
+
+    /// Mọi phần tử chọn được trên trang: visual và nhóm (D7), theo thứ tự `z` tăng dần.
+    func items(of pageID: String) -> [ReportVisual] {
+        (visuals(of: pageID) + groups(of: pageID)).sorted { $0.z < $1.z }
+    }
+
+    /// Visual hoặc nhóm theo mã (D7).
+    func item(_ id: String, page pageID: String? = nil) -> ReportVisual? {
+        guard let pageID = pageID ?? currentPageID else { return nil }
+        return visuals(of: pageID).first { $0.id == id } ?? groups(of: pageID).first { $0.id == id }
+    }
+
+    /// Mã các visual con của nhóm `groupID` trên trang hiện tại.
+    func children(ofGroup groupID: String, page pageID: String? = nil) -> [ReportVisual] {
+        guard let pageID = pageID ?? currentPageID else { return [] }
+        return visuals(of: pageID).filter { $0.parentGroup == groupID }
+    }
+
     /// Trang cơ sở: trang của file (bản gốc lúc mở) hoặc trang tạo trong phiên (trống, chỉ có tên và cỡ).
     func basePage(_ pageID: String) -> ReportPage? {
         if let page = baseline.pages.first(where: { $0.id == pageID }) { return page }
@@ -151,7 +189,7 @@ final class LayoutEditor {
     func page(_ pageID: String) -> ReportPage? {
         guard var page = basePage(pageID) else { return nil }
         if let name = structure.renamed[pageID] { page.displayName = name }
-        if let edit = edited[pageID] { page.visuals = edit.visuals }
+        if let edit = edited[pageID] { page.visuals = edit.visuals; page.groups = edit.groups }
         return page
     }
 
@@ -163,12 +201,16 @@ final class LayoutEditor {
         return visuals(of: pageID).first { $0.id == id }
     }
 
+    /// Khoá khi không biết khung nhóm để quy toạ độ: visual có `parentGroupName` mà trang không có nhóm đó, hoặc nhóm nằm
+    /// trong nhóm khác (nhóm lồng nhau, chưa quan sát ở D7).
     func isLockedByGroup(_ id: String) -> Bool {
-        guard let visual = visual(id) else { return false }
-        return visual.raw["parentGroupName"]?.string != nil
+        guard let item = item(id), let pageID = currentPageID else { return false }
+        guard let parent = item.parentGroup else { return false }
+        if item.isGroup { return true }
+        return !groups(of: pageID).contains { $0.id == parent && $0.parentGroup == nil }
     }
 
-    static let groupLockedMessage = "Nằm trong nhóm, chưa sửa được ở D1."
+    static let groupLockedMessage = "Nằm trong nhóm lồng nhau hoặc nhóm không đọc được, chưa sửa được."
 
     // MARK: Chọn
 
@@ -181,7 +223,7 @@ final class LayoutEditor {
     }
 
     func select(_ id: String, extend: Bool = false) {
-        guard visual(id) != nil else { return }
+        guard item(id) != nil else { return }
         lockedReason = nil
         if extend {
             if selection.contains(id) {
@@ -200,7 +242,7 @@ final class LayoutEditor {
 
     func setSelection(_ ids: [String], extend: Bool) {
         guard let pageID = currentPageID else { return }
-        let valid = Set(visuals(of: pageID).map(\.id))
+        let valid = Set(items(of: pageID).map(\.id))
         let chosen = ids.filter(valid.contains)
         if extend { selection.formUnion(chosen) } else { selection = Set(chosen) }
         if let last = chosen.last { primary = last } else if !extend { primary = nil }
@@ -215,35 +257,63 @@ final class LayoutEditor {
 
     // MARK: Di chuyển, đổi cỡ
 
-    /// Dời các visual (bỏ qua visual trong nhóm). `dx`, `dy` tính theo điểm của trang.
+    /// Dời các phần tử (visual và nhóm; bỏ qua phần tử bị khoá). `dx`, `dy` tính theo điểm của trang. Nhóm dời cùng các con.
     func move(_ ids: Set<String>, dx: Int, dy: Int, snap: Bool, coalescing: Bool = false) {
         guard let pageID = currentPageID, let bounds = pageBounds(pageID) else { return }
         let movable = unlocked(ids)
         guard !movable.isEmpty else { return }
-        let ordered = visuals(of: pageID).filter { movable.contains($0.id) }
+        let ordered = items(of: pageID).filter { movable.contains($0.id) && !(($0.parentGroup).map(movable.contains) ?? false) }
+        guard !ordered.isEmpty else { return }
         let moved = LayoutGeometry.move(ordered.map(Frame.init), dx: dx, dy: dy, page: bounds, snap: snap)
         var frames: [String: Frame] = [:]
         for (visual, frame) in zip(ordered, moved) { frames[visual.id] = frame }
         apply(frames: frames, coalescing: coalescing)
     }
 
-    /// Kéo một tay nắm của một visual.
+    /// Kéo một tay nắm của một phần tử (visual hoặc nhóm).
     func resize(_ id: String, handle: ResizeHandle, dx: Int, dy: Int, snap: Bool) {
-        guard let pageID = currentPageID, let bounds = pageBounds(pageID), let visual = visual(id) else { return }
+        guard let pageID = currentPageID, let bounds = pageBounds(pageID), let visual = item(id) else { return }
         guard !unlocked([id]).isEmpty else { return }
         let frame = LayoutGeometry.resize(Frame(visual), handle: handle, dx: dx, dy: dy, page: bounds, snap: snap)
         apply(frames: [id: frame])
     }
 
-    /// Đặt khung cho nhiều visual cùng lúc (cuối một lần kéo) thành đúng một bước hoàn tác.
-    /// Visual trong nhóm bị bỏ qua; không có gì đổi thì không tạo bước.
+    /// Đặt khung cho nhiều phần tử cùng lúc (cuối một lần kéo) thành đúng một bước hoàn tác.
+    /// Nhóm: các con dời theo khi chỉ đổi vị trí, co theo tỷ lệ khi đổi cỡ (`ScaleMode`, VM-D7); khung của con có nhóm
+    /// cùng được đặt thì bị bỏ qua (nhóm quyết định). Con của nhóm bị kẹp trong khung nhóm. Phần tử bị khoá bị bỏ qua;
+    /// không có gì đổi thì không tạo bước.
     func apply(frames: [String: Frame], coalescing: Bool = false) {
         guard let pageID = currentPageID else { return }
         let allowed = unlocked(Set(frames.keys))
         guard !allowed.isEmpty else { return }
         commit(pageID: pageID, coalesceIDs: coalescing ? allowed : nil) { edit in
+            let groupIDs = Set(edit.groups.map(\.id))
+            for index in edit.groups.indices where allowed.contains(edit.groups[index].id) {
+                guard let frame = frames[edit.groups[index].id] else { continue }
+                let old = edit.groups[index]
+                let nx = Double(frame.x), ny = Double(frame.y), nw = Double(frame.width), nh = Double(frame.height)
+                guard old.x != nx || old.y != ny || old.width != nw || old.height != nh else { continue }
+                let sx = old.width > 0 ? nw / old.width : 1, sy = old.height > 0 ? nh / old.height : 1
+                for child in edit.visuals.indices where edit.visuals[child].parentGroup == old.id {
+                    var c = edit.visuals[child]
+                    c.x = nx + (c.x - old.x) * sx
+                    c.y = ny + (c.y - old.y) * sy
+                    c.width = max(1, c.width * sx)
+                    c.height = max(1, c.height * sy)
+                    edit.visuals[child] = c
+                }
+                edit.groups[index].x = nx
+                edit.groups[index].y = ny
+                edit.groups[index].width = nw
+                edit.groups[index].height = nh
+            }
             for index in edit.visuals.indices where allowed.contains(edit.visuals[index].id) {
-                guard let frame = frames[edit.visuals[index].id] else { continue }
+                let visual = edit.visuals[index]
+                if let parent = visual.parentGroup, groupIDs.contains(parent), allowed.contains(parent), frames[parent] != nil { continue }
+                guard var frame = frames[visual.id] else { continue }
+                if let parent = visual.parentGroup, let group = edit.groups.first(where: { $0.id == parent }) {
+                    frame = Self.clamp(frame, inside: group)
+                }
                 edit.visuals[index].x = Double(frame.x)
                 edit.visuals[index].y = Double(frame.y)
                 edit.visuals[index].width = Double(frame.width)
@@ -252,17 +322,35 @@ final class LayoutEditor {
         }
     }
 
+    /// `frame` kẹp trong khung của nhóm (con không ra khỏi nhóm; D7 R4).
+    static func clamp(_ frame: Frame, inside group: ReportVisual) -> Frame {
+        let gx = Int(group.x.rounded(.up)), gy = Int(group.y.rounded(.up))
+        let gr = Int((group.x + group.width).rounded(.down)), gb = Int((group.y + group.height).rounded(.down))
+        let width = min(frame.width, max(1, gr - gx)), height = min(frame.height, max(1, gb - gy))
+        let x = min(max(frame.x, gx), max(gx, gr - width)), y = min(max(frame.y, gy), max(gy, gb - height))
+        return Frame(x: x, y: y, width: width, height: height)
+    }
+
     // MARK: Xoá, nhân bản, chép, dán
 
-    /// Xoá các visual (bỏ qua visual trong nhóm). Vùng chọn trống sau khi xoá.
+    /// Xoá các phần tử (visual hoặc nhóm; bỏ qua phần tử bị khoá). Xoá nhóm xoá cả các con; xoá con cuối của một nhóm xoá luôn
+    /// nhóm (nhóm rỗng không hợp lệ, D7 R4). Vùng chọn trống sau khi xoá.
     func delete(_ ids: Set<String>) {
         guard let pageID = currentPageID, let base = basePage(pageID) else { return }
-        let present = Set(visuals(of: pageID).map(\.id))
-        let target = unlocked(ids).intersection(present)
+        var target = unlocked(ids).intersection(Set(items(of: pageID).map(\.id)))
         guard !target.isEmpty else { return }
-        let baselineIDs = Set(base.visuals.map(\.id))
+        let baselineIDs = Set(base.visuals.map(\.id)).union(base.groups.map(\.id))
         let changed = commit(pageID: pageID) { edit in
+            for group in edit.groups where target.contains(group.id) {
+                target.formUnion(edit.visuals.filter { $0.parentGroup == group.id }.map(\.id))
+            }
+            // Nhóm hết con thì xoá luôn nhóm.
+            for group in edit.groups where !target.contains(group.id) {
+                let kids = edit.visuals.filter { $0.parentGroup == group.id }.map(\.id)
+                if !kids.isEmpty, kids.allSatisfy(target.contains) { target.insert(group.id) }
+            }
             edit.visuals.removeAll { target.contains($0.id) }
+            edit.groups.removeAll { target.contains($0.id) }
             for id in target {
                 if edit.added[id] != nil { edit.added[id] = nil } else if baselineIDs.contains(id) { edit.deleted.insert(id) }
             }
@@ -270,29 +358,30 @@ final class LayoutEditor {
         if changed { clearSelection(keepingMessage: true) }
     }
 
-    /// Nhân bản các visual: mã mới, lệch `duplicateOffset`, nằm trên cùng, được chọn. Trả mã các bản sao.
+    /// Nhân bản các phần tử: mã mới, lệch `duplicateOffset`, nằm trên cùng, được chọn. Trả mã các bản sao.
     @discardableResult
     func duplicate(_ ids: Set<String>) -> [String] {
         guard let pageID = currentPageID else { return [] }
-        let sources = visuals(of: pageID).filter { unlocked(ids).contains($0.id) }
-        let entries = sources.compactMap { visual in json(of: visual, page: pageID).map { (visual, $0) } }
-        return makeCopies(entries.map { (visual: $0.0, json: $0.1) }, shifts: 1)
+        let chosen = unlocked(ids)
+        let sources = items(of: pageID).filter { chosen.contains($0.id) }
+        return makeCopies(copyEntries(sources, page: pageID), shift: LayoutGeometry.duplicateOffset, zStep: LayoutGeometry.zStep)
     }
 
-    /// Chép các visual đang chọn (không có tác dụng lên bố cục).
+    /// Chép các phần tử đang chọn (không có tác dụng lên bố cục).
     func copy() {
         guard let pageID = currentPageID else { return }
-        let chosen = visuals(of: pageID).filter { selection.contains($0.id) && !isLockedByGroup($0.id) }
-        clipboard = chosen.compactMap { visual in json(of: visual, page: pageID).map { (visual: visual, json: $0) } }
+        let chosen = items(of: pageID).filter { selection.contains($0.id) && !isLockedByGroup($0.id) }
+        clipboard = copyEntries(chosen, page: pageID)
         pasteCount = 0
     }
 
-    /// Dán vào trang hiện tại; mỗi lần dán lệch thêm một bậc.
+    /// Dán vào trang hiện tại (cùng trang hoặc trang khác): theo Power BI Desktop (VM-D7), vị trí nguồn lệch thêm
+    /// `LayoutGeometry.pasteOffset` mỗi lần dán và `z` bằng `z` lớn nhất của trang cộng 1.
     @discardableResult
     func paste() -> [String] {
         guard !clipboard.isEmpty else { return [] }
         pasteCount += 1
-        return makeCopies(clipboard, shifts: pasteCount)
+        return makeCopies(clipboard, shift: LayoutGeometry.pasteOffset * pasteCount, zStep: 1)
     }
 
     var hasClipboard: Bool { !clipboard.isEmpty }
@@ -322,7 +411,8 @@ final class LayoutEditor {
     /// `visual.json` hiện tại của visual với vị trí đã sửa (D5: nhân bản trang).
     func currentVisualJSON(_ visual: ReportVisual, page pageID: String) -> Data? {
         guard let json = json(of: visual, page: pageID) else { return nil }
-        return (try? Self.patch(json, to: visual)).flatMap { $0 } ?? json
+        let group = visual.parentGroup.flatMap { id in groups(of: pageID).first { $0.id == id } }
+        return (try? Self.patch(json, to: visual, group: group)).flatMap { $0 } ?? json
     }
 
     /// Container không phải visual đã sao sang trang `pageID` trong phiên (D5); nil nếu trang không có.
@@ -338,42 +428,83 @@ final class LayoutEditor {
     /// Ghi nhớ các visual đã tạo trong phiên cho trang (để biết phần nào có thể đã nằm trong file khi xoá).
     func registerCreatedVisuals(_ ids: Set<String>, page pageID: String) { createdIDs[pageID, default: []].formUnion(ids) }
 
-    private func makeCopies(_ entries: [(visual: ReportVisual, json: Data)], shifts: Int) -> [String] {
+    /// Các phần tử cần sao cho `sources`: nhóm kéo theo mọi con; con chọn riêng (không kèm nhóm) sao thành visual ngoài nhóm.
+    private func copyEntries(_ sources: [ReportVisual], page pageID: String) -> [(visual: ReportVisual, json: Data)] {
+        var wanted: [ReportVisual] = []
+        var seen = Set<String>()
+        func add(_ v: ReportVisual) { if seen.insert(v.id).inserted { wanted.append(v) } }
+        for source in sources {
+            add(source)
+            if source.isGroup { for child in children(ofGroup: source.id, page: pageID) { add(child) } }
+        }
+        return wanted.compactMap { visual in json(of: visual, page: pageID).map { (visual: visual, json: $0) } }
+    }
+
+    private func makeCopies(_ entries: [(visual: ReportVisual, json: Data)], shift: Int, zStep: Int) -> [String] {
         guard let pageID = currentPageID, let bounds = pageBounds(pageID), !entries.isEmpty else { return [] }
-        let offset = LayoutGeometry.duplicateOffset * shifts
-        let frames = LayoutGeometry.move(entries.map { Frame($0.visual) }, dx: offset, dy: offset, page: bounds, snap: false)
-        var z = visuals(of: pageID).map(\.z).max() ?? 0
+        // Con của nhóm đã sao cùng nhóm: giữ nhóm; con riêng lẻ: ra ngoài nhóm.
+        let groupIDs = Set(entries.filter(\.visual.isGroup).map(\.visual.id))
+        let frames = LayoutGeometry.move(entries.map { Frame($0.visual) }, dx: shift, dy: shift, page: bounds, snap: false)
+        var idMap: [String: String] = [:]
+        for entry in entries { idMap[entry.visual.id] = PBIRLayoutPatch.makeVisualName(avoiding: usedIDs.union(idMap.values)) }
+        var z = items(of: pageID).map(\.z).max() ?? 0
         var copies: [ReportVisual] = []
+        var groupCopies: [ReportVisual] = []
         var data: [String: Data] = [:]
-        for (index, entry) in entries.enumerated() {
-            let id = PBIRLayoutPatch.makeVisualName(avoiding: usedIDs)
+        // Visual trước (z tăng dần), nhóm sau: nhóm có `z` lớn hơn con của nó.
+        let ordered = entries.indices.sorted { entries[$0].visual.isGroup == entries[$1].visual.isGroup ? $0 < $1 : !entries[$0].visual.isGroup }
+        var lastChildZ: [String: Double] = [:]
+        for index in ordered {
+            let entry = entries[index], source = entry.visual
+            guard let id = idMap[source.id] else { continue }
             let frame = frames[index]
-            z += Double(LayoutGeometry.zStep)
-            guard let patched = try? PBIRLayoutPatch.duplicated(entry.json, newName: id, x: frame.x, y: frame.y,
-                                                                width: frame.width, height: frame.height, z: Int(z)) else {
-                z -= Double(LayoutGeometry.zStep)
+            var parent = source.parentGroup.flatMap { groupIDs.contains($0) ? idMap[$0] : nil }
+            if source.isGroup { parent = nil }
+            let itemZ: Double
+            if source.isGroup {
+                itemZ = max(z + Double(zStep), (lastChildZ[id] ?? z) + 1)
+                z = max(z, itemZ)
+            } else {
+                z += Double(zStep)
+                itemZ = z
+                if let parent { lastChildZ[parent] = max(lastChildZ[parent] ?? 0, itemZ) }
+            }
+            let made = isLegacy
+                ? try? LegacyLayoutPatch.duplicated(entry.json, newName: id, x: Double(frame.x), y: Double(frame.y),
+                                                    width: Double(frame.width), height: Double(frame.height), z: itemZ)
+                : try? PBIRLayoutPatch.duplicated(entry.json, newName: id, x: frame.x, y: frame.y,
+                                                  width: frame.width, height: frame.height, z: Int(itemZ))
+            guard let patched = made else {
+                if !source.isGroup { z -= Double(zStep) }
                 continue
             }
             usedIDs.insert(id)
-            let source = entry.visual
-            copies.append(ReportVisual(id: id, type: source.type, x: Double(frame.x), y: Double(frame.y), z: z,
-                                       width: Double(frame.width), height: Double(frame.height), isHidden: source.isHidden,
-                                       objects: source.objects, containerObjects: source.containerObjects, fields: source.fields,
-                                       raw: (try? JSONValue.parse(patched)) ?? source.raw))
+            let raw = isLegacy ? source.raw : ((try? JSONValue.parse(patched)) ?? source.raw)
+            if source.isGroup {
+                groupCopies.append(ReportVisual(id: id, type: source.type, x: Double(frame.x), y: Double(frame.y), z: itemZ,
+                                                width: Double(frame.width), height: Double(frame.height), isHidden: source.isHidden, raw: raw))
+            } else {
+                copies.append(ReportVisual(id: id, type: source.type, x: Double(frame.x), y: Double(frame.y), z: itemZ,
+                                           width: Double(frame.width), height: Double(frame.height), isHidden: source.isHidden,
+                                           objects: source.objects, containerObjects: source.containerObjects, fields: source.fields,
+                                           raw: raw, parentGroup: parent))
+            }
             data[id] = patched
         }
-        guard !copies.isEmpty else {
+        guard !copies.isEmpty || !groupCopies.isEmpty else {
             lockedReason = "Không đọc được dữ liệu của visual nguồn để nhân bản."
             return []
         }
         commit(pageID: pageID) { edit in
             edit.visuals.append(contentsOf: copies)
+            edit.groups.append(contentsOf: groupCopies)
             edit.added.merge(data) { _, new in new }
         }
         createdIDs[pageID, default: []].formUnion(data.keys)
-        selection = Set(data.keys)
-        primary = copies.last?.id
-        return copies.map(\.id)
+        let top = groupCopies.map(\.id) + copies.filter { $0.parentGroup == nil }.map(\.id)
+        selection = Set(top)
+        primary = top.last
+        return top
     }
 
     private func clearSelection(keepingMessage: Bool) {
@@ -395,6 +526,7 @@ final class LayoutEditor {
     /// Lý do visual này chưa sửa được trường, hoặc nil nếu sửa được.
     func fieldEditingBlocker(for id: String) -> String? {
         guard let pageID = currentPageID, visual(id) != nil else { return "Chọn một visual để sửa trường." }
+        if isLegacy { return Self.legacyMessage }
         if isLockedByGroup(id) { return "Visual nằm trong nhóm, chưa sửa trường được." }
         guard let base = baseJSON(of: id, page: pageID) else { return "Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được)." }
         // Visual dữ liệu mới thêm trong phiên chưa có query: được tạo khi thả trường đầu tiên (D3).
@@ -420,7 +552,7 @@ final class LayoutEditor {
     func setNotice(_ message: String?) { notice = message }
 
     func clearFieldRefusal() { fieldRefusal = nil }
-    func noteFieldRefusal(_ message: String) { fieldRefusal = message }
+    func noteFieldRefusal(_ message: String?) { fieldRefusal = message }
 
     /// Thêm `field` vào ô `role`. Trả lý do nếu bị từ chối (và ghi vào `fieldRefusal`), nil nếu thành công.
     @discardableResult
@@ -498,6 +630,7 @@ final class LayoutEditor {
     func insertVisual(type: String, visibleRect: CGRect?) -> String? {
         fieldRefusal = nil
         notice = nil
+        if isLegacy { fieldRefusal = Self.legacyMessage; return nil }
         guard let pageID = currentPageID, let bounds = pageBounds(pageID) else {
             fieldRefusal = "Chưa mở trang nào."
             return nil
@@ -553,6 +686,7 @@ final class LayoutEditor {
         fieldRefusal = nil
         notice = nil
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
+        if isLegacy { return refuse(Self.legacyMessage) }
         guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một visual để đổi loại.") }
         if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa đổi loại được.") }
         guard let base = baseJSON(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).") }
@@ -621,6 +755,7 @@ final class LayoutEditor {
         fieldRefusal = nil
         notice = nil
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
+        if isLegacy { return refuse(Self.legacyMessage) }
         guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một hộp văn bản để sửa.") }
         guard visual.type == "textbox" else { return refuse("Chỉ hộp văn bản mới sửa được nội dung.") }
         if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa sửa được.") }
@@ -663,6 +798,7 @@ final class LayoutEditor {
 
     /// Gọi sau khi lưu thành công: trạng thái hiện tại là trạng thái sạch.
     func markSaved() {
+        savedEdits = reportEdits
         cleanMark = undoStack.count
         lastCoalesce = nil
     }
@@ -681,12 +817,13 @@ final class LayoutEditor {
     }
 
     private func snapshot(of pageID: String) -> LayoutSnapshot {
-        LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary)
+        LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary, edits: reportEdits)
     }
 
     private func restore(_ step: LayoutSnapshot) {
         edited = step.edited
         structure = step.structure
+        reportEdits = step.edits
         // Trang của bước có thể không còn trong dãy (hoàn tác thêm trang): về trang đầu.
         let target = structure.order.contains(step.pageID) ? step.pageID : structure.order.first
         if currentPageID != target { currentPageID = target }
@@ -699,7 +836,7 @@ final class LayoutEditor {
     @discardableResult
     func commit(pageID: String, coalesceIDs: Set<String>? = nil, _ body: (inout PageEdit) -> Void) -> Bool {
         let before = edited[pageID]
-        let initial = PageEdit(visuals: basePage(pageID)?.visuals ?? [])
+        let initial = PageEdit(visuals: basePage(pageID)?.visuals ?? [], groups: basePage(pageID)?.groups ?? [])
         var working = before ?? initial
         body(&working)
         guard working != (before ?? initial) else { return false }
@@ -745,6 +882,35 @@ final class LayoutEditor {
         return true
     }
 
+    /// Một thao tác bookmark hoặc bộ lọc (D6): sửa `reportEdits`, đúng một bước hoàn tác. `coalesceKey`: các lần gọi liên tiếp
+    /// trong 0,5 s với cùng khoá (gõ, chọn giá trị trong một thẻ lọc) gộp thành một bước. Không đổi gì thì không tạo bước.
+    @discardableResult
+    func commitReport(coalesceKey: String? = nil, _ body: (inout ReportEdits) -> Void) -> Bool {
+        var working = reportEdits
+        body(&working)
+        guard working != reportEdits else { return false }
+        let time = now()
+        var merged = false
+        if let key = coalesceKey, let last = lastCoalesce, last.pageID == Self.reportCoalesceScope, last.ids == [key],
+           time.timeIntervalSince(last.at) < Self.coalesceWindow, !undoStack.isEmpty {
+            merged = true
+        }
+        if !merged {
+            if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+            undoStack.append(snapshot(of: currentPageID ?? structure.order.first ?? ""))
+            if undoStack.count > Self.historyLimit {
+                undoStack.removeFirst()
+                cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+            }
+        }
+        redoStack.removeAll()
+        reportEdits = working
+        lastCoalesce = coalesceKey.map { (Self.reportCoalesceScope, [$0], time) }
+        return true
+    }
+
+    static let reportCoalesceScope = "\u{0}report"
+
     /// Chuyển trang đang mở không tạo bước hoàn tác; trang phải có trong dãy.
     func openPage(_ pageID: String) {
         guard structure.order.contains(pageID) else { return }
@@ -779,6 +945,7 @@ final class LayoutEditor {
     /// bookmark và `page.json`; và (D5) trang mới, tên trang, thứ tự trang, trang bị xoá cùng bookmark trỏ tới chúng.
     /// Mọi thay đổi trang so với file trên đĩa nên lưu lần hai không ghi lại gì.
     func makeChanges(archive: ZipArchive) throws -> PBIXChanges {
+        if isLegacy { return try makeLegacyChanges(archive: archive) }
         var changes = PBIXChanges()
         var removedIDs = Set<String>()
         let diskPages = Self.pageParts(in: archive)
@@ -792,8 +959,9 @@ final class LayoutEditor {
             for (id, data) in edit.extraParts where archive.entry(Self.visualPath(page: pageID, id: id)) == nil {
                 changes.addedParts[Self.visualPath(page: pageID, id: id)] = data
             }
-            for visual in edit.visuals {
+            for visual in edit.visuals + edit.groups {
                 let path = Self.visualPath(page: pageID, id: visual.id)
+                let group = visual.parentGroup.flatMap { id in edit.groups.first { $0.id == id } }
                 if archive.entry(path) != nil {
                     let onDisk = try archive.read(path)
                     var json = onDisk
@@ -803,15 +971,15 @@ final class LayoutEditor {
                     if let lines = edit.texts[visual.id] { json = try PBIRVisualPatch.setText(in: json, lines: lines) }
                     if let wells = edit.queries[visual.id] { json = try PBIRQueryPatch.apply(wells, to: json) }
                     if let formats = edit.formats[visual.id] { json = try PBIRFormatPatch.apply(formats, to: json) }
-                    if let patched = try Self.patch(json, to: visual) { json = patched }
+                    if let patched = try Self.patch(json, to: visual, group: group) { json = patched }
                     if json != onDisk { changes.reportParts[path] = json }
                 } else if let data = edit.added[visual.id] {
-                    changes.addedParts[path] = try Self.patch(data, to: visual) ?? data
+                    changes.addedParts[path] = try Self.patch(data, to: visual, group: group) ?? data
                 }
             }
             // Bị xoá: visual của file gốc hoặc bản sao đã tạo trong phiên mà không còn trong bố cục, và có trong file.
-            let current = Set(edit.visuals.map(\.id))
-            let candidates = Set(base.visuals.map(\.id)).union(createdIDs[pageID] ?? [])
+            let current = Set(edit.visuals.map(\.id)).union(edit.groups.map(\.id))
+            let candidates = Set(base.visuals.map(\.id)).union(base.groups.map(\.id)).union(createdIDs[pageID] ?? [])
             for id in candidates.sorted() where !current.contains(id) {
                 let path = Self.visualPath(page: pageID, id: id)
                 if archive.entry(path) != nil {
@@ -887,20 +1055,29 @@ final class LayoutEditor {
                 if items != onDisk { changes.reportParts[Self.bookmarksJSONPath] = items }
             }
         }
+        saveNotes = try addReportChanges(to: &changes, archive: archive)
         return changes
     }
 
-    /// `visual.json` với vị trí của `visual`, hoặc nil khi vị trí trong file đã đúng.
-    private static func patch(_ json: Data, to visual: ReportVisual) throws -> Data? {
+    /// `visual.json` với vị trí và nhóm của `visual`, hoặc nil khi file đã đúng. Visual trong nhóm: file ghi toạ độ tương đối
+    /// so với nhóm (`group`), mô hình dùng toạ độ tuyệt đối (D7); so sánh có dung sai để số thập phân của Desktop không tạo
+    /// ghi thừa. Visual có nhóm mà không tìm thấy nhóm (khoá) giữ nguyên.
+    private static func patch(_ json: Data, to visual: ReportVisual, group: ReportVisual? = nil) throws -> Data? {
+        if visual.parentGroup != nil, group == nil { return nil }
         let current = try PBIRLayoutPatch.position(in: json)
-        func differs(_ a: Double, _ b: Double) -> Bool { a != b }
-        let frame = Frame(visual)
-        let x = differs(current.x, visual.x) ? frame.x : nil
-        let y = differs(current.y, visual.y) ? frame.y : nil
-        let width = differs(current.width, visual.width) ? frame.width : nil
-        let height = differs(current.height, visual.height) ? frame.height : nil
-        guard x != nil || y != nil || width != nil || height != nil else { return nil }
-        return try PBIRLayoutPatch.setPosition(in: json, x: x, y: y, width: width, height: height)
+        let ox = group?.x ?? 0, oy = group?.y ?? 0
+        func differs(_ a: Double, _ b: Double) -> Bool { abs(a - b) > 1e-6 }
+        func near(_ v: Double) -> Double { v < 0 && v > -1e-6 ? 0 : v }
+        let x = near(visual.x - ox), y = near(visual.y - oy)
+        var out = json
+        if differs(current.x, x) || differs(current.y, y) || differs(current.width, visual.width) || differs(current.height, visual.height) {
+            out = try PBIRLayoutPatch.setPosition(
+                in: out, x: differs(current.x, x) ? x : nil, y: differs(current.y, y) ? y : nil,
+                width: differs(current.width, visual.width) ? visual.width : nil,
+                height: differs(current.height, visual.height) ? visual.height : nil)
+        }
+        out = try PBIRGroupPatch.settingParentGroup(group?.id, in: out)
+        return out == json ? nil : out
     }
 }
 

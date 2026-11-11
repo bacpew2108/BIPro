@@ -88,6 +88,8 @@ public struct ReportBookmark: Sendable, Hashable, Identifiable {
                 hidden[visualID] = (mode == "hidden")
             }
         }
+        // `options.suppressDisplay` (VM-D6): áp bookmark không đổi ẩn/hiện, dù explorationState vẫn ghi trạng thái hiển thị.
+        if options?["suppressDisplay"]?.bool ?? false { hidden = [:] }
         let only = options?["applyOnlyToTargetVisuals"]?.bool ?? false
         let suppressData = options?["suppressData"]?.bool ?? false
         var data: BookmarkData?

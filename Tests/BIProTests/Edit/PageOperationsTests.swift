@@ -129,7 +129,7 @@ import Testing
     }
 
     static func groupedExtras() -> [(path: String, data: Data)] {
-        [(SyntheticReport.visualPath("p1", group), Data(#"{"name":"\#(group)","position":{"x":0,"y":0,"z":9000,"height":50,"width":50,"tabOrder":9000},"visualGroup":{"displayName":"G"}}"#.utf8)),
+        [(SyntheticReport.visualPath("p1", group), Data(#"{"name":"\#(group)","position":{"x":0,"y":0,"z":9000,"height":200,"width":300,"tabOrder":9000},"visualGroup":{"displayName":"G"}}"#.utf8)),
          (SyntheticReport.visualPath("p1", child), Data(#"{"name":"\#(child)","position":{"x":218.8235294117647,"y":145.41176470588235,"z":9100,"height":40,"width":40,"tabOrder":9100},"parentGroupName":"\#(group)","visual":{"visualType":"card"}}"#.utf8))]
     }
 
@@ -173,12 +173,11 @@ import Testing
         let env = try Env(p1Page: Self.drillPage, extra: Self.groupedExtras()); defer { env.cleanUp() }
         let id = try #require(env.editor.duplicatePage("p1"))
         let copy = try #require(env.editor.page(id))
-        let child = try #require(copy.visuals.first { $0.raw["parentGroupName"] != nil })
-        // nhóm không phải visual: được sao như phần thêm của trang, mã mới, con trỏ vào nhóm mới
-        let extras = try #require(env.editor.pageExtraParts(id))
-        #expect(extras.count == 1)
-        let groupID = try #require(extras.keys.first)
-        #expect(groupID != Self.group && child.raw["parentGroupName"]?.string == groupID)
+        let child = try #require(copy.visuals.first { $0.parentGroup != nil })
+        // nhóm (D7): có trong `groups` của bản sao với mã mới; con trỏ vào nhóm mới
+        #expect(copy.groups.count == 1)
+        let groupID = try #require(copy.groups.first?.id)
+        #expect(groupID != Self.group && child.parentGroup == groupID && child.raw["parentGroupName"]?.string == groupID)
         // số thực của vị trí giữ nguyên chữ trong bản ghi
         let changes = try env.editor.makeChanges(archive: env.archive)
         let text = String(decoding: try #require(changes.addedParts[LayoutEditor.visualPath(page: id, id: child.id)]), as: UTF8.self)
@@ -186,7 +185,7 @@ import Testing
         #expect(changes.addedParts[LayoutEditor.visualPath(page: id, id: groupID)] != nil)
         // nhân bản tiếp trang bản sao: nhóm theo sang
         let again = try #require(env.editor.duplicatePage(id))
-        #expect(env.editor.pageExtraParts(again)?.count == 1)
+        #expect(env.editor.page(again)?.groups.count == 1)
     }
 
     @Test func aDrillthroughPageIsCopiedWithoutItsBindingAndTheUserIsTold() throws {

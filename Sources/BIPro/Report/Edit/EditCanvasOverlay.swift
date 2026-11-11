@@ -20,7 +20,8 @@ struct EditCanvasOverlay: View {
     static let space = "editPage"
 
     private enum Drag {
-        case move(startFrames: [(id: String, frame: Frame)])
+        /// `select`: bấm vào con khi nhóm đang chọn: nếu không kéo thì khi thả chọn con (như Desktop, D7).
+        case move(startFrames: [(id: String, frame: Frame)], select: String?)
         case marquee(origin: CGPoint, base: Set<String>, extend: Bool)
         case ignored
     }
@@ -61,14 +62,37 @@ struct EditCanvasOverlay: View {
         }
         .frame(width: page.width, height: page.height, alignment: .topLeading)
         .coordinateSpace(name: Self.space)
+        .contextMenu { arrangeMenu }
+    }
+
+    /// Căn lề, phân bố, nhóm cho vùng chọn hiện tại (D7); mục không dùng được thì mờ, `Text` nêu lý do ở menu chính.
+    @ViewBuilder private var arrangeMenu: some View {
+        Menu("Căn lề") {
+            ForEach(AlignCommand.allCases, id: \.self) { command in
+                Button(command.title) { align(command) }
+                    .disabled(editor.alignBlocker(command) != nil)
+            }
+        }
+        Button("Nhóm visual") { editor.group(); onSelectionChange() }
+            .disabled(editor.groupBlocker() != nil)
+        Button("Bỏ nhóm") { editor.ungroup(); onSelectionChange() }
+            .disabled(editor.ungroupBlocker() != nil)
+    }
+
+    private func align(_ command: AlignCommand) {
+        editor.align(command)
+        onSelectionChange()
     }
 
     // MARK: Khung chọn và tay nắm
 
     private func frame(of visual: ReportVisual) -> Frame { ghost[visual.id] ?? preview[visual.id] ?? Frame(visual) }
 
+    /// Visual và nhóm của trang (D7): nhóm không vẽ nhưng chọn được, có khung chọn.
+    private var items: [ReportVisual] { page.visuals + page.groups }
+
     private var selectedVisuals: [ReportVisual] {
-        page.visuals.filter { editor.selection.contains($0.id) && !isHidden($0) }
+        items.filter { editor.selection.contains($0.id) && !isHidden($0) }
     }
 
     @ViewBuilder private var chrome: some View {
@@ -132,8 +156,14 @@ struct EditCanvasOverlay: View {
     private func begin(at point: CGPoint) {
         onInteract()
         let extend = NSEvent.modifierFlags.contains(.shift)
-        let hit = LayoutGeometry.hit(x: Int(point.x), y: Int(point.y), in: page.visuals, isHidden: isHidden)
-        if let hit {
+        let hit = editor.hitTarget(x: Int(point.x), y: Int(point.y), isHidden: isHidden)
+        if var hit {
+            var deferred: String?
+            // Nhóm đang chọn (và chỉ nhóm đó): bấm vào con thì kéo vẫn dời nhóm, chọn con khi thả nếu không kéo.
+            if !extend, let group = items.first(where: { $0.id == hit })?.parentGroup, editor.selection == [group] {
+                deferred = hit
+                hit = group
+            }
             if extend {
                 editor.select(hit, extend: true)
             } else if !editor.selection.contains(hit) {
@@ -141,9 +171,7 @@ struct EditCanvasOverlay: View {
             }
             onSelectionChange()
             if editor.selection.contains(hit) {
-                let start = page.visuals.filter { editor.selection.contains($0.id) && !isHidden($0) }
-                    .map { (id: $0.id, frame: Frame($0)) }
-                drag = .move(startFrames: start)
+                drag = .move(startFrames: dragStart(), select: deferred)
             } else {
                 drag = .ignored
             }
@@ -154,9 +182,20 @@ struct EditCanvasOverlay: View {
         }
     }
 
+    /// Khung đầu của các phần tử đang chọn khi bắt đầu kéo: nhóm kéo theo khung các con để canvas dời chúng theo.
+    private func dragStart() -> [(id: String, frame: Frame)] {
+        let selected = items.filter { editor.selection.contains($0.id) && !isHidden($0) }
+        let groups = Set(selected.filter(\.isGroup).map(\.id))
+        var out = selected.map { (id: $0.id, frame: Frame($0)) }
+        for visual in page.visuals where visual.parentGroup.map(groups.contains) ?? false && !editor.selection.contains(visual.id) {
+            out.append((id: visual.id, frame: Frame(visual)))
+        }
+        return out
+    }
+
     private func update(to point: CGPoint, from start: CGPoint) {
         switch drag {
-        case .move(let frames)?:
+        case .move(let frames, _)?:
             let dx = Int((point.x - start.x).rounded()), dy = Int((point.y - start.y).rounded())
             // Chưa kéo đủ xa (bấm chọn) thì chưa tạo khung tạm.
             guard hypot(point.x - start.x, point.y - start.y) * scale >= 3 || !preview.isEmpty else { return }
@@ -170,7 +209,9 @@ struct EditCanvasOverlay: View {
             let rect = Frame(x: Int(min(origin.x, point.x).rounded()), y: Int(min(origin.y, point.y).rounded()),
                              width: Int(abs(point.x - origin.x).rounded()), height: Int(abs(point.y - origin.y).rounded()))
             marquee = rect
-            let ids = LayoutGeometry.marquee(rect, visuals: page.visuals, isHidden: isHidden)
+            let known = Set(page.groups.map(\.id))
+            let top = page.visuals.filter { $0.parentGroup.map { !known.contains($0) } ?? true } + page.groups
+            let ids = LayoutGeometry.marquee(rect, visuals: top, isHidden: isHidden)
             editor.setSelection(Array(base) + ids, extend: false)
             _ = extend
             onSelectionChange()
@@ -180,8 +221,12 @@ struct EditCanvasOverlay: View {
     }
 
     private func finish() {
-        if case .move? = drag, !preview.isEmpty {
-            editor.apply(frames: preview)
+        if case .move(_, let deferred)? = drag {
+            if !preview.isEmpty {
+                editor.apply(frames: preview)
+            } else if let deferred {
+                editor.select(deferred)
+            }
         }
         preview = [:]
         marquee = nil

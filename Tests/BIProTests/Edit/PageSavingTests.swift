@@ -137,7 +137,7 @@ import Testing
         let id = try #require(env.editor.duplicatePage("p1"))
         let copy = try #require(env.editor.page(id))
         let changes = try env.editor.makeChanges(archive: env.archive)
-        let expectedPaths: Set<String> = Set([Self.pagePath(id)] + copy.visuals.map { LayoutEditor.visualPath(page: id, id: $0.id) }
+        let expectedPaths: Set<String> = Set([Self.pagePath(id)] + (copy.visuals + copy.groups).map { LayoutEditor.visualPath(page: id, id: $0.id) }
                                              + (env.editor.pageExtraParts(id) ?? [:]).keys.map { LayoutEditor.visualPath(page: id, id: $0) })
         #expect(Set(changes.addedParts.keys) == expectedPaths)
         #expect(Set(changes.reportParts.keys) == [Self.pagesPath] && changes.removedParts.isEmpty)

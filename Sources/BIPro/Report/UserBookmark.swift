@@ -35,21 +35,41 @@ extension ReportInteraction {
 
     var bookmarkRows: [BookmarkRow] {
         var rows: [BookmarkRow] = []
+        let doc = documentEdits.bookmarks
         let pageRemoved = removedBookmarksProvider?() ?? []
-        for bookmark in workspace.bookmarks where !deletedBookmarkIDs.contains(bookmark.id) && !pageRemoved.contains(bookmark.id) {
+        for bookmark in workspace.bookmarks where !deletedBookmarkIDs.contains(bookmark.id) && !doc.deleted.contains(bookmark.id) && !pageRemoved.contains(bookmark.id) {
             if let mine = userBookmarks.first(where: { $0.id == bookmark.id }) {
                 rows.append(BookmarkRow(id: mine.id, name: mine.name, group: bookmark.group, isUser: true, suppressData: !mine.data))
+            } else if let updated = doc.updated[bookmark.id] {
+                rows.append(BookmarkRow(id: bookmark.id, name: doc.renamed[bookmark.id] ?? updated.name, group: bookmark.group, isUser: true,
+                                        suppressData: !updated.data))
             } else {
-                rows.append(BookmarkRow(id: bookmark.id, name: renamedBookmarks[bookmark.id] ?? bookmark.displayName, group: bookmark.group,
-                                        isUser: false, suppressData: bookmark.suppressData))
+                rows.append(BookmarkRow(id: bookmark.id, name: renamedBookmarks[bookmark.id] ?? doc.renamed[bookmark.id] ?? bookmark.displayName,
+                                        group: bookmark.group, isUser: false, suppressData: bookmark.suppressData))
             }
         }
         let fileIDs = Set(workspace.bookmarks.map(\.id))
-        for mine in userBookmarks where !fileIDs.contains(mine.id) {
+        for added in doc.added {
+            rows.append(BookmarkRow(id: added.id, name: added.name, group: nil, isUser: true, suppressData: !added.data))
+        }
+        for mine in userBookmarks where !fileIDs.contains(mine.id) && !doc.deleted.contains(mine.id) {
             rows.append(BookmarkRow(id: mine.id, name: mine.name, group: nil, isUser: true, suppressData: !mine.data))
+        }
+        if let order = doc.order {
+            let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+            rows = rows.enumerated().sorted { (rank[$0.element.id] ?? Int.max, $0.offset) < (rank[$1.element.id] ?? Int.max, $1.offset) }.map(\.element)
         }
         return rows
     }
+
+    /// Bookmark người dùng (thêm hoặc cập nhật) theo mã: lớp tài liệu trước, rồi lớp phiên.
+    func userBookmark(id: String) -> UserBookmark? {
+        let doc = documentEdits.bookmarks
+        return doc.added.first { $0.id == id } ?? doc.updated[id] ?? userBookmarks.first { $0.id == id }
+    }
+
+    /// Tên của bookmark theo mã (hiện ở Bookmarks pane), nil nếu không có.
+    func bookmarkName(id: String) -> String? { bookmarkRows.first { $0.id == id }?.name }
 
     /// Chụp trạng thái hiện tại thành bookmark mới. Trả id.
     @discardableResult
@@ -99,7 +119,7 @@ extension ReportInteraction {
 
     /// Áp bookmark theo id, cả bookmark người dùng thêm và bookmark trong file. Trả id trang cần chuyển tới.
     func applyAnyBookmark(id: String) -> String? {
-        if let mine = userBookmarks.first(where: { $0.id == id }) { return apply(mine) }
+        if let mine = userBookmark(id: id) { return apply(mine) }
         return applyBookmark(id: id)
     }
 
@@ -117,11 +137,22 @@ extension ReportInteraction {
         return bookmark.currentPage ? bookmark.pageID : nil
     }
 
+    /// Chụp trạng thái hiện tại (trang, bộ lọc hiệu lực, slicer, drill, ẩn/hiện) thành bookmark chưa lưu vào đâu cả.
+    func captureBookmark(id: String, name: String, pageID: String?) -> UserBookmark { capture(id: id, name: name, pageID: pageID) }
+
+    /// Tên mặc định "Bookmark N" không trùng tên nào hiện có.
+    func nextBookmarkName() -> String {
+        let used = Set(bookmarkRows.map(\.name))
+        var k = bookmarkRows.count + 1
+        while used.contains("Bookmark \(k)") { k += 1 }
+        return "Bookmark \(k)"
+    }
+
     private func capture(id: String, name: String, pageID: String?) -> UserBookmark {
         var bookmark = UserBookmark(id: id, name: name)
         bookmark.pageID = pageID
-        bookmark.userFilters = userFilters
-        bookmark.removedFilters = removedFilters
+        bookmark.userFilters = effectiveUserFilters
+        bookmark.removedFilters = effectiveRemovedFilters
         bookmark.states = states
         bookmark.drillDepth = drillDepth
         bookmark.slicerExpansion = slicerExpansion

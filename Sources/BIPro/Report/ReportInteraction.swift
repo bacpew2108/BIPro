@@ -51,6 +51,16 @@ final class ReportInteraction {
     var deletedBookmarkIDs: Set<String> = []
     var renamedBookmarks: [String: String] = [:]
 
+    /// Nối với bộ sửa tài liệu (D6): `DocumentState` đặt. Có thì sửa bộ lọc và bookmark đi vào lớp tài liệu (chỉ ở chế độ Sửa);
+    /// không có (test, nơi khác) thì như trước: chỉ lớp phiên.
+    @ObservationIgnored var editing: ReportEditing?
+
+    /// Thay đổi cấp tài liệu hiện có (rỗng khi không nối).
+    var documentEdits: ReportEdits { editing?.edits() ?? ReportEdits() }
+    /// Bộ lọc người dùng hiệu lực: lớp tài liệu rồi lớp phiên (áp bookmark, trạng thái xem đè lên).
+    var effectiveUserFilters: [UserFilterKey: UserFilter] { ReportEdits.effectiveFilters(edits: documentEdits, session: userFilters) }
+    var effectiveRemovedFilters: Set<UserFilterKey> { ReportEdits.effectiveRemovals(edits: documentEdits, session: removedFilters) }
+
     @ObservationIgnored private var servicesTask: Task<(VisualQuerySpecReader, VisualDataLoader), Error>?
     @ObservationIgnored private var topoMap: TopoMap?
 
@@ -179,6 +189,13 @@ final class ReportInteraction {
 
     /// Đặt bộ lọc Basic cho một thẻ. `nil` hoặc không có giá trị nào = bỏ bộ lọc do người dùng đặt, quay về bản trong file.
     func setUserFilter(_ filter: UserFilter?, for key: UserFilterKey) {
+        if let editing {
+            guard editing.blocker() == nil else { return }
+            userFilters[key] = nil
+            removedFilters.remove(key)
+            if let filter { editing.setFilter(filter, key) } else { editing.resetFilter(key) }
+            return
+        }
         userFilters[key] = filter
     }
 
@@ -211,12 +228,27 @@ final class ReportInteraction {
     /// Thêm thẻ bộ lọc cho một cột ở cấp và phạm vi đã cho (chưa lọc gì cho tới khi người dùng chọn).
     func addFilter(column: QueryColumn, level: ReportFilter.Level, scope: String) {
         let key = UserFilterKey(level: level, scope: scope, filterID: "added-\(column.table).\(column.column)")
+        if let editing {
+            guard editing.blocker() == nil else { return }
+            removedFilters.remove(key)
+            userFilters[key] = nil
+            if effectiveUserFilters[key] == nil { editing.setFilter(UserFilter(column: column), key) }
+            return
+        }
         removedFilters.remove(key)
         if userFilters[key] == nil { userFilters[key] = UserFilter(column: column) }
     }
 
     /// Bỏ thẻ: thẻ thêm tay thì xoá hẳn, thẻ trong file thì ẩn đi và không áp nữa.
     func removeFilter(_ key: UserFilterKey) {
+        if let editing {
+            guard editing.blocker() == nil else { return }
+            let column = effectiveUserFilters[key]?.column
+            userFilters[key] = nil
+            removedFilters.remove(key)
+            editing.removeFilter(key, column)
+            return
+        }
         userFilters[key] = nil
         if !key.filterID.hasPrefix("added-") { removedFilters.insert(key) }
     }
@@ -228,7 +260,7 @@ final class ReportInteraction {
 
     /// Bộ lọc thấy được của một thẻ sau khi áp phần người dùng sửa, để Filters pane hiện lại đúng trạng thái.
     func effective(_ filter: ReportFilter, key: UserFilterKey) -> UserFilter? {
-        userFilters[key] ?? UserFilter.from(filter)
+        effectiveUserFilters[key] ?? UserFilter.from(filter)
     }
 
     /// Giá trị phân biệt của một cột, xếp tăng dần, để Filters pane liệt kê. Ném `DAXError`.
@@ -342,7 +374,7 @@ final class ReportInteraction {
 
     /// Bộ lọc theo measure của visual (Power BI: `__ValueFilterDM0`, xem `DAXQueryBuilder`).
     func valueFilters(for visual: ReportVisual) -> [ValueFilter] {
-        userFilters.filter { $0.key.level == .visual && $0.key.scope == visual.id && $0.value.isMeasure }
+        effectiveUserFilters.filter { $0.key.level == .visual && $0.key.scope == visual.id && $0.value.isMeasure }
             .sorted { $0.key.filterID < $1.key.filterID }
             .compactMap { entry in
                 guard let rule = entry.value.rule, rule.predicate(expression: "[x]") != nil else { return nil }
@@ -368,7 +400,7 @@ final class ReportInteraction {
         Self.mergeStatics(
             visual: visualFilters(of: visual), visualID: visual.id,
             page: pageFilters(of: page.id), pageID: page.id,
-            report: workspace.reportFilters, user: userFilters, removed: removedFilters)
+            report: workspace.reportFilters, user: effectiveUserFilters, removed: effectiveRemovedFilters)
     }
 
     /// Bộ lọc tĩnh sau khi áp phần người dùng sửa: thẻ trong file mà người dùng sửa thì thay vị từ (giữ vị trí), thẻ ngầm
@@ -415,4 +447,14 @@ final class ReportInteraction {
         servicesTask = task
         return try await task.value
     }
+}
+
+/// Cầu nối từ `ReportInteraction` tới bộ sửa tài liệu (D6): chặn khi không sửa được (Xem, báo cáo cũ), đặt, bỏ, đặt lại thẻ lọc.
+struct ReportEditing {
+    /// Lý do chưa sửa được; nil khi sửa được.
+    var blocker: () -> String?
+    var edits: () -> ReportEdits
+    var setFilter: (UserFilter, UserFilterKey) -> Void
+    var removeFilter: (UserFilterKey, QueryColumn?) -> Void
+    var resetFilter: (UserFilterKey) -> Void
 }

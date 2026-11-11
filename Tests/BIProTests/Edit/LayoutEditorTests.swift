@@ -9,7 +9,7 @@ import Testing
                        hidden: Bool = false, group: String? = nil) -> ReportVisual {
         var raw: JSONValue = .null
         if let group { raw = .object(["parentGroupName": .string(group), "name": .string(id)]) }
-        return ReportVisual(id: id, type: "card", x: x, y: y, z: z, width: w, height: h, isHidden: hidden, raw: raw)
+        return ReportVisual(id: id, type: "card", x: x, y: y, z: z, width: w, height: h, isHidden: hidden, raw: raw, parentGroup: group)
     }
 
     static func report() -> ReportDefinition {

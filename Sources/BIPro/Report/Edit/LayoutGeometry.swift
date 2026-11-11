@@ -47,6 +47,8 @@ enum LayoutGeometry {
     static let nudgeBig = 8
     /// Bản sao nằm lệch bản gốc chừng này. [SUY ĐOÁN]
     static let duplicateOffset = 16
+    /// Dán lệch nguồn chừng này mỗi lần dán (Power BI Desktop, VM-D7: 24,176 → 34,186 → 44,196).
+    static let pasteOffset = 10
     /// Khoảng cách `z` giữa các visual (quan sát trong Nhom6).
     static let zStep = 1000
 

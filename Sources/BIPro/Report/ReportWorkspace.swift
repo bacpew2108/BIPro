@@ -210,11 +210,11 @@ struct EditModeSwitch: View {
         .labelsHidden()
         .frame(width: 120)
         .padding(10)
-        .disabled(!state.canEditLayout)
-        .help(state.canEditLayout ? "Sửa bố cục: kéo, đổi cỡ visual (⌘E). Xem: lọc chéo và drill như trong Power BI."
-              : "Báo cáo định dạng cũ (Report/Layout) chưa sửa được bố cục; chỉ báo cáo PBIR.")
+        .disabled(!state.canEditCanvas)
+        .help(state.canEditCanvas ? "Sửa bố cục: kéo, đổi cỡ visual (⌘E). Xem: lọc chéo và drill như trong Power BI."
+              : "Báo cáo này chưa sửa được bố cục.")
         .background {
-            Button("") { if state.canEditLayout { state.editMode.toggle() } }
+            Button("") { if state.canEditCanvas { state.editMode.toggle() } }
                 .keyboardShortcut("e", modifiers: .command)
                 .opacity(0)
                 .allowsHitTesting(false)

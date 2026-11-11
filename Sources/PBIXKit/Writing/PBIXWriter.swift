@@ -91,6 +91,12 @@ public enum PBIXWriter {
             let pagesPrefix = parts[...pages].joined(separator: "/") + "/"
             if let last = existing.lastIndex(where: { $0.hasPrefix(pagesPrefix) }) { return last + 1 }
         }
+        // Bookmarks (D6): after the last bookmark part, else after the last page part, else at the end.
+        if path.hasPrefix("Report/definition/bookmarks/") {
+            for prefix in ["Report/definition/bookmarks/", "Report/definition/pages/"] {
+                if let last = existing.lastIndex(where: { $0.hasPrefix(prefix) }) { return last + 1 }
+            }
+        }
         return existing.count
     }
 

@@ -21,17 +21,17 @@ enum FilterEditing {
 
     /// Trạng thái hiện tại của thẻ: phần người dùng sửa, nếu không thì phần trong file.
     static func current(of filter: ReportFilter, key: UserFilterKey, interaction: ReportInteraction) -> UserFilter? {
-        interaction.userFilters[key] ?? UserFilter.from(filter)
+        interaction.effectiveUserFilters[key] ?? UserFilter.from(filter)
             ?? column(of: filter).map { UserFilter(column: $0, values: [], exclude: false) }
     }
 
     static func isActive(_ filter: ReportFilter, key: UserFilterKey, interaction: ReportInteraction) -> Bool {
-        if let edit = interaction.userFilters[key] { return edit.isActive }
+        if let edit = interaction.effectiveUserFilters[key] { return edit.isActive }
         return filter.isActive
     }
 
     static func summary(of filter: ReportFilter, key: UserFilterKey, interaction: ReportInteraction) -> String {
-        guard let edit = interaction.userFilters[key] ?? UserFilter.from(filter) else { return filter.summary }
+        guard let edit = interaction.effectiveUserFilters[key] ?? UserFilter.from(filter) else { return filter.summary }
         return edit.summary(format: interaction.formatString(of: edit.column))
     }
 
@@ -105,7 +105,7 @@ struct BasicFilterEditor: View {
     }
 
     @ViewBuilder private func content(_ values: [Value]) -> some View {
-        let current = interaction.userFilters[key] ?? UserFilter.from(filter)
+        let current = interaction.effectiveUserFilters[key] ?? UserFilter.from(filter)
         let format = interaction.formatString(of: column)
         let truncated = values.count >= Self.limit
         let on: Set<Value> = cleared ? [] : truncated ? Self.legacyChecked(current, values: values) : FilterEditing.checked(current, all: values)
@@ -198,7 +198,7 @@ struct FilterEditorBody: View {
     var measure = false
     @State private var mode: Mode?
 
-    private var current: UserFilter? { interaction.userFilters[key] ?? UserFilter.from(filter) }
+    private var current: UserFilter? { interaction.effectiveUserFilters[key] ?? UserFilter.from(filter) }
 
     private var effectiveMode: Mode {
         if measure { return .advanced }
@@ -274,7 +274,7 @@ struct AdvancedFilterEditor: View {
                 HStack {
                     Button("Áp dụng bộ lọc", action: apply)
                         .buttonStyle(.borderedProminent).controlSize(.small)
-                    if interaction.userFilters[key]?.rule != nil {
+                    if interaction.effectiveUserFilters[key]?.rule != nil {
                         Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column, isMeasure: measure), for: key) }
                             .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
                     }
@@ -367,7 +367,7 @@ struct TopNFilterEditor: View {
                 Button("Áp dụng bộ lọc", action: apply)
                     .buttonStyle(.borderedProminent).controlSize(.small)
                     .disabled(measure == nil || Int(countText) == nil)
-                if interaction.userFilters[key]?.rule != nil {
+                if interaction.effectiveUserFilters[key]?.rule != nil {
                     Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column), for: key) }
                         .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
                 }

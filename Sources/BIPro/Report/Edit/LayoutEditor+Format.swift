@@ -29,6 +29,7 @@ extension LayoutEditor {
     /// Lý do visual này chưa sửa định dạng được, hoặc nil nếu sửa được (chế độ Xem và chọn nhiều visual do `DocumentState` lo).
     func formatEditingBlocker(for id: String) -> String? {
         guard let pageID = currentPageID, visual(id) != nil else { return "Chọn một visual để sửa định dạng." }
+        if isLegacy { return Self.legacyMessage }
         if isLockedByGroup(id) { return "Visual nằm trong nhóm, chưa sửa định dạng được." }
         guard baseJSON(of: id, page: pageID) != nil else {
             return "Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được)."

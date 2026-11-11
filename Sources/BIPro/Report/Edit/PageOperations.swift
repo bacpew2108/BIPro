@@ -86,13 +86,16 @@ extension LayoutEditor {
             return nil
         }
         // Container không phải visual (nhóm): của trang trong file, hoặc đã sao sang trang nhân bản trước đó.
-        let containers: [(id: String, json: Data)] = edited[id]?.extraParts.map { (id: $0.key, json: $0.value) }
-            ?? (structure.created[id] == nil ? containerSource(id) : [])
+        // Nhóm visual (D7) có mặt trong `source.groups`; ở đây chỉ còn container khác (không phải nhóm).
+        let containers: [(id: String, json: Data)] = (edited[id]?.extraParts.map { (id: $0.key, json: $0.value) }
+            ?? (structure.created[id] == nil ? containerSource(id) : []))
+            .filter { (try? JSONValue.parse($0.json))?["visualGroup"] == nil }
         var idMap: [String: String] = [:]
-        for visual in source.visuals { idMap[visual.id] = reserveVisualID(avoiding: Set(idMap.values)) }
+        for visual in source.visuals + source.groups { idMap[visual.id] = reserveVisualID(avoiding: Set(idMap.values)) }
         for container in containers { idMap[container.id] = reserveVisualID(avoiding: Set(idMap.values)) }
 
         var copies: [ReportVisual] = []
+        var groupCopies: [ReportVisual] = []
         var data: [String: Data] = [:]
         var extras: [String: Data] = [:]
         do {
@@ -101,14 +104,25 @@ extension LayoutEditor {
                     _ = refuse("Không đọc được visual.json của \(visual.id).")
                     return nil
                 }
-                let group = visual.raw["parentGroupName"]?.string.flatMap { idMap[$0] }
+                let group = visual.parentGroup.flatMap { idMap[$0] }
                 let renamed = try PBIRPagePatch.renamedVisualJSON(json, newName: newID, parentGroupName: group)
                 var copy = visual
                 copy = ReportVisual(id: newID, type: visual.type, x: visual.x, y: visual.y, z: visual.z, width: visual.width,
                                     height: visual.height, isHidden: visual.isHidden, objects: visual.objects,
                                     containerObjects: visual.containerObjects, fields: visual.fields,
-                                    raw: (try? JSONValue.parse(renamed)) ?? visual.raw)
+                                    raw: (try? JSONValue.parse(renamed)) ?? visual.raw, parentGroup: group)
                 copies.append(copy)
+                data[newID] = renamed
+            }
+            for group in source.groups {
+                guard let json = currentVisualJSON(group, page: id), let newID = idMap[group.id] else {
+                    _ = refuse("Không đọc được visual.json của nhóm \(group.id).")
+                    return nil
+                }
+                let renamed = try PBIRPagePatch.renamedVisualJSON(json, newName: newID, parentGroupName: nil)
+                groupCopies.append(ReportVisual(id: newID, type: group.type, x: group.x, y: group.y, z: group.z, width: group.width,
+                                                height: group.height, isHidden: group.isHidden,
+                                                raw: (try? JSONValue.parse(renamed)) ?? group.raw))
                 data[newID] = renamed
             }
             for container in containers {
@@ -133,7 +147,7 @@ extension LayoutEditor {
         }
         let hadBinding = (try? JSONValue.parse(sourcePageJSON))?["pageBinding"] != nil
         let page = NewPage(id: newID, displayName: name, pageJSON: pageJSON, sourcePage: id, width: source.width, height: source.height)
-        var edit = PageEdit(visuals: copies, added: data)
+        var edit = PageEdit(visuals: copies, groups: groupCopies, added: data)
         edit.extraParts = extras
         let changed = commitStructure { structure, edited in
             structure.created[newID] = page

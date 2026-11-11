@@ -22,11 +22,14 @@ public struct ReportPage: Sendable, Identifiable, Hashable {
     public var isHidden: Bool
     public var objects: ObjectProperties
     public var visuals: [ReportVisual]
+    /// Nhóm visual (PBIR `visualGroup`, D7): `type == "visualGroup"`, khung tuyệt đối trên trang, không có truy vấn.
+    /// Các visual con nằm trong `visuals` với `parentGroup` và toạ độ tuyệt đối.
+    public var groups: [ReportVisual]
 
     public init(id: String, displayName: String, width: Double, height: Double, isHidden: Bool = false,
-                objects: ObjectProperties = ObjectProperties(nil), visuals: [ReportVisual] = []) {
+                objects: ObjectProperties = ObjectProperties(nil), visuals: [ReportVisual] = [], groups: [ReportVisual] = []) {
         self.id = id; self.displayName = displayName; self.width = width; self.height = height
-        self.isHidden = isHidden; self.objects = objects; self.visuals = visuals
+        self.isHidden = isHidden; self.objects = objects; self.visuals = visuals; self.groups = groups
     }
 }
 
@@ -42,13 +45,23 @@ public struct ReportVisual: Sendable, Identifiable, Hashable {
     /// JSON gốc của visual (PBIR: cả `visual.json`; legacy: `singleVisual`). Bộ đọc truy vấn (Phase C) cần
     /// `query.queryState` có thứ tự, `active`, `sortDefinition`, `expansionStates`, `filterConfig`.
     public var raw: JSONValue = .null
+    /// Mã nhóm chứa visual này (PBIR `parentGroupName`, D7). Khi có, `x`, `y` là toạ độ **tuyệt đối** trên trang
+    /// (file ghi tương đối so với nhóm); `raw` vẫn là JSON nguyên văn của file.
+    public var parentGroup: String?
 
     public init(id: String, type: String, x: Double = 0, y: Double = 0, z: Double = 0, width: Double = 0, height: Double = 0,
                 isHidden: Bool = false, objects: ObjectProperties = ObjectProperties(nil),
-                containerObjects: ObjectProperties = ObjectProperties(nil), fields: [ReportField] = [], raw: JSONValue = .null) {
+                containerObjects: ObjectProperties = ObjectProperties(nil), fields: [ReportField] = [], raw: JSONValue = .null,
+                parentGroup: String? = nil) {
         self.id = id; self.type = type; self.x = x; self.y = y; self.z = z; self.width = width; self.height = height
         self.isHidden = isHidden; self.objects = objects; self.containerObjects = containerObjects; self.fields = fields; self.raw = raw
+        self.parentGroup = parentGroup
     }
+
+    public static let groupType = "visualGroup"
+    public var isGroup: Bool { type == Self.groupType }
+    /// Tên hiển thị của nhóm (`visualGroup.displayName`).
+    public var groupDisplayName: String? { raw["visualGroup"]?["displayName"]?.string }
 
     /// Visuals that need query results to render.
     public var isDataBound: Bool { !fields.isEmpty }
@@ -136,26 +149,43 @@ extension PBIXFile {
             let base = root + "pages/\(name)/"
             let page = try json(base + "page.json")
             var visuals: [ReportVisual] = []
+            var groups: [ReportVisual] = []
+            var documents: [(path: String, value: JSONValue)] = []
             for entry in archive.entries where entry.path.hasPrefix(base + "visuals/") && entry.path.hasSuffix("/visual.json") {
-                let v = try json(entry.path)
-                guard let visual = v["visual"] else { continue } // visual groups carry no visual
+                documents.append((entry.path, try json(entry.path)))
+            }
+            // Nhóm trước: con của nhóm ghi toạ độ tương đối, cộng vào để mô hình dùng toạ độ tuyệt đối (D7).
+            for (path, v) in documents where v["visual"] == nil && v["visualGroup"] != nil {
                 let position = v["position"] ?? .null
-                visuals.append(ReportVisual(
-                    id: v["name"]?.string ?? entry.path,
-                    type: visual["visualType"]?.string ?? "unknown",
+                groups.append(ReportVisual(
+                    id: v["name"]?.string ?? path, type: ReportVisual.groupType,
                     x: position["x"]?.number ?? 0, y: position["y"]?.number ?? 0, z: position["z"]?.number ?? 0,
+                    width: position["width"]?.number ?? 0, height: position["height"]?.number ?? 0,
+                    isHidden: v["isHidden"]?.bool ?? false, raw: v, parentGroup: v["parentGroupName"]?.string))
+            }
+            let origin = Dictionary(groups.map { ($0.id, (x: $0.x, y: $0.y)) }, uniquingKeysWith: { first, _ in first })
+            for (path, v) in documents {
+                guard let visual = v["visual"] else { continue }
+                let position = v["position"] ?? .null
+                let parent = v["parentGroupName"]?.string
+                let shift = parent.flatMap { origin[$0] } ?? (x: 0, y: 0)
+                visuals.append(ReportVisual(
+                    id: v["name"]?.string ?? path,
+                    type: visual["visualType"]?.string ?? "unknown",
+                    x: (position["x"]?.number ?? 0) + shift.x, y: (position["y"]?.number ?? 0) + shift.y,
+                    z: position["z"]?.number ?? 0,
                     width: position["width"]?.number ?? 0, height: position["height"]?.number ?? 0,
                     isHidden: v["isHidden"]?.bool ?? false,
                     objects: ObjectProperties(visual["objects"]),
                     containerObjects: ObjectProperties(visual["visualContainerObjects"]),
-                    fields: Self.pbirFields(visual["query"]?["queryState"]), raw: v))
+                    fields: Self.pbirFields(visual["query"]?["queryState"]), raw: v, parentGroup: parent))
             }
             pages.append(ReportPage(
                 id: name, displayName: page["displayName"]?.string ?? name,
                 width: page["width"]?.number ?? 1280, height: page["height"]?.number ?? 720,
                 isHidden: page["visibility"]?.string == "HiddenInViewMode",
                 objects: ObjectProperties(page["objects"]),
-                visuals: visuals.sorted { $0.z < $1.z }))
+                visuals: visuals.sorted { $0.z < $1.z }, groups: groups.sorted { $0.z < $1.z }))
         }
 
         let themes = report["themeCollection"]
@@ -214,7 +244,7 @@ extension PBIXFile {
                     isHidden: single["display"]?["mode"]?.string == "hidden",
                     objects: ObjectProperties(single["objects"]),
                     containerObjects: ObjectProperties(single["vcObjects"]),
-                    fields: Self.legacyFields(single), raw: c))
+                    fields: Self.legacyFields(single), raw: c, parentGroup: c["parentGroupName"]?.string))
             }
             pages.append(ReportPage(
                 id: section["name"]?.string ?? UUID().uuidString,

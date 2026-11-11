@@ -14,6 +14,10 @@ struct FiltersPane: View {
         VStack(spacing: 0) {
             PaneHeader(title: "Bộ lọc", symbol: "line.3.horizontal.decrease", collapse: collapse)
             SearchField(text: $search, prompt: "Tìm bộ lọc").padding(.horizontal, 10).padding(.bottom, 6)
+            if let reason = state.reportEditingBlocker {
+                Text(reason).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 6)
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if let visual = state.visual {
@@ -35,10 +39,10 @@ struct FiltersPane: View {
         let pageID = state.pageID ?? ""
         let page = pageID.isEmpty ? [] : state.interaction.pageFilters(of: pageID)
         func count(_ filters: [ReportFilter], _ level: ReportFilter.Level, _ scope: String) -> Int {
-            filters.filter { !interaction.removedFilters.contains(key($0, level, scope)) }
+            filters.filter { !interaction.effectiveRemovedFilters.contains(key($0, level, scope)) }
                 .filter { FilterEditing.isActive($0, key: key($0, level, scope), interaction: interaction) }.count
         }
-        let added = interaction.userFilters.filter {
+        let added = interaction.effectiveUserFilters.filter {
             $0.key.filterID.hasPrefix("added-") && $0.value.isActive
                 && (($0.key.level == .report) || ($0.key.level == .page && $0.key.scope == pageID))
         }.count
@@ -62,8 +66,8 @@ struct FiltersPane: View {
     /// Thẻ của một nhóm: bộ lọc trong file (trừ cái đã bỏ), rồi thẻ người dùng thêm.
     private func cards(_ filters: [ReportFilter], scope: String, level: ReportFilter.Level) -> [ReportFilter] {
         let interaction = state.interaction
-        let kept = filters.filter { !interaction.removedFilters.contains(key($0, level, scope)) }
-        let added = interaction.userFilters
+        let kept = filters.filter { !interaction.effectiveRemovedFilters.contains(key($0, level, scope)) }
+        let added = interaction.effectiveUserFilters
             .filter { $0.key.level == level && $0.key.scope == scope && $0.key.filterID.hasPrefix("added-") }
             .sorted { $0.key.filterID < $1.key.filterID }
             .map { entry -> ReportFilter in
@@ -88,6 +92,7 @@ struct FiltersPane: View {
                            removable: !filter.id.hasPrefix("implicit-"))
             }
             AddFieldMenu(interaction: state.interaction, level: level, scope: scope)
+                .disabled(state.reportEditingBlocker != nil)
         }
         .padding(.horizontal, 10)
     }
@@ -131,11 +136,14 @@ struct FilterCard: View {
         let editable = FilterEditing.column(of: filter)
         let active = FilterEditing.isActive(filter, key: key, interaction: interaction)
         let grey = active || open
+        let blocker = interaction.editing?.blocker()
         VStack(alignment: .leading, spacing: 0) {
             Button { if editable != nil { open.toggle() } } label: { header(active: grey) }
                 .buttonStyle(.plain)
             if open, let column = editable {
                 FilterEditorBody(interaction: interaction, key: key, filter: filter, column: column, measure: filter.field?.kind == .measure)
+                    .disabled(blocker != nil)
+                    .opacity(blocker == nil ? 1 : 0.6)
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
@@ -143,6 +151,12 @@ struct FilterCard: View {
         .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(grey ? Color.clear : DS.Palette.separator))
         .opacity(filter.isHidden ? 0.7 : 1)
         .help(filter.field.map { "\($0.entity)[\($0.property)]" } ?? "")
+    }
+
+    /// Lý do thẻ (đã sửa ở lớp tài liệu) chưa lưu vào file được, hoặc nil.
+    private var unsavedReason: String? {
+        guard case .set(let edit) = interaction.documentEdits.filters[key] else { return nil }
+        return FilterExport.card(for: edit, key: key).reason
     }
 
     private func header(active: Bool) -> some View {
@@ -155,13 +169,16 @@ struct FilterCard: View {
                     .font(.system(size: 12)).foregroundStyle(DS.Palette.label).lineLimit(2)
             }
             Spacer(minLength: 0)
-            if interaction.userFilters[key] != nil, !key.filterID.hasPrefix("added-") {
+            if let reason = unsavedReason {
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange).help("Chưa lưu được vào file: \(reason)")
+            }
+            if interaction.effectiveUserFilters[key] != nil, !key.filterID.hasPrefix("added-") {
                 Button { interaction.setUserFilter(nil, for: key) } label: { Image(systemName: "eraser") }
-                    .buttonStyle(.plain).help("Đặt lại về bộ lọc trong file")
+                    .buttonStyle(.plain).help("Đặt lại về bộ lọc trong file").disabled(interaction.editing?.blocker() != nil)
             }
             if removable {
                 Button { interaction.removeFilter(key) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).help("Bỏ bộ lọc này")
+                    .buttonStyle(.plain).help("Bỏ bộ lọc này").disabled(interaction.editing?.blocker() != nil)
             }
             if filter.isHidden { Image(systemName: "eye.slash").help("Ẩn khi xem báo cáo") }
             if filter.isLocked { Image(systemName: "lock").help("Bị khoá khi xem báo cáo") }
@@ -279,19 +296,57 @@ struct SelectionPane: View {
     @Bindable var state: DocumentState
     var collapse: (() -> Void)?
 
+    /// Một dòng của Selection pane: visual, nhóm, hoặc visual con của nhóm (thụt vào).
+    struct Row: Identifiable {
+        let item: ReportVisual
+        let indent: Int
+        let children: [ReportVisual]
+        var id: String { item.id }
+
+        /// Mắt của nhóm áp lên từng con: nhóm ẩn khi mọi con đang ẩn.
+        @MainActor func isHidden(_ interaction: ReportInteraction) -> Bool {
+            item.isGroup ? !children.isEmpty && children.allSatisfy { interaction.isHidden($0) } : interaction.isHidden(item)
+        }
+
+        @MainActor func toggleHidden(_ interaction: ReportInteraction) {
+            guard item.isGroup else { interaction.toggleHidden(item); return }
+            let hide = !isHidden(interaction)
+            for child in children where interaction.isHidden(child) != hide { interaction.toggleHidden(child) }
+        }
+    }
+
+    /// Theo thứ tự lớp (`z` giảm dần); các con của nhóm nằm ngay dưới nhóm.
+    private var rows: [Row] {
+        let page = state.page
+        let groups = page?.groups ?? []
+        let known = Set(groups.map(\.id))
+        let top = ((page?.visuals ?? []).filter { $0.parentGroup.map { !known.contains($0) } ?? true } + groups).sorted { $0.z > $1.z }
+        var out: [Row] = []
+        for item in top {
+            let kids = item.isGroup ? (page?.visuals ?? []).filter { $0.parentGroup == item.id }.sorted { $0.z > $1.z } : []
+            out.append(Row(item: item, indent: 0, children: kids))
+            out.append(contentsOf: kids.map { Row(item: $0, indent: 1, children: []) })
+        }
+        return out
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: "Lựa chọn", symbol: "square.3.layers.3d", collapse: collapse)
             SectionLabel(text: "Thứ tự lớp")
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach((state.page?.visuals ?? []).sorted { $0.z > $1.z }) { visual in
+                    ForEach(rows) { row in
+                        let visual = row.item
                         let selected = state.layout.selection.contains(visual.id) || state.visualID == visual.id
-                        let hidden = state.interaction.isHidden(visual)
+                        let hidden = row.isHidden(state.interaction)
                         Button {
                             // Shift-bấm thêm/bớt khỏi vùng chọn (nhiều visual); bấm thường chọn riêng.
                             if NSEvent.modifierFlags.contains(.shift) {
                                 state.layout.select(visual.id, extend: true)
+                                state.visualID = state.layout.primary
+                            } else if visual.isGroup {
+                                state.layout.select(visual.id)
                                 state.visualID = state.layout.primary
                             } else {
                                 state.visualID = visual.id
@@ -299,19 +354,20 @@ struct SelectionPane: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "line.3.horizontal").font(.system(size: 9)).foregroundStyle(DS.Palette.tertiaryLabel)
-                                Image(systemName: VisualCatalog.symbol(visual.type)).font(.system(size: 11))
+                                Image(systemName: visual.isGroup ? "square.on.square.dashed" : VisualCatalog.symbol(visual.type)).font(.system(size: 11))
                                     .foregroundStyle(selected ? .white : DS.Palette.secondaryLabel).frame(width: 14)
-                                Text(VisualCatalog.displayTitle(visual)).font(DS.Typeface.bodySmall).lineLimit(1)
+                                Text(visual.isGroup ? (visual.groupDisplayName ?? "Nhóm") : VisualCatalog.displayTitle(visual)).font(DS.Typeface.bodySmall).lineLimit(1)
                                     .foregroundStyle(selected ? .white : DS.Palette.label)
                                 Spacer()
                                 Image(systemName: hidden ? "eye.slash" : "eye").font(.system(size: 10))
                                     .foregroundStyle(selected ? .white : DS.Palette.tertiaryLabel)
                                     .frame(width: 24, height: DS.Metrics.navRow)
                                     .contentShape(Rectangle())
-                                    .onTapGesture { state.interaction.toggleHidden(visual) }
+                                    .onTapGesture { row.toggleHidden(state.interaction) }
                                     .help(hidden ? "Hiện visual" : "Ẩn visual")
                             }
-                            .padding(.horizontal, 10)
+                            .padding(.leading, 10 + CGFloat(row.indent) * 16)
+                            .padding(.trailing, 10)
                             .frame(height: DS.Metrics.navRow)
                             .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(selected ? DS.Palette.accent : .clear).padding(.horizontal, 4))
                             .contentShape(Rectangle())
@@ -338,10 +394,11 @@ struct BookmarksPane: View {
         VStack(spacing: 0) {
             PaneHeader(title: "Bookmark", symbol: "bookmark", collapse: collapse) {
                 Button {
-                    interaction.addBookmark(currentPageID: state.pageID)
+                    state.addBookmark()
                 } label: { Image(systemName: "plus") }
                     .buttonStyle(GhostIconButtonStyle())
-                    .help("Thêm bookmark từ trạng thái hiện tại")
+                    .disabled(state.reportEditingBlocker != nil)
+                    .help(state.reportEditingBlocker ?? "Thêm bookmark từ trạng thái hiện tại")
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -354,19 +411,21 @@ struct BookmarksPane: View {
                     }
                 }
             }
-            PaneFooter(text: "\(rows.count) bookmark")
+            PaneFooter(text: state.layout.fieldRefusal ?? "\(rows.count) bookmark")
         }
         .background(DS.Palette.chrome)
         .alert("Đổi tên bookmark", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Tên", text: $newName)
-            Button("Đổi tên") { if let id = renaming { interaction.renameBookmark(id: id, to: newName) }; renaming = nil }
+            Button("Đổi tên") { if let id = renaming { state.renameBookmark(id: id, to: newName) }; renaming = nil }
             Button("Huỷ", role: .cancel) { renaming = nil }
         }
     }
 
     private func row_(_ row: ReportInteraction.BookmarkRow, interaction: ReportInteraction) -> some View {
         let active = interaction.visibility.activeBookmarkID == row.id
-        let mine = interaction.userBookmarks.first { $0.id == row.id }
+        let mine = interaction.userBookmark(id: row.id)
+        let blocker = state.reportEditingBlocker
+        let unsaved = row.isUser ? state.bookmarkSaveBlocker(id: row.id) : nil
         return Button {
             if let page = interaction.applyAnyBookmark(id: row.id) { state.pageID = page; state.visualID = nil }
         } label: {
@@ -375,6 +434,10 @@ struct BookmarksPane: View {
                     .foregroundStyle(active ? DS.Palette.accent : DS.Palette.secondaryLabel)
                 Text(row.name).font(DS.Typeface.bodySmall).lineLimit(1)
                 Spacer()
+                if let unsaved {
+                    Image(systemName: "exclamationmark.triangle").font(.system(size: 10)).foregroundStyle(.orange)
+                        .help("Chưa lưu được vào file: \(unsaved)")
+                }
             }
             .padding(.horizontal, 12)
             .frame(height: DS.Metrics.navRow)
@@ -384,14 +447,17 @@ struct BookmarksPane: View {
         .buttonStyle(.plain)
         .help(row.suppressData ? "Áp dụng bookmark (không đổi bộ lọc, slicer)" : "Áp dụng bookmark")
         .contextMenu {
-            Button("Cập nhật") { interaction.updateBookmark(id: row.id, currentPageID: state.pageID) }
-            Button("Đổi tên…") { newName = row.name; renaming = row.id }
-            Button("Xoá", role: .destructive) { interaction.deleteBookmark(id: row.id) }
+            Button("Cập nhật") { state.updateBookmark(id: row.id) }.disabled(blocker != nil)
+            Button("Đổi tên…") { newName = row.name; renaming = row.id }.disabled(blocker != nil)
+            Button("Xoá", role: .destructive) { state.deleteBookmark(id: row.id) }.disabled(blocker != nil)
+            Divider()
+            Button("Chuyển lên") { state.moveBookmark(id: row.id, by: -1) }.disabled(blocker != nil)
+            Button("Chuyển xuống") { state.moveBookmark(id: row.id, by: 1) }.disabled(blocker != nil)
             if let mine {
                 Divider()
-                Toggle("Data (bộ lọc, slicer, drill)", isOn: Binding(get: { mine.data }, set: { interaction.setBookmarkOption(id: row.id, data: $0) }))
-                Toggle("Display (ẩn/hiện visual)", isOn: Binding(get: { mine.display }, set: { interaction.setBookmarkOption(id: row.id, display: $0) }))
-                Toggle("Current page (chuyển về trang đã lưu)", isOn: Binding(get: { mine.currentPage }, set: { interaction.setBookmarkOption(id: row.id, currentPage: $0) }))
+                Toggle("Data (bộ lọc, slicer, drill)", isOn: Binding(get: { mine.data }, set: { state.setBookmarkOption(id: row.id, data: $0) })).disabled(blocker != nil)
+                Toggle("Display (ẩn/hiện visual)", isOn: Binding(get: { mine.display }, set: { state.setBookmarkOption(id: row.id, display: $0) })).disabled(blocker != nil)
+                Toggle("Current page (chuyển về trang đã lưu)", isOn: Binding(get: { mine.currentPage }, set: { state.setBookmarkOption(id: row.id, currentPage: $0) })).disabled(blocker != nil)
             }
         }
     }
