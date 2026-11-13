@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-13. **VM-D8 quan sát xong (mục "VM-D8"); tính năng theo quan sát đã viết xong, chưa commit (mục "Tính năng sau VM-D8").** **Dọn tồn đọng Phase D: bốn mục review D5 (a) đến (d) đã sửa, chưa commit (xem mục "Dọn tồn đọng Phase D").** **Phase C xong phần chính (commit `710daaf`). Phase D xong bảy lát: D1, D2, D3, D5, D4 (đã commit, D5 và D4 ở `98198d7`), D6 (bookmark và bộ lọc ghi vào file) và D7 (căn lề, phân bố, dán giữa trang, nhóm visual, sửa bố cục báo cáo định dạng cũ); D6 và D7 đã commit ở `a1935e4` và đã push. `swift test` 1420 qua sau các tính năng VM-D8 (xem "Tính năng sau VM-D8").** Mở được trong Power BI Desktop: `Nhom6_d3.pbix` đến `Nhom6_d7.pbix`, `Nhom2_d7.pbix` (kết quả ở `docs/phase-d-evidence/vm-d*/`). Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-13 (cuối phiên). **Phase D đã commit hết trên `main` (chưa push): `3d7bb5c` (đợt sau VM-D8), `2f639cb` (VM-D8c), `c251825`, `67f54eb` (màu theo giá trị Chú giải), `02620c8`.** Phase D xong bảy lát (D1 đến D7) cộng phần tồn đọng; `swift test` 1427 qua, golden nặng 97 qua (chạy ở `3d7bb5c`). Đã mở trong Power BI Desktop: `Nhom6_d3.pbix` đến `Nhom6_d8.pbix`, `Nhom2_d7.pbix` (kết quả ở `docs/phase-d-evidence/vm-d*/`; `.pbix` bằng chứng nằm ngoài git). Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
@@ -146,10 +146,12 @@ Lead tự làm theo `/tdd`, sửa hợp đồng của spec cũ (không mở spec
 
 ## Việc tiếp theo
 
-**Chờ bạn, theo thứ tự (cập nhật 2026-11-13, cuối phiên):**
-- **Commit đợt chưa commit** (66 file ngoài `.pbix`: dọn tồn đọng D5, VM-D8, bộ lọc D6, danh mục D4 và màu chuỗi, nhóm lồng D7, nhóm bookmark, D3b; `swift test` 1420 qua, golden nặng 97 qua, `/code-review` đã xử lý). Chưa commit vì bạn chưa yêu cầu; hỏi tách hay gộp commit.
-- Bản `build/BI Pro.app` đã đóng gói lại (2026-11-13, sau sửa review); bấm thử: ô "Áp dụng cho" của thẻ "Cột và thanh", "Gộp vào nhóm", nhóm bookmark (Shift-bấm), thêm "Thẻ" (`cardVisual`), kéo tab trang, Edit mode.
-- **VM-D8b xong 2026-11-13** (bạn cho phép dùng VM): `Nhom6_d8.pbix` (test nặng `D8Nhom6Tests`) mở được trong Desktop; `cardVisual`, bộ lọc Advanced cột double, nhóm lồng, nhóm bookmark, màu chuỗi, matrix Tabular đều đọc đúng. Chi tiết `docs/phase-d-evidence/vm-d8b/KET-QUA.md`. Còn lại: Bottom N/measure chưa mở thử, thẻ Format từng visual chưa soi.
+**Chờ bạn, theo thứ tự (cập nhật 2026-11-13, cuối phiên; bạn nói sẽ tự làm phần bấm thử):**
+- **Bấm thử bản `build/BI Pro.app` mới** (đã đóng gói sau `67f54eb`). Tôi đã tự bấm thử trên bản sao Nhom6: chế độ Sửa, ô "Áp dụng cho" (cả màu theo Chú giải), Shift-chọn, Nhóm lồng, nhóm bookmark, ⌘S. **Còn để bạn:** thêm "Thẻ" (`cardVisual`) từ thư viện, kéo tab trang, Gộp vào nhóm (tự bấm nút), bộ lọc Advanced/Bottom N trong Filters pane, chế độ Xem sau khi lưu.
+- **Push** các commit trên lên remote (chưa làm vì bạn chưa yêu cầu).
+- Chưa mở thử trong Desktop: Bottom N, thẻ Advanced của measure, màu Chú giải sau khi BI Pro sửa (`Nhom6_d8.pbix` không có phần này), thẻ Format của từng visual. Cần cho phép điều khiển VM, hoặc bạn tự mở.
+- **Lỗi có sẵn ở trang D3 (cần `/diagnosing-bugs`):** biểu đồ Pareto "Vấn đề nào gây 80% khiếu nại?" vẽ lỗi (không thấy cột, nhãn trục xếp chồng) và trang D3 tốn 35 đến 45% CPU khi rảnh; bản `a1935e4` cũng vậy.
+- **Chưa làm (Phase D còn lại):** thêm màu cho giá trị Chú giải chưa có mục (cần danh sách giá trị từ truy vấn) và màu theo điểm dữ liệu; sắp xếp mặc định khi đổi đường sang cột (tăng dần theo Category, chưa quan sát); cột ngày và phân cấp ngày khi thêm vào visual (chưa quan sát); cột `decimal` (tiền tệ) của thẻ Advanced (`D` hay `M`); dọn shape map khi xoá trang.
 
 **Cũ hơn, vẫn chờ:**
 - **VM-D2 đã đọc 2026-11-10** (`docs/phase-d-evidence/vm-d2/QUAN-SAT.md`, `specs/003-.../research.md` R16) và đã áp vào mã (D2b, T033): bỏ trường thì dọn định dạng riêng của nó và giữ bộ lọc (chỉ chặn khi có sắp xếp tường minh), thêm trùng measure được, đổi tên ghi cả `nativeQueryRef`. **Phép gộp (T032) đã có kết luận**: Nhom6 bật `DiscourageImplicitMeasures` nên Desktop từ chối cột số ở ô giá trị (không có Aggregation để ghi); BI Pro từ chối đúng lý do đó. Ô "chưa kiểm" của loại cũ (T034) cũng chưa có quan sát.
