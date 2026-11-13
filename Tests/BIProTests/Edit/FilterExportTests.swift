@@ -83,6 +83,14 @@ import Testing
         #expect(FilterExport.card(for: filter, key: key("added-x")).value?.filter?.contains(#""Value":"5L""#) == true)
     }
 
+    /// VM-D10: cột tiền tệ (Fixed decimal number) ghi toán hạng số nguyên là `…M`.
+    @Test func aNumberOnACurrencyColumnIsWrittenAsM() {
+        let filter = adv(.greaterThan, "1500", second: FilterCondition(kind: .lessThan, operand: "2500.5"), numeric: true)
+        let card = FilterExport.card(for: filter, key: key("added-x"), currency: true).value?.filter
+        #expect(card?.contains(#""Value":"1500M""#) == true && card?.contains(#""Value":"2500.5M""#) == true)
+        #expect(card?.contains("L\"") == false && card?.contains("D\"") == false)
+    }
+
     @Test func aNumericConditionWithoutANumberIsACardThatFiltersNothing() {
         let card = FilterExport.card(for: adv(.greaterThan, "abc", numeric: true), key: key("added-x")).value
         #expect(card?.type == "Advanced" && card?.filter == nil)

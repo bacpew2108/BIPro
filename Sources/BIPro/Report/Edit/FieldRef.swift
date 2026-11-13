@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// Một trường của mô hình (cột hoặc measure) đang được kéo từ pane Dữ liệu hoặc chọn từ menu "Thêm trường".
 /// Xem `specs/003-d2-build-pane-field-well/data-model.md`.
 struct FieldRef: Codable, Hashable, Sendable {
-    enum Kind: String, Codable, Sendable { case column, measure }
+    enum Kind: String, Codable, Sendable { case column, measure, hierarchy }
     enum Family: String, Codable, Sendable { case numeric, text, date, boolean, other }
 
     var kind: Kind
@@ -16,11 +16,19 @@ struct FieldRef: Codable, Hashable, Sendable {
     var family: Family = .other
     /// AMO `summarizeBy` của cột (1 mặc định, 2 không, 3 tổng, …); measure: nil.
     var summarizeBy: Int?
+    /// Tên các cấp (theo thứ tự) của phân cấp; rỗng với cột và measure.
+    var levels: [String] = []
 
     var queryRef: String { "\(entity).\(property)" }
 
-    init(kind: Kind, entity: String, property: String, family: Family = .other, summarizeBy: Int? = nil) {
+    init(kind: Kind, entity: String, property: String, family: Family = .other, summarizeBy: Int? = nil, levels: [String] = []) {
         self.kind = kind; self.entity = entity; self.property = property; self.family = family; self.summarizeBy = summarizeBy
+        self.levels = levels
+    }
+
+    /// Phân cấp của mô hình (ví dụ "Thời gian": Năm, Quý, Tháng, Ngày): thả vào ô thì thêm đủ các cấp (VM-D11).
+    init(hierarchy: ModelMetadata.Hierarchy) {
+        self.init(kind: .hierarchy, entity: hierarchy.tableName, property: hierarchy.name, family: .date, levels: hierarchy.levels.map(\.name))
     }
 
     init(column: ModelMetadata.Column) {

@@ -77,6 +77,14 @@ public enum PBIRQueryPatch {
         return Element(field: field, source: nil)
     }
 
+    /// Một cấp của phân cấp, đúng dạng Desktop ghi khi thả cả phân cấp vào ô (VM-D11 mục 1): `HierarchyLevel`, `queryRef`
+    /// `Bảng.Phân cấp.Cấp`, `nativeQueryRef` `Phân cấp Cấp`, `active: true` ở mọi cấp.
+    public static func newHierarchyLevel(entity: String, hierarchy: String, level: String, role: String) -> Element {
+        let field = ReportField(role: role, kind: .hierarchyLevel, entity: entity, property: level, displayName: nil,
+                                queryRef: "\(entity).\(hierarchy).\(level)", nativeQueryRef: "\(hierarchy) \(level)", active: true)
+        return Element(field: field, source: nil)
+    }
+
     // MARK: - Apply
 
     /// `json` with the wells replaced by `wells` (the final state of every well). A well whose elements are exactly
@@ -447,10 +455,31 @@ public enum PBIRQueryPatch {
         }
     }
 
+    private static func hierarchyLevelBytes(_ field: ReportField) throws -> [UInt8] {
+        // `queryRef` là `Bảng.Phân cấp.Cấp`: phần giữa là tên phân cấp.
+        let prefix = field.entity + ".", suffix = "." + field.property
+        guard field.queryRef.hasPrefix(prefix), field.queryRef.hasSuffix(suffix), field.queryRef.count > prefix.count + suffix.count else {
+            throw WriteError.invalid("a hierarchy level needs a queryRef of the form Table.Hierarchy.Level")
+        }
+        let hierarchy = String(field.queryRef.dropFirst(prefix.count).dropLast(suffix.count))
+        var out = Array(#"{"field":{"HierarchyLevel":{"Expression":{"Hierarchy":{"Expression":{"SourceRef":{"Entity":"#.utf8)
+        out += PBIRPatch.jsonStringToken(field.entity)
+        out += Array(#"}},"Hierarchy":"#.utf8) + PBIRPatch.jsonStringToken(hierarchy)
+        out += Array(#"}},"Level":"#.utf8) + PBIRPatch.jsonStringToken(field.property)
+        out += Array(#"}},"queryRef":"#.utf8) + PBIRPatch.jsonStringToken(field.queryRef)
+        let native = (field.displayName?.isEmpty ?? true) ? (field.nativeQueryRef ?? "\(hierarchy) \(field.property)") : field.displayName!
+        out += Array(#","nativeQueryRef":"#.utf8) + PBIRPatch.jsonStringToken(native)
+        if let active = field.active { out += Array(#","active":\#(active)"#.utf8) }
+        if let name = field.displayName, !name.isEmpty { out += Array(#","displayName":"#.utf8) + PBIRPatch.jsonStringToken(name) }
+        out.append(UInt8(ascii: "}"))
+        return out
+    }
+
     /// The bytes to write for one element: the source with its `displayName` brought up to date, or the template.
     private static func elementBytes(_ element: Element) throws -> [UInt8] {
         let field = element.field
         guard let source = element.source else {
+            if field.kind == .hierarchyLevel { return try hierarchyLevelBytes(field) }
             let kindKey: String
             switch field.kind {
             case .measure: kindKey = "Measure"

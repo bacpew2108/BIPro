@@ -54,6 +54,8 @@ struct LayoutSnapshot {
 final class LayoutEditor {
     /// Cột kiểu số thực của mô hình (`Bảng[Cột]`): toán hạng số của thẻ Advanced ghi `…D` thay vì `…L` (Desktop làm vậy; D6).
     var decimalColumns: Set<String> = []
+    /// Cột tiền tệ (Fixed decimal number, `Bảng[Cột]`): toán hạng của thẻ Advanced ghi `…M` (VM-D10).
+    var currencyColumns: Set<String> = []
     /// Cột kiểu ngày giờ của mô hình (`Bảng[Cột]`): đổi sang biểu đồ cột/thanh thì sắp tăng dần theo cột này (VM-D9).
     var dateColumns: Set<String> = []
     /// Giá trị (dạng literal, ví dụ `'Female'`) của cột ở ô Chú giải của visual, theo thứ tự đang hiện; rỗng khi chưa nạp dữ liệu.
@@ -661,6 +663,28 @@ final class LayoutEditor {
             FieldEditor.remove(role: role, index: index, wells: wells, visual: visual) { field in
                 FieldReferences.blocking(in: base, entity: field.entity, property: field.property, queryRef: field.queryRef)
             }
+        }
+    }
+
+    /// Bỏ mọi cấp của phân cấp `field` khỏi visual trong một bước (Desktop: bỏ tick hàng phân cấp gỡ cả các cấp, VM-D11).
+    @discardableResult
+    func removeHierarchy(_ field: FieldRef, visual id: String) -> String? {
+        editFields(id) { wells, visual, base in
+            var current = wells
+            let prefix = field.queryRef + "."
+            for well in wells {
+                for index in well.elements.indices.reversed() where well.elements[index].field.kind == .hierarchyLevel
+                    && well.elements[index].field.queryRef.hasPrefix(prefix) {
+                    switch FieldEditor.remove(role: well.role, index: index, wells: current, visual: visual, references: { f in
+                        FieldReferences.blocking(in: base, entity: f.entity, property: f.property, queryRef: f.queryRef)
+                    }) {
+                    case .changed(let next): current = next
+                    case .refused(let reason): return .refused(reason)
+                    case .unchanged: break
+                    }
+                }
+            }
+            return current == wells ? .unchanged : .changed(current)
         }
     }
 

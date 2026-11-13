@@ -443,3 +443,19 @@ import Testing
         #expect(!removed.contains("sortDefinition"))
     }
 }
+
+/// VM-D11 mục 1: phân cấp thả vào ô Category thành một `HierarchyLevel` mỗi cấp, `active: true` cả bốn.
+@Suite struct PBIRHierarchyTests {
+    @Test func aHierarchyIsOneProjectionPerLevelAllActive() throws {
+        let levels = ["Năm", "Quý"].map { PBIRQueryPatch.newHierarchyLevel(entity: "Dim_Date", hierarchy: "Thời gian", level: $0, role: "Category") }
+        let measure = PBIRQueryPatch.newElement(kind: .measure, entity: "Fact", property: "Credit", displayName: nil, role: "Y")
+        let out = String(decoding: try PBIRQueryPatch.apply([.init(role: "Category", elements: levels), .init(role: "Y", elements: [measure])],
+                                                           to: PBIRQueryPatchTests.bare), as: UTF8.self)
+        let first = #"{"field":{"HierarchyLevel":{"Expression":{"Hierarchy":{"Expression":{"SourceRef":{"Entity":"Dim_Date"}},"Hierarchy":"Thời gian"}},"Level":"Năm"}},"queryRef":"Dim_Date.Thời gian.Năm","nativeQueryRef":"Thời gian Năm","active":true}"#
+        #expect(out.contains(first))
+        #expect(out.contains(#""queryRef":"Dim_Date.Thời gian.Quý","nativeQueryRef":"Thời gian Quý","active":true}"#))
+        // Đọc lại thành hai cấp của cùng phân cấp.
+        let back = try PBIRQueryPatch.wells(in: Data(out.utf8)).first { $0.role == "Category" }
+        #expect(back?.elements.map(\.field.kind) == [.hierarchyLevel, .hierarchyLevel] && back?.elements.map(\.field.property) == ["Năm", "Quý"])
+    }
+}

@@ -249,7 +249,7 @@ enum DocumentSaver {
                     throw SaveError.verificationFailed("thẻ lọc \(name) đã bỏ vẫn còn trong \(path)")
                 }
             case .set(let filter):
-                guard case .writable(let spec) = FilterExport.card(for: filter, key: key, decimal: editor.decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]")) else { continue }
+                guard case .writable(let spec) = FilterExport.card(for: filter, key: key, decimal: editor.decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]"), currency: editor.currencyColumns.contains("\(filter.column.table)[\(filter.column.column)]")) else { continue }
                 guard let card = found.first(where: { $0["name"]?.string == spec.name }) else {
                     throw SaveError.verificationFailed("thiếu thẻ lọc \(spec.name) trong \(path)")
                 }

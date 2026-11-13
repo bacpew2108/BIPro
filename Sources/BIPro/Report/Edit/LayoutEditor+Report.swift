@@ -323,7 +323,7 @@ extension LayoutEditor {
             case .remove(let name):
                 if let name { op = .remove(name: name) }
             case .set(let filter):
-                switch FilterExport.card(for: filter, key: key, decimal: decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]")) {
+                switch FilterExport.card(for: filter, key: key, decimal: decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]"), currency: currencyColumns.contains("\(filter.column.table)[\(filter.column.column)]")) {
                 case .writable(let card): op = .upsert(card)
                 case .sessionOnly(let reason): notes.append("Bộ lọc \(filter.column.column): \(reason)")
                 }

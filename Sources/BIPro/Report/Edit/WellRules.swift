@@ -12,7 +12,7 @@ enum WellKind: Hashable {
         }
     }
 
-    init(_ kind: FieldRef.Kind) { self = kind == .column ? .column : .measure }
+    init(_ kind: FieldRef.Kind) { self = kind == .measure ? .measure : .column }
 
     var label: String { self == .column ? "cột" : "measure" }
 }
@@ -97,6 +97,9 @@ enum WellRules {
         // Desktop cho thêm cùng một measure hai lần vào một ô (VM-D2 `R-D2-h-dup`); cột trùng thì chưa quan sát nên từ chối.
         if kind == .column, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
             return "Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
+        }
+        if field.kind == .hierarchy, visual.fields.contains(where: { $0.role == role && $0.queryRef.hasPrefix(field.queryRef + ".") }) {
+            return "Phân cấp \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
         }
         return nil
     }

@@ -355,18 +355,21 @@ final class ReportInteraction {
         return map
     }
 
-    /// Giá trị chữ của cột ở ô Chú giải của từng visual đã nạp (literal `'…'`, theo thứ tự hiện); dùng cho thẻ định dạng (VM-D9).
+    /// Giá trị chữ của cột màu của từng visual đã nạp (literal `'…'`, theo thứ tự hiện): cột ở ô Chú giải, hoặc khi không có
+    /// Chú giải thì cột Category duy nhất (màu theo điểm dữ liệu, VM-D10). Dùng cho thẻ định dạng.
     private(set) var legendValues: [String: [String]] = [:]
 
     private func recordLegendValues(of id: String, in view: DataView) {
-        guard case .categorical(let data) = view, data.seriesField != nil else {
-            if legendValues[id] != nil { legendValues[id] = nil }
-            return
+        var values: [Value] = []
+        if case .categorical(let data) = view {
+            if data.seriesField != nil { values = data.series }
+            else if data.categoryLevels.count == 1 { values = data.categories.compactMap { $0.values.first } }
         }
-        let literals = data.series.compactMap { value -> String? in
+        let literals = values.compactMap { value -> String? in
             guard case .string(let text) = value else { return nil }
             return "'" + text.replacingOccurrences(of: "'", with: "''") + "'"
         }
+        if literals.isEmpty { if legendValues[id] != nil { legendValues[id] = nil }; return }
         if legendValues[id] != literals { legendValues[id] = literals }
     }
 

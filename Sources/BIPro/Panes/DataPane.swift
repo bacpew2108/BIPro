@@ -311,7 +311,9 @@ struct DataPane: View {
             let isOpen = expanded.contains(key)
             return AnyView(VStack(alignment: .leading, spacing: 0) {
                 TreeRow(level: level, isExpanded: isOpen, hasChildren: true, symbol: "list.bullet.indent", tint: DS.Palette.secondaryLabel,
-                        title: h.name, isHidden: h.isHidden, checkbox: checkbox(table, h.name)) { toggle(key) }
+                        title: h.name, isHidden: h.isHidden, checkbox: hierarchyChecked(table, h),
+                        dragField: purpose == .report && !h.isHidden ? FieldRef(hierarchy: h) : nil,
+                        onCheck: purpose == .report ? { toggleUsage(FieldRef(hierarchy: h)) } : nil) { toggle(key) }
                 if isOpen {
                     ForEach(h.levels, id: \.name) { level2 in
                         TreeRow(level: level + 1, symbol: "smallcircle.filled.circle", tint: DS.Palette.tertiaryLabel, title: level2.name,
@@ -364,6 +366,13 @@ struct DataPane: View {
         return state.usedFields.contains("\(table).\(field)")
     }
 
+    /// Phân cấp đang dùng trong visual đã chọn: có cấp nào của nó trong các ô.
+    private func hierarchyChecked(_ table: String, _ h: ModelMetadata.Hierarchy) -> Bool? {
+        guard purpose == .report else { return nil }
+        let prefix = "\(table).\(h.name)."
+        return state.visual?.fields.contains { $0.kind == .hierarchyLevel && $0.queryRef.hasPrefix(prefix) } ?? false
+    }
+
     private func toggle(_ key: String) {
         if expanded.contains(key) { expanded.remove(key) } else { expanded.insert(key) }
     }
@@ -373,6 +382,16 @@ struct DataPane: View {
         let layout = state.layout
         guard state.editMode, let visual = state.visual, layout.selection.count <= 1 else {
             layout.noteFieldRefusal("Bật chế độ Sửa (⌘E) và chọn một visual để thêm hoặc bỏ trường.")
+            return
+        }
+        if ref.kind == .hierarchy {
+            if visual.fields.contains(where: { $0.kind == .hierarchyLevel && $0.queryRef.hasPrefix(ref.queryRef + ".") }) {
+                layout.removeHierarchy(ref, visual: visual.id)
+            } else if let role = WellRules.defaultRole(for: ref, in: visual) {
+                layout.addField(ref, to: role, visual: visual.id)
+            } else {
+                layout.noteFieldRefusal("Visual này chưa có ô nhận phân cấp \"\(ref.property)\".")
+            }
             return
         }
         if let used = visual.fields.first(where: { $0.queryRef == ref.queryRef && $0.kind != .hierarchyLevel }),

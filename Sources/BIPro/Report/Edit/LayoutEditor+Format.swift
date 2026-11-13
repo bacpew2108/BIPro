@@ -59,7 +59,7 @@ extension LayoutEditor {
     /// theo thứ tự dữ liệu) rồi các giá trị mà `entries` đã có mục riêng nhưng không còn trong dữ liệu (khoá `data:<literal>`;
     /// giá trị chưa có mục thì Desktop tạo mục mới, VM-D9 mục 2).
     func formatSeries(of visual: ReportVisual, entries: [JSONValue]) -> [(queryRef: String, title: String)] {
-        if let legend = visual.fields.first(where: { $0.role == FormatCatalog.legendRole }) {
+        if let legend = colourColumn(of: visual) {
             var seen = Set<String>()
             let live = legendValuesProvider(visual.id).map { (FormatCatalog.legendPrefix + $0, FormatCatalog.legendTitle($0)) }
             let existing = entries.compactMap { entry -> (String, String)? in
@@ -74,6 +74,17 @@ extension LayoutEditor {
         }
         .filter { seen.insert($0.queryRef).inserted }
         .map { ($0.queryRef, $0.displayName ?? $0.property) }
+    }
+
+    /// Cột mà màu chia theo giá trị: trường ở ô Chú giải; hoặc, ở cột nhóm không có Chú giải và chỉ một measure, cột `Category`
+    /// duy nhất (Desktop: "Apply settings to" > "Categories", mỗi điểm dữ liệu một mục `dataPoint`, VM-D10). Loại khác chưa quan sát.
+    func colourColumn(of visual: ReportVisual) -> ReportField? {
+        if let legend = visual.fields.first(where: { $0.role == FormatCatalog.legendRole }) { return legend }
+        guard visual.type == "clusteredColumnChart" else { return nil }
+        let measures = visual.fields.filter { FormatCatalog.seriesRoles.contains($0.role) && ($0.kind == .measure || $0.kind == .aggregation) }
+        let categories = visual.fields.filter { $0.role == "Category" }
+        guard measures.count == 1, categories.count == 1, categories[0].kind == .column else { return nil }
+        return categories[0]
     }
 
     private static let seriesBlocker = "Chuỗi này đang tô màu theo công thức hoặc theo điểm dữ liệu, chưa sửa được."
@@ -164,7 +175,7 @@ extension LayoutEditor {
         do { json = try value.json(kind: spec.kind, keepingTail: tail) } catch { return refuse("\(error)") }
         if let existing, let new = try? JSONValue.parse(json), existing == new { return nil }
         var legendColumn: FormatEdit.LegendColumn?
-        if series?.hasPrefix(FormatCatalog.legendPrefix) == true, let legend = visual.fields.first(where: { $0.role == FormatCatalog.legendRole }) {
+        if series?.hasPrefix(FormatCatalog.legendPrefix) == true, let legend = colourColumn(of: visual) {
             legendColumn = .init(entity: legend.entity, property: legend.property)
         }
         let edit = FormatEdit(scope: scope, object: object, action: .set(property: property, value: json),
@@ -177,8 +188,8 @@ extension LayoutEditor {
     private func seriesRefusal(_ series: String, visual: ReportVisual, entries: [JSONValue]) -> String? {
         let list = formatSeries(of: visual, entries: entries)
         if !list.contains(where: { $0.queryRef == series }) {
-            if visual.fields.contains(where: { $0.role == FormatCatalog.legendRole }) {
-                return "Biểu đồ có trường ở ô Chú giải: giá trị này không có trong dữ liệu đang hiện."
+            if colourColumn(of: visual) != nil {
+                return "Màu theo giá trị (Chú giải hoặc danh mục): giá trị này không có trong dữ liệu đang hiện."
             }
             return "Chuỗi này không có trong visual."
         }

@@ -1,10 +1,12 @@
 import Foundation
 
-/// Giá trị trong điều kiện lọc, ghi theo kiểu Power BI: chuỗi `'x'` (nháy đơn gấp đôi), số nguyên `…L`, số thực `…D`, `true`/`false`.
+/// Giá trị trong điều kiện lọc, ghi theo kiểu Power BI: chuỗi `'x'` (nháy đơn gấp đôi), số nguyên `…L`, số thực `…D`, tiền tệ `…M`, `true`/`false`.
 public enum FilterLiteral: Equatable, Sendable {
     case string(String)
     case integer(Int64)
     case decimal(Double)
+    /// Cột tiền tệ (Fixed decimal number): `…M` (VM-D10).
+    case currency(Double)
     case boolean(Bool)
 
     var text: String {
@@ -12,6 +14,7 @@ public enum FilterLiteral: Equatable, Sendable {
         case .string(let s): "'" + s.replacingOccurrences(of: "'", with: "''") + "'"
         case .integer(let n): "\(n)L"
         case .decimal(let d): (d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : "\(d)") + "D"
+        case .currency(let d): (d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : "\(d)") + "M"
         case .boolean(let b): b ? "true" : "false"
         }
     }

@@ -18,6 +18,18 @@ enum FieldEditor {
     static func add(_ field: FieldRef, to role: String, wells: [Well], visual: ReportVisual) -> Result {
         if let reason = WellRules.refusal(adding: field, to: role, in: visual) { return .refused(reason) }
         guard let rule = WellRules.rule(for: visual, role: role) else { return .refused("Visual này không có ô \"\(role)\".") }
+        if field.kind == .hierarchy {
+            // Phân cấp: một phần tử mỗi cấp, `active: true` cả (VM-D11 mục 1). Ô một trường thì thay các trường cũ.
+            guard !field.levels.isEmpty else { return .refused("Phân cấp \"\(field.property)\" không có cấp nào.") }
+            let elements = field.levels.map { PBIRQueryPatch.newHierarchyLevel(entity: field.entity, hierarchy: field.property, level: $0, role: role) }
+            var result = wells
+            if let index = result.firstIndex(where: { $0.role == role }) {
+                if rule.isSingle { result[index].elements = elements } else { result[index].elements += elements }
+            } else {
+                result.append(Well(role: role, elements: elements))
+            }
+            return .changed(result)
+        }
         let kind: ReportField.Kind = field.kind == .column ? .column : .measure
         // Cột đầu của ô `active: true`, các cột sau `false` (Nhom6, VM-D3 mục B); measure không có cờ.
         let hasColumn = wells.first { $0.role == role }?.elements.contains { $0.field.kind != .measure && $0.field.kind != .aggregation } ?? false

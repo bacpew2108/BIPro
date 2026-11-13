@@ -192,3 +192,45 @@ import Testing
         #expect(env.editor.visual(copy)?.raw["visual"]?["visualType"]?.string == "lineChart")
     }
 }
+
+/// VM-D11 mục 1: thả phân cấp (ngày) vào visual.
+@Suite @MainActor struct HierarchyFieldTests {
+    typealias S = SyntheticReport
+    typealias Env = FieldEditingTests.Env
+
+    static let time = FieldRef(kind: .hierarchy, entity: "Dim_Date", property: "Thời gian", family: .date, levels: ["Năm", "Quý", "Tháng"])
+
+    static var line: Data {
+        Data(#"{"$schema":"s","name":"\#(S.c1)","position":{"x":600,"y":100,"z":4000,"height":300,"width":400,"tabOrder":4000},"visual":{"visualType":"lineChart","query":{"queryState":{"Category":{"projections":[\#(S.proj("Column", "Dim_Date", "month_start", extra: #","active":true"#))]},"Y":{"projections":[\#(S.proj("Measure", "Fact", "Credit"))]}}},"drillFilterOtherVisuals":true}}"#.utf8)
+    }
+
+    func levels(_ env: Env) -> [String] { env.editor.visual(S.c1)?.fields.filter { $0.role == "Category" }.map(\.queryRef) ?? [] }
+
+    @Test func aHierarchyReplacesTheSingleCategoryWithAllItsLevels() throws {
+        let env = try Env(chart: Self.line); defer { env.cleanUp() }
+        let depth = env.editor.undoDepth
+        #expect(env.editor.addField(Self.time, to: "Category", visual: S.c1) == nil)
+        #expect(levels(env) == ["Dim_Date.Thời gian.Năm", "Dim_Date.Thời gian.Quý", "Dim_Date.Thời gian.Tháng"])
+        #expect(env.editor.undoDepth == depth + 1)
+        let changes = try env.editor.makeChanges(archive: env.archive)
+        let text = String(decoding: try #require(changes.reportParts[LayoutEditor.visualPath(page: "p1", id: S.c1)]), as: UTF8.self)
+        #expect(text.contains(#""nativeQueryRef":"Thời gian Tháng","active":true}"#) && !text.contains("month_start"))
+        env.editor.undo()
+        #expect(levels(env) == ["Dim_Date.month_start"])
+    }
+
+    @Test func removingTheHierarchyDropsEveryLevelInOneStep() throws {
+        let env = try Env(chart: Self.line); defer { env.cleanUp() }
+        #expect(env.editor.addField(Self.time, to: "Category", visual: S.c1) == nil)
+        let depth = env.editor.undoDepth
+        #expect(env.editor.removeHierarchy(Self.time, visual: S.c1) == nil)
+        #expect(levels(env).isEmpty && env.editor.undoDepth == depth + 1)
+        env.editor.undo()
+        #expect(levels(env).count == 3)
+    }
+
+    @Test func aHierarchyIsRefusedByWellsThatTakeOnlyMeasures() throws {
+        let env = try Env(chart: Self.line); defer { env.cleanUp() }
+        #expect(env.editor.addField(Self.time, to: "Y", visual: S.c1) != nil)
+    }
+}

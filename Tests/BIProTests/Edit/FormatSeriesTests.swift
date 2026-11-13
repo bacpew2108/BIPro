@@ -95,6 +95,48 @@ import Testing
         #expect(env.editor.undoDepth == depth)
     }
 
+    // MARK: Màu theo điểm dữ liệu (VM-D10): cột nhóm, không Chú giải, một measure
+
+    /// Cột nhóm (`clusteredColumnChart`) có Category `Dim[region]` và một measure; `extra` thêm vào `queryState` (ví dụ một ô khác).
+    static func column(type: String = "clusteredColumnChart", extra: String = "", objects: String? = nil) -> Data {
+        let state = #""Category":{"projections":[\#(S.proj("Column", "Dim", "region", extra: #","active":true"#))]},"Y":{"projections":[\#(S.proj("Measure", "Fact", "Credit"))]}\#(extra)"#
+        let tail = objects.map { #","objects":\#($0)"# } ?? ""
+        return Data(#"{"$schema":"s","name":"\#(S.c1)","position":{"x":600,"y":100,"z":4000,"height":300,"width":400,"tabOrder":4000},"visual":{"visualType":"\#(type)","query":{"queryState":{\#(state)}}\#(tail),"drillFilterOtherVisuals":true}}"#.utf8)
+    }
+
+    @Test func aSingleMeasureColumnChartColoursItsCategories() throws {
+        let env = try Env(chart: Self.column()); defer { env.cleanUp() }
+        env.editor.legendValuesProvider = { _ in ["'North'", "'South'"] }
+        let card = try dataPoint(env)
+        // Desktop: "Apply settings to" liệt kê giá trị của Category, không phải measure (VM-D10).
+        #expect(card.series.map(\.title) == ["North", "South"] && card.series.map(\.queryRef) == ["data:'North'", "data:'South'"])
+        let before = try bytes(env, S.c1)
+        #expect(setColor(env, "data:'South'") == nil)
+        let after = try bytes(env, S.c1)
+        // Mục mới theo đúng dạng Desktop: selector.data[0].scopeId.Comparison trên cột Category.
+        #expect(after.contains(#""dataPoint":[{"properties":{"fill":\#(Self.theme4)},"selector":{"data":[{"scopeId":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim"}},"Property":"region"}},"Right":{"Literal":{"Value":"'South'"}}}}}]}}]"#))
+        env.editor.undo()
+        #expect(try bytes(env, S.c1) == before)
+    }
+
+    @Test func otherShapesKeepTheirMeasureSeries() throws {
+        // Hai measure: chuỗi là các measure như trước.
+        let credit = S.proj("Measure", "Fact", "Credit")
+        let twoText = String(decoding: Self.column(), as: UTF8.self).replacingOccurrences(of: credit, with: credit + "," + S.proj("Measure", "Fact", "Debit"))
+        let env = try Env(chart: Data(twoText.utf8)); defer { env.cleanUp() }
+        env.editor.legendValuesProvider = { _ in ["'North'"] }
+        #expect(try dataPoint(env).series.map(\.queryRef) == ["Fact.Credit", "Fact.Debit"])
+        #expect(setColor(env, "data:'North'") != nil)
+        // Measure ở Chú thích công cụ không phải chuỗi: vẫn tô theo danh mục.
+        let tip = try Env(chart: Self.column(extra: #","Tooltips":{"projections":[\#(S.proj("Measure", "Fact", "Debit"))]}"#)); defer { tip.cleanUp() }
+        tip.editor.legendValuesProvider = { _ in ["'North'"] }
+        #expect(try dataPoint(tip).series.map(\.queryRef) == ["data:'North'"])
+        // Loại khác chưa quan sát "Categories": thanh nhóm giữ chuỗi measure.
+        let bar = try Env(chart: Self.column(type: "clusteredBarChart")); defer { bar.cleanUp() }
+        bar.editor.legendValuesProvider = { _ in ["'North'"] }
+        #expect(try dataPoint(bar).series.map(\.queryRef) == ["Fact.Credit"])
+    }
+
     // MARK: Giá trị Chú giải chưa có mục (VM-D9 mục 2)
 
     @Test func legendValuesOfTheLiveDataAreTheSeriesEvenWithoutAnEntry() throws {
