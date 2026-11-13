@@ -389,13 +389,13 @@ import Testing
         #expect(out.contains(#""sortDefinition":{"sort":[{"field":{"Measure":"#) && out.contains(#""isDefaultSort":true"#))
     }
 
-    @Test func aDefaultSortGoesWhenItsFieldOrTheGroupingColumnsChange() throws {
+    @Test func aDefaultSortGoesWhenItsFieldIsGone() throws {
         let credit = Self.element(.measure, "Credit", role: "Y")
         let sorted = try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit])], to: Self.bare)
-        // Thêm cột nhóm: Desktop tính lại theo cột; BI Pro bỏ để người đọc dùng thứ tự theo trục.
+        // Thêm cột nhóm: Desktop giữ sắp xếp theo measure (VM-D8c).
         let month = Self.element(.column, "month", role: "Category", active: true)
         let grouped = try PBIRQueryPatch.apply([.init(role: "Category", elements: [month]), .init(role: "Y", elements: [credit])], to: sorted)
-        #expect(!text(grouped).contains("sortDefinition"))
+        #expect(text(grouped).contains(#""sortDefinition":{"sort":[{"field":{"Measure":"#) && text(grouped).contains(#""isDefaultSort":true"#))
         // Bỏ measure mà sắp xếp trỏ tới.
         let debit = Self.element(.measure, "Debit", role: "Y")
         let swapped = try PBIRQueryPatch.apply([.init(role: "Y", elements: [debit])], to: sorted)
@@ -408,5 +408,38 @@ import Testing
         // `sortDefinition` do người dùng đặt (không phải mặc định) không bị đụng.
         let custom = Data(text(sorted).replacingOccurrences(of: #""isDefaultSort":true"#, with: #""isDefaultSort":false"#).utf8)
         #expect(try text(PBIRQueryPatch.apply([.init(role: "Category", elements: [month]), .init(role: "Y", elements: [credit])], to: custom)).contains("sortDefinition"))
+    }
+
+    // MARK: VM-D9: sắp xếp mặc định theo Category
+
+    private static func categoryVisual(_ column: String, type: String = "clusteredColumnChart") -> Data {
+        Data(#"{"name":"aaaaaaaaaaaaaaaaaaa1","visual":{"visualType":"\#(type)","query":{"queryState":{"Category":{"projections":[\#(Self.col("Fact", column, extra: #","active":true"#))]},"Y":{"projections":[\#(Self.mea("Fact", "Credit"))]}}},"drillFilterOtherVisuals":true}}"#.utf8)
+    }
+
+    @Test func changingToAColumnChartSortsAscendingByTheCategory() throws {
+        let line = Self.categoryVisual("month", type: "lineChart")
+        let out = try PBIRQueryPatch.addingDefaultCategorySort(line)
+        #expect(text(out).contains(#""sortDefinition":{"sort":[{"field":{"Column":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"month"}},"direction":"Ascending"}],"isDefaultSort":true}"#))
+        // Đã có `sortDefinition` (kể cả của người dùng) thì giữ nguyên byte.
+        #expect(try PBIRQueryPatch.addingDefaultCategorySort(out) == out)
+        // Không có cột Category: không đoán.
+        let bare = try PBIRQueryPatch.apply([.init(role: "Y", elements: [Self.element(.measure, "Credit", role: "Y")])], to: Self.bare)
+        let sortedByMeasure = try PBIRQueryPatch.addingDefaultCategorySort(bare)
+        #expect(sortedByMeasure == bare)
+    }
+
+    @Test func replacingTheSortedCategoryMovesTheDefaultSortToTheNewColumn() throws {
+        let sorted = try PBIRQueryPatch.addingDefaultCategorySort(Self.categoryVisual("month"))
+        let credit = Self.element(.measure, "Credit", role: "Y")
+        let day = Self.element(.column, "full_date", role: "Category", active: true)
+        let out = text(try PBIRQueryPatch.apply([.init(role: "Category", elements: [day]), .init(role: "Y", elements: [credit])], to: sorted))
+        #expect(out.contains(#""sortDefinition":{"sort":[{"field":{"Column":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"full_date"}},"direction":"Ascending"}],"isDefaultSort":true}"#))
+        #expect(!out.contains(#""Property":"month"}},"direction""#))
+        // Thay bằng hai cột hoặc bỏ cột: không đoán, bỏ sắp xếp treo.
+        let two = Self.element(.column, "year", role: "Category", active: false)
+        let many = text(try PBIRQueryPatch.apply([.init(role: "Category", elements: [day, two]), .init(role: "Y", elements: [credit])], to: sorted))
+        #expect(!many.contains("sortDefinition"))
+        let removed = text(try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit])], to: sorted))
+        #expect(!removed.contains("sortDefinition"))
     }
 }

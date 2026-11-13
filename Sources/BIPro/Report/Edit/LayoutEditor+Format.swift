@@ -55,16 +55,18 @@ extension LayoutEditor {
     private func scopeJSON(of visual: ReportVisual, _ scope: FormatScope) -> JSONValue? { visual.raw["visual"]?[scope.key] }
 
     /// Các chuỗi của visual. Không có trường ở ô Chú giải: measure ở ô `Y` rồi `Y2`, theo thứ tự trong ô (khoá là `queryRef`,
-    /// ghi `selector.metadata`). Có trường ở ô Chú giải: các giá trị mà `entries` đã có mục riêng, đúng cột đó (khoá
-    /// `data:<literal>`; chỉ sửa mục có sẵn, giá trị chưa có mục cần danh sách giá trị từ truy vấn).
+    /// ghi `selector.metadata`). Có trường ở ô Chú giải: các giá trị của cột đó đang hiện trên biểu đồ (`legendValuesProvider`,
+    /// theo thứ tự dữ liệu) rồi các giá trị mà `entries` đã có mục riêng nhưng không còn trong dữ liệu (khoá `data:<literal>`;
+    /// giá trị chưa có mục thì Desktop tạo mục mới, VM-D9 mục 2).
     func formatSeries(of visual: ReportVisual, entries: [JSONValue]) -> [(queryRef: String, title: String)] {
         if let legend = visual.fields.first(where: { $0.role == FormatCatalog.legendRole }) {
             var seen = Set<String>()
-            return entries.compactMap { entry -> (String, String)? in
+            let live = legendValuesProvider(visual.id).map { (FormatCatalog.legendPrefix + $0, FormatCatalog.legendTitle($0)) }
+            let existing = entries.compactMap { entry -> (String, String)? in
                 guard let value = FormatCatalog.legendValue(of: entry), value.entity == legend.entity, value.property == legend.property else { return nil }
                 return (FormatCatalog.legendPrefix + value.literal, FormatCatalog.legendTitle(value.literal))
             }
-            .filter { seen.insert($0.0).inserted }
+            return (live + existing).filter { seen.insert($0.0).inserted }
         }
         var seen = Set<String>()
         return FormatCatalog.seriesRoles.sorted().flatMap { role in
@@ -161,8 +163,12 @@ extension LayoutEditor {
         let json: String
         do { json = try value.json(kind: spec.kind, keepingTail: tail) } catch { return refuse("\(error)") }
         if let existing, let new = try? JSONValue.parse(json), existing == new { return nil }
+        var legendColumn: FormatEdit.LegendColumn?
+        if series?.hasPrefix(FormatCatalog.legendPrefix) == true, let legend = visual.fields.first(where: { $0.role == FormatCatalog.legendRole }) {
+            legendColumn = .init(entity: legend.entity, property: legend.property)
+        }
         let edit = FormatEdit(scope: scope, object: object, action: .set(property: property, value: json),
-                              selectorDefault: card.usesDefaultSelector, selectorMetadata: series)
+                              selectorDefault: card.usesDefaultSelector, selectorMetadata: series, legendColumn: legendColumn)
         let key = FormatTarget(visualID: id, scope: scope, object: object, property: property, series: series).coalesceKey
         return applyFormat(edit, visual: id, page: pageID, coalesce: key)
     }
@@ -172,7 +178,7 @@ extension LayoutEditor {
         let list = formatSeries(of: visual, entries: entries)
         if !list.contains(where: { $0.queryRef == series }) {
             if visual.fields.contains(where: { $0.role == FormatCatalog.legendRole }) {
-                return "Biểu đồ có trường ở ô Chú giải: chỉ sửa được màu của giá trị đã có mục riêng trong file, giá trị này thì chưa."
+                return "Biểu đồ có trường ở ô Chú giải: giá trị này không có trong dữ liệu đang hiện."
             }
             return "Chuỗi này không có trong visual."
         }

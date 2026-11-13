@@ -355,6 +355,21 @@ final class ReportInteraction {
         return map
     }
 
+    /// Giá trị chữ của cột ở ô Chú giải của từng visual đã nạp (literal `'…'`, theo thứ tự hiện); dùng cho thẻ định dạng (VM-D9).
+    private(set) var legendValues: [String: [String]] = [:]
+
+    private func recordLegendValues(of id: String, in view: DataView) {
+        guard case .categorical(let data) = view, data.seriesField != nil else {
+            if legendValues[id] != nil { legendValues[id] = nil }
+            return
+        }
+        let literals = data.series.compactMap { value -> String? in
+            guard case .string(let text) = value else { return nil }
+            return "'" + text.replacingOccurrences(of: "'", with: "''") + "'"
+        }
+        if legendValues[id] != literals { legendValues[id] = literals }
+    }
+
     /// Nạp dữ liệu của visual theo trạng thái lọc hiện tại của trang. Ném `DAXError` (kể cả `.cancelled`).
     func load(page: ReportPage, visual: ReportVisual, state: FilterState) async throws -> LiveVisualData {
         let (reader, loader) = try await services()
@@ -369,6 +384,7 @@ final class ReportInteraction {
         spec.valueFilters = valueFilters(for: visual)
         spec.highlight = assembled.highlight
         let loaded = try await loader.load(spec)
+        recordLegendValues(of: visual.id, in: loaded.view)
         return LiveVisualData(spec: spec, view: loaded.view, query: loaded.query, elapsed: loaded.elapsed)
     }
 

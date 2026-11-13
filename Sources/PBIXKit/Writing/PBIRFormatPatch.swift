@@ -29,9 +29,19 @@ public struct FormatEdit: Equatable, Sendable {
     /// nil: mục chung (không selector hoặc `id: default`).
     public var selectorMetadata: String?
 
-    public init(scope: FormatScope, object: String, action: Action, selectorDefault: Bool = false, selectorMetadata: String? = nil) {
+    /// Cột ở ô Chú giải. Có khi `selectorMetadata` là `data:<literal>`: cho phép **tạo** mục theo giá trị Chú giải chưa có mục
+    /// (`selector.data[0].scopeId.Comparison`, VM-D9 mục 2); không có thì chỉ sửa được mục có sẵn.
+    public struct LegendColumn: Equatable, Sendable {
+        public var entity: String
+        public var property: String
+        public init(entity: String, property: String) { self.entity = entity; self.property = property }
+    }
+    public var legendColumn: LegendColumn?
+
+    public init(scope: FormatScope, object: String, action: Action, selectorDefault: Bool = false, selectorMetadata: String? = nil,
+                legendColumn: LegendColumn? = nil) {
         self.scope = scope; self.object = object; self.action = action; self.selectorDefault = selectorDefault
-        self.selectorMetadata = selectorMetadata
+        self.selectorMetadata = selectorMetadata; self.legendColumn = legendColumn
     }
 
     var property: String? {
@@ -213,7 +223,7 @@ public enum PBIRFormatPatch {
                 return
             }
             guard let index = try entryIndex(at: objectPath, in: bytes, metadata: edit.selectorMetadata) else {
-                if edit.selectorMetadata?.hasPrefix(legendPrefix) == true { throw WriteError.invalid("no format entry for this legend value") }
+                if edit.selectorMetadata?.hasPrefix(legendPrefix) == true, edit.legendColumn == nil { throw WriteError.invalid("no format entry for this legend value") }
                 // Chưa có mục của chuỗi này (hoặc chưa có mục chung): Desktop thêm mục mới vào cuối mảng (VM-D8 mục 6).
                 guard let last = JSONCursor.children(at: objectPath, in: bytes)?.last else {
                     throw WriteError.invalid("format entries are not a non-empty array in visual.json")
@@ -233,7 +243,11 @@ public enum PBIRFormatPatch {
 
     private static func entryText(property: String, value: String, _ edit: FormatEdit) -> String {
         var selector = ""
-        if let metadata = edit.selectorMetadata { selector = ",\"selector\":{\"metadata\":\(stringToken(metadata))}" }
+        if let metadata = edit.selectorMetadata, metadata.hasPrefix(legendPrefix), let column = edit.legendColumn {
+            let literal = String(metadata.dropFirst(legendPrefix.count))
+            let left = "{\"Column\":{\"Expression\":{\"SourceRef\":{\"Entity\":\(stringToken(column.entity))}},\"Property\":\(stringToken(column.property))}}"
+            selector = ",\"selector\":{\"data\":[{\"scopeId\":{\"Comparison\":{\"ComparisonKind\":0,\"Left\":\(left),\"Right\":{\"Literal\":{\"Value\":\(stringToken(literal))}}}}}]}"
+        } else if let metadata = edit.selectorMetadata { selector = ",\"selector\":{\"metadata\":\(stringToken(metadata))}" }
         else if edit.selectorDefault { selector = ",\"selector\":{\"id\":\"default\"}" }
         return "{\"properties\":{\"\(property)\":\(value)}" + selector + "}"
     }
@@ -271,7 +285,12 @@ public enum PBIRFormatPatch {
 
     private static func newModelEntry(_ property: String, _ value: Any, _ edit: FormatEdit) -> NSMutableDictionary {
         let entry = NSMutableDictionary(dictionary: ["properties": NSMutableDictionary(dictionary: [property: value])])
-        if let metadata = edit.selectorMetadata { entry["selector"] = NSMutableDictionary(dictionary: ["metadata": metadata]) }
+        if let metadata = edit.selectorMetadata, metadata.hasPrefix(legendPrefix), let column = edit.legendColumn {
+            let literal = String(metadata.dropFirst(legendPrefix.count))
+            let left: [String: Any] = ["Column": ["Expression": ["SourceRef": ["Entity": column.entity]], "Property": column.property] as [String: Any]]
+            let comparison: [String: Any] = ["ComparisonKind": 0, "Left": left, "Right": ["Literal": ["Value": literal]]]
+            entry["selector"] = NSMutableDictionary(dictionary: ["data": [["scopeId": ["Comparison": comparison]]]])
+        } else if let metadata = edit.selectorMetadata { entry["selector"] = NSMutableDictionary(dictionary: ["metadata": metadata]) }
         else if edit.selectorDefault { entry["selector"] = NSMutableDictionary(dictionary: ["id": "default"]) }
         return entry
     }
@@ -309,7 +328,7 @@ public enum PBIRFormatPatch {
             if let existing = scope[edit.object] {
                 guard let array = existing as? NSMutableArray else { throw WriteError.invalid("\(edit.object) is not an array") }
                 guard let entry = try modelEntry(array, edit.selectorMetadata) else {
-                    if edit.selectorMetadata?.hasPrefix(legendPrefix) == true { throw WriteError.invalid("no format entry for this legend value") }
+                    if edit.selectorMetadata?.hasPrefix(legendPrefix) == true, edit.legendColumn == nil { throw WriteError.invalid("no format entry for this legend value") }
                     array.add(newModelEntry(property, value, edit))
                     break
                 }

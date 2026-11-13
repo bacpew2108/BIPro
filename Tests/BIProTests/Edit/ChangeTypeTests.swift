@@ -47,6 +47,62 @@ import Testing
         #expect(env.editor.visual(S.c1)?.type == "lineClusteredColumnComboChart" && props(env, "Y2") == ["Net"])
     }
 
+    // MARK: sắp xếp mặc định khi đổi sang cột/thanh (VM-D9 mục 1)
+
+    private static var lineWithoutSort: Data {
+        Data(#"{"$schema":"s","name":"\#(S.c1)","position":{"x":600,"y":100,"z":4000,"height":300,"width":400,"tabOrder":4000},"visual":{"visualType":"lineChart","query":{"queryState":{"Category":{"projections":[\#(S.proj("Column", "Dim_Date", "month_start", extra: #","active":true"#))]},"Y":{"projections":[\#(S.proj("Measure", "Fact", "Credit"))]}}},"drillFilterOtherVisuals":true}}"#.utf8)
+    }
+
+    @Test func aClusteredColumnKeepsTheTooltipsLikeDesktop() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        #expect(env.editor.changeType(of: S.c1, to: "clusteredColumnChart") == nil)
+        #expect(props(env, "Tooltips") == ["Avg"])
+        #expect(env.editor.notice?.contains("Avg") != true)   // Y2 (Net) không có ở loại mới; Tooltips thì còn
+    }
+
+    @Test func aLineOverADateColumnBecomesAColumnChartSortedAscendingByIt() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        env.editor.dateColumns = ["Dim_Date[month_start]"]
+        #expect(env.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
+        #expect(env.editor.changeType(of: S.c1, to: "clusteredColumnChart") == nil)
+        let sort = try #require(env.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"])
+        #expect(sort["isDefaultSort"]?.bool == true)
+        #expect(sort["sort"]?[0]?["direction"]?.string == "Ascending")
+        #expect(sort["sort"]?[0]?["field"]?["Column"]?["Property"]?.string == "month_start")
+        env.editor.undo()
+        #expect(env.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
+    }
+
+    /// Lỗi gặp khi thử trong app: sắp xếp chỉ có ở bản trong bộ nhớ, lúc lưu (dựng lại từ file gốc) thì mất.
+    @Test func theDateSortSurvivesSavingAndALaterCategoryReplacement() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        env.editor.dateColumns = ["Dim_Date[month_start]", "Dim_Date[full_date]"]
+        #expect(env.editor.changeType(of: S.c1, to: "clusteredColumnChart") == nil)
+        func saved() throws -> JSONValue {
+            let changes = try env.editor.makeChanges(archive: env.archive)
+            let data = try #require(changes.reportParts[LayoutEditor.visualPath(page: "p1", id: S.c1)])
+            return try JSONValue.parse(data)
+        }
+        var sort = try #require(try saved()["visual"]?["query"]?["sortDefinition"])
+        #expect(sort["sort"]?[0]?["field"]?["Column"]?["Property"]?.string == "month_start" && sort["isDefaultSort"]?.bool == true)
+        // Thay cột Category bằng cột ngày khác: sắp xếp đi theo cột mới.
+        #expect(env.editor.addField(FieldRef(kind: .column, entity: "Dim_Date", property: "full_date", family: .date), to: "Category", visual: S.c1) == nil)
+        sort = try #require(try saved()["visual"]?["query"]?["sortDefinition"])
+        #expect(sort["sort"]?[0]?["field"]?["Column"]?["Property"]?.string == "full_date")
+    }
+
+    @Test func noSortIsAddedForOtherCategoriesOrTargets() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        // Cột chữ (không biết Desktop sắp thế nào): không đoán.
+        #expect(env.editor.changeType(of: S.c1, to: "clusteredColumnChart") == nil)
+        #expect(env.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
+        // Cột ngày nhưng đích là combo: chưa quan sát.
+        let other = try Env(chart: Self.lineWithoutSort); defer { other.cleanUp() }
+        other.editor.dateColumns = ["Dim_Date[month_start]"]
+        #expect(other.editor.changeType(of: S.c1, to: "lineClusteredColumnComboChart") == nil)
+        #expect(other.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
+    }
+
     // MARK: chặn, không đổi, từ chối
 
     @Test func isBlockedWhenADroppedFieldStillDrivesTheSort() throws {

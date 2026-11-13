@@ -142,6 +142,9 @@ final class DocumentState {
         self.interaction = ReportInteraction(workspace: workspace)
         let layout = self.layout
         layout.decimalColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .double }.map { "\($0.tableName)[\($0.name)]" })
+        layout.dateColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .dateTime }.map { "\($0.tableName)[\($0.name)]" })
+        let interaction = self.interaction
+        layout.legendValuesProvider = { [weak interaction] id in interaction?.legendValues[id] ?? [] }
         self.interaction.pagesProvider = { layout.pages }
         self.interaction.removedBookmarksProvider = { layout.structure.removedBookmarks }
         self.interaction.pageJSONProvider = { layout.structure.created[$0]?.pageJSON }

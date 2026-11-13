@@ -90,9 +90,49 @@ import Testing
         #expect(try dataPoint(env).series.map(\.title) == ["North"])
         let depth = env.editor.undoDepth
         #expect(setColor(env, "data:'East'") != nil)     // mục của cột khác
-        #expect(setColor(env, "data:'West'") != nil)     // chưa có mục: thêm mục mới theo giá trị chưa quan sát
+        #expect(setColor(env, "data:'West'") != nil)     // không có trong dữ liệu đang hiện (không có `legendValuesProvider`)
         #expect(setColor(env, "Fact.Credit") != nil)     // chuỗi measure không thuộc visual có Chú giải
         #expect(env.editor.undoDepth == depth)
+    }
+
+    // MARK: Giá trị Chú giải chưa có mục (VM-D9 mục 2)
+
+    @Test func legendValuesOfTheLiveDataAreTheSeriesEvenWithoutAnEntry() throws {
+        let env = try Env(chart: Self.chart(objects: Self.legendObjects, series: true)); defer { env.cleanUp() }
+        env.editor.legendValuesProvider = { _ in ["'North'", "'West'"] }
+        let card = try dataPoint(env)
+        // Giá trị đang hiện trước (theo dữ liệu), rồi giá trị chỉ có mục trong file.
+        #expect(card.series.map(\.title) == ["North", "West", "South"])
+        #expect(card.series[1].values.isEmpty && card.series[1].blocker == nil)
+    }
+
+    @Test func aLegendValueWithoutAnEntryGetsOneLikeDesktopAndUndoRemovesIt() throws {
+        let env = try Env(chart: Self.chart(objects: Self.legendObjects, series: true)); defer { env.cleanUp() }
+        env.editor.legendValuesProvider = { _ in ["'North'", "'West'", "'O''Neil'"] }
+        let before = try bytes(env, S.c1)
+        let depth = env.editor.undoDepth
+        #expect(setColor(env, "data:'West'") == nil)
+        let after = try bytes(env, S.c1)
+        // Mục mới ở cuối mảng, theo đúng dạng Desktop ghi (selector.data[0].scopeId.Comparison); hai mục cũ giữ nguyên.
+        let west = Self.legendEntry("'West'", color: "x").replacingOccurrences(of: #"{"solid":{"color":{"expr":{"Literal":{"Value":"'x'"}}}}}"#, with: Self.theme4)
+        #expect(after == before.replacingOccurrences(of: "]}", with: ",\(west)]}", options: [], range: before.range(of: "]}", options: .backwards)))
+        #expect(env.editor.undoDepth == depth + 1)
+        #expect(try dataPoint(env).series.first { $0.title == "West" }?.values["fill"] == .color(.theme(id: 4, percent: 0)))
+        // Giá trị có dấu nháy đơn: literal nhân đôi nháy như Desktop.
+        #expect(setColor(env, "data:'O''Neil'") == nil)
+        #expect(try bytes(env, S.c1).contains(#""Value":"'O''Neil'""#))
+        env.editor.undo(); env.editor.undo()
+        #expect(try bytes(env, S.c1) == before)
+    }
+
+    @Test func aLegendChartWithoutAnyColourObjectGetsTheFirstEntry() throws {
+        let env = try Env(chart: Self.chart(series: true)); defer { env.cleanUp() }
+        env.editor.legendValuesProvider = { _ in ["'North'"] }
+        #expect(setColor(env, "data:'North'") == nil)
+        let text = try bytes(env, S.c1)
+        #expect(text.contains(#""dataPoint":[{"properties":{"fill":"#) && text.contains(#""Right":{"Literal":{"Value":"'North'"}}"#))
+        // Giá trị không có trong dữ liệu đang hiện vẫn bị từ chối.
+        #expect(setColor(env, "data:'Nowhere'") != nil)
     }
 
     @Test func resettingALegendValueColourDropsItsEntry() throws {

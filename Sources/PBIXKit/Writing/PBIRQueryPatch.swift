@@ -324,8 +324,9 @@ public enum PBIRQueryPatch {
     /// Sau khi đổi trường, giữ `sortDefinition` mặc định (`isDefaultSort: true`) đúng như Desktop:
     /// - visual chỉ có measure và chưa có `sortDefinition`, **và ô `Y` (hoặc `Data`) vừa có measure đầu tiên** (trước đó trống):
     ///   thêm sắp giảm dần theo measure đó. Sửa khác trên file Desktop không có `sortDefinition` thì không tự thêm;
-    /// - `sortDefinition` mặc định mà tập cột nhóm vừa đổi: bỏ (Desktop tính lại theo cột mới; chưa biết quy tắc, nên để
-    ///   người đọc dùng thứ tự theo trục).
+    /// - thêm cột nhóm khi đã có sắp xếp mặc định theo measure: giữ nguyên (VM-D8c);
+    /// - cột Category mà sắp xếp mặc định trỏ tới bị thay bằng đúng một cột khác: sắp xếp chuyển sang cột mới, giữ hướng (VM-D9);
+    /// - sắp xếp mặc định trỏ tới trường không còn trong visual (không có cột thay thế rõ ràng): bỏ.
     /// `sortDefinition` do người dùng đặt (`isDefaultSort` khác `true`) và mọi trường hợp còn lại giữ nguyên byte.
     static func adjustingDefaultSort(_ json: Data, previous: [Well]) throws -> Data {
         let root = try parseObject(json)
@@ -337,19 +338,38 @@ public enum PBIRQueryPatch {
         var bytes = [UInt8](json)
 
         if let sort {
-            // `sortDefinition` mặc định trỏ tới trường không còn trong visual (kể cả khi bỏ hết trường) cũng bỏ theo.
-            func target(_ sort: [String: Any]) -> String? {
-                guard let field = ((sort["sort"] as? [[String: Any]])?.first)?["field"] as? [String: Any],
-                      let inner = (field["Measure"] ?? field["Column"]) as? [String: Any],
+            // `sortDefinition` mặc định trỏ tới trường không còn trong visual (kể cả khi bỏ hết trường) bị bỏ hoặc chuyển cột.
+            func target(_ sort: [String: Any]) -> (ref: String, kind: ReportField.Kind, direction: String)? {
+                guard let first = (sort["sort"] as? [[String: Any]])?.first, let field = first["field"] as? [String: Any],
+                      let kindKey = ["Measure", "Column"].first(where: { field[$0] != nil }),
+                      let inner = field[kindKey] as? [String: Any],
                       let entity = (((inner["Expression"] as? [String: Any])?["SourceRef"]) as? [String: Any])?["Entity"] as? String,
                       let property = inner["Property"] as? String else { return nil }
-                return "\(entity).\(property)"
+                return ("\(entity).\(property)", kindKey == "Measure" ? .measure : .column, first["direction"] as? String ?? "Ascending")
             }
             let sortTarget = target(sort)
-            let dangling = sortTarget.map { ref in !wells.contains { $0.elements.contains { "\($0.field.entity).\($0.field.property)" == ref } } } ?? false
-            guard sort["isDefaultSort"] as? Bool == true, groupingRefs(wells) != groupingRefs(previous) || dangling,
+            func contains(_ ref: String, in wells: [Well]) -> Bool {
+                wells.contains { $0.elements.contains { "\($0.field.entity).\($0.field.property)" == ref } }
+            }
+            guard sort["isDefaultSort"] as? Bool == true, let sortTarget, !contains(sortTarget.ref, in: wells),
                   let kids = JSONCursor.children(at: queryPath, in: bytes),
-                  let index = kids.firstIndex(where: { key(of: $0, in: bytes) == "sortDefinition" }) else { return json }
+                  let index = kids.firstIndex(where: { key(of: $0, in: bytes) == "sortDefinition" }) else {
+                // Sắp xếp mặc định không có đích đọc được hoặc đích còn nguyên: nếu chỉ là mặc định thì giữ nguyên byte;
+                // đích không đọc được (ví dụ `sort` rỗng) cũng giữ nguyên.
+                return json
+            }
+            // Cột Category bị thay bằng đúng một cột: chuyển sắp xếp sang cột mới.
+            var replacement: (role: String, index: Int)?
+            if sortTarget.kind == .column {
+                let oldRefs = groupingRefs(previous), newRefs = groupingRefs(wells)
+                let added = newRefs.subtracting(oldRefs)
+                if oldRefs.subtracting(newRefs) == [sortTarget.ref], added.count == 1,
+                   let ref = added.first {
+                    for well in wells where groupingRoles.contains(well.role) {
+                        if let at = well.elements.firstIndex(where: { $0.field.queryRef == ref && $0.field.kind != .measure }) { replacement = (well.role, at) }
+                    }
+                }
+            }
             bytes = JSONCursor.removing([index], from: kids, in: bytes)
             query["sortDefinition"] = nil
             var expected = root
@@ -360,6 +380,9 @@ public enum PBIRQueryPatch {
                   (expected as NSDictionary).isEqual(to: actual) else {
                 throw WriteError.verificationFailed("default sort removal changed other content")
             }
+            if let replacement {
+                return try insertingSort(Data(bytes), role: replacement.role, index: replacement.index, direction: sortTarget.direction)
+            }
             // Visual chỉ còn measure thì vẫn có sắp xếp mặc định mới theo measure đầu.
             return try adjustingDefaultSort(Data(bytes), previous: wells)
         } else {
@@ -367,19 +390,38 @@ public enum PBIRQueryPatch {
                   !wells.contains(where: { groupingRoles.contains($0.role) && !$0.elements.isEmpty }) else { return json }
             let role = type == "cardVisual" ? "Data" : "Y"
             guard previous.first(where: { $0.role == role })?.elements.isEmpty ?? true else { return json }
-            guard let well = wells.first(where: { $0.role == role }), let first = well.elements.first, first.field.kind == .measure,
-                  let fieldRange = JSONCursor.locate((statePath + [.key(role), .key("projections"), .index(0), .key("field")])[...], in: bytes),
-                  let kids = JSONCursor.children(at: queryPath, in: bytes), let last = kids.last else { return json }
-            let field = Array(bytes[fieldRange])
-            let text = Array(#","sortDefinition":{"sort":[{"field":"#.utf8) + field + Array(#","direction":"Descending"}],"isDefaultSort":true}"#.utf8)
-            bytes.insert(contentsOf: text, at: last.value.upperBound)
-            guard let fieldJSON = try? JSONSerialization.jsonObject(with: Data(field), options: [.fragmentsAllowed]) else { return json }
-            query["sortDefinition"] = ["sort": [["field": fieldJSON, "direction": "Descending"]], "isDefaultSort": true] as [String: Any]
+            guard let well = wells.first(where: { $0.role == role }), let first = well.elements.first, first.field.kind == .measure else { return json }
+            return try insertingSort(json, role: role, index: 0, direction: "Descending")
         }
+    }
+
+    /// Đổi loại sang biểu đồ cột/thanh khi visual chưa có `sortDefinition`: Desktop thêm sắp tăng dần theo cột Category đầu
+    /// (VM-D9 mục 1, cột ngày). Người gọi chỉ dùng khi biết cột đó là kiểu ngày; không có `Category` dạng cột thì giữ nguyên byte.
+    public static func addingDefaultCategorySort(_ json: Data) throws -> Data {
+        let root = try parseObject(json)
+        guard let visual = root["visual"] as? [String: Any], let query = visual["query"] as? [String: Any],
+              query["sortDefinition"] == nil, query["queryState"] != nil else { return json }
+        guard let well = (try Self.wells(in: json)).first(where: { $0.role == "Category" }), let first = well.elements.first,
+              first.field.kind == .column else { return json }
+        return try insertingSort(json, role: "Category", index: 0, direction: "Ascending")
+    }
+
+    /// Chèn `sortDefinition` mặc định (một khoá) theo trường của phần tử `index` của ô `role`, ở cuối `query` (đúng chỗ Desktop ghi).
+    private static func insertingSort(_ json: Data, role: String, index: Int, direction: String) throws -> Data {
+        let root = try parseObject(json)
+        guard var visual = root["visual"] as? [String: Any], var query = visual["query"] as? [String: Any] else { return json }
+        var bytes = [UInt8](json)
+        let queryPath: [JSONPathStep] = [.key("visual"), .key("query")]
+        guard let fieldRange = JSONCursor.locate((statePath + [.key(role), .key("projections"), .index(index), .key("field")])[...], in: bytes),
+              let kids = JSONCursor.children(at: queryPath, in: bytes), let last = kids.last else { return json }
+        let field = Array(bytes[fieldRange])
+        guard let fieldJSON = try? JSONSerialization.jsonObject(with: Data(field), options: [.fragmentsAllowed]) else { return json }
+        let text = Array(#","sortDefinition":{"sort":[{"field":"#.utf8) + field + Array(#","direction":"\#(direction)"}],"isDefaultSort":true}"#.utf8)
+        bytes.insert(contentsOf: text, at: last.value.upperBound)
+        query["sortDefinition"] = ["sort": [["field": fieldJSON, "direction": direction]], "isDefaultSort": true] as [String: Any]
+        visual["query"] = query
         var expected = root
-        var expectedVisual = visual
-        expectedVisual["query"] = query
-        expected["visual"] = expectedVisual
+        expected["visual"] = visual
         guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
               (expected as NSDictionary).isEqual(to: actual) else {
             throw WriteError.verificationFailed("default sort splice changed other content")

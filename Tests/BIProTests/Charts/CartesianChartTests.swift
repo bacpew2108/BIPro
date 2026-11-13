@@ -412,12 +412,18 @@ import Testing
         #expect(fit.text("2013-01") == "2013-01")
     }
 
-    @Test func longLabelsAreCutWithAnEllipsisWithinAThirdOfTheHeight() {
+    @Test func longLabelsAreCutWithAnEllipsisWithinHalfTheHeight() {
         let fit = CategoryLabelFit(fontSize: 10, chartHeight: 380)
         let long = "Account opening, closing, or management and more text beyond"
         let cut = fit.text(long)
         #expect(cut.hasSuffix("…") && cut.count < long.count && long.hasPrefix(String(cut.dropLast())))
-        #expect(CGFloat(cut.count) * 10 * 0.6 <= 380 * 0.3 + 6)
+        #expect(CGFloat(cut.count) * 10 * 0.6 <= 380 * 0.5 + 6)
+    }
+
+    /// Hai điểm đo ở Desktop (VM-D9): chart cao 292 → ~19–20 ký tự, cao 132 → ~8–9 ký tự (font 12 px).
+    @Test func matchesTheLengthsDesktopShowedOnTheParetoChart() {
+        #expect((18...21).contains(CategoryLabelFit(fontSize: 12, chartHeight: 292).maxLength))
+        #expect((8...10).contains(CategoryLabelFit(fontSize: 12, chartHeight: 132).maxLength))
     }
 
     @Test func aShortChartKeepsAtLeastAUsableLabel() {

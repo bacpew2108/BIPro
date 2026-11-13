@@ -29,6 +29,8 @@ struct PageEdit: Equatable {
 struct Retype: Equatable {
     var type: String
     var dropObjectKeys: Set<String>
+    /// Đổi sang cột/thanh với cột ngày ở `Category`: lúc ghi thêm sắp xếp mặc định tăng dần theo cột đó (VM-D9 mục 1).
+    var sortsByDateCategory = false
 }
 
 /// Một bước hoàn tác: toàn bộ trạng thái sửa (các trang đã sửa và cấu trúc trang) cùng trang đang mở và vùng chọn,
@@ -52,6 +54,10 @@ struct LayoutSnapshot {
 final class LayoutEditor {
     /// Cột kiểu số thực của mô hình (`Bảng[Cột]`): toán hạng số của thẻ Advanced ghi `…D` thay vì `…L` (Desktop làm vậy; D6).
     var decimalColumns: Set<String> = []
+    /// Cột kiểu ngày giờ của mô hình (`Bảng[Cột]`): đổi sang biểu đồ cột/thanh thì sắp tăng dần theo cột này (VM-D9).
+    var dateColumns: Set<String> = []
+    /// Giá trị (dạng literal, ví dụ `'Female'`) của cột ở ô Chú giải của visual, theo thứ tự đang hiện; rỗng khi chưa nạp dữ liệu.
+    var legendValuesProvider: (String) -> [String] = { _ in [] }
     /// Bản gốc lúc mở (hoặc lúc lưu gần nhất).
     private(set) var baseline: ReportDefinition
     /// Trang đã sửa → phần sửa. Trang chưa đụng tới không có mục.
@@ -478,7 +484,7 @@ final class LayoutEditor {
         guard var json = baseJSON(of: id, page: pageID) else { return nil }
         guard edited[pageID]?.added[id] == nil else { return json }
         if let lines = edited[pageID]?.texts[id], let applied = try? PBIRVisualPatch.setText(in: json, lines: lines) { json = applied }
-        if let wells = edited[pageID]?.queries[id], let applied = try? PBIRQueryPatch.apply(wells, to: json) { json = applied }
+        if let wells = edited[pageID]?.queries[id], let applied = try? applyQuery(wells, to: json, retype: edited[pageID]?.retyped[id]) { json = applied }
         return json
     }
 
@@ -691,7 +697,7 @@ final class LayoutEditor {
         case .changed(let next):
             let bytes: Data, raw: JSONValue, fields: [ReportField]
             do {
-                bytes = try withFormats(try PBIRQueryPatch.apply(next, to: base), page: pageID, id: id)
+                bytes = try withFormats(try applyQuery(next, to: base, retype: edited[pageID]?.retyped[id]), page: pageID, id: id)
                 raw = try JSONValue.parse(bytes)
                 fields = try PBIRQueryPatch.fields(in: bytes)
             } catch {
@@ -795,10 +801,14 @@ final class LayoutEditor {
         let drop = Set(plan.droppedObjectKeys)
         let keptFormats = (edited[pageID]?.formats[id] ?? []).filter { !($0.scope == .objects && drop.contains($0.object)) }
         let bytes: Data, raw: JSONValue, fields: [ReportField]
+        var sortsByDate = false
         do {
             let retyped = try PBIRVisualPatch.setVisualType(in: base, to: type, dropObjectKeys: drop)
             // Định dạng chờ của khoá bị bỏ cũng bỏ, nếu không áp lại sẽ tạo lại khoá vừa bỏ (D4, R8).
-            bytes = try withFormats(try PBIRQueryPatch.apply(plan.wells, to: retyped), page: pageID, id: id, formats: keptFormats)
+            // Desktop thêm sắp xếp mặc định tăng dần theo cột ngày khi đổi đường sang cột/thanh (VM-D9 mục 1).
+            sortsByDate = Self.sortsAscendingByDate(type) && isDateCategory(plan.wells)
+            let patched = try applyQuery(plan.wells, to: retyped, retype: Retype(type: type, dropObjectKeys: drop, sortsByDateCategory: sortsByDate))
+            bytes = try withFormats(patched, page: pageID, id: id, formats: keptFormats)
             raw = try JSONValue.parse(bytes)
             fields = try PBIRQueryPatch.fields(in: bytes)
         } catch {
@@ -815,11 +825,29 @@ final class LayoutEditor {
             // visual mới còn cập nhật byte hiện tại ở `added`.
             edit.queries[id] = plan.wells
             edit.formats[id] = keptFormats.isEmpty ? nil : keptFormats
-            edit.retyped[id] = Retype(type: type, dropObjectKeys: (edit.retyped[id]?.dropObjectKeys ?? []).union(drop))
+            edit.retyped[id] = Retype(type: type, dropObjectKeys: (edit.retyped[id]?.dropObjectKeys ?? []).union(drop), sortsByDateCategory: sortsByDate)
             if isNew { edit.added[id] = bytes }
         }
         notice = plan.notice
         return nil
+    }
+
+    /// Cột `Category` đầu của các ô là cột kiểu ngày giờ của mô hình.
+    func isDateCategory(_ wells: [PBIRQueryPatch.Well]) -> Bool {
+        guard let field = wells.first(where: { $0.role == "Category" })?.elements.first?.field, field.kind == .column else { return false }
+        return dateColumns.contains("\(field.entity)[\(field.property)]")
+    }
+
+    /// `PBIRQueryPatch.apply`, rồi thêm sắp xếp mặc định tăng dần theo cột ngày nếu lần đổi loại của visual đòi (VM-D9 mục 1).
+    func applyQuery(_ wells: [PBIRQueryPatch.Well], to json: Data, retype: Retype?) throws -> Data {
+        let out = try PBIRQueryPatch.apply(wells, to: json)
+        guard retype?.sortsByDateCategory == true, isDateCategory(wells) else { return out }
+        return try PBIRQueryPatch.addingDefaultCategorySort(out)
+    }
+
+    /// Loại có trục chữ mà Desktop sắp tăng dần theo cột ngày của `Category` sau khi đổi loại: cột và thanh (không combo).
+    static func sortsAscendingByDate(_ type: String) -> Bool {
+        type.hasSuffix("ColumnChart") || type.hasSuffix("BarChart") || type == "columnChart"
     }
 
     /// Phần diện tích của `frame` bị `other` che (0...1).
@@ -1081,7 +1109,7 @@ final class LayoutEditor {
                         json = try PBIRVisualPatch.setVisualType(in: json, to: retype.type, dropObjectKeys: retype.dropObjectKeys)
                     }
                     if let lines = edit.texts[visual.id] { json = try PBIRVisualPatch.setText(in: json, lines: lines) }
-                    if let wells = edit.queries[visual.id] { json = try PBIRQueryPatch.apply(wells, to: json) }
+                    if let wells = edit.queries[visual.id] { json = try applyQuery(wells, to: json, retype: edit.retyped[visual.id]) }
                     if let formats = edit.formats[visual.id] { json = try PBIRFormatPatch.apply(formats, to: json) }
                     if let patched = try Self.patch(json, to: visual, group: group) { json = patched }
                     if json != onDisk { changes.reportParts[path] = json }

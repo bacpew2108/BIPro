@@ -143,8 +143,9 @@ enum ChartAxis {
 
 /// Nhãn danh mục xoay dọc: giới hạn chiều dài để không lấn vùng vẽ (cắt bằng "…"), dùng chiều cao chart đo được.
 struct CategoryLabelFit {
-    /// Tỉ lệ chiều cao chart tối đa dành cho nhãn xoay. Chưa quan sát Desktop; chọn bảo thủ.
-    static let heightShare: CGFloat = 0.3
+    /// Tỉ lệ chiều cao chart tối đa dành cho nhãn xoay: Desktop cắt Pareto D3 còn ~19 ký tự ở cao 380 và ~8 ký tự ở cao 220
+    /// (`docs/phase-d-evidence/vm-d9/QUAN-SAT.md` mục 6), khớp 0,5 của chiều cao vùng chart.
+    static let heightShare: CGFloat = 0.5
     static let fallbackHeight: CGFloat = 300
     static let minLength = 8
 

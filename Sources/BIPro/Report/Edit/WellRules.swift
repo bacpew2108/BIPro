@@ -43,7 +43,8 @@ enum WellRules {
         "cardVisual": ["Data": (.measure, false)],
         "slicer": ["Values": (.column, true)],
         // VM-D3 (`R-D3-t-clusteredColumn`, `-stackedColumn`): cột xếp chồng của Desktop có visualType `columnChart`.
-        "clusteredColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
+        // VM-D9 mục 1: đổi đường sang cột nhóm, Desktop giữ `Tooltips`.
+        "clusteredColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Tooltips": (.measure, false)],
         "columnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
         "clusteredBarChart": ["Category": (.column, true), "Y": (.measure, false), "Series": (.column, true), "Tooltips": (.measure, false)],
         "donutChart": ["Category": (.column, false), "Y": (.measure, false), "Tooltips": (.measure, false)],

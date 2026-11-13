@@ -326,18 +326,38 @@ import Testing
         #"{"properties":{"fill":\#(fill)},"selector":{"data":[{"scopeId":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Entity":"D"}},"Property":"sex"}},"Right":{"Literal":{"Value":"\#(literal)"}}}}}]}}"#
     }
 
-    @Test func aLegendValueEntryIsEditedInPlaceAndNeverCreated() throws {
+    @Test func aLegendValueEntryIsEditedInPlaceAndNeedsItsColumnToBeCreated() throws {
         let doc = #"{"visual":{"objects":{"dataPoint":[\#(Self.legendEntry("'Female'", fill: "1")),\#(Self.legendEntry("'Male'", fill: "2"))]}}}"#
         let edit = FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: "fill", value: "9"), selectorMetadata: "data:'Male'")
         // Mục có sẵn: thay đúng giá trị, giữ từng byte còn lại (cả hai đường byte và mô hình cho cùng kết quả).
         let want = doc.replacingOccurrences(of: Self.legendEntry("'Male'", fill: "2"), with: Self.legendEntry("'Male'", fill: "9"))
         #expect(try apply([edit], doc) == want)
         #expect(try PBIRFormatPatch.apply([edit], to: Data(doc.utf8)).count == want.utf8.count)
-        // Giá trị chưa có mục: từ chối thay vì ghi `selector.metadata` sai.
+        // Giá trị chưa có mục mà không biết cột Chú giải: từ chối thay vì ghi `selector.metadata` sai.
         let missing = FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: "fill", value: "9"), selectorMetadata: "data:'Other'")
         #expect(throws: (any Error).self) { try PBIRFormatPatch.apply([missing], to: Data(doc.utf8)) }
         // Bỏ thuộc tính duy nhất của mục: bỏ cả mục, mục còn lại ở nguyên.
         let remove = FormatEdit(scope: .objects, object: "dataPoint", action: .removeProperty("fill"), selectorMetadata: "data:'Female'")
         #expect(try apply([remove], doc) == #"{"visual":{"objects":{"dataPoint":[\#(Self.legendEntry("'Male'", fill: "2"))]}}}"#)
+    }
+
+    /// VM-D9 mục 2: Desktop tạo mục mới `selector.data[0].scopeId.Comparison` khi đổi màu một giá trị Chú giải chưa có mục.
+    @Test func aLegendValueWithoutAnEntryGetsOneLikeDesktop() throws {
+        let column = FormatEdit.LegendColumn(entity: "D", property: "sex")
+        let edit = FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: "fill", value: "9"),
+                              selectorMetadata: "data:'Other'", legendColumn: column)
+        let doc = #"{"visual":{"objects":{"dataPoint":[\#(Self.legendEntry("'Female'", fill: "1"))]}}}"#
+        let appended = #"{"visual":{"objects":{"dataPoint":[\#(Self.legendEntry("'Female'", fill: "1")),\#(Self.legendEntry("'Other'", fill: "9"))]}}}"#
+        #expect(try apply([edit], doc) == appended)
+        // Hai đường (byte và mô hình) cho cùng độ dài.
+        #expect(try PBIRFormatPatch.apply([edit], to: Data(doc.utf8)).count == appended.utf8.count)
+        // Khoá `dataPoint` chưa có: tạo cả mảng, một mục.
+        let none = #"{"visual":{"objects":{"labels":[{"properties":{}}]}}}"#
+        let created = try apply([edit], none)
+        #expect(created.contains(Self.legendEntry("'Other'", fill: "9")) && created.contains(#""labels":[{"properties":{}}],"dataPoint":["#))
+        // Giá trị có dấu nháy đơn: literal Desktop nhân đôi nháy; người gọi đã truyền literal hoàn chỉnh.
+        let quoted = FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: "fill", value: "9"),
+                                selectorMetadata: "data:'O''Neil'", legendColumn: column)
+        #expect(try apply([quoted], doc).contains(#""Right":{"Literal":{"Value":"'O''Neil'"}}"#))
     }
 }
