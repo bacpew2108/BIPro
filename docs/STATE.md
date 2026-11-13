@@ -108,7 +108,7 @@ Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xo�
 - **Hạn chế đã biết**: dán nút điều hướng/bookmark mà đích đã bị xoá sau khi chép không bị bỏ kèm báo (T031, chưa biết dạng tham chiếu); làm tròn về điểm nguyên (Desktop giữ số thập phân, lệch tối đa 0,5 điểm); mắt ẩn nhóm trong Selection pane áp lên từng con, không ghi `visualGroup.display`.
 - **Review `/code-review` (medium) đã sửa**: con chép/dán riêng lẻ không còn bị khoá, con của nhóm trong file sau Bỏ nhóm sửa được, con co không nhỏ hơn 1 điểm, `z` nhóm không trùng visual khác, phân bố dùng mép phải xa nhất, căn trong nhóm theo khung nhóm, kiểm `verifyGroups` chỉ với phần đã đổi, bộ ghép định dạng cũ chịu container không có tên và tên trùng.
 
-## Dọn tồn đọng Phase D (2026-11-13, chưa commit)
+## Dọn tồn đọng Phase D (2026-11-13, đã commit `3d7bb5c`)
 
 Lead tự làm theo `/tdd` (việc nhỏ, không Spec Kit); hợp đồng `specs/005-d5-quan-ly-trang/contracts/page-save.md` và SC-005 đã sửa theo.
 
@@ -128,7 +128,7 @@ Claude điều khiển VM theo lời cho phép của bạn. Kết quả và mẫ
 - **Định dạng (D4):** `dataPoint` theo chuỗi (`selector.metadata`), nền, bóng (đủ khoá), phông, heading, `titleWrap`, `divider`, cỡ chữ 8 đến 60, matrix `subTotals`/`general.layout`/`unfrozen`/`gridHorizontal`/`gridVertical`, reset hết thì bỏ hẳn khoá `objects`.
 - **Chưa quan sát:** bookmark Data có lựa chọn điểm dữ liệu/drill/mở nút; `dataPoint` theo điểm dữ liệu; các thẻ còn lại của matrix, nút, donut, treemap, shape map, image, slicer.
 
-## Tính năng sau VM-D8 (2026-11-13, chưa commit)
+## Tính năng sau VM-D8 (2026-11-13, đã commit `3d7bb5c`)
 
 Lead tự làm theo `/tdd`, sửa hợp đồng của spec cũ (không mở spec mới vì là phần còn lại của D3 đến D7). `swift test` 1421 qua.
 
