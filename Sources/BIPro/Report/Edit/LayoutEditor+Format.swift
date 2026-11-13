@@ -54,10 +54,18 @@ extension LayoutEditor {
 
     private func scopeJSON(of visual: ReportVisual, _ scope: FormatScope) -> JSONValue? { visual.raw["visual"]?[scope.key] }
 
-    /// Các chuỗi của visual: measure ở ô `Y` rồi `Y2`, theo thứ tự trong ô. Rỗng khi có trường ở ô Chú giải
-    /// (chuỗi sinh từ giá trị cột; màu kiểu đó chưa quan sát).
-    func formatSeries(of visual: ReportVisual) -> [(queryRef: String, title: String)] {
-        guard !visual.fields.contains(where: { $0.role == FormatCatalog.legendRole }) else { return [] }
+    /// Các chuỗi của visual. Không có trường ở ô Chú giải: measure ở ô `Y` rồi `Y2`, theo thứ tự trong ô (khoá là `queryRef`,
+    /// ghi `selector.metadata`). Có trường ở ô Chú giải: các giá trị mà `entries` đã có mục riêng, đúng cột đó (khoá
+    /// `data:<literal>`; chỉ sửa mục có sẵn, giá trị chưa có mục cần danh sách giá trị từ truy vấn).
+    func formatSeries(of visual: ReportVisual, entries: [JSONValue]) -> [(queryRef: String, title: String)] {
+        if let legend = visual.fields.first(where: { $0.role == FormatCatalog.legendRole }) {
+            var seen = Set<String>()
+            return entries.compactMap { entry -> (String, String)? in
+                guard let value = FormatCatalog.legendValue(of: entry), value.entity == legend.entity, value.property == legend.property else { return nil }
+                return (FormatCatalog.legendPrefix + value.literal, FormatCatalog.legendTitle(value.literal))
+            }
+            .filter { seen.insert($0.0).inserted }
+        }
         var seen = Set<String>()
         return FormatCatalog.seriesRoles.sorted().flatMap { role in
             visual.fields.filter { $0.role == role && ($0.kind == .measure || $0.kind == .aggregation) }
@@ -76,7 +84,8 @@ extension LayoutEditor {
     /// Mục chung thêm được vào cuối mảng khi mảng chỉ có mục theo chuỗi (VM-D8 mục 6); cạnh mục kiểu khác thì chưa quan sát.
     private func acceptsCommonEntry(_ card: FormatCard, _ entries: [JSONValue]) -> Bool {
         if entries.isEmpty || entries.contains(where: FormatCatalog.isEditable) { return true }
-        return !card.seriesProperties.isEmpty && entries.allSatisfy { FormatCatalog.seriesRef(of: $0) != nil }
+        // Cạnh mục theo giá trị Chú giải thì mục chung chưa quan sát.
+        return !card.seriesProperties.isEmpty && entries.allSatisfy { FormatCatalog.seriesRef(of: $0).map { !$0.hasPrefix(FormatCatalog.legendPrefix) } ?? false }
     }
 
     func formatState(of id: String) -> FormatState? {
@@ -92,7 +101,7 @@ extension LayoutEditor {
                 }
                 var state = FormatCardState(card: card, isPresent: !entries.isEmpty, isEditable: acceptsCommonEntry(card, entries), values: values)
                 guard !card.seriesProperties.isEmpty else { return state }
-                state.series = formatSeries(of: visual).map { series in
+                state.series = formatSeries(of: visual, entries: entries).map { series in
                     let own = entries.first { FormatCatalog.seriesRef(of: $0) == series.queryRef }
                     var values: [String: FormatValue] = [:]
                     for property in card.seriesProperties {
@@ -160,11 +169,13 @@ extension LayoutEditor {
 
     /// Lý do không đặt được định dạng riêng cho chuỗi `series` của `visual`, hoặc nil.
     private func seriesRefusal(_ series: String, visual: ReportVisual, entries: [JSONValue]) -> String? {
-        let list = formatSeries(of: visual)
-        if list.isEmpty, visual.fields.contains(where: { $0.role == FormatCatalog.legendRole }) {
-            return "Biểu đồ có trường ở ô Chú giải: màu theo chuỗi kiểu này chưa quan sát ở Power BI Desktop nên chưa sửa được."
+        let list = formatSeries(of: visual, entries: entries)
+        if !list.contains(where: { $0.queryRef == series }) {
+            if visual.fields.contains(where: { $0.role == FormatCatalog.legendRole }) {
+                return "Biểu đồ có trường ở ô Chú giải: chỉ sửa được màu của giá trị đã có mục riêng trong file, giá trị này thì chưa."
+            }
+            return "Chuỗi này không có trong visual."
         }
-        guard list.contains(where: { $0.queryRef == series }) else { return "Chuỗi này không có trong visual." }
         return seriesBlocker(series, in: entries)
     }
 

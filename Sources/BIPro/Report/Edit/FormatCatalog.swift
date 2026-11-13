@@ -323,9 +323,37 @@ enum FormatCatalog {
     }
 
     /// `queryRef` của chuỗi mà mục này định dạng riêng: selector chỉ có `metadata` (VM-D8 mục 6). nil với mục khác.
+    /// Hoặc, khi selector chỉ có `data` (một `scopeId.Comparison` bằng một giá trị của cột ở ô Chú giải, VM-D8c mục 2):
+    /// `"data:<literal>"`, ví dụ `data:'Female'`. nil với mục khác (nhiều điều kiện, so sánh khác, kèm `metadata`).
     static func seriesRef(of entry: JSONValue) -> String? {
-        guard let selector = entry["selector"], Set(selector.object.keys) == ["metadata"] else { return nil }
-        return selector["metadata"]?.string
+        guard let selector = entry["selector"] else { return nil }
+        let keys = Set(selector.object.keys)
+        if keys == ["metadata"] { return selector["metadata"]?.string }
+        return legendValue(of: entry).map { "\(legendPrefix)\($0.literal)" }
+    }
+
+    /// Tiền tố của khoá chuỗi theo giá trị Chú giải (khoá chuỗi measure là `Bảng.Tên`, không bắt đầu bằng đây).
+    static let legendPrefix = PBIRFormatPatch.legendPrefix
+
+    /// Cột và literal của mục theo giá trị Chú giải; nil nếu mục không đúng dạng đó.
+    static func legendValue(of entry: JSONValue) -> (entity: String, property: String, literal: String)? {
+        guard let selector = entry["selector"], Set(selector.object.keys) == ["data"],
+              let data = selector["data"]?.array, data.count == 1, Set(data[0].object.keys) == ["scopeId"],
+              let comparison = data[0]["scopeId"]?["Comparison"],
+              comparison["ComparisonKind"]?.number == 0,
+              let column = comparison["Left"]?["Column"],
+              let entity = column["Expression"]?["SourceRef"]?["Entity"]?.string, let property = column["Property"]?.string,
+              let literal = comparison["Right"]?["Literal"]?["Value"]?.string else { return nil }
+        return (entity, property, literal)
+    }
+
+    /// Tên hiển thị của giá trị Chú giải từ literal: `'Female'` → `Female`, `1L` → `1`.
+    static func legendTitle(_ literal: String) -> String {
+        if literal.count >= 2, literal.hasPrefix("'"), literal.hasSuffix("'") {
+            return String(literal.dropFirst().dropLast()).replacingOccurrences(of: "''", with: "'")
+        }
+        if let last = literal.last, "LDM".contains(last), Double(literal.dropLast()) != nil { return String(literal.dropLast()) }
+        return literal
     }
 
     /// Ô chứa measure mà mỗi measure là một chuỗi (cột/thanh ở `Y`, đường của combo ở `Y2`).

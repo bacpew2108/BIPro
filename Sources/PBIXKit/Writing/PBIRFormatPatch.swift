@@ -122,8 +122,18 @@ public enum PBIRFormatPatch {
     private static func matches(_ entry: [String: Any], _ metadata: String?) -> Bool {
         guard let metadata else { return isEditable(entry) }
         guard let selector = entry["selector"] as? [String: Any] else { return false }
+        if metadata.hasPrefix(legendPrefix) {
+            // Mục theo giá trị Chú giải: `selector.data[0].scopeId.Comparison.Right.Literal.Value` bằng literal sau tiền tố.
+            guard selector.count == 1, let data = selector["data"] as? [[String: Any]], data.count == 1,
+                  let comparison = (data[0]["scopeId"] as? [String: Any])?["Comparison"] as? [String: Any],
+                  let literal = ((comparison["Right"] as? [String: Any])?["Literal"] as? [String: Any])?["Value"] as? String else { return false }
+            return legendPrefix + literal == metadata
+        }
         return selector.count == 1 && selector["metadata"] as? String == metadata
     }
+
+    /// Khoá `selectorMetadata` bắt đầu bằng đây là mục theo giá trị Chú giải (chỉ sửa mục có sẵn, không tạo mới).
+    public static let legendPrefix = "data:"
 
     /// Chỉ số mục đầu tiên của mảng ở `arrayPath` mà lệnh nhắm tới (mục chung, hoặc mục của chuỗi `metadata`).
     private static func entryIndex(at arrayPath: [JSONPathStep], in bytes: [UInt8], metadata: String?) throws -> Int? {
@@ -203,6 +213,7 @@ public enum PBIRFormatPatch {
                 return
             }
             guard let index = try entryIndex(at: objectPath, in: bytes, metadata: edit.selectorMetadata) else {
+                if edit.selectorMetadata?.hasPrefix(legendPrefix) == true { throw WriteError.invalid("no format entry for this legend value") }
                 // Chưa có mục của chuỗi này (hoặc chưa có mục chung): Desktop thêm mục mới vào cuối mảng (VM-D8 mục 6).
                 guard let last = JSONCursor.children(at: objectPath, in: bytes)?.last else {
                     throw WriteError.invalid("format entries are not a non-empty array in visual.json")
@@ -298,6 +309,7 @@ public enum PBIRFormatPatch {
             if let existing = scope[edit.object] {
                 guard let array = existing as? NSMutableArray else { throw WriteError.invalid("\(edit.object) is not an array") }
                 guard let entry = try modelEntry(array, edit.selectorMetadata) else {
+                    if edit.selectorMetadata?.hasPrefix(legendPrefix) == true { throw WriteError.invalid("no format entry for this legend value") }
                     array.add(newModelEntry(property, value, edit))
                     break
                 }

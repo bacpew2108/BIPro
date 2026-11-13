@@ -319,4 +319,25 @@ import Testing
         list = FormatEdit.merging(list, adding: FormatEdit(scope: .objects, object: "title", action: .removeObject, selectorDefault: false))
         #expect(list.filter { $0.scope == .container }.count == 1 && list.filter { $0.scope == .objects }.count == 1)
     }
+
+    // MARK: Mục theo giá trị Chú giải (VM-D8c mục 2)
+
+    static func legendEntry(_ literal: String, fill: String) -> String {
+        #"{"properties":{"fill":\#(fill)},"selector":{"data":[{"scopeId":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Entity":"D"}},"Property":"sex"}},"Right":{"Literal":{"Value":"\#(literal)"}}}}}]}}"#
+    }
+
+    @Test func aLegendValueEntryIsEditedInPlaceAndNeverCreated() throws {
+        let doc = #"{"visual":{"objects":{"dataPoint":[\#(Self.legendEntry("'Female'", fill: "1")),\#(Self.legendEntry("'Male'", fill: "2"))]}}}"#
+        let edit = FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: "fill", value: "9"), selectorMetadata: "data:'Male'")
+        // Mục có sẵn: thay đúng giá trị, giữ từng byte còn lại (cả hai đường byte và mô hình cho cùng kết quả).
+        let want = doc.replacingOccurrences(of: Self.legendEntry("'Male'", fill: "2"), with: Self.legendEntry("'Male'", fill: "9"))
+        #expect(try apply([edit], doc) == want)
+        #expect(try PBIRFormatPatch.apply([edit], to: Data(doc.utf8)).count == want.utf8.count)
+        // Giá trị chưa có mục: từ chối thay vì ghi `selector.metadata` sai.
+        let missing = FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: "fill", value: "9"), selectorMetadata: "data:'Other'")
+        #expect(throws: (any Error).self) { try PBIRFormatPatch.apply([missing], to: Data(doc.utf8)) }
+        // Bỏ thuộc tính duy nhất của mục: bỏ cả mục, mục còn lại ở nguyên.
+        let remove = FormatEdit(scope: .objects, object: "dataPoint", action: .removeProperty("fill"), selectorMetadata: "data:'Female'")
+        #expect(try apply([remove], doc) == #"{"visual":{"objects":{"dataPoint":[\#(Self.legendEntry("'Male'", fill: "2"))]}}}"#)
+    }
 }

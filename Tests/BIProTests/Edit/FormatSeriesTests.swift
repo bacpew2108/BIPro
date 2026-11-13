@@ -45,10 +45,61 @@ import Testing
         #expect(card.card.seriesProperties.map(\.key) == ["fill"] && card.isEditable)
     }
 
-    @Test func aChartWithALegendFieldOffersNoSeries() throws {
+    @Test func aChartWithALegendFieldAndNoEntriesOffersNoSeries() throws {
         let env = try Env(chart: Self.chart(series: true)); defer { env.cleanUp() }
         #expect(try dataPoint(env).series.isEmpty)
         #expect(setColor(env, "Fact.Credit")?.contains("Chú giải") == true)
+        #expect(setColor(env, "data:'North'")?.contains("Chú giải") == true)
+    }
+
+    // MARK: Màu theo giá trị Chú giải (VM-D8c mục 2)
+
+    /// Mục của một giá trị Chú giải, đúng dạng Desktop ghi: `selector.data[0].scopeId.Comparison` trên cột ở ô Chú giải.
+    static func legendEntry(_ value: String, color: String, property: String = "region") -> String {
+        let left = #"{"Column":{"Expression":{"SourceRef":{"Entity":"Dim"}},"Property":"\#(property)"}}"#
+        return #"{"properties":{"fill":{"solid":{"color":{"expr":{"Literal":{"Value":"'\#(color)'"}}}}}},"selector":{"data":[{"scopeId":{"Comparison":{"ComparisonKind":0,"Left":\#(left),"Right":{"Literal":{"Value":"\#(value)"}}}}}]}}"#
+    }
+    static let legendObjects = "{\"dataPoint\":[\(legendEntry("'North'", color: "#111111")),\(legendEntry("'South'", color: "#222222"))]}"
+
+    @Test func legendValuesWithAnEntryAreTheSeries() throws {
+        let env = try Env(chart: Self.chart(objects: Self.legendObjects, series: true)); defer { env.cleanUp() }
+        let card = try dataPoint(env)
+        #expect(card.series.map(\.title) == ["North", "South"] && card.series.map(\.queryRef) == ["data:'North'", "data:'South'"])
+        #expect(card.series[0].values["fill"] == .color(.hex("#111111")) && card.series.allSatisfy { $0.blocker == nil })
+        #expect(card.isEditable == false)   // mục chung cạnh mục theo Chú giải chưa quan sát
+        #expect(!(env.editor.formatState(of: S.c1)?.readOnly.contains { $0.object == "dataPoint" } ?? true))
+    }
+
+    @Test func aLegendValueColourIsChangedInPlaceLikeDesktop() throws {
+        let env = try Env(chart: Self.chart(objects: Self.legendObjects, series: true)); defer { env.cleanUp() }
+        let before = try bytes(env, S.c1)
+        let depth = env.editor.undoDepth
+        #expect(setColor(env, "data:'North'") == nil)
+        let after = try bytes(env, S.c1)
+        #expect(after == before.replacingOccurrences(of: #"{"solid":{"color":{"expr":{"Literal":{"Value":"'#111111'"}}}}}"#, with: Self.theme4))
+        #expect(env.editor.undoDepth == depth + 1)
+        #expect(try dataPoint(env).series[0].values["fill"] == .color(.theme(id: 4, percent: 0)))
+        #expect(try dataPoint(env).series[1].values["fill"] == .color(.hex("#222222")))
+        env.editor.undo()
+        #expect(try bytes(env, S.c1) == before)
+    }
+
+    @Test func legendValuesWithoutAnEntryOrOnAnotherColumnAreRefused() throws {
+        let objects = "{\"dataPoint\":[\(Self.legendEntry("'North'", color: "#111111")),\(Self.legendEntry("'East'", color: "#333333", property: "other"))]}"
+        let env = try Env(chart: Self.chart(objects: objects, series: true)); defer { env.cleanUp() }
+        #expect(try dataPoint(env).series.map(\.title) == ["North"])
+        let depth = env.editor.undoDepth
+        #expect(setColor(env, "data:'East'") != nil)     // mục của cột khác
+        #expect(setColor(env, "data:'West'") != nil)     // chưa có mục: thêm mục mới theo giá trị chưa quan sát
+        #expect(setColor(env, "Fact.Credit") != nil)     // chuỗi measure không thuộc visual có Chú giải
+        #expect(env.editor.undoDepth == depth)
+    }
+
+    @Test func resettingALegendValueColourDropsItsEntry() throws {
+        let env = try Env(chart: Self.chart(objects: Self.legendObjects, series: true)); defer { env.cleanUp() }
+        #expect(env.editor.resetFormat(scope: .objects, object: "dataPoint", property: "fill", visual: S.c1, series: "data:'North'") == nil)
+        let text = try bytes(env, S.c1)
+        #expect(!text.contains("'North'") && text.contains("'South'"))
     }
 
     // MARK: Ghi

@@ -127,7 +127,7 @@ private struct FormatCardView: View {
     /// "Áp dụng cho": Tất cả hoặc một chuỗi, như ô "Apply settings to" của Desktop. Màu chỉ đặt được khi chọn một chuỗi.
     @ViewBuilder private var seriesPicker: some View {
         if cardState.series.isEmpty {
-            Text("Màu theo chuỗi: biểu đồ có trường ở ô Chú giải hoặc chưa có measure, chưa sửa được.")
+            Text("Màu theo chuỗi: chưa có measure để chọn, hoặc biểu đồ có trường ở ô Chú giải mà file chưa có màu riêng cho giá trị nào (chưa thêm được).")
                 .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
         } else {
