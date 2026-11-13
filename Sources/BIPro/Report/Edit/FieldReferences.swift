@@ -20,8 +20,15 @@ struct FieldReference: Equatable {
 
 enum FieldReferences {
     /// Các chỗ nhắc còn chặn việc bỏ trường (hoặc đổi loại làm mất trường): chỉ sắp xếp.
+    /// Sắp xếp mặc định theo **measure** (`isDefaultSort: true`) không chặn: Desktop tự thêm nó khi thả measure và dọn đi khi
+    /// bỏ measure (VM-D3 mục B: bỏ hết trường của card không để lại `sortDefinition`); `PBIRQueryPatch` bỏ hoặc dựng lại nó
+    /// sau khi đổi trường. Sắp xếp mặc định theo cột và sắp xếp người dùng đặt vẫn chặn (chưa quan sát).
     static func blocking(in json: Data, entity: String, property: String, queryRef: String) -> [FieldReference] {
-        find(in: json, entity: entity, property: property, queryRef: queryRef).filter { $0.kind == .sort }
+        let sorts = find(in: json, entity: entity, property: property, queryRef: queryRef).filter { $0.kind == .sort }
+        guard !sorts.isEmpty, let root = try? JSONValue.parse(json), let sort = root["visual"]?["query"]?["sortDefinition"],
+              sort["isDefaultSort"]?.bool == true,
+              (sort["sort"]?.array ?? []).allSatisfy({ $0["field"]?["Measure"] != nil }) else { return sorts }
+        return []
     }
 
     /// Các nơi trong `json` nhắc tới trường (`entity`, `property`, `queryRef`): sắp xếp, thẻ lọc cấp visual, định dạng

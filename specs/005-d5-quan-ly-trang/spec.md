@@ -79,7 +79,7 @@ Người dùng xoá một trang không cần nữa; báo cáo không được c�
 1. **Cho** nhiều hơn một trang, **khi** chọn "Xoá trang" và xác nhận, **thì** trang và mọi visual của nó biến khỏi báo cáo, trang liền kề (ưu tiên trang bên phải) thành trang đang mở.
 2. **Cho** trang cuối cùng của báo cáo, **khi** chọn xoá, **thì** bị từ chối kèm lý do (báo cáo phải còn ít nhất một trang).
 3. **Cho** bookmark có `activeSection` hoặc `sections` trỏ tới trang bị xoá, **khi** xoá trang, **thì** bookmark đó bị gỡ khỏi báo cáo (nếu `activeSection` là trang đó; khác Desktop, vốn để bookmark mồ côi không làm gì) hoặc chỉ bỏ phần của trang (nếu chỉ `sections` nhắc tới); danh sách bookmark của báo cáo khớp với file bookmark còn lại; người dùng được báo bookmark nào đã gỡ.
-4. **Cho** nút điều hướng (`visualLink` loại `PageNavigation`) trỏ tới trang bị xoá, **khi** xoá, **thì** thao tác bị chặn kèm danh sách nút (tới khi VM-D5 cho biết Desktop làm gì).
+4. **Cho** nút điều hướng (`visualLink` loại `PageNavigation`) trỏ tới trang bị xoá, **khi** xoá, **thì** trang được xoá, nút giữ nguyên (trỏ treo như Desktop, VM-D8) và thông báo kể tên các nút đó. (Sửa 2026-11-13; trước đó thao tác bị chặn vì chưa quan sát.)
 5. **Cho** xoá nhầm, **khi** hoàn tác (⌘Z), **thì** trang trở lại đủ visual cùng các bookmark đã gỡ, đúng vị trí cũ trong dãy tab và đúng trang đang mở trước đó.
 
 ---
@@ -138,7 +138,7 @@ Mỗi thao tác trang là đúng một bước hoàn tác, chung ngăn xếp v�
 - **FR-003**: Người dùng PHẢI đổi được thứ tự trang bằng kéo tab hoặc "Sang trái"/"Sang phải" ở menu chuột phải (Desktop chỉ có kéo tab và "Move to"); thứ tự mới là thứ tự tab ngay lập tức.
 - **FR-004**: Người dùng PHẢI nhân bản được một trang kèm mọi visual (mã visual mới, vị trí, loại, trường, định dạng giữ nguyên); trang mới có mã mới, tên "Duplicate of <tên>" như Desktop, đặt ở cuối dãy tab; bookmark không được sao; `pageBinding` không được sao và có báo.
 - **FR-005**: Người dùng PHẢI xoá được trang (có hỏi xác nhận), trừ trang cuối cùng; sau khi xoá, trang liền kề thành trang đang mở.
-- **FR-006**: Xoá trang PHẢI dọn mọi chỗ nhắc tới mã trang: bookmark trỏ trang đó (`activeSection`, `sections`) và `bookmarks.json`; nút `PageNavigation` trỏ tới trang đó chặn thao tác kèm danh sách (cho tới khi VM-D5 chốt cách Desktop xử lý).
+- **FR-006**: Xoá trang PHẢI dọn mọi chỗ nhắc tới mã trang: bookmark trỏ trang đó (`activeSection`, `sections`) và `bookmarks.json`; nút `PageNavigation` trỏ tới trang đó chặn thao tác kèm danh sách (cho tới khi VM-D5 chốt cách Desktop xử lý). Sửa 2026-11-13 (VM-D8): Desktop không cảnh báo và để nguyên nút; BI Pro không chặn nữa, chỉ báo nút nào còn trỏ tới trang đã xoá.
 - **FR-007**: Mọi thao tác trang PHẢI là đúng một bước hoàn tác, chung một lịch sử với D1, D2, D3; hoàn tác xoá trang phục hồi trang, visual, bookmark và vị trí tab.
 - **FR-008**: Lưu (⌘S, ⇧⌘S) PHẢI ghi các thay đổi trang vào `.pbix` ở tầng T1 qua đường lưu của D1: thêm/bớt part trang, sửa `pages.json`, `page.json`, bookmark bằng ghép byte, giữ nguyên mọi phần khác; `SecurityBindings` bỏ như D1 (R13); dựng và kiểm trong bộ nhớ trước khi ghi, file đích còn nguyên nếu lỗi.
 - **FR-009**: File đã lưu PHẢI mở lại được ở BI Pro (đủ trang, đúng thứ tự, tên, số visual) và ở Power BI Desktop (không báo lỗi, bookmark còn lại bấm được).
@@ -161,7 +161,7 @@ Mỗi thao tác trang là đúng một bước hoàn tác, chung ngăn xếp v�
 - **SC-002**: Hoàn tác từng bước của chuỗi trên đưa lại đúng trạng thái trước (so sánh trang, thứ tự, bookmark), làm lại đưa về đúng trạng thái sau; không bước nào hỏng.
 - **SC-003**: Lưu báo cáo sau chuỗi trên mất dưới 1 giây (như D1 đến D3); file lưu mở lại ở BI Pro có đủ trang đúng thứ tự, đúng tên và số visual; mọi phần không sửa khớp byte (trừ `SecurityBindings`, `[Content_Types].xml`).
 - **SC-004**: File mở được ở Power BI Desktop (người dùng kiểm hoặc Claude khi được phép): không báo lỗi, đúng thứ tự và tên tab, bookmark còn lại bấm được, trang nhân bản vẽ cùng nội dung như gốc.
-- **SC-005**: 0 tham chiếu treo: sau khi xoá trang, tìm mã trang đã xoá trong toàn bộ `definition/` không thấy kết quả nào (ngoài thư mục đã bị xoá).
+- **SC-005**: 0 tham chiếu treo: sau khi xoá trang, không còn tham chiếu tới mã trang đã xoá trong `definition/` (thư mục trang, `pages.json`, bookmark, nút điều hướng trang). Sửa 2026-11-13: chỉ tính chỗ là tham chiếu; chuỗi trùng mã trang ở chỗ khác (tên hiển thị, chữ trong visual) không tính. Sửa lần hai 2026-11-13 (VM-D8): nút điều hướng trỏ trang đã xoá được để nguyên như Desktop, không tính là tham chiếu treo phải dọn.
 - **SC-006**: Golden nặng Phase B/C và các test D1, D2, D3 giữ nguyên số qua; file gốc dưới `~/Downloads` không đổi.
 
 ## Giả định

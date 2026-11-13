@@ -133,11 +133,33 @@ extension FilterRule {
     static func parseAdvanced(_ condition: JSONValue?) -> FilterRule? {
         guard let condition else { return nil }
         if let and = condition["And"] ?? condition["Or"] {
-            guard let a = single(and["Left"]), let b = single(and["Right"]), a.numeric == b.numeric else { return nil }
-            return .advanced(first: a.condition, second: b.condition, useOr: condition["Or"] != nil, numeric: a.numeric)
+            guard let a = single(and["Left"]), let b = single(and["Right"]) else { return nil }
+            // "trống" so với `null` nên không cho biết kiểu: lấy kiểu của điều kiện còn lại.
+            let aTyped = a.condition.kind.needsOperand, bTyped = b.condition.kind.needsOperand
+            guard !(aTyped && bTyped) || a.numeric == b.numeric else { return nil }
+            let numeric = aTyped ? a.numeric : (bTyped ? b.numeric : false)
+            return .advanced(first: a.condition, second: b.condition, useOr: condition["Or"] != nil, numeric: numeric)
         }
         guard let one = single(condition) else { return nil }
         return .advanced(first: one.condition, second: nil, useOr: false, numeric: one.numeric)
+    }
+
+    /// Đọc `filter` của thẻ Top N (VM-D6, VM-D8): truy vấn con trong `From` chọn `Top` giá trị theo một measure;
+    /// `Direction` 2 là Top, 1 là Bottom. nil nếu có dạng khác.
+    static func parseTopN(_ filter: JSONValue?) -> FilterRule? {
+        let sources: [JSONValue] = filter?["From"]?.array ?? []
+        guard let query = sources.compactMap({ $0["Expression"]?["Subquery"]?["Query"] }).first,
+              let count = query["Top"]?.number, let order = query["OrderBy"]?.array, order.count == 1,
+              let direction = order[0]["Direction"]?.number, direction == 1 || direction == 2,
+              let measure = order[0]["Expression"]?["Measure"], let name = measure["Property"]?.string else { return nil }
+        let source = measure["Expression"]?["SourceRef"]
+        var table = source?["Entity"]?.string
+        if table == nil, let alias = source?["Source"]?.string {
+            let inner: [JSONValue] = query["From"]?.array ?? []
+            table = inner.first { $0["Name"]?.string == alias }?["Entity"]?.string
+        }
+        guard let table else { return nil }
+        return .topN(TopNRule(count: Int(count), top: direction == 2, measureTable: table, measureName: name))
     }
 
     private static func single(_ json: JSONValue?) -> (condition: FilterCondition, numeric: Bool)? {

@@ -107,4 +107,33 @@ struct PBIRBookmarkPatchTests {
         let text = String(decoding: PBIRBookmarkPatch.newBookmarkJSON(spec), as: UTF8.self)
         #expect(text.contains(#""Values":[[{"Literal":{"Value":"'Credit'"}}],[{"Literal":{"Value":"'Debit'"}}]]"#))
     }
+    // MARK: Nhóm bookmark (VM-D8 mục 5)
+
+    @Test func groupingTwoBookmarksMatchesWhatDesktopWrote() throws {
+        let before = #"{"$schema":"https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmarksMetadata/1.0.0/schema.json","items":[{"name":"Bookmark_Q13_GioThu"},{"name":"Bookmark_Q13_MuaVu"}]}"#
+        let out = try PBIRBookmarkPatch.groupingItems(["Bookmark_Q13_MuaVu", "Bookmark_Q13_GioThu"], id: "f823e234887eab090993",
+                                                      displayName: "Group 1", in: Data(before.utf8))
+        // Nguyên văn `docs/phase-d-evidence/vm-d8/json/bookmarks-nhom.json`.
+        #expect(String(decoding: out, as: UTF8.self) == #"{"$schema":"https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmarksMetadata/1.0.0/schema.json","items":[{"name":"f823e234887eab090993","displayName":"Group 1","children":["Bookmark_Q13_GioThu","Bookmark_Q13_MuaVu"]}]}"#)
+        #expect(PBIRBookmarkPatch.itemNames(in: out) == ["Bookmark_Q13_GioThu", "Bookmark_Q13_MuaVu"])
+        #expect(PBIRBookmarkPatch.groups(in: out) == [.init(id: "f823e234887eab090993", displayName: "Group 1", children: ["Bookmark_Q13_GioThu", "Bookmark_Q13_MuaVu"])])
+    }
+
+    @Test func theGroupTakesThePlaceOfItsFirstMember() throws {
+        let out = try PBIRBookmarkPatch.groupingItems(["C", "A"], id: "g1", displayName: "Nhóm \"x\"", in: Data(index.utf8))
+        #expect(String(decoding: out, as: UTF8.self) == #"{"$schema":"https://x/bookmarksMetadata/1.0.0/schema.json","items":[{"name":"g1","displayName":"Nhóm \"x\"","children":["A","C"]},{"name":"B"}]}"#)
+        // Bookmark đã ở trong nhóm khác hoặc không có trong mục cấp gốc thì bỏ qua; không còn ai thì không đổi gì.
+        let again = try PBIRBookmarkPatch.groupingItems(["A", "B", "Z"], id: "g2", displayName: "Group 2", in: out)
+        #expect(String(decoding: again, as: UTF8.self).hasSuffix(#""children":["A","C"]},{"name":"g2","displayName":"Group 2","children":["B"]}]}"#))
+        #expect(try PBIRBookmarkPatch.groupingItems(["A", "Z"], id: "g3", displayName: "Group 3", in: out) == out)
+    }
+
+    @Test func ungroupingPutsTheMembersBackInPlace() throws {
+        let grouped = try PBIRBookmarkPatch.groupingItems(["A", "C"], id: "g1", displayName: "Group 1", in: Data(index.utf8))
+        let out = try PBIRBookmarkPatch.ungroupingItem("g1", in: grouped)
+        #expect(String(decoding: out, as: UTF8.self) == #"{"$schema":"https://x/bookmarksMetadata/1.0.0/schema.json","items":[{"name":"A"},{"name":"C"},{"name":"B"}]}"#)
+        #expect(PBIRBookmarkPatch.groups(in: out).isEmpty)
+        #expect(try PBIRBookmarkPatch.ungroupingItem("khong_co", in: grouped) == grouped)
+        #expect(try PBIRBookmarkPatch.ungroupingItem("B", in: grouped) == grouped)   // không phải nhóm
+    }
 }

@@ -80,7 +80,9 @@ enum VisualCatalog {
             wells = [Well(role: "Category", label: "Chú giải"), Well(role: "Y", label: "Giá trị"), Well(role: "Series", label: "Chi tiết")]
         case "treemap":
             wells = [Well(role: "Group", label: "Danh mục"), Well(role: "Details", label: "Chi tiết"), Well(role: "Values", label: "Giá trị")]
-        case "card", "cardVisual", "multiRowCard":
+        case "cardVisual":
+            wells = [Well(role: "Data", label: "Dữ liệu")]
+        case "card", "multiRowCard":
             wells = [Well(role: visual.fields.first?.role ?? "Values", label: "Field")]
         case "slicer", "advancedSlicerVisual":
             wells = [Well(role: "Values", label: "Field")]

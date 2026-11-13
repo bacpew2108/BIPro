@@ -248,7 +248,7 @@ struct VisualContentView: View {
 
     /// Loại visual có renderer số thật (gói G). Còn lại giữ bản giữ chỗ.
     private static let liveTypes: Set<String> = [
-        "card", "slicer", "pivotTable", "matrix",
+        "card", "cardVisual", "slicer", "pivotTable", "matrix",
         "clusteredBarChart", "clusteredColumnChart", "stackedColumnChart", "columnChart", "hundredPercentStackedColumnChart",
         "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
         "donutChart", "treemap", "shapeMap",

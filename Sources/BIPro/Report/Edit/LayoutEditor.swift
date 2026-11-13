@@ -50,6 +50,8 @@ struct LayoutSnapshot {
 @MainActor
 @Observable
 final class LayoutEditor {
+    /// Cột kiểu số thực của mô hình (`Bảng[Cột]`): toán hạng số của thẻ Advanced ghi `…D` thay vì `…L` (Desktop làm vậy; D6).
+    var decimalColumns: Set<String> = []
     /// Bản gốc lúc mở (hoặc lúc lưu gần nhất).
     private(set) var baseline: ReportDefinition
     /// Trang đã sửa → phần sửa. Trang chưa đụng tới không có mục.
@@ -100,6 +102,9 @@ final class LayoutEditor {
     @ObservationIgnored let bookmarkSource: () -> [(name: String, json: Data)]
     /// Container không phải visual (nhóm visual) của một trang có trong file: mã và byte `visual.json`.
     @ObservationIgnored let containerSource: (String) -> [(id: String, json: Data)]
+    /// Các part của file lúc mở có đường dẫn bắt đầu bằng tiền tố cho trước (đường dẫn và byte). Dùng để dựng lại phần
+    /// đã bị một lần lưu trước bỏ khỏi file khi người dùng hoàn tác qua lần lưu đó (trang đã xoá).
+    @ObservationIgnored let openedParts: (String) -> [(path: String, data: Data)]
 
     /// Báo cáo định dạng cũ (`Report/Layout`, D7): chỉ sửa bố cục; `sourceJSON` trả byte của container, không phải `visual.json`.
     let isLegacy: Bool
@@ -109,10 +114,12 @@ final class LayoutEditor {
          pageSource: @escaping (String) -> Data? = { _ in nil },
          bookmarkSource: @escaping () -> [(name: String, json: Data)] = { [] },
          containerSource: @escaping (String) -> [(id: String, json: Data)] = { _ in [] },
+         openedParts: @escaping (String) -> [(path: String, data: Data)] = { _ in [] },
          isLegacy: Bool = false) {
         self.isLegacy = isLegacy
         baseline = report
         self.containerSource = containerSource
+        self.openedParts = openedParts
         self.sourceJSON = sourceJSON
         self.pageSource = pageSource
         self.bookmarkSource = bookmarkSource
@@ -140,6 +147,12 @@ final class LayoutEditor {
                                    let data = try? archive.read(entry), let value = try? JSONValue.parse(data),
                                    value["visual"] == nil, let name = value["name"]?.string else { return nil }
                              return (name, data)
+                         }
+                     },
+                     openedParts: { prefix in
+                         archive.entries.compactMap { entry in
+                             guard entry.path.hasPrefix(prefix), let data = try? archive.read(entry) else { return nil }
+                             return (entry.path, data)
                          }
                      })
     }
@@ -177,6 +190,49 @@ final class LayoutEditor {
         return visuals(of: pageID).filter { $0.parentGroup == groupID }
     }
 
+    /// Thành viên trực tiếp của nhóm: visual con và nhóm con (nhóm lồng nhau, VM-D8).
+    func members(ofGroup groupID: String, page pageID: String? = nil) -> [ReportVisual] {
+        guard let pageID = pageID ?? currentPageID else { return [] }
+        return items(of: pageID).filter { $0.parentGroup == groupID }
+    }
+
+    /// Mọi hậu duệ của nhóm (visual và nhóm ở mọi cấp).
+    func descendants(ofGroup groupID: String, page pageID: String? = nil) -> [ReportVisual] {
+        guard let pageID = pageID ?? currentPageID else { return [] }
+        let inside = Self.descendantIDs(of: groupID, in: visuals(of: pageID) + groups(of: pageID))
+        return items(of: pageID).filter { inside.contains($0.id) }
+    }
+
+    /// Mã mọi hậu duệ của nhóm `groupID` trong `items` (không gồm chính nhóm).
+    nonisolated static func descendantIDs(of groupID: String, in items: [ReportVisual]) -> Set<String> {
+        var inside: Set<String> = []
+        var frontier: Set<String> = [groupID]
+        while !frontier.isEmpty {
+            let next = Set(items.filter { item in item.parentGroup.map(frontier.contains) ?? false && !inside.contains(item.id) && item.id != groupID }.map(\.id))
+            inside.formUnion(next)
+            frontier = next
+        }
+        return inside
+    }
+
+    /// Mã các nhóm tổ tiên của `item`, từ cha trực tiếp ra ngoài cùng. Dừng ở nhóm không có trong `groups` hoặc khi gặp vòng.
+    nonisolated static func ancestorIDs(of item: ReportVisual, in groups: [ReportVisual]) -> [String] {
+        var out: [String] = []
+        var seen: Set<String> = [item.id]
+        var parent = item.parentGroup
+        while let id = parent, seen.insert(id).inserted, let group = groups.first(where: { $0.id == id }) {
+            out.append(id)
+            parent = group.parentGroup
+        }
+        return out
+    }
+
+    /// Mã các nhóm tổ tiên của phần tử `id` trên trang hiện tại, từ cha trực tiếp ra ngoài cùng.
+    func ancestorIDs(of id: String) -> [String] {
+        guard let pageID = currentPageID, let item = item(id) else { return [] }
+        return Self.ancestorIDs(of: item, in: groups(of: pageID))
+    }
+
     /// Trang cơ sở: trang của file (bản gốc lúc mở) hoặc trang tạo trong phiên (trống, chỉ có tên và cỡ).
     func basePage(_ pageID: String) -> ReportPage? {
         if let page = baseline.pages.first(where: { $0.id == pageID }) { return page }
@@ -201,16 +257,21 @@ final class LayoutEditor {
         return visuals(of: pageID).first { $0.id == id }
     }
 
-    /// Khoá khi không biết khung nhóm để quy toạ độ: visual có `parentGroupName` mà trang không có nhóm đó, hoặc nhóm nằm
-    /// trong nhóm khác (nhóm lồng nhau, chưa quan sát ở D7).
+    /// Khoá khi không biết khung nhóm để quy toạ độ: phần tử có `parentGroupName` mà chuỗi nhóm cha (qua mọi cấp lồng nhau)
+    /// có nhóm trang không có, hoặc quay vòng.
     func isLockedByGroup(_ id: String) -> Bool {
         guard let item = item(id), let pageID = currentPageID else { return false }
-        guard let parent = item.parentGroup else { return false }
-        if item.isGroup { return true }
-        return !groups(of: pageID).contains { $0.id == parent && $0.parentGroup == nil }
+        let groups = groups(of: pageID)
+        var seen: Set<String> = [id]
+        var parent = item.parentGroup
+        while let next = parent {
+            guard seen.insert(next).inserted, let group = groups.first(where: { $0.id == next }) else { return true }
+            parent = group.parentGroup
+        }
+        return false
     }
 
-    static let groupLockedMessage = "Nằm trong nhóm lồng nhau hoặc nhóm không đọc được, chưa sửa được."
+    static let groupLockedMessage = "Nằm trong nhóm không đọc được, chưa sửa được."
 
     // MARK: Chọn
 
@@ -262,7 +323,11 @@ final class LayoutEditor {
         guard let pageID = currentPageID, let bounds = pageBounds(pageID) else { return }
         let movable = unlocked(ids)
         guard !movable.isEmpty else { return }
-        let ordered = items(of: pageID).filter { movable.contains($0.id) && !(($0.parentGroup).map(movable.contains) ?? false) }
+        // Phần tử có nhóm tổ tiên cùng được dời thì đi theo nhóm đó.
+        let groups = groups(of: pageID)
+        let ordered = items(of: pageID).filter { item in
+            movable.contains(item.id) && !Self.ancestorIDs(of: item, in: groups).contains(where: movable.contains)
+        }
         guard !ordered.isEmpty else { return }
         let moved = LayoutGeometry.move(ordered.map(Frame.init), dx: dx, dy: dy, page: bounds, snap: snap)
         var frames: [String: Frame] = [:]
@@ -279,29 +344,38 @@ final class LayoutEditor {
     }
 
     /// Đặt khung cho nhiều phần tử cùng lúc (cuối một lần kéo) thành đúng một bước hoàn tác.
-    /// Nhóm: các con dời theo khi chỉ đổi vị trí, co theo tỷ lệ khi đổi cỡ (`ScaleMode`, VM-D7); khung của con có nhóm
-    /// cùng được đặt thì bị bỏ qua (nhóm quyết định). Con của nhóm bị kẹp trong khung nhóm. Phần tử bị khoá bị bỏ qua;
-    /// không có gì đổi thì không tạo bước.
+    /// Nhóm: mọi hậu duệ (kể cả nhóm lồng và con của nó) dời theo khi chỉ đổi vị trí, co theo cùng tỷ lệ khi đổi cỡ
+    /// (`ScaleMode`, VM-D7, VM-D8); khung của phần tử có nhóm tổ tiên cùng được đặt thì bị bỏ qua (nhóm đó quyết định).
+    /// Thành viên của nhóm bị kẹp trong khung nhóm cha. Phần tử bị khoá bị bỏ qua; không có gì đổi thì không tạo bước.
     func apply(frames: [String: Frame], coalescing: Bool = false) {
         guard let pageID = currentPageID else { return }
         let allowed = unlocked(Set(frames.keys))
         guard !allowed.isEmpty else { return }
         commit(pageID: pageID, coalesceIDs: coalescing ? allowed : nil) { edit in
-            let groupIDs = Set(edit.groups.map(\.id))
-            for index in edit.groups.indices where allowed.contains(edit.groups[index].id) {
-                guard let frame = frames[edit.groups[index].id] else { continue }
+            // Cây nhóm không đổi trong lúc đặt khung: tính tổ tiên một lần trên trạng thái đầu.
+            let tree = edit.groups
+            func followsAnAncestor(_ item: ReportVisual) -> Bool {
+                Self.ancestorIDs(of: item, in: tree).contains { allowed.contains($0) && frames[$0] != nil }
+            }
+            for id in tree.map(\.id) where allowed.contains(id) {
+                guard var frame = frames[id], let index = edit.groups.firstIndex(where: { $0.id == id }) else { continue }
                 let old = edit.groups[index]
+                if followsAnAncestor(old) { continue }
+                if let parent = old.parentGroup, let outer = edit.groups.first(where: { $0.id == parent }) { frame = Self.clamp(frame, inside: outer) }
                 let nx = Double(frame.x), ny = Double(frame.y), nw = Double(frame.width), nh = Double(frame.height)
                 guard old.x != nx || old.y != ny || old.width != nw || old.height != nh else { continue }
                 let sx = old.width > 0 ? nw / old.width : 1, sy = old.height > 0 ? nh / old.height : 1
-                for child in edit.visuals.indices where edit.visuals[child].parentGroup == old.id {
-                    var c = edit.visuals[child]
+                let inside = Self.descendantIDs(of: old.id, in: edit.visuals + edit.groups)
+                func scaled(_ item: ReportVisual) -> ReportVisual {
+                    var c = item
                     c.x = nx + (c.x - old.x) * sx
                     c.y = ny + (c.y - old.y) * sy
                     c.width = max(1, c.width * sx)
                     c.height = max(1, c.height * sy)
-                    edit.visuals[child] = c
+                    return c
                 }
+                for child in edit.visuals.indices where inside.contains(edit.visuals[child].id) { edit.visuals[child] = scaled(edit.visuals[child]) }
+                for child in edit.groups.indices where inside.contains(edit.groups[child].id) { edit.groups[child] = scaled(edit.groups[child]) }
                 edit.groups[index].x = nx
                 edit.groups[index].y = ny
                 edit.groups[index].width = nw
@@ -309,7 +383,7 @@ final class LayoutEditor {
             }
             for index in edit.visuals.indices where allowed.contains(edit.visuals[index].id) {
                 let visual = edit.visuals[index]
-                if let parent = visual.parentGroup, groupIDs.contains(parent), allowed.contains(parent), frames[parent] != nil { continue }
+                if followsAnAncestor(visual) { continue }
                 guard var frame = frames[visual.id] else { continue }
                 if let parent = visual.parentGroup, let group = edit.groups.first(where: { $0.id == parent }) {
                     frame = Self.clamp(frame, inside: group)
@@ -341,13 +415,19 @@ final class LayoutEditor {
         guard !target.isEmpty else { return }
         let baselineIDs = Set(base.visuals.map(\.id)).union(base.groups.map(\.id))
         let changed = commit(pageID: pageID) { edit in
+            // Xoá nhóm xoá mọi hậu duệ, kể cả nhóm lồng bên trong (VM-D8).
+            let everything = edit.visuals + edit.groups
             for group in edit.groups where target.contains(group.id) {
-                target.formUnion(edit.visuals.filter { $0.parentGroup == group.id }.map(\.id))
+                target.formUnion(Self.descendantIDs(of: group.id, in: everything))
             }
-            // Nhóm hết con thì xoá luôn nhóm.
-            for group in edit.groups where !target.contains(group.id) {
-                let kids = edit.visuals.filter { $0.parentGroup == group.id }.map(\.id)
-                if !kids.isEmpty, kids.allSatisfy(target.contains) { target.insert(group.id) }
+            // Nhóm hết thành viên thì xoá luôn nhóm, lặp lên các cấp ngoài.
+            var grew = true
+            while grew {
+                grew = false
+                for group in edit.groups where !target.contains(group.id) {
+                    let kids = everything.filter { $0.parentGroup == group.id }.map(\.id)
+                    if !kids.isEmpty, kids.allSatisfy(target.contains) { target.insert(group.id); grew = true }
+                }
             }
             edit.visuals.removeAll { target.contains($0.id) }
             edit.groups.removeAll { target.contains($0.id) }
@@ -435,7 +515,7 @@ final class LayoutEditor {
         func add(_ v: ReportVisual) { if seen.insert(v.id).inserted { wanted.append(v) } }
         for source in sources {
             add(source)
-            if source.isGroup { for child in children(ofGroup: source.id, page: pageID) { add(child) } }
+            if source.isGroup { for child in descendants(ofGroup: source.id, page: pageID) { add(child) } }
         }
         return wanted.compactMap { visual in json(of: visual, page: pageID).map { (visual: visual, json: $0) } }
     }
@@ -451,19 +531,27 @@ final class LayoutEditor {
         var copies: [ReportVisual] = []
         var groupCopies: [ReportVisual] = []
         var data: [String: Data] = [:]
-        // Visual trước (z tăng dần), nhóm sau: nhóm có `z` lớn hơn con của nó.
-        let ordered = entries.indices.sorted { entries[$0].visual.isGroup == entries[$1].visual.isGroup ? $0 < $1 : !entries[$0].visual.isGroup }
+        // Visual trước (z tăng dần), nhóm sau, nhóm trong trước nhóm ngoài: nhóm có `z` lớn hơn thành viên của nó.
+        let sourceGroups = entries.filter(\.visual.isGroup).map(\.visual)
+        func depth(_ index: Int) -> Int { Self.ancestorIDs(of: entries[index].visual, in: sourceGroups).count }
+        let ordered = entries.indices.sorted { a, b in
+            let ga = entries[a].visual.isGroup, gb = entries[b].visual.isGroup
+            if ga != gb { return !ga }
+            if ga, depth(a) != depth(b) { return depth(a) > depth(b) }
+            return a < b
+        }
         var lastChildZ: [String: Double] = [:]
         for index in ordered {
             let entry = entries[index], source = entry.visual
             guard let id = idMap[source.id] else { continue }
             let frame = frames[index]
-            var parent = source.parentGroup.flatMap { groupIDs.contains($0) ? idMap[$0] : nil }
-            if source.isGroup { parent = nil }
+            // Thành viên của nhóm đã sao cùng nhóm: giữ nhóm (theo mã mới); còn lại ra ngoài nhóm.
+            let parent = source.parentGroup.flatMap { groupIDs.contains($0) ? idMap[$0] : nil }
             let itemZ: Double
             if source.isGroup {
                 itemZ = max(z + Double(zStep), (lastChildZ[id] ?? z) + 1)
                 z = max(z, itemZ)
+                if let parent { lastChildZ[parent] = max(lastChildZ[parent] ?? 0, itemZ) }
             } else {
                 z += Double(zStep)
                 itemZ = z
@@ -482,7 +570,8 @@ final class LayoutEditor {
             let raw = isLegacy ? source.raw : ((try? JSONValue.parse(patched)) ?? source.raw)
             if source.isGroup {
                 groupCopies.append(ReportVisual(id: id, type: source.type, x: Double(frame.x), y: Double(frame.y), z: itemZ,
-                                                width: Double(frame.width), height: Double(frame.height), isHidden: source.isHidden, raw: raw))
+                                                width: Double(frame.width), height: Double(frame.height), isHidden: source.isHidden, raw: raw,
+                                                parentGroup: parent))
             } else {
                 copies.append(ReportVisual(id: id, type: source.type, x: Double(frame.x), y: Double(frame.y), z: itemZ,
                                            width: Double(frame.width), height: Double(frame.height), isHidden: source.isHidden,
@@ -501,7 +590,7 @@ final class LayoutEditor {
             edit.added.merge(data) { _, new in new }
         }
         createdIDs[pageID, default: []].formUnion(data.keys)
-        let top = groupCopies.map(\.id) + copies.filter { $0.parentGroup == nil }.map(\.id)
+        let top = (groupCopies + copies).filter { $0.parentGroup == nil }.map(\.id)
         selection = Set(top)
         primary = top.last
         return top
@@ -954,6 +1043,29 @@ final class LayoutEditor {
         let known = structure.removed.union(usedPageIDs)   // trang của báo cáo lúc mở hoặc tạo trong phiên
         let removedPages = Set(diskPages.keys).subtracting(order).intersection(known)
 
+        // Hoàn tác sau khi đã lưu việc xoá trang: trang của file lúc mở có trong dãy mà file trên đĩa không còn thư mục
+        // của nó. Dựng lại từ byte lúc mở: coi các part đó như đang có trên đĩa (`exists`, `bytes`) để phần sửa trong phiên
+        // áp lên như thường, cuối cùng chuyển chúng sang `addedParts`.
+        var restored: [String: Data] = [:]
+        var revivedPages = Set<String>()
+        for pageID in order where structure.created[pageID] == nil && diskPages[pageID] == nil {
+            for part in openedParts("\(Self.pagesFolder)\(pageID)/") { restored[part.path] = part.data }
+            revivedPages.insert(pageID)
+        }
+        // Bookmark lúc mở có nhắc trang được dựng lại: lần lưu việc xoá đã gỡ nó hoặc bỏ mục của trang. Lấy lại byte lúc mở
+        // (trừ bookmark người dùng tự xoá); phần dọn bên dưới bỏ khỏi đó những trang và visual hiện vẫn đang bị xoá.
+        var revivedBookmarks: [String: String] = [:]      // đường dẫn → tên
+        if !revivedPages.isEmpty {
+            for part in openedParts(Self.bookmarksFolder) where part.path.hasSuffix(".bookmark.json") {
+                guard let info = BookmarkInfo(json: part.data), !reportEdits.bookmarks.deleted.contains(info.name),
+                      info.activeSection.map(revivedPages.contains) == true || !revivedPages.isDisjoint(with: info.sections) else { continue }
+                restored[part.path] = part.data
+                revivedBookmarks[part.path] = info.name
+            }
+        }
+        func exists(_ path: String) -> Bool { restored[path] != nil || archive.entry(path) != nil }
+        func bytes(_ path: String) throws -> Data { try restored[path] ?? archive.read(path) }
+
         for pageID in edited.keys.sorted() where order.contains(pageID) {
             guard let edit = edited[pageID], let base = basePage(pageID) else { continue }
             for (id, data) in edit.extraParts where archive.entry(Self.visualPath(page: pageID, id: id)) == nil {
@@ -962,8 +1074,8 @@ final class LayoutEditor {
             for visual in edit.visuals + edit.groups {
                 let path = Self.visualPath(page: pageID, id: visual.id)
                 let group = visual.parentGroup.flatMap { id in edit.groups.first { $0.id == id } }
-                if archive.entry(path) != nil {
-                    let onDisk = try archive.read(path)
+                if exists(path) {
+                    let onDisk = try bytes(path)
                     var json = onDisk
                     if let retype = edit.retyped[visual.id] {
                         json = try PBIRVisualPatch.setVisualType(in: json, to: retype.type, dropObjectKeys: retype.dropObjectKeys)
@@ -982,7 +1094,7 @@ final class LayoutEditor {
             let candidates = Set(base.visuals.map(\.id)).union(base.groups.map(\.id)).union(createdIDs[pageID] ?? [])
             for id in candidates.sorted() where !current.contains(id) {
                 let path = Self.visualPath(page: pageID, id: id)
-                if archive.entry(path) != nil {
+                if exists(path) {
                     changes.removedParts.insert(path)
                     removedIDs.insert(id)
                 }
@@ -999,8 +1111,8 @@ final class LayoutEditor {
                     let onDisk = try archive.read(path)
                     if onDisk != created.pageJSON { changes.reportParts[path] = created.pageJSON }
                 }
-            } else if archive.entry(path) != nil, let name = page(pageID)?.displayName {
-                let onDisk = try archive.read(path)
+            } else if exists(path), let name = page(pageID)?.displayName {
+                let onDisk = try bytes(path)
                 if (try? JSONValue.parse(onDisk))?["displayName"]?.string != name {
                     changes.reportParts[path] = try PBIRPagePatch.setPageDisplayName(name, in: onDisk)
                 }
@@ -1025,19 +1137,30 @@ final class LayoutEditor {
         }
 
         // Bookmark và page.json còn lại: dọn tham chiếu tới trang và visual đã xoá.
-        if !removedIDs.isEmpty || !removedPages.isEmpty {
+        if !removedIDs.isEmpty || !removedPages.isEmpty || !restored.isEmpty {
             var removedBookmarks = Set<String>()
-            for entry in archive.entries {
-                let isBookmark = entry.path.hasSuffix(".bookmark.json")
-                let isPage = entry.path.hasSuffix("/page.json") && entry.path.hasPrefix(Self.pagesFolder)
-                guard isBookmark || isPage, !changes.removedParts.contains(entry.path) else { continue }
-                let original = try archive.read(entry)
-                var data = changes.reportParts[entry.path] ?? original
-                if isBookmark, !removedPages.isEmpty {
-                    switch try PBIRPagePatch.removingPageReferences(removedPages, fromBookmark: data) {
+            // Bookmark lấy lại từ byte lúc mở còn nhắc mọi thứ đã xoá kể từ lúc mở, kể cả phần các lần lưu trước đã dọn.
+            let gonePages = removedPages.union(structure.removed)
+            var goneIDs = removedIDs
+            if !revivedBookmarks.isEmpty {
+                for page in baseline.pages {
+                    let before = Set(page.visuals.map(\.id)).union(page.groups.map(\.id))
+                    if !order.contains(page.id) { goneIDs.formUnion(before) }
+                    else if let edit = edited[page.id] { goneIDs.formUnion(before.subtracting(edit.visuals.map(\.id)).subtracting(edit.groups.map(\.id))) }
+                }
+            }
+            for path in archive.entries.map(\.path) + restored.keys.filter({ archive.entry($0) == nil }).sorted() {
+                let isBookmark = path.hasSuffix(".bookmark.json")
+                let isPage = path.hasSuffix("/page.json") && path.hasPrefix(Self.pagesFolder)
+                guard isBookmark || isPage, !changes.removedParts.contains(path) else { continue }
+                let original = try bytes(path)
+                var data = changes.reportParts[path] ?? original
+                let revived = revivedBookmarks[path] != nil
+                if isBookmark, !removedPages.isEmpty || revived {
+                    switch try PBIRPagePatch.removingPageReferences(revived ? gonePages : removedPages, fromBookmark: data) {
                     case .remove:
-                        changes.removedParts.insert(entry.path)
-                        changes.reportParts[entry.path] = nil
+                        changes.removedParts.insert(path)
+                        changes.reportParts[path] = nil
                         if let name = BookmarkInfo(json: original)?.name { removedBookmarks.insert(name) }
                         continue
                     case .trimmed(let trimmed): data = trimmed
@@ -1045,14 +1168,42 @@ final class LayoutEditor {
                     }
                 }
                 let cleaned = isBookmark
-                    ? try PBIRLayoutPatch.removingVisualReferences(removedIDs, fromBookmark: data)
+                    ? try PBIRLayoutPatch.removingVisualReferences(revived ? goneIDs : removedIDs, fromBookmark: data)
                     : try PBIRLayoutPatch.removingVisualReferences(removedIDs, fromPage: data)
-                if cleaned != original { changes.reportParts[entry.path] = cleaned }
+                if cleaned != original { changes.reportParts[path] = cleaned }
             }
-            if !removedBookmarks.isEmpty, archive.entry(Self.bookmarksJSONPath) != nil {
-                let onDisk = try archive.read(Self.bookmarksJSONPath)
+            let indexPath = Self.bookmarksJSONPath
+            let onDisk = archive.entry(indexPath) != nil ? try archive.read(indexPath) : nil
+            // Bookmark có lại trong file: cần lại mục của nó trong `bookmarks.json`.
+            let returning = Set(revivedBookmarks.filter { archive.entry($0.key) == nil && !changes.removedParts.contains($0.key) }.values)
+            if !returning.isEmpty {
+                // Lấy `bookmarks.json` lúc mở làm gốc để mục về đúng chỗ và đúng nhóm cũ: bỏ mục của bookmark không còn,
+                // thêm vào cuối bookmark tạo trong phiên đã có trên đĩa.
+                let diskNames = (onDisk.map(PBIRBookmarkPatch.itemNames) ?? []).filter { !removedBookmarks.contains($0) }
+                let present = returning.union(diskNames)
+                var index = openedParts(indexPath).first?.data
+                if let opened = index {
+                    index = try PBIRPagePatch.bookmarkItemsRemoving(Set(PBIRBookmarkPatch.itemNames(in: opened)).subtracting(present), from: opened)
+                }
+                for name in diskNames + returning.sorted() where !(index.map(PBIRBookmarkPatch.itemNames) ?? []).contains(name) {
+                    index = try PBIRBookmarkPatch.addingItem(name, to: index)
+                }
+                if let index, index != onDisk {
+                    if onDisk == nil { changes.addedParts[indexPath] = index } else { changes.reportParts[indexPath] = index }
+                }
+            } else if !removedBookmarks.isEmpty, let onDisk {
                 let items = try PBIRPagePatch.bookmarkItemsRemoving(removedBookmarks, from: onDisk)
-                if items != onDisk { changes.reportParts[Self.bookmarksJSONPath] = items }
+                if items != onDisk { changes.reportParts[indexPath] = items }
+            }
+        }
+        // Part dựng lại: không có trên đĩa thì bản đã sửa (hoặc byte lúc mở) là part mới, bị bỏ thì không ghi gì; đang có
+        // trên đĩa (bookmark đã mất mục của trang) thì ghi khi khác byte trên đĩa.
+        for (path, original) in restored {
+            let wanted = changes.reportParts.removeValue(forKey: path) ?? original
+            if archive.entry(path) == nil {
+                if changes.removedParts.remove(path) == nil { changes.addedParts[path] = wanted }
+            } else if !changes.removedParts.contains(path), try archive.read(path) != wanted {
+                changes.reportParts[path] = wanted
             }
         }
         saveNotes = try addReportChanges(to: &changes, archive: archive)

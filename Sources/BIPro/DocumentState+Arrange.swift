@@ -18,6 +18,10 @@ extension DocumentState {
         arrangeBlocker ?? (canEditLayout ? layout.ungroupBlocker() : "Nhóm visual chưa làm cho báo cáo định dạng cũ (Report/Layout).")
     }
 
+    var mergeBlocker: String? {
+        arrangeBlocker ?? (canEditLayout ? layout.mergeBlocker() : "Nhóm visual chưa làm cho báo cáo định dạng cũ (Report/Layout).")
+    }
+
     func align(_ command: AlignCommand) {
         guard alignBlocker(command) == nil else { return }
         layout.align(command)
@@ -27,6 +31,13 @@ extension DocumentState {
     func groupSelection() {
         guard groupBlocker == nil else { return }
         layout.group()
+        visualID = layout.primary
+    }
+
+    /// Gộp các visual đang chọn vào nhóm đang chọn (lệnh Merge của Desktop).
+    func mergeSelection() {
+        guard mergeBlocker == nil else { return }
+        layout.mergeIntoGroup()
         visualID = layout.primary
     }
 

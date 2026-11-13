@@ -17,7 +17,7 @@ struct VisualTypeInfo: Equatable {
 
 enum VisualTypes {
     private static let families: [(type: String, family: VisualTypeInfo.Family)] = [
-        ("card", .value), ("slicer", .slicer),
+        ("card", .value), ("cardVisual", .value), ("slicer", .slicer),
         ("clusteredBarChart", .xy), ("clusteredColumnChart", .xy), ("columnChart", .xy), ("hundredPercentStackedColumnChart", .xy), ("lineChart", .xy),
         ("lineClusteredColumnComboChart", .xy), ("lineStackedColumnComboChart", .xy),
         ("donutChart", .circular), ("treemap", .circular),

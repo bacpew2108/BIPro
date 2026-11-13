@@ -121,12 +121,70 @@ import Testing
         #expect(added.contains(#""w":\#(Self.lit("1D")),"extra":\#(Self.lit("true"))}"#))
     }
 
-    @Test func aKeyWithOnlySelectorEntriesIsRefused() throws {
+    /// VM-D8 mục 6: khoá chỉ có mục theo chuỗi thì mục chung (Series = All) được thêm vào **cuối** mảng.
+    @Test func aCommonEntryIsAppendedAfterSeriesEntries() throws {
         let json = #"{"visual":{"objects":{"dataPoint":[{"properties":{"fill":\#(Self.lit("x"))},"selector":{"metadata":"T.c"}}]}}}"#
-        #expect(throws: WriteError.self) { try PBIRFormatPatch.apply([set(.objects, "dataPoint", "w", Self.lit("2D"))], to: Data(json.utf8)) }
-        // Bỏ thuộc tính hay khoá của mục có selector khác cũng không đụng tới.
-        let out = try apply([FormatEdit(scope: .objects, object: "dataPoint", action: .removeProperty("fill"), selectorDefault: false)], json)
-        #expect(out == json)
+        let out = try apply([set(.objects, "dataPoint", "w", Self.lit("2D"))], json)
+        #expect(out == json.replacingOccurrences(of: #""T.c"}}]"#, with: #""T.c"}},{"properties":{"w":\#(Self.lit("2D"))}}]"#))
+        // Bỏ thuộc tính của mục chung không đụng tới mục theo chuỗi.
+        let same = try apply([FormatEdit(scope: .objects, object: "dataPoint", action: .removeProperty("fill"), selectorDefault: false)], json)
+        #expect(same == json)
+    }
+
+    // MARK: (f2) theo chuỗi (`selector.metadata`, VM-D8 mục 6)
+
+    static let theme4 = #"{"solid":{"color":{"expr":{"ThemeDataColor":{"ColorId":4,"Percent":0}}}}}"#
+    static let chart = #"{"$schema":"s","name":"c1","visual":{"visualType":"clusteredBarChart","query":{"queryState":{}},"drillFilterOtherVisuals":true}}"#
+    func series(_ ref: String, _ property: String, _ value: String) -> FormatEdit {
+        FormatEdit(scope: .objects, object: "dataPoint", action: .set(property: property, value: value), selectorMetadata: ref)
+    }
+
+    @Test func aSeriesColourThenACommonTransparencyMatchWhatDesktopWrote() throws {
+        let out = try apply([series("Fact_CRM_Complaint.Relief Rate", "fill", Self.theme4),
+                             set(.objects, "dataPoint", "fillTransparency", Self.lit("30D"))], Self.chart)
+        // Nguyên văn `docs/phase-d-evidence/vm-d8/json/datapoint-thanh.visual.json`.
+        let desktop = #""objects":{"dataPoint":[{"properties":{"fill":{"solid":{"color":{"expr":{"ThemeDataColor":{"ColorId":4,"Percent":0}}}}}},"selector":{"metadata":"Fact_CRM_Complaint.Relief Rate"}},{"properties":{"fillTransparency":{"expr":{"Literal":{"Value":"30D"}}}}}]},"drillFilterOtherVisuals":true"#
+        #expect(out.contains(desktop))
+    }
+
+    @Test func eachSeriesHasItsOwnEntry() throws {
+        let one = try apply([series("T.a", "fill", Self.theme4)], Self.chart)
+        let two = try apply([series("T.b", "fill", Self.lit("y"))], one)
+        #expect(two.contains(#""selector":{"metadata":"T.a"}},{"properties":{"fill":\#(Self.lit("y"))},"selector":{"metadata":"T.b"}}]"#))
+        // Đổi màu chuỗi đã có: chỉ thay giá trị của mục đó.
+        let changed = try apply([series("T.a", "fill", Self.lit("z"))], two)
+        #expect(changed == two.replacingOccurrences(of: Self.theme4, with: Self.lit("z")))
+        // Mục chung có sẵn không bị coi là mục của chuỗi.
+        let common = try apply([set(.objects, "dataPoint", "fillTransparency", Self.lit("30D"))], one)
+        let both = try apply([series("T.b", "fill", Self.lit("y"))], common)
+        #expect(both.contains(#"{"properties":{"fillTransparency":\#(Self.lit("30D"))}},{"properties":{"fill":\#(Self.lit("y"))},"selector":{"metadata":"T.b"}}]"#))
+    }
+
+    @Test func resettingASeriesRemovesOnlyItsEntry() throws {
+        let two = try apply([series("T.a", "fill", Self.theme4), series("T.b", "fill", Self.lit("y"))], Self.chart)
+        func reset(_ ref: String) -> FormatEdit {
+            FormatEdit(scope: .objects, object: "dataPoint", action: .removeProperty("fill"), selectorMetadata: ref)
+        }
+        let one = try apply([reset("T.a")], two)
+        #expect(one.contains(#""dataPoint":[{"properties":{"fill":\#(Self.lit("y"))},"selector":{"metadata":"T.b"}}]"#))
+        // Bỏ mục cuối cùng: bỏ luôn khoá và phạm vi, file về như chưa định dạng.
+        #expect(try apply([reset("T.b")], one) == Self.chart)
+        #expect(try apply([reset("T.khong_co")], two) == two)
+    }
+
+    @Test func aSeriesNameWithQuotesIsEscaped() throws {
+        let out = try apply([series(#"T.a "b""#, "fill", Self.theme4)], Self.chart)
+        #expect(out.contains(#""selector":{"metadata":"T.a \"b\""}"#))
+    }
+
+    @Test func mergingKeepsSeriesApart() {
+        var list: [FormatEdit] = []
+        list = FormatEdit.merging(list, adding: series("T.a", "fill", Self.lit("1")))
+        list = FormatEdit.merging(list, adding: series("T.b", "fill", Self.lit("2")))
+        list = FormatEdit.merging(list, adding: set(.objects, "dataPoint", "fill", Self.lit("3")))
+        list = FormatEdit.merging(list, adding: series("T.a", "fill", Self.lit("4")))
+        #expect(list.count == 3)
+        #expect(list.contains(series("T.a", "fill", Self.lit("4"))) && !list.contains(series("T.a", "fill", Self.lit("1"))))
     }
 
     // MARK: (g) khoảng trắng, (h) ký tự

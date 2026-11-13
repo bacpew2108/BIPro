@@ -47,6 +47,8 @@ import Testing
         let allowed: [String: Set<String>] = [
             "position": ["'Bottom'", "'Top'"], "labelDisplayUnits": ["0D", "1D"], "labelOrientation": ["0D"],
             "alignment": ["'left'", "'center'", "'right'"], "labelStyle": ["'Percent of total'"],
+            "fontFamily": ["'Georgia'", "'''Segoe UI Semibold'', wf_segoe-ui_semibold, helvetica, arial, sans-serif'"], "heading": ["'Heading2'"],
+            "layout": ["'Tabular'"],   // VM-D8 mục 6: Compact và Outline có trong danh sách của Desktop nhưng chưa thấy literal
         ]
         for card in Self.allCards {
             for property in card.properties {
@@ -63,7 +65,9 @@ import Testing
             for property in card.properties {
                 guard case .number(let min, let max, let step, _) = property.kind else { continue }
                 #expect(min < max && step > 0)
-                if property.key == "fontSize" || property.key == "textSize" { #expect(min == 1 && max == 50) }
+                // Cỡ chữ tiêu đề: Desktop kẹp 8 đến 60 (VM-D8); chỗ khác giữ khoảng cũ.
+                if card.scope == .container, card.objectKey == "title", property.key == "fontSize" { #expect(min == 8 && max == 60) }
+                else if property.key == "fontSize" || property.key == "textSize" { #expect(min == 1 && max == 50) }
             }
         }
         if case .number(_, _, _, let tail)? = card("card", .objects, "labels")?.properties.first(where: { $0.key == "labelPrecision" })?.kind { #expect(tail == .l) }
@@ -83,12 +87,12 @@ import Testing
             #expect(keys.isSuperset(of: ["legend", "labels", "valueAxis", "categoryAxis", "zoom", "lineStyles"]), "\(type): \(keys)")
         }
         #expect(Set(FormatCatalog.cards(for: "donutChart", scope: .objects).map(\.objectKey)) == ["legend", "labels"])
-        #expect(Set(FormatCatalog.cards(for: "pivotTable", scope: .objects).map(\.objectKey)) == ["columnHeaders", "rowHeaders", "values", "grid", "subTotals"])
+        #expect(Set(FormatCatalog.cards(for: "pivotTable", scope: .objects).map(\.objectKey)) == ["columnHeaders", "rowHeaders", "values", "grid", "general", "subTotals"])
         #expect(Set(FormatCatalog.cards(for: "actionButton", scope: .objects).map(\.objectKey)) == ["text", "fill", "outline"])
     }
 
     @Test func theGeneralScopeIsTheSameForEveryType() {
-        let expected = ["title", "subTitle", "background", "border", "dropShadow", "padding", "visualHeader"]
+        let expected = ["title", "subTitle", "divider", "background", "border", "dropShadow", "padding", "visualHeader"]
         for type in Self.types { #expect(FormatCatalog.cards(for: type, scope: .container).map(\.objectKey) == expected, "\(type)") }
     }
 
@@ -128,8 +132,35 @@ import Testing
         #expect(property("slicer", .objects, "items", "padding")?.rendered == false)
     }
 
-    @Test func tableSubtotalsAndButtonsOnlyEditWhatIsThere() {
-        #expect(card("pivotTable", .objects, "subTotals")?.properties.allSatisfy { !$0.addable } == true)
+    /// VM-D8: các thuộc tính quan sát thêm ở Desktop (phông, heading, ngắt dòng, đường kẻ, bóng, lưới và tổng phụ của matrix, độ trong suốt cột).
+    @Test func propertiesObservedAtVMD8() {
+        func property(_ type: String, _ scope: FormatScope, _ object: String, _ key: String) -> FormatProperty? {
+            card(type, scope, object)?.properties.first { $0.key == key }
+        }
+        #expect(property("card", .container, "title", "fontFamily")?.kind == .choice([
+            FormatChoice(title: "Segoe UI Semibold", literal: "'''Segoe UI Semibold'', wf_segoe-ui_semibold, helvetica, arial, sans-serif'"),
+            FormatChoice(title: "Georgia", literal: "'Georgia'")]))
+        #expect(property("card", .container, "title", "heading")?.kind == .choice([FormatChoice(title: "Heading 2", literal: "'Heading2'")]))
+        #expect(property("card", .container, "title", "titleWrap")?.kind == .bool)
+        #expect(property("card", .container, "divider", "show")?.isCardSwitch == true)
+        #expect(property("card", .container, "divider", "show")?.defaultOn == false)
+        #expect(property("card", .container, "dropShadow", "color")?.kind == .color)
+        // Số của bóng: Desktop ghi cả bộ theo preset, kiểu nguyên `L`; BI Pro chỉ sửa khi file đã có.
+        for key in ["angle", "shadowDistance", "shadowBlur", "shadowSpread", "transparency"] {
+            let p = property("card", .container, "dropShadow", key)
+            guard case .number(_, _, _, let tail)? = p?.kind else { Issue.record("dropShadow.\(key) thiếu"); continue }
+            #expect(tail == .l && p?.addable == false, "\(key)")
+        }
+        for key in ["gridHorizontal", "gridVertical"] {
+            #expect(property("pivotTable", .objects, "grid", key)?.kind == .bool && property("pivotTable", .objects, "grid", key)?.defaultOn == false)
+        }
+        #expect(property("pivotTable", .objects, "rowHeaders", "unfrozen")?.kind == .bool)
+        #expect(card("pivotTable", .objects, "subTotals")?.properties.allSatisfy { $0.addable && $0.defaultOn == true } == true)
+        #expect(property("clusteredBarChart", .objects, "dataPoint", "fillTransparency")?.kind == .number(min: 0, max: 100, step: 1, tail: .d))
+        for p in ["fontFamily", "heading", "titleWrap"] { #expect(property("card", .container, "title", p)?.observed.contains("VM-D8") == true) }
+    }
+
+    @Test func buttonsOnlyEditWhatIsThere() {
         for key in ["text", "fill", "outline"] { #expect(card("actionButton", .objects, key)?.properties.allSatisfy { !$0.addable } == true) }
         #expect(card("card", .objects, "labels")?.properties.allSatisfy(\.addable) == true)
         #expect(card("card", .container, "title")?.properties.allSatisfy(\.addable) == true)

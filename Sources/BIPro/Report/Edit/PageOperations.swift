@@ -11,6 +11,22 @@ enum PageEditing {
     }
 }
 
+/// Dữ liệu kéo của một tab trang (D5). Mang dấu của tài liệu để chỉ tab của chính cửa sổ đó thả được: chữ kéo từ nơi khác,
+/// tab của tài liệu khác hay trang không còn trong dãy đều bị bỏ qua.
+enum PageTabDrag {
+    private static let scheme = "bipro-page"
+
+    static func payload(page: String, document: UUID) -> String { "\(scheme):\(document.uuidString):\(page)" }
+
+    /// Mã trang được kéo, hoặc nil khi `text` không phải tab của tài liệu `document` hay trang không có trong `pages`.
+    static func page(from text: String, document: UUID, pages: [String]) -> String? {
+        let prefix = "\(scheme):\(document.uuidString):"
+        guard text.hasPrefix(prefix) else { return nil }
+        let id = String(text.dropFirst(prefix.count))
+        return pages.contains(id) ? id : nil
+    }
+}
+
 extension LayoutEditor {
     private func refuse(_ message: String) -> String {
         noteFieldRefusal(message)
@@ -119,10 +135,12 @@ extension LayoutEditor {
                     _ = refuse("Không đọc được visual.json của nhóm \(group.id).")
                     return nil
                 }
-                let renamed = try PBIRPagePatch.renamedVisualJSON(json, newName: newID, parentGroupName: nil)
+                // Nhóm lồng nhau (VM-D8): nhóm con trỏ tới bản sao của nhóm cha.
+                let outer = group.parentGroup.flatMap { idMap[$0] }
+                let renamed = try PBIRPagePatch.renamedVisualJSON(json, newName: newID, parentGroupName: outer)
                 groupCopies.append(ReportVisual(id: newID, type: group.type, x: group.x, y: group.y, z: group.z, width: group.width,
                                                 height: group.height, isHidden: group.isHidden,
-                                                raw: (try? JSONValue.parse(renamed)) ?? group.raw))
+                                                raw: (try? JSONValue.parse(renamed)) ?? group.raw, parentGroup: outer))
                 data[newID] = renamed
             }
             for container in containers {
@@ -169,15 +187,17 @@ extension LayoutEditor {
     func removePage(_ id: String) -> String? {
         resetMessages()
         guard let target = page(id), structure.order.contains(id) else { return refuse("Không tìm thấy trang.") }
-        // Nút điều hướng trang ở các trang còn lại trỏ tới trang này (Desktop chưa quan sát): chặn.
+        if let reason = PageStructure.removalRefusal(pageCount: structure.order.count) { return refuse(reason) }
+        // Nút điều hướng trang ở các trang còn lại trỏ tới trang này: Desktop để nguyên (VM-D8), BI Pro làm theo và báo nút nào.
         var buttons: [String] = []
         for other in pages where other.id != id {
             for visual in other.visuals {
-                guard let json = currentVisualJSON(visual, page: other.id) else { continue }
+                // Vị trí không liên quan tới nút điều hướng: không cần `currentVisualJSON` (phải phân tích từng visual).
+                guard let base = jsonBeforeFormats(of: visual.id, page: other.id),
+                      let json = try? withFormats(base, page: other.id, id: visual.id) else { continue }
                 if !PBIRPagePatch.pageNavigationTargets(in: json, knownPages: [id]).isEmpty { buttons.append(visual.id) }
             }
         }
-        if let reason = PageStructure.removalRefusal(pageCount: structure.order.count, navigationButtons: buttons) { return refuse(reason) }
 
         // Bookmark: chỉ trang của file mới có bookmark trỏ tới.
         let isFilePage = structure.created[id] == nil
@@ -204,6 +224,9 @@ extension LayoutEditor {
         }
         if !impact.trimmed.isEmpty {
             parts.append("bỏ trang khỏi \(impact.trimmed.count) bookmark: " + impact.trimmed.keys.sorted().map(title).joined(separator: ", "))
+        }
+        if !buttons.isEmpty {
+            parts.append("\(buttons.count) nút điều hướng vẫn trỏ tới trang này (như Power BI Desktop): " + buttons.joined(separator: ", "))
         }
         setNotice(parts.joined(separator: "; ") + ".")
         return nil

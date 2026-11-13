@@ -19,7 +19,11 @@ enum FieldEditor {
         if let reason = WellRules.refusal(adding: field, to: role, in: visual) { return .refused(reason) }
         guard let rule = WellRules.rule(for: visual, role: role) else { return .refused("Visual này không có ô \"\(role)\".") }
         let kind: ReportField.Kind = field.kind == .column ? .column : .measure
-        let element = PBIRQueryPatch.newElement(kind: kind, entity: field.entity, property: field.property, displayName: nil, role: role)
+        // Cột đầu của ô `active: true`, các cột sau `false` (Nhom6, VM-D3 mục B); measure không có cờ.
+        let hasColumn = wells.first { $0.role == role }?.elements.contains { $0.field.kind != .measure && $0.field.kind != .aggregation } ?? false
+        let replacing = rule.isSingle
+        let element = PBIRQueryPatch.newElement(kind: kind, entity: field.entity, property: field.property, displayName: nil, role: role,
+                                                active: kind == .column ? (replacing || !hasColumn) : nil)
         var result = wells
         if let index = result.firstIndex(where: { $0.role == role }) {
             if rule.isSingle { result[index].elements = [element] } else { result[index].elements.append(element) }

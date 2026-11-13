@@ -68,9 +68,12 @@ public enum PBIRQueryPatch {
 
     /// A new element in the shape Power BI Desktop writes (observed in Nhom6): field, queryRef, nativeQueryRef,
     /// then displayName when the user renamed it.
-    public static func newElement(kind: ReportField.Kind, entity: String, property: String, displayName: String?, role: String) -> Element {
+    /// `active`: cờ `active` của cột trong ô (VM-D3 mục B: cột đầu của ô `true`, các cột sau `false` như hierarchy ở Nhom6;
+    /// measure không có cờ).
+    public static func newElement(kind: ReportField.Kind, entity: String, property: String, displayName: String?, role: String,
+                                  active: Bool? = nil) -> Element {
         let field = ReportField(role: role, kind: kind, entity: entity, property: property, displayName: displayName,
-                                queryRef: "\(entity).\(property)", nativeQueryRef: property)
+                                queryRef: "\(entity).\(property)", nativeQueryRef: property, active: kind == .column ? active : nil)
         return Element(field: field, source: nil)
     }
 
@@ -80,6 +83,14 @@ public enum PBIRQueryPatch {
     /// the ones in the file, in the same order and without renames, keeps its bytes; wells not mentioned in `wells`
     /// (or with no elements) are removed; wells that are new are added at the end of `queryState`.
     public static func apply(_ wells: [Well], to json: Data) throws -> Data {
+        let before = try wells_(in: json)
+        let patched = try applyWells(wells, to: json)
+        return try adjustingDefaultSort(patched, previous: before)
+    }
+
+    private static func wells_(in json: Data) throws -> [Well] { (try? Self.wells(in: json)) ?? [] }
+
+    private static func applyWells(_ wells: [Well], to json: Data) throws -> Data {
         let root = try parseObject(json)
         var bytes = [UInt8](json)
         try validate(wells)
@@ -296,6 +307,86 @@ public enum PBIRQueryPatch {
         return Data(bytes)
     }
 
+    // MARK: - Sắp xếp mặc định (VM-D3 mục B)
+
+    /// Ô nhóm: cột ở đây định nghĩa trục, chuỗi hoặc hàng/cột của visual.
+    private static let groupingRoles: Set<String> = ["Category", "Group", "Series", "Rows", "Columns", "Details"]
+    /// Loại có `sortDefinition` mặc định theo measure đầu tiên: biểu đồ có trục và `cardVisual` (Desktop ghi, VM-D3 B).
+    private static func sortsByFirstMeasure(_ type: String) -> Bool {
+        type == "cardVisual" || type.hasSuffix("BarChart") || type.hasSuffix("ColumnChart") || type == "columnChart"
+            || type.contains("Combo") || type == "lineChart"
+    }
+
+    private static func groupingRefs(_ wells: [Well]) -> Set<String> {
+        Set(wells.filter { groupingRoles.contains($0.role) }.flatMap { $0.elements.filter { $0.field.kind != .measure }.map(\.field.queryRef) })
+    }
+
+    /// Sau khi đổi trường, giữ `sortDefinition` mặc định (`isDefaultSort: true`) đúng như Desktop:
+    /// - visual chỉ có measure và chưa có `sortDefinition`, **và ô `Y` (hoặc `Data`) vừa có measure đầu tiên** (trước đó trống):
+    ///   thêm sắp giảm dần theo measure đó. Sửa khác trên file Desktop không có `sortDefinition` thì không tự thêm;
+    /// - `sortDefinition` mặc định mà tập cột nhóm vừa đổi: bỏ (Desktop tính lại theo cột mới; chưa biết quy tắc, nên để
+    ///   người đọc dùng thứ tự theo trục).
+    /// `sortDefinition` do người dùng đặt (`isDefaultSort` khác `true`) và mọi trường hợp còn lại giữ nguyên byte.
+    static func adjustingDefaultSort(_ json: Data, previous: [Well]) throws -> Data {
+        let root = try parseObject(json)
+        guard let visual = root["visual"] as? [String: Any], let type = visual["visualType"] as? String,
+              var query = visual["query"] as? [String: Any], query["queryState"] != nil else { return json }
+        let wells = try Self.wells(in: json)
+        let sort = query["sortDefinition"] as? [String: Any]
+        let queryPath: [JSONPathStep] = [.key("visual"), .key("query")]
+        var bytes = [UInt8](json)
+
+        if let sort {
+            // `sortDefinition` mặc định trỏ tới trường không còn trong visual (kể cả khi bỏ hết trường) cũng bỏ theo.
+            func target(_ sort: [String: Any]) -> String? {
+                guard let field = ((sort["sort"] as? [[String: Any]])?.first)?["field"] as? [String: Any],
+                      let inner = (field["Measure"] ?? field["Column"]) as? [String: Any],
+                      let entity = (((inner["Expression"] as? [String: Any])?["SourceRef"]) as? [String: Any])?["Entity"] as? String,
+                      let property = inner["Property"] as? String else { return nil }
+                return "\(entity).\(property)"
+            }
+            let sortTarget = target(sort)
+            let dangling = sortTarget.map { ref in !wells.contains { $0.elements.contains { "\($0.field.entity).\($0.field.property)" == ref } } } ?? false
+            guard sort["isDefaultSort"] as? Bool == true, groupingRefs(wells) != groupingRefs(previous) || dangling,
+                  let kids = JSONCursor.children(at: queryPath, in: bytes),
+                  let index = kids.firstIndex(where: { key(of: $0, in: bytes) == "sortDefinition" }) else { return json }
+            bytes = JSONCursor.removing([index], from: kids, in: bytes)
+            query["sortDefinition"] = nil
+            var expected = root
+            var expectedVisual = visual
+            expectedVisual["query"] = query
+            expected["visual"] = expectedVisual
+            guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
+                  (expected as NSDictionary).isEqual(to: actual) else {
+                throw WriteError.verificationFailed("default sort removal changed other content")
+            }
+            // Visual chỉ còn measure thì vẫn có sắp xếp mặc định mới theo measure đầu.
+            return try adjustingDefaultSort(Data(bytes), previous: wells)
+        } else {
+            guard sortsByFirstMeasure(type), groupingRefs(wells).isEmpty,
+                  !wells.contains(where: { groupingRoles.contains($0.role) && !$0.elements.isEmpty }) else { return json }
+            let role = type == "cardVisual" ? "Data" : "Y"
+            guard previous.first(where: { $0.role == role })?.elements.isEmpty ?? true else { return json }
+            guard let well = wells.first(where: { $0.role == role }), let first = well.elements.first, first.field.kind == .measure,
+                  let fieldRange = JSONCursor.locate((statePath + [.key(role), .key("projections"), .index(0), .key("field")])[...], in: bytes),
+                  let kids = JSONCursor.children(at: queryPath, in: bytes), let last = kids.last else { return json }
+            let field = Array(bytes[fieldRange])
+            let text = Array(#","sortDefinition":{"sort":[{"field":"#.utf8) + field + Array(#","direction":"Descending"}],"isDefaultSort":true}"#.utf8)
+            bytes.insert(contentsOf: text, at: last.value.upperBound)
+            guard let fieldJSON = try? JSONSerialization.jsonObject(with: Data(field), options: [.fragmentsAllowed]) else { return json }
+            query["sortDefinition"] = ["sort": [["field": fieldJSON, "direction": "Descending"]], "isDefaultSort": true] as [String: Any]
+        }
+        var expected = root
+        var expectedVisual = visual
+        expectedVisual["query"] = query
+        expected["visual"] = expectedVisual
+        guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
+              (expected as NSDictionary).isEqual(to: actual) else {
+            throw WriteError.verificationFailed("default sort splice changed other content")
+        }
+        return Data(bytes)
+    }
+
     // MARK: - Helpers
 
     private static func validate(_ wells: [Well]) throws {
@@ -332,6 +423,8 @@ public enum PBIRQueryPatch {
             out += Array(#"}},"queryRef":"#.utf8) + PBIRPatch.jsonStringToken(ref)
             let native = (field.displayName?.isEmpty ?? true) ? (field.nativeQueryRef ?? field.property) : field.displayName!
             out += Array(#","nativeQueryRef":"#.utf8) + PBIRPatch.jsonStringToken(native)
+            // Desktop ghi `active` giữa `nativeQueryRef` và `displayName` (Nhom6, VM-D8 `datapoint-thanh.visual.json`).
+            if field.kind == .column, let active = field.active { out += Array(#","active":\#(active)"#.utf8) }
             if let name = field.displayName, !name.isEmpty {
                 out += Array(#","displayName":"#.utf8) + PBIRPatch.jsonStringToken(name)
             }

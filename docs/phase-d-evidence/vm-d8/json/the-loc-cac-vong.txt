@@ -1,0 +1,30 @@
+== t1
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"d","Entity":"Dim_CRM_Issue","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"'Other'"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"'Late fee'"}}}}}}}}}]}}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}}}}}}}]}}
+
+== t2
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"d","Entity":"Dim_CRM_Issue","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"null"}}}},"Right":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"''"}}}}}}}]}}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}}}}}}}]}}
+
+== t3
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"d","Entity":"Dim_CRM_Issue","Type":0}],"Where":[{"Condition":{"And":{"Left":{"Not":{"Expression":{"StartsWith":{"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"'A'"}}}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"''"}}}}}}}}}]}}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}}}}}}}]}}
+
+== f2
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Categorical"}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":3,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"500L"}}}},"Right":{"Comparison":{"ComparisonKind":1,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"2000L"}}}}}}}]}}
+
+== f3
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Categorical"}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"And":{"Left":{"Comparison":{"ComparisonKind":2,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"100L"}}}},"Right":{"Comparison":{"ComparisonKind":4,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"900L"}}}}}}}]}}
+
+== f4
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Categorical"}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"5L"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"9007.5D"}}}}}}}}}]}}
+

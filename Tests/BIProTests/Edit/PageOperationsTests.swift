@@ -115,6 +115,19 @@ import Testing
         #expect(PageEditing.blocker(editMode: true, canEditLayout: false, mode: .report)?.contains("định dạng cũ") == true)
         #expect(PageEditing.blocker(editMode: true, canEditLayout: true, mode: .table) != nil)
     }
+
+    // MARK: kéo tab (review D5 c)
+
+    @Test func aTabDropTakesOnlyATabOfTheSameDocument() {
+        let document = UUID(), other = UUID()
+        let dragged = PageTabDrag.payload(page: "p2", document: document)
+        #expect(PageTabDrag.page(from: dragged, document: document, pages: ["p1", "p2"]) == "p2")
+        #expect(PageTabDrag.page(from: dragged, document: other, pages: ["p1", "p2"]) == nil)            // tab của cửa sổ khác
+        #expect(PageTabDrag.page(from: "page:p2", document: document, pages: ["p1", "p2"]) == nil)       // chữ kéo từ nơi khác
+        #expect(PageTabDrag.page(from: "p2", document: document, pages: ["p1", "p2"]) == nil)
+        let gone = PageTabDrag.payload(page: "p9", document: document)
+        #expect(PageTabDrag.page(from: gone, document: document, pages: ["p1", "p2"]) == nil)            // trang không còn trong dãy
+    }
 }
 
 // MARK: nhân bản trang (D5, US2)
@@ -260,15 +273,24 @@ import Testing
         #expect(env.editor.structure.removed == ["p2"])
     }
 
-    @Test func theLastPageAndNavigationButtonsBlockRemoval() throws {
+    /// VM-D8: Desktop xoá trang mà không cảnh báo và để nguyên nút điều hướng trỏ tới nó. BI Pro làm theo và nói nút nào.
+    @Test func aPageANavigationButtonPointsAtCanBeRemovedAndTheUserIsToldWhichButton() throws {
         let env = try Env(extra: Self.navigationButton(to: "p2")); defer { env.cleanUp() }
         let depth = env.editor.undoDepth
-        let reason = env.editor.removePage("p2")
-        #expect(reason?.contains("nnnnnnnnnnnnnnnnnnnn") == true && reason?.contains("chưa kiểm") == true)
-        #expect(env.editor.fieldRefusal == reason && env.editor.pages.count == 2 && env.editor.undoDepth == depth)
-        // trang không có nút trỏ tới thì xoá được; còn lại một trang thì từ chối xoá nốt
+        #expect(env.editor.removePage("p2") == nil)
+        #expect(env.editor.pages.map(\.id) == ["p1"] && env.editor.undoDepth == depth + 1)
+        #expect(env.editor.notice?.contains("nút điều hướng") == true && env.editor.notice?.contains("nnnnnnnnnnnnnnnnnnnn") == true)
+        env.editor.undo()
+        #expect(env.editor.pages.map(\.id) == ["p1", "p2"])
+    }
+
+    @Test func theLastPageCannotBeRemoved() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        let depth = env.editor.undoDepth
         #expect(env.editor.removePage("p1") == nil)
-        #expect(env.editor.removePage("p2")?.contains("ít nhất một trang") == true && env.editor.pages.count == 1)
+        let reason = env.editor.removePage("p2")
+        #expect(reason?.contains("ít nhất một trang") == true && env.editor.fieldRefusal == reason)
+        #expect(env.editor.pages.count == 1 && env.editor.undoDepth == depth + 1)
     }
 
     @Test func bookmarksOfARemovedPageAreRemovedOrTrimmedAndTheUserIsTold() throws {

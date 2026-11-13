@@ -73,6 +73,43 @@ extension DocumentState {
         return nil
     }
 
+    /// Gom các bookmark vào một nhóm mới "Group N" (lệnh Group của Bookmarks pane, VM-D8 mục 5). Trả lý do từ chối hoặc nil.
+    @discardableResult
+    func groupBookmarks(_ ids: [String]) -> String? {
+        if let blocker = reportEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
+        let rows = interaction.bookmarkRows
+        // Chỉ bookmark còn hiện và chưa nằm trong nhóm (mã cũ trong vùng chọn, bookmark đã xoá, bị bỏ).
+        let chosen = ids.filter { id in rows.first { $0.id == id }.map { $0.groupID == nil } ?? false }
+        guard chosen.count >= 2 else {
+            let reason = "Nhóm bookmark cần chọn từ 2 bookmark chưa nằm trong nhóm."
+            layout.noteFieldRefusal(reason)
+            return reason
+        }
+        // Thứ tự trong nhóm theo thứ tự đang hiện.
+        let ordered = rows.map(\.id).filter(chosen.contains)
+        let used = Set(rows.compactMap(\.group))
+        var n = 1
+        while used.contains("Group \(n)") { n += 1 }
+        let id = PBIRLayoutPatch.makeVisualName(avoiding: Set(workspace.bookmarks.map(\.id)).union(rows.compactMap(\.groupID)))
+        guard layout.groupBookmarks(ordered, id: id, name: "Group \(n)") else {
+            let reason = "Không nhóm được các bookmark này."
+            layout.noteFieldRefusal(reason)
+            return reason
+        }
+        layout.noteFieldRefusal(nil)
+        return nil
+    }
+
+    /// Bỏ nhóm bookmark: các bookmark của nhóm về cấp gốc.
+    @discardableResult
+    func ungroupBookmarks(groupID: String) -> String? {
+        if let blocker = reportEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
+        let rows = interaction.bookmarkRows.filter { $0.groupID == groupID }
+        guard let first = rows.first, let name = first.group else { return nil }
+        layout.ungroupBookmarks(BookmarkGroupEdit(id: groupID, name: name, children: rows.map(\.id)))
+        return nil
+    }
+
     @discardableResult
     func setBookmarkOption(id: String, data: Bool? = nil, display: Bool? = nil, currentPage: Bool? = nil) -> String? {
         if let blocker = reportEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }

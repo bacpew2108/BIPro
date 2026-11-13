@@ -335,4 +335,78 @@ import Testing
         let out = try PBIRQueryPatch.apply([.init(role: "Y", elements: [element])], to: Self.bare)
         #expect(text(out).contains(#""queryRef":"Fact.Credit","nativeQueryRef":"Thu","displayName":"Thu""#))
     }
+    // MARK: D3b: `active` và sắp xếp mặc định (VM-D3 mục B)
+
+    static func element(_ kind: ReportField.Kind, _ property: String, role: String, active: Bool? = nil) -> PBIRQueryPatch.Element {
+        PBIRQueryPatch.newElement(kind: kind, entity: "Fact", property: property, displayName: nil, role: role, active: active)
+    }
+
+    @Test func aNewColumnCarriesActiveBetweenNativeQueryRefAndDisplayName() throws {
+        let first = Self.element(.column, "month", role: "Category", active: true)
+        let second = Self.element(.column, "year", role: "Category", active: false)
+        let out = text(try PBIRQueryPatch.apply([.init(role: "Category", elements: [first, second])], to: Self.bare))
+        #expect(out.contains(#""queryRef":"Fact.month","nativeQueryRef":"month","active":true}"#))
+        #expect(out.contains(#""queryRef":"Fact.year","nativeQueryRef":"year","active":false}"#))
+        // Measure không có cờ, kể cả khi người gọi truyền vào.
+        let measure = Self.element(.measure, "Credit", role: "Y", active: true)
+        #expect(try !text(PBIRQueryPatch.apply([.init(role: "Y", elements: [measure])], to: Self.bare)).contains("\"active\""))
+        // Đặt tên hiển thị sau đó: `active` đứng trước `displayName` như Desktop.
+        var named = first
+        named.field.displayName = "Tháng"
+        let out2 = text(try PBIRQueryPatch.apply([.init(role: "Category", elements: [named])], to: Self.bare))
+        #expect(out2.contains(#""nativeQueryRef":"Tháng","active":true,"displayName":"Tháng"}"#))
+    }
+
+    @Test func aVisualWithOnlyMeasuresGetsDesktopsDefaultSort() throws {
+        let credit = Self.element(.measure, "Credit", role: "Y")
+        let out = text(try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit])], to: Self.bare))
+        // Nguyên văn dạng Desktop ghi (VM-D3 B): `sortDefinition` sau `queryState`, giảm dần theo measure.
+        #expect(out.contains(#""query":{"queryState":{"Y":{"projections":[\#(Self.mea("Fact", "Credit"))]}},"sortDefinition":{"sort":[{"field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"Credit"}},"direction":"Descending"}],"isDefaultSort":true}}"#))
+        // Thêm measure thứ hai: sắp xếp giữ theo measure đầu.
+        let debit = Self.element(.measure, "Debit", role: "Y")
+        let two = try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit, debit])], to: Data(out.utf8))
+        #expect(text(two).components(separatedBy: "sortDefinition").count == 2 && text(two).contains(#""Property":"Credit"}},"direction""#))
+    }
+
+    @Test func noDefaultSortForOtherShapes() throws {
+        let credit = Self.element(.measure, "Credit", role: "Y")
+        // Có cột nhóm: Desktop tính theo kiểu cột nên không đoán.
+        let month = Self.element(.column, "month", role: "Category", active: true)
+        let withColumn = try PBIRQueryPatch.apply([.init(role: "Category", elements: [month]), .init(role: "Y", elements: [credit])], to: Self.bare)
+        #expect(!text(withColumn).contains("sortDefinition"))
+        // Loại không sắp theo measure: matrix, slicer.
+        let matrix = Data(#"{"name":"aaaaaaaaaaaaaaaaaaa1","visual":{"visualType":"pivotTable"}}"#.utf8)
+        let values = Self.element(.measure, "Credit", role: "Values")
+        #expect(try !text(PBIRQueryPatch.apply([.init(role: "Values", elements: [values])], to: matrix)).contains("sortDefinition"))
+        // `sortDefinition` có sẵn (người dùng đặt) giữ nguyên byte.
+        let sorted = try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit])], to: Self.compact)
+        #expect(text(sorted).contains(#""sortDefinition":{"sort":[]}"#))
+    }
+
+    @Test func cardVisualSortsByTheMeasureOfItsDataWell() throws {
+        let card = Data(#"{"name":"aaaaaaaaaaaaaaaaaaa1","visual":{"visualType":"cardVisual","drillFilterOtherVisuals":true}}"#.utf8)
+        let out = text(try PBIRQueryPatch.apply([.init(role: "Data", elements: [Self.element(.measure, "Credit", role: "Data")])], to: card))
+        #expect(out.contains(#""sortDefinition":{"sort":[{"field":{"Measure":"#) && out.contains(#""isDefaultSort":true"#))
+    }
+
+    @Test func aDefaultSortGoesWhenItsFieldOrTheGroupingColumnsChange() throws {
+        let credit = Self.element(.measure, "Credit", role: "Y")
+        let sorted = try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit])], to: Self.bare)
+        // Thêm cột nhóm: Desktop tính lại theo cột; BI Pro bỏ để người đọc dùng thứ tự theo trục.
+        let month = Self.element(.column, "month", role: "Category", active: true)
+        let grouped = try PBIRQueryPatch.apply([.init(role: "Category", elements: [month]), .init(role: "Y", elements: [credit])], to: sorted)
+        #expect(!text(grouped).contains("sortDefinition"))
+        // Bỏ measure mà sắp xếp trỏ tới.
+        let debit = Self.element(.measure, "Debit", role: "Y")
+        let swapped = try PBIRQueryPatch.apply([.init(role: "Y", elements: [debit])], to: sorted)
+        #expect(!text(swapped).contains("Credit") && !text(swapped).contains("sortDefinition"))   // sắp xếp treo bị bỏ, không đoán lại
+        // Chỉ khi ô `Y` vừa có measure đầu tiên mới tự thêm: sửa khác trên file không có sắp xếp thì không đụng.
+        let twoMeasures = try PBIRQueryPatch.apply([.init(role: "Y", elements: [credit, debit])], to: swapped)
+        #expect(!text(twoMeasures).contains("sortDefinition"))
+        // Bỏ hết trường: không để lại `sortDefinition`.
+        #expect(try !text(PBIRQueryPatch.apply([], to: sorted)).contains("sortDefinition"))
+        // `sortDefinition` do người dùng đặt (không phải mặc định) không bị đụng.
+        let custom = Data(text(sorted).replacingOccurrences(of: #""isDefaultSort":true"#, with: #""isDefaultSort":false"#).utf8)
+        #expect(try text(PBIRQueryPatch.apply([.init(role: "Category", elements: [month]), .init(role: "Y", elements: [credit])], to: custom)).contains("sortDefinition"))
+    }
 }

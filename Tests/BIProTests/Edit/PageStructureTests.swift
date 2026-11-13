@@ -41,11 +41,9 @@ import Testing
 
     // MARK: (c) từ chối xoá
 
-    @Test func removalIsRefusedForTheLastPageAndForNavigationButtons() {
-        #expect(PageStructure.removalRefusal(pageCount: 1, navigationButtons: [])?.contains("ít nhất một trang") == true)
-        #expect(PageStructure.removalRefusal(pageCount: 3, navigationButtons: []) == nil)
-        let reason = PageStructure.removalRefusal(pageCount: 3, navigationButtons: ["Về D2", "Sang chi nhánh"])
-        #expect(reason?.contains("Về D2") == true && reason?.contains("Sang chi nhánh") == true && reason?.contains("chưa kiểm") == true)
+    @Test func removalIsRefusedOnlyForTheLastPage() {
+        #expect(PageStructure.removalRefusal(pageCount: 1)?.contains("ít nhất một trang") == true)
+        #expect(PageStructure.removalRefusal(pageCount: 3) == nil)
     }
 
     // MARK: (d) tác động lên bookmark

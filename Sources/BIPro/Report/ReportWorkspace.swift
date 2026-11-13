@@ -15,7 +15,11 @@ struct ReportWorkspace: View {
                 if let page = state.page {
                     ReportPageView(workspace: state.workspace, page: page, interaction: state.interaction, selectedVisual: $state.visualID,
                                    zoom: state.zoom, onScale: { currentScale = $0 }, onViewport: { state.visibleRect = $0 },
-                                   navigate: { state.pageID = $0; state.visualID = nil },
+                                   navigate: { target in
+                                       // Nút điều hướng trỏ tới trang đã xoá (Desktop để nút treo, VM-D8): bấm không làm gì.
+                                       guard state.pages.contains(where: { $0.id == target }) else { return }
+                                       state.pageID = target; state.visualID = nil
+                                   },
                                    editor: state.layout, editMode: state.editMode)
                         .id(page.id)
                         .overlay(alignment: .topTrailing) { EditModeSwitch(state: state) }
@@ -82,6 +86,8 @@ struct PageTabs: View {
 
     @State private var renaming: Renaming?
     @State private var dropTarget: String?
+    /// Dấu của thanh tab này: tab chỉ thả được vào chính thanh tab đã kéo nó đi.
+    @State private var dragToken = UUID()
     @State private var deleting: ReportPage?
 
     private var blocker: String? { state.pageEditingBlocker }
@@ -165,10 +171,11 @@ struct PageTabs: View {
     private func drop(_ providers: [NSItemProvider], onto id: String) -> Bool {
         if let blocker { state.layout.noteFieldRefusal(blocker); return false }
         _ = providers.first?.loadObject(ofClass: NSString.self) { object, _ in
-            guard let text = object as? NSString as String?, text.hasPrefix("page:") else { return }
-            let moved = String(text.dropFirst(5))
+            guard let text = object as? NSString as String? else { return }
             Task { @MainActor in
-                if let target = state.pages.firstIndex(where: { $0.id == id }) { state.movePage(moved, to: target) }
+                guard let moved = PageTabDrag.page(from: text, document: dragToken, pages: state.pages.map(\.id)),
+                      let target = state.pages.firstIndex(where: { $0.id == id }) else { return }
+                state.movePage(moved, to: target)
             }
         }
         return true
@@ -192,7 +199,7 @@ struct PageTabs: View {
                 Divider()
                 Button("Xoá…", role: .destructive) { deleting = page }.disabled(blocker != nil || count <= 1)
             }
-            .onDrag { NSItemProvider(object: "page:\(page.id)" as NSString) }
+            .onDrag { NSItemProvider(object: PageTabDrag.payload(page: page.id, document: dragToken) as NSString) }
             .onDrop(of: [.plainText], isTargeted: isTargeted(page.id)) { providers, _ in drop(providers, onto: page.id) }
     }
 }

@@ -192,10 +192,11 @@ import Testing
 
     // MARK: từ chối và chọn
 
-    @Test func nestedGroupsAreRefused() throws {
+    /// Nhóm lồng nhau nay được phép (VM-D8, `NestedGroupTests`); vẫn cần từ 2 phần tử của trang đang mở.
+    @Test func groupingNeedsTwoItemsOfThisPage() throws {
         let env = try Env(); defer { env.cleanUp() }
         let id = try groupAll(env)
-        env.editor.setSelection([id, S.b1], extend: false)
+        env.editor.setSelection([id, S.b1], extend: false)   // b1 ở trang khác: vùng chọn chỉ còn nhóm
         #expect(env.editor.group() == nil)
         env.editor.setSelection([S.a1], extend: false)
         #expect(env.editor.groupBlocker() == "Nhóm cần chọn từ 2 visual.")

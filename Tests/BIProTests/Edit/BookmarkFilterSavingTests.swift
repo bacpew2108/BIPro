@@ -311,16 +311,39 @@ import Testing
         #expect(card["name"]?.string == "fSex" && card["isLockedInViewMode"]?.bool == true && card["filter"] != nil)
     }
 
-    @Test func unsupportedFiltersStayInTheSessionWithAReason() throws {
+    @Test func aFilterOnDateValuesStaysInTheSessionWithAReason() throws {
         let env = try Env(); defer { env.cleanUp() }
-        let col = QueryColumn(table: "Dim_Date", column: "year")
-        let numeric = UserFilter(column: col, rule: .advanced(first: FilterCondition(kind: .greaterThan, operand: "2014"), second: nil, useOr: false, numeric: true))
-        let measure = UserFilter(column: QueryColumn(table: "F", column: "M"), rule: .advanced(first: FilterCondition(kind: .contains, operand: "a"), second: nil, useOr: false, numeric: false), isMeasure: true)
-        env.editor.setFilter(numeric, for: UserFilterKey(level: .page, scope: "p1", filterID: "added-Dim_Date.year"), coalesce: false)
-        env.editor.setFilter(measure, for: UserFilterKey(level: .visual, scope: S.a1, filterID: "added-F.M"), coalesce: false)
+        let dates = UserFilter(column: QueryColumn(table: "Dim_Date", column: "date"), values: [.dateTime(1)])
+        env.editor.setFilter(dates, for: UserFilterKey(level: .page, scope: "p1", filterID: "added-Dim_Date.date"), coalesce: false)
         let changes = try env.changes()
         #expect(changes.reportParts.isEmpty && changes.addedParts.isEmpty)
-        #expect(env.editor.saveNotes.count == 2)
+        #expect(env.editor.saveNotes.count == 1)
+    }
+
+    /// VM-D8: so sánh số, "Hoặc", Bottom N và thẻ measure nay ghi vào file; lưu xong đọc lại ra đúng bộ lọc đã đặt.
+    @Test func numericOrBottomNAndMeasureFiltersAreSavedAndReadBack() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        let numeric = UserFilter(column: QueryColumn(table: "Dim_Date", column: "year"),
+                                 rule: .advanced(first: FilterCondition(kind: .greaterThan, operand: "2014"),
+                                                 second: FilterCondition(kind: .isBlank, operand: ""), useOr: true, numeric: true))
+        let bottom = UserFilter(column: QueryColumn(table: "Dim_CRM_Issue", column: "product"),
+                                rule: .topN(TopNRule(count: 2, top: false, measureTable: "Fact_CRM_Complaint", measureName: "Complaints")))
+        let measure = UserFilter(column: QueryColumn(table: "F", column: "M"),
+                                 rule: .advanced(first: FilterCondition(kind: .lessOrEqual, operand: "0.5"), second: nil, useOr: false, numeric: true), isMeasure: true)
+        env.editor.setFilter(numeric, for: UserFilterKey(level: .page, scope: "p1", filterID: "added-Dim_Date.year"), coalesce: false)
+        env.editor.setFilter(bottom, for: UserFilterKey(level: .page, scope: "p1", filterID: "added-Dim_CRM_Issue.product"), coalesce: false)
+        env.editor.setFilter(measure, for: UserFilterKey(level: .visual, scope: S.a1, filterID: "implicit-F.M-Y"), coalesce: false)
+        _ = try env.save()
+        #expect(env.editor.saveNotes.isEmpty)
+
+        let page = PBIXFile.filters(try env.json(Self.pageP1)["filterConfig"]?["filters"], level: .page).compactMap(UserFilter.from)
+        #expect(Set(page) == [numeric, bottom])
+        let cards = try #require(try env.json(S.visualPath("p1", S.a1))["filterConfig"]?["filters"]?.array)
+        #expect(cards.count == 1 && cards[0]["field"]?["Measure"]?["Property"]?.string == "M" && cards[0]["howCreated"] == nil)
+        #expect(PBIXFile.filters(.array(cards), level: .visual).compactMap(UserFilter.from) == [measure])
+
+        let again = try env.changes()
+        #expect(again.reportParts.isEmpty && again.addedParts.isEmpty && again.removedParts.isEmpty)
     }
 
     @Test func advancedTextAndTopNAreWritable() throws {

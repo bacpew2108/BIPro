@@ -91,21 +91,64 @@ public enum PBIRFilterPatch {
         public init(_ op: TextOperator, negated: Bool = false, text: String) { self.op = op; self.negated = negated; self.text = text }
     }
 
-    /// Advanced chữ (VM-D6): `Contains`, `StartsWith`, `Not{…}`, `And` của hai điều kiện. Nhiều hơn hai hoặc Or: chưa quan sát.
+    /// Advanced chữ (VM-D6): `Contains`, `StartsWith`, `Not{…}`, `And` của hai điều kiện.
     public static func advancedTextFilter(entity: String, property: String, conditions: [TextCondition]) -> String? {
+        advancedFilter(entity: entity, property: property, conditions: conditions.map {
+            AdvancedCondition($0.op == .contains ? .contains : .startsWith, negated: $0.negated, literal: .string($0.text))
+        })
+    }
+
+    public enum AdvancedOperator: Sendable { case contains, startsWith, equal, greaterThan, greaterOrEqual, lessThan, lessOrEqual, blank }
+
+    /// Một điều kiện Advanced. `negated` bọc trong `Not` ("is not", "is not blank", "does not contain"…). `blank` không cần `literal`.
+    public struct AdvancedCondition: Equatable, Sendable {
+        public var op: AdvancedOperator
+        public var negated: Bool
+        public var literal: FilterLiteral?
+        public init(_ op: AdvancedOperator, negated: Bool = false, literal: FilterLiteral? = nil) {
+            self.op = op; self.negated = negated; self.literal = literal
+        }
+    }
+
+    /// Advanced trên cột hoặc measure (VM-D6, VM-D8): một điều kiện, hoặc hai điều kiện nối `And`/`Or`.
+    /// So sánh ghi `Comparison` với `ComparisonKind` 0 (=), 1 (>), 2 (>=), 3 (<), 4 (<=); "trống" là so bằng `null`.
+    /// nil khi số điều kiện không phải 1 hoặc 2, thiếu giá trị, hoặc `contains`/`startsWith` không phải chữ.
+    public static func advancedFilter(kind: FilterCardSpec.Kind = .column, entity: String, property: String,
+                                      conditions: [AdvancedCondition], useOr: Bool = false) -> String? {
         guard (1...2).contains(conditions.count) else { return nil }
         let alias = aliases(for: [entity])[entity] ?? "t"
-        func node(_ c: TextCondition) -> String {
-            let name = c.op == .contains ? "Contains" : "StartsWith"
-            let inner = "{\"\(name)\":{\"Left\":\(column(alias: alias, property: property)),\"Right\":{\"Literal\":{\"Value\":\(token(FilterLiteral.string(c.text).text))}}}}"
+        let left = "{\"\(kind.rawValue)\":{\"Expression\":{\"SourceRef\":{\"Source\":\(token(alias))}},\"Property\":\(token(property))}}"
+        func node(_ c: AdvancedCondition) -> String? {
+            let inner: String
+            switch c.op {
+            case .contains, .startsWith:
+                guard case .string = c.literal, let literal = c.literal else { return nil }
+                inner = "{\"\(c.op == .contains ? "Contains" : "StartsWith")\":{\"Left\":\(left),\"Right\":{\"Literal\":{\"Value\":\(token(literal.text))}}}}"
+            case .blank:
+                inner = "{\"Comparison\":{\"ComparisonKind\":0,\"Left\":\(left),\"Right\":{\"Literal\":{\"Value\":\"null\"}}}}"
+            case .equal, .greaterThan, .greaterOrEqual, .lessThan, .lessOrEqual:
+                guard let literal = c.literal else { return nil }
+                let code: Int
+                switch c.op {
+                case .greaterThan: code = 1
+                case .greaterOrEqual: code = 2
+                case .lessThan: code = 3
+                case .lessOrEqual: code = 4
+                default: code = 0
+                }
+                inner = "{\"Comparison\":{\"ComparisonKind\":\(code),\"Left\":\(left),\"Right\":{\"Literal\":{\"Value\":\(token(literal.text))}}}}"
+            }
             return c.negated ? "{\"Not\":{\"Expression\":\(inner)}}" : inner
         }
-        let condition = conditions.count == 1 ? node(conditions[0]) : "{\"And\":{\"Left\":\(node(conditions[0])),\"Right\":\(node(conditions[1]))}}"
+        let nodes = conditions.compactMap(node)
+        guard nodes.count == conditions.count else { return nil }
+        let condition = nodes.count == 1 ? nodes[0] : "{\"\(useOr ? "Or" : "And")\":{\"Left\":\(nodes[0]),\"Right\":\(nodes[1])}}"
         return "{\"Version\":2,\"From\":\(from([(entity, alias)])),\"Where\":[{\"Condition\":\(condition)}]}"
     }
 
-    /// Top N (VM-D6, mẫu Top; Bottom chưa quan sát): `From` có truy vấn con chọn `count` giá trị đầu theo measure.
-    public static func topNFilter(entity: String, property: String, measureEntity: String, measureProperty: String, count: Int) -> String {
+    /// Top N (VM-D6) và Bottom N (VM-D8: `Direction` 1 thay cho 2): `From` có truy vấn con chọn `count` giá trị đầu theo measure.
+    public static func topNFilter(entity: String, property: String, measureEntity: String, measureProperty: String, count: Int,
+                                  bottom: Bool = false) -> String {
         var entities = [entity]
         if measureEntity != entity { entities.append(measureEntity) }
         let map = aliases(for: entities)
@@ -113,7 +156,7 @@ public enum PBIRFilterPatch {
         var inner = [(entity, d)]
         if measureEntity != entity { inner.append((measureEntity, f)) }
         let select = "[{\"Column\":{\"Expression\":{\"SourceRef\":{\"Source\":\(token(d))}},\"Property\":\(token(property))},\"Name\":\"field\"}]"
-        let order = "[{\"Direction\":2,\"Expression\":{\"Measure\":{\"Expression\":{\"SourceRef\":{\"Source\":\(token(f))}},\"Property\":\(token(measureProperty))}}}]"
+        let order = "[{\"Direction\":\(bottom ? 1 : 2),\"Expression\":{\"Measure\":{\"Expression\":{\"SourceRef\":{\"Source\":\(token(f))}},\"Property\":\(token(measureProperty))}}}]"
         let query = "{\"Version\":2,\"From\":\(from(inner)),\"Select\":\(select),\"OrderBy\":\(order),\"Top\":\(count)}"
         let sub = "{\"Name\":\"subquery\",\"Expression\":{\"Subquery\":{\"Query\":\(query)}},\"Type\":2}"
         let outerFrom = "[\(sub),{\"Name\":\(token(d)),\"Entity\":\(token(entity)),\"Type\":0}]"

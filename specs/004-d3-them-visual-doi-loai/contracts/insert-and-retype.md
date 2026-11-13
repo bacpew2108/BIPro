@@ -19,6 +19,13 @@
 | Nội dung | `PBIRNewVisual.makeJSON` (R3); visual dữ liệu chưa có trường: `fields` rỗng, hiện "Thêm trường để vẽ" |
 | Sau | Chọn visual mới; `notice` và `fieldRefusal` cũ bị xoá |
 
+## Bổ sung D3b (2026-11-13, VM-D3 mục A, B)
+
+- Thư viện và nút ribbon "Thẻ" thêm `cardVisual` (như Desktop); `card` cũ vẫn thêm được. Ô của `cardVisual` là `Data` (measure; chưa quan sát ô khác).
+- Cột thả vào ô: cột đầu của ô ghi `"active":true` (giữa `nativeQueryRef` và `displayName`), các cột sau `false` (như donut, treemap, slicer, matrix của Nhom6); ô một trường thay thì cột mới là cột đầu; measure không có cờ.
+- `sortDefinition` mặc định (`isDefaultSort:true`, giảm dần theo measure đầu của ô `Y`, hoặc `Data` với `cardVisual`) chỉ thêm khi visual chưa có `sortDefinition`, chỉ có measure (chưa có cột nhóm) và là biểu đồ trục hoặc `cardVisual`. Khi tập cột nhóm đổi, hoặc trường được sắp trỏ tới không còn, `sortDefinition` mặc định bị bỏ (rồi dựng lại theo measure đầu nếu visual lại chỉ có measure); sắp xếp do người dùng đặt giữ nguyên. Sắp xếp mặc định theo measure không chặn bỏ measure; theo cột hoặc do người dùng đặt vẫn chặn.
+- Chưa làm: sắp xếp mặc định khi có cột nhóm (Desktop tính theo kiểu cột: cột ngày tăng dần theo cột, khác giảm dần theo measure), tăng dần theo cột Category khi đổi đường sang cột/thanh.
+
 ## Đổi loại (`changeType`)
 
 Điều kiện: đúng một visual được chọn, có trong trang hiện tại, loại đích `isSupported` và khác loại hiện tại.

@@ -28,6 +28,14 @@ Theo bảng R5. Mọi từ chối: không ghi, không tạo bước hoàn tác, 
 - Giá trị mới bằng giá trị hiện có: không tạo bước, không ghi.
 - Hoàn tác trả lại đúng `objects` và `visualContainerObjects` (so cả khoá vắng mặt); `isDirty` về false khi về trạng thái đã lưu.
 
+## Màu theo từng chuỗi và bố cục matrix (bổ sung 2026-11-13, VM-D8 mục 6)
+
+- Thẻ có `seriesProperties` (hiện chỉ `dataPoint` của biểu đồ trục, thuộc tính `fill`) có ô "Áp dụng cho": **Tất cả** hoặc một chuỗi. Chuỗi = measure ở ô `Y`, rồi `Y2` (theo thứ tự trong ô). Chọn một chuỗi: sửa mục riêng `{"properties":{"fill":…},"selector":{"metadata":"<queryRef>"}}`, thêm vào **cuối** mảng; chọn Tất cả: chỉ sửa mục chung (`fillTransparency`), ô màu bị khoá ("Chọn một chuỗi để đổi màu", như Desktop).
+- Chuỗi đang tô màu theo công thức hoặc điểm dữ liệu (selector có thêm `data`) hoặc visual có trường ở ô Chú giải: từ chối kèm lý do, không ghi.
+- Đổi liên tiếp màu của một chuỗi gộp một bước; chuỗi khác là bước khác. "Đặt lại" ở một chuỗi bỏ `fill` của mục đó (mục rỗng thì bỏ cả mục); "Đặt lại" cả thẻ bỏ mọi mục sửa được (mục chung và mục theo chuỗi).
+- Mục theo chuỗi không còn bị liệt kê là chỉ-đọc ở thẻ có `seriesProperties`; thuộc tính lạ trong mục đó vẫn chỉ-đọc.
+- Matrix: thẻ "Bố cục" (`general.layout`), chỉ có `'Tabular'` (Compact, Outline có trong Desktop nhưng chưa thấy literal).
+
 ## Đặt lại
 
 - "Đặt lại" thẻ: xoá cả khoá (`removeObject`), thẻ hiện lại giá trị mặc định (công tắc tắt hoặc mặc định của danh mục).

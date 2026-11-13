@@ -135,4 +135,50 @@ import Testing
         // Dữ liệu không tính được: cả trang
         #expect(CanvasViewport.visibleRect(offset: .zero, container: .zero, pageSize: page, scale: 1, margin: 16) == CGRect(origin: .zero, size: page))
     }
+    // MARK: D3b: cardVisual, `active`, sắp xếp mặc định (VM-D3 mục A, B)
+
+    static let credit = FieldRef(kind: .measure, entity: "Fact", property: "Credit")
+    static let month = FieldRef(kind: .column, entity: "Dim_Date", property: "month_name", family: .text)
+    static let year = FieldRef(kind: .column, entity: "Dim_Date", property: "year", family: .numeric)
+
+    @Test func theLibraryCardIsACardVisualWithADataWell() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        let id = try #require(env.editor.insertVisual(type: "cardVisual", visibleRect: Self.view))
+        let visual = try #require(env.editor.visual(id))
+        #expect(visual.type == "cardVisual" && visual.width == 302 && visual.height == 108)
+        #expect(env.editor.addField(Self.credit, to: "Data", visual: id) == nil)
+        let raw = try #require(env.editor.visual(id)?.raw["visual"])
+        #expect(raw["query"]?["queryState"]?["Data"]?["projections"]?[0]?["queryRef"]?.string == "Fact.Credit")
+        // Desktop tự thêm sắp xếp giảm dần theo measure (VM-D3 B).
+        #expect(raw["query"]?["sortDefinition"]?["isDefaultSort"]?.bool == true)
+        #expect(raw["query"]?["sortDefinition"]?["sort"]?[0]?["direction"]?.string == "Descending")
+        // Cột không vào ô Data; bỏ trường thì dọn cả sắp xếp mặc định.
+        #expect(env.editor.addField(Self.month, to: "Data", visual: id) != nil)
+        #expect(env.editor.removeField(role: "Data", index: 0, visual: id) == nil)
+        let emptied = try #require(env.editor.edited["p1"]?.added[id])
+        #expect(!String(decoding: emptied, as: UTF8.self).contains("sortDefinition"))
+    }
+
+    @Test func aColumnAddedToAnAxisCarriesActiveFirstTrueThenFalse() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        let id = try #require(env.editor.insertVisual(type: "donutChart", visibleRect: Self.view))
+        #expect(env.editor.addField(Self.month, to: "Category", visual: id) == nil)
+        #expect(env.editor.addField(Self.year, to: "Category", visual: id) == nil)
+        let projections = try #require(env.editor.visual(id)?.raw["visual"]?["query"]?["queryState"]?["Category"]?["projections"]?.array)
+        #expect(projections.map { $0["active"]?.bool } == [true, false])   // như donut Col+,Col- của Nhom6
+        #expect(env.editor.addField(Self.credit, to: "Y", visual: id) == nil)
+        let y = try #require(env.editor.visual(id)?.raw["visual"]?["query"]?["queryState"]?["Y"]?["projections"]?[0])
+        #expect(y["active"] == nil)
+        // Có cột nhóm: không tự thêm sắp xếp (kiểu cột quyết định ở Desktop).
+        #expect(env.editor.visual(id)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
+    }
+
+    @Test func aCardVisualReadsItsMeasureFromTheDataWell() throws {
+        let measure = #"{"field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact"}},"Property":"Credit"}},"queryRef":"Fact.Credit","nativeQueryRef":"Credit"}"#
+        let data = Data(#"{"visual":{"visualType":"cardVisual","query":{"queryState":{"Data":{"projections":[\#(measure)]}}}}}"#.utf8)
+        let fields = try PBIRQueryPatch.fields(in: data)
+        #expect(fields.map(\.role) == ["Data"])
+        let visual = ReportVisual(id: "v", type: "cardVisual", fields: fields, raw: try JSONValue.parse(data))
+        #expect(VisualCatalog.wells(for: visual).first?.role == "Data")
+    }
 }

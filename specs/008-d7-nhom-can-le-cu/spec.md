@@ -84,6 +84,7 @@ Người dùng chọn từ 2 visual, Nhóm (⌘G); nhóm di chuyển, đổi c�
 3. **Cho** nhóm, **khi** Bỏ nhóm, **thì** nhóm bị xoá, con mất `parentGroupName` và có vị trí tuyệt đối đúng chỗ đang hiện.
 4. **Cho** nhóm, **khi** xoá hoặc nhân bản, **thì** cả nhóm và con cùng xoá hoặc nhân bản (mã mới, `parentGroupName` đổi theo).
 5. **Cho** nhóm lồng nhau hoặc nhóm trong bookmark, **thì** theo quan sát VM-D7; chưa quan sát thì từ chối kèm lý do thay vì ghi đoán.
+6. **Bổ sung 2026-11-13 (VM-D8 mục 1, nhóm lồng nhau đã quan sát):** vùng chọn có thể gồm nhóm và visual ở ngoài nhóm: Nhóm tạo nhóm ngoài chứa nhóm trong (nhóm trong có `parentGroupName` và toạ độ tương đối so với nhóm ngoài; con của nhóm trong không đổi; `z` nhóm = `z` lớn nhất của phần tử được nhóm + 1); "Gộp vào nhóm" (Merge: một nhóm + visual ngoài nhóm) đưa visual vào nhóm có sẵn, giữ mã và tên, khung nhóm thành hợp, toạ độ tương đối của con cũ dịch theo gốc mới; di chuyển nhóm ngoài dời mọi hậu duệ; đổi cỡ co mọi hậu duệ theo cùng tỷ lệ; xoá nhóm xoá mọi hậu duệ (xoá hết thành viên của một nhóm thì xoá cả nhóm, lên các cấp ngoài); nhân bản nhóm sao cả cây; Bỏ nhóm ngoài: nhóm trong về toạ độ tuyệt đối, con của nó giữ nhóm; Bỏ nhóm trong: con lên nhóm ngoài. Bấm chọn vào sâu một cấp mỗi lần. Phần tử có chuỗi `parentGroupName` trỏ nhóm không có (hoặc vòng) vẫn bị khoá.
 
 ---
 

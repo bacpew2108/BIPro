@@ -249,9 +249,11 @@ import Testing
         #expect(try !bytes(env, S.c1).contains("selector"))
     }
 
-    @Test func tablesOnlyEditSubtotalsThatAreAlreadyInTheFile() throws {
+    /// VM-D8 mục 6: Desktop thêm `columnSubtotals` vào mục `subTotals` khi tắt tổng phụ theo cột.
+    @Test func tablesCanAddASubtotalSwitchThatIsNotInTheFileYet() throws {
         let env = try Env(); defer { env.cleanUp() }
-        #expect(env.editor.setFormat(.bool(true), scope: .objects, object: "subTotals", property: "columnSubtotals", visual: S.f3) != nil)
+        #expect(env.editor.setFormat(.bool(false), scope: .objects, object: "subTotals", property: "columnSubtotals", visual: S.f3) == nil)
+        #expect(try bytes(env, S.f3).contains(#""subTotals":[{"properties":{"rowSubtotals":\#(S.lit("false")),"columnSubtotals":\#(S.lit("false"))}}]"#))
         #expect(env.editor.setFormat(.bool(true), scope: .objects, object: "subTotals", property: "rowSubtotals", visual: S.f3) == nil)
         #expect(env.editor.setFormat(.number(14, tail: .d), scope: .objects, object: "columnHeaders", property: "fontSize", visual: S.f3) == nil)
     }
@@ -352,9 +354,12 @@ import Testing
     @Test func linkAndUnobservedGeneralKeysStayReadOnly() throws {
         let env = try Env(); defer { env.cleanUp() }
         #expect(env.editor.setFormat(.bool(true), scope: .container, object: "visualLink", property: "show", visual: S.f1) != nil)
-        #expect(env.editor.setFormat(.color(.hex("#FFFFFF")), scope: .container, object: "dropShadow", property: "color", visual: S.f1) != nil)
+        // Các số của bóng Desktop ghi cả bộ theo preset (VM-D8): chưa có trong file thì không thêm lẻ.
+        #expect(env.editor.setFormat(.number(10, tail: .l), scope: .container, object: "dropShadow", property: "shadowBlur", visual: S.f1) != nil)
         #expect(env.editor.undoDepth == 0)
         let state = try #require(env.editor.formatState(of: S.f1))
-        #expect(state.container.map(\.card.objectKey) == ["title", "subTitle", "background", "border", "dropShadow", "padding", "visualHeader"])
+        #expect(state.container.map(\.card.objectKey) == ["title", "subTitle", "divider", "background", "border", "dropShadow", "padding", "visualHeader"])
+        // Màu bóng đã quan sát ở VM-D8 nên thêm được.
+        #expect(env.editor.setFormat(.color(.hex("#FFFFFF")), scope: .container, object: "dropShadow", property: "color", visual: S.f1) == nil)
     }
 }

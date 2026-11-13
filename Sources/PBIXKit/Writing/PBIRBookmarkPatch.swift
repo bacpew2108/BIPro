@@ -176,6 +176,79 @@ public enum PBIRBookmarkPatch {
         return out
     }
 
+    // MARK: - Nhóm bookmark (VM-D8 mục 5)
+
+    /// Một nhóm bookmark trong `bookmarks.json`: mục cấp gốc có `children`.
+    public struct Group: Equatable, Sendable {
+        public var id: String
+        public var displayName: String
+        public var children: [String]
+        public init(id: String, displayName: String, children: [String]) { self.id = id; self.displayName = displayName; self.children = children }
+    }
+
+    /// Các nhóm trong `items`, theo thứ tự.
+    public static func groups(in json: Data) -> [Group] {
+        guard let root = try? parseObject(json), let items = root["items"] as? [[String: Any]] else { return [] }
+        return items.compactMap { item in
+            guard let children = item["children"] as? [String], let name = item["name"] as? String else { return nil }
+            return Group(id: name, displayName: item["displayName"] as? String ?? name, children: children)
+        }
+    }
+
+    /// Gom các bookmark `names` đang là mục cấp gốc vào một nhóm mới, như Desktop ghi khi chọn Group ở Bookmarks pane:
+    /// `{"name":"<id>","displayName":"Group 1","children":[…]}` đứng ở chỗ của bookmark đầu tiên, các bookmark đó không còn
+    /// là mục cấp gốc. Thứ tự `children` theo thứ tự trong `items`. Tên không phải mục cấp gốc (đã ở nhóm khác, không có)
+    /// bị bỏ qua; không còn tên nào thì trả nguyên `json`.
+    public static func groupingItems(_ names: [String], id: String, displayName: String, in json: Data) throws -> Data {
+        let root = try parseObject(json)
+        guard let items = root["items"] as? [[String: Any]] else { throw WriteError.invalid("bookmarks.json has no items array") }
+        var bytes = [UInt8](json)
+        guard let kids = JSONCursor.children(at: [.key("items")], in: bytes), kids.count == items.count else {
+            throw WriteError.invalid("bookmarks.json has no items array")
+        }
+        let wanted = Set(names)
+        let found = items.indices.filter { items[$0]["children"] == nil && wanted.contains((items[$0]["name"] as? String) ?? "") }
+        guard let first = found.first else { return json }
+        let children = found.compactMap { items[$0]["name"] as? String }
+        let text = "{\"name\":\(token(id)),\"displayName\":\(token(displayName)),\"children\":[\(children.map(token).joined(separator: ","))]}"
+        // Bỏ các mục sau mục đầu (chỉ số của mục đầu không đổi), rồi thay mục đầu bằng mục nhóm.
+        let others = Set(found.dropFirst())
+        if !others.isEmpty { bytes = JSONCursor.removing(others, from: kids, in: bytes) }
+        guard let place = JSONCursor.locate([.key("items"), .index(first)][...], in: bytes) else {
+            throw WriteError.invalid("bookmarks.json items changed shape")
+        }
+        bytes.replaceSubrange(place, with: Array(text.utf8))
+        var expectedItems: [Any] = []
+        for (index, item) in items.enumerated() where !others.contains(index) {
+            expectedItems.append(index == first ? ["name": id, "displayName": displayName, "children": children] as [String: Any] : item)
+        }
+        var expected = root
+        expected["items"] = expectedItems
+        try verify(Data(bytes), equals: expected, what: "bookmarks.json group")
+        return Data(bytes)
+    }
+
+    /// Bỏ nhóm `id`: các bookmark con thành mục cấp gốc `{"name":…}` ngay tại chỗ của nhóm. Không có nhóm đó thì trả nguyên `json`.
+    public static func ungroupingItem(_ id: String, in json: Data) throws -> Data {
+        let root = try parseObject(json)
+        guard let items = root["items"] as? [[String: Any]],
+              let index = items.firstIndex(where: { $0["name"] as? String == id && $0["children"] is [String] }),
+              let children = items[index]["children"] as? [String] else { return json }
+        var bytes = [UInt8](json)
+        guard let kids = JSONCursor.children(at: [.key("items")], in: bytes), kids.count == items.count else { return json }
+        if children.isEmpty {
+            bytes = JSONCursor.removing([index], from: kids, in: bytes)
+        } else {
+            bytes.replaceSubrange(kids[index].value, with: Array(children.map { "{\"name\":\(token($0))}" }.joined(separator: ",").utf8))
+        }
+        var expectedItems: [Any] = items
+        expectedItems.replaceSubrange(index...index, with: children.map { ["name": $0] as [String: Any] })
+        var expected = root
+        expected["items"] = expectedItems
+        try verify(Data(bytes), equals: expected, what: "bookmarks.json ungroup")
+        return Data(bytes)
+    }
+
     // MARK: - Helpers
 
     private static func parseObject(_ json: Data) throws -> [String: Any] {

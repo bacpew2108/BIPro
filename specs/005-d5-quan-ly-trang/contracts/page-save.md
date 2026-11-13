@@ -13,6 +13,7 @@ Mở rộng `contracts/save-pipeline.md` của D1: cùng thứ tự (chặn Down
 | Thứ tự, thêm, xoá, trang mở | `reportParts[pages/pages.json]` = ghép byte `pageOrder` (và `activePageName` = trang đang mở nếu còn trong dãy, không thì trang đầu) |
 | Trang của file bị xoá | `removedParts` = mọi part dưới `pages/<mã>/` có trong file; visual của nó tính vào `removedIDs` để dọn bookmark (D1) |
 | Trang tạo bị xoá sau khi đã lưu trong phiên | `removedParts` = các part trong `savedPaths` |
+| Trang của file đã xoá, đã lưu, rồi hoàn tác (sửa 2026-11-13) | `addedParts` = mọi part dưới `pages/<mã>/` lấy từ file lúc mở, có áp phần sửa trong phiên (visual đã xoá trong phiên không ghi lại); bookmark lúc mở có nhắc trang đó lấy lại từ byte lúc mở, bỏ trang và visual hiện vẫn đang xoá, rồi mới áp sửa bookmark của D6; `bookmarks.json` dựng từ bản lúc mở (mục về đúng chỗ, đúng nhóm), bookmark tạo trong phiên thêm ở cuối |
 | Bookmark gỡ (`activeSection` = trang xoá) | `removedParts[bookmarks/<tên>.bookmark.json]`; `reportParts[bookmarks/bookmarks.json]` bỏ mục `items[]` của nó |
 | Bookmark chỉ nhắc trang xoá ở `sections` | `reportParts[bookmarks/<tên>.bookmark.json]` bỏ `sections.<mã>` |
 
@@ -46,6 +47,6 @@ Mỗi hàm ghép byte rồi phân tích lại và so với cấu trúc mong đ�
 1. Đọc lại bằng `PBIXFile.loadReport`: thứ tự trang và `displayName` khớp `editor.pages`.
 2. Mọi trang trong `editor.pages` có đủ visual (tập mã, khung, `z`, loại, trường như D1 đến D3).
 3. Mọi bookmark còn trong file có `activeSection` thuộc dãy trang; `bookmarks.json` khớp tập file bookmark.
-4. Không mã trang đã xoá còn xuất hiện trong chuỗi byte của `Report/definition/` (SC-005).
+4. Không còn tham chiếu tới trang đã xoá ở những chỗ là tham chiếu (SC-005): part dưới `pages/<mã>/`, `pageOrder` và `activePageName` của `pages.json`, `activeSection` và `sections` của bookmark, nút `PageNavigation` trong `visual.json`. Chuỗi trùng mã trang ở chỗ khác (tên hiển thị, chữ trong visual) không phải tham chiếu và không chặn lưu (sửa 2026-11-13; trước đó tìm chuỗi trong mọi file nên có thể chặn nhầm, và không bắt được nút điều hướng vì mã nằm trong dấu nháy đơn). Sửa lần hai 2026-11-13 (VM-D8): nút `PageNavigation` trỏ trang đã xoá **không** tính là lỗi; Desktop để nguyên nút, BI Pro giữ part của nút từng byte.
 
 Lỗi ở bước nào thì `SaveError.verificationFailed`, file đích còn nguyên.

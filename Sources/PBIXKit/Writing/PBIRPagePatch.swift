@@ -229,11 +229,15 @@ public enum PBIRPagePatch {
 
     // MARK: - Navigation buttons
 
+    private static let navigationMarker = Data("PageNavigation".utf8)
+
     /// The pages in `knownPages` that a `visualLink` of type `PageNavigation` in this `visual.json` points to (any
     /// string value of that link equal to a known page id). The key that holds the target is not yet observed
     /// (Nhom6 has no such button), so every value of the link is considered.
     public static func pageNavigationTargets(in visualJSON: Data, knownPages: Set<String>) -> Set<String> {
-        guard let root = try? JSONValue.parse(visualJSON) else { return [] }
+        // Most visuals are not navigation buttons: skip the parse unless the link type is there at all.
+        guard !knownPages.isEmpty, visualJSON.range(of: navigationMarker) != nil,
+              let root = try? JSONValue.parse(visualJSON) else { return [] }
         var found = Set<String>()
         func literals(_ value: JSONValue) -> [String] {
             switch value {

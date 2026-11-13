@@ -112,13 +112,28 @@ struct UserFilter: Hashable, Sendable {
         }
     }
 
-    /// Đọc bộ lọc Categorical `In` / `Not In` trong file thành dạng sửa được. nil nếu bộ lọc phức tạp hơn
-    /// (Advanced, TopN, nhiều điều kiện…): khi đó thẻ chỉ hiện, chưa sửa được.
+    /// Đọc bộ lọc trong file thành dạng sửa được: Categorical `In` / `Not In`, Advanced (một hoặc hai điều kiện), Top N / Bottom N,
+    /// và thẻ Advanced của measure. nil nếu bộ lọc có dạng khác (ngày tương đối, nhiều điều kiện…): khi đó thẻ chỉ hiện.
     static func from(_ filter: ReportFilter) -> UserFilter? {
-        guard filter.type == "Categorical" || filter.type == "Advanced",
-              let field = (filter.raw["field"] ?? filter.raw["expression"])?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,
+        guard filter.type == "Categorical" || filter.type == "Advanced" || filter.type == "TopN" else { return nil }
+        let expression = filter.raw["field"] ?? filter.raw["expression"]
+        if let measure = expression?["Measure"] {
+            // Thẻ measure (VM-D8): chỉ có Advanced, luôn là so sánh số; chưa đặt điều kiện thì không có `filter`.
+            guard filter.type == "Advanced", let table = measure["Expression"]?["SourceRef"]?["Entity"]?.string,
+                  let name = measure["Property"]?.string else { return nil }
+            let column = QueryColumn(table: table, column: name)
+            let conditions = filter.raw["filter"]?["Where"]?.array ?? []
+            if conditions.isEmpty { return UserFilter(column: column, isMeasure: true) }
+            guard conditions.count == 1,
+                  case .advanced(let first, let second, let useOr, _)? = FilterRule.parseAdvanced(conditions[0]["Condition"]) else { return nil }
+            return UserFilter(column: column, rule: .advanced(first: first, second: second, useOr: useOr, numeric: true), isMeasure: true)
+        }
+        guard let field = expression?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,
               let name = field["Property"]?.string else { return nil }
         let column = QueryColumn(table: table, column: name)
+        if filter.type == "TopN" {
+            return FilterRule.parseTopN(filter.raw["filter"]).map { UserFilter(column: column, rule: $0) }
+        }
         if filter.type == "Advanced" {
             guard let conditions = filter.raw["filter"]?["Where"]?.array, conditions.count == 1,
                   let rule = FilterRule.parseAdvanced(conditions[0]["Condition"]) else { return nil }

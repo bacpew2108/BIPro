@@ -168,6 +168,8 @@ struct FormatTarget: Hashable {
     let scope: FormatScope
     let object: String
     let property: String
+    /// `queryRef` của chuỗi khi sửa định dạng theo chuỗi.
+    var series: String? = nil
 
-    var coalesceKey: String { "format:\(visualID):\(scope.rawValue).\(object).\(property)" }
+    var coalesceKey: String { "format:\(visualID):\(scope.rawValue).\(object).\(property)" + (series.map { "@" + $0 } ?? "") }
 }

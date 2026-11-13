@@ -163,6 +163,22 @@ extension PBIXFile {
                     width: position["width"]?.number ?? 0, height: position["height"]?.number ?? 0,
                     isHidden: v["isHidden"]?.bool ?? false, raw: v, parentGroup: v["parentGroupName"]?.string))
             }
+            // Nhóm lồng nhau (VM-D8): nhóm con cũng ghi toạ độ tương đối so với nhóm cha; cộng gốc của mọi nhóm tổ tiên.
+            let relative = Dictionary(groups.map { ($0.id, (x: $0.x, y: $0.y, parent: $0.parentGroup)) }, uniquingKeysWith: { first, _ in first })
+            func absoluteOrigin(_ id: String) -> (x: Double, y: Double) {
+                var x = 0.0, y = 0.0
+                var seen: Set<String> = []
+                var next: String? = id
+                while let current = next, seen.insert(current).inserted, let group = relative[current] {
+                    x += group.x; y += group.y
+                    next = group.parent
+                }
+                return (x, y)
+            }
+            for index in groups.indices {
+                let at = absoluteOrigin(groups[index].id)
+                groups[index].x = at.x; groups[index].y = at.y
+            }
             let origin = Dictionary(groups.map { ($0.id, (x: $0.x, y: $0.y)) }, uniquingKeysWith: { first, _ in first })
             for (path, v) in documents {
                 guard let visual = v["visual"] else { continue }

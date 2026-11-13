@@ -107,7 +107,7 @@ private struct ReportHomeCommands: View {
         RibbonDivider()
         RibbonGroup(title: "Chèn") {
             RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
-                         disabledReason: state.visualEditingBlocker) { state.insertVisual("card") }
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("cardVisual") }
             RibbonButton(title: "Hộp văn bản", symbol: "textformat",
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
         }
@@ -144,6 +144,7 @@ private struct ArrangeCommands: View {
             .help(state.arrangeBlocker ?? "Căn lề và phân bố các visual đang chọn")
             RibbonButton(title: "Nhóm", symbol: "square.on.square.dashed", disabledReason: state.groupBlocker) { state.groupSelection() }
             RibbonButton(title: "Bỏ nhóm", symbol: "square.on.square", disabledReason: state.ungroupBlocker) { state.ungroupSelection() }
+            RibbonButton(title: "Gộp vào nhóm", symbol: "plus.square.on.square", disabledReason: state.mergeBlocker) { state.mergeSelection() }
         }
     }
 }
@@ -157,7 +158,7 @@ private struct InsertCommands: View {
         RibbonDivider()
         RibbonGroup(title: "Visual") {
             RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
-                         disabledReason: state.visualEditingBlocker) { state.insertVisual("card") }
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("cardVisual") }
             RibbonButton(title: "Thêm visual", symbol: "square.grid.3x3", phase: "Phase D")
         }
         RibbonDivider()

@@ -96,13 +96,10 @@ struct PageStructure: Equatable {
         return index + 1 < order.count ? order[index + 1] : order[index - 1]
     }
 
-    /// Lý do không xoá được trang, hoặc nil: chỉ còn một trang; còn nút điều hướng trang trỏ tới (chưa kiểm với Desktop).
-    static func removalRefusal(pageCount: Int, navigationButtons: [String]) -> String? {
-        if pageCount <= 1 { return "Báo cáo phải còn ít nhất một trang." }
-        if !navigationButtons.isEmpty {
-            return "Chưa xoá được: nút \(navigationButtons.joined(separator: ", ")) trỏ tới trang này (chưa kiểm với Power BI Desktop)."
-        }
-        return nil
+    /// Lý do không xoá được trang, hoặc nil: chỉ còn một trang. Nút điều hướng trỏ tới trang không chặn (VM-D8: Desktop
+    /// xoá trang và để nguyên nút).
+    static func removalRefusal(pageCount: Int) -> String? {
+        pageCount <= 1 ? "Báo cáo phải còn ít nhất một trang." : nil
     }
 
     static func bookmarkImpact(removing ids: Set<String>, bookmarks: [BookmarkInfo]) -> BookmarkImpact {

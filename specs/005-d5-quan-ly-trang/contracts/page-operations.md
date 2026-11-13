@@ -15,7 +15,7 @@ Phạm vi: `LayoutEditor` (và `DocumentState` bọc lại). Mọi thao tác tr�
 | `renamePage(id, to:)` | tên cắt khoảng trắng rỗng → "Tên trang không được để trống."; dài hơn 100 ký tự → "Tên trang tối đa 100 ký tự."; không đổi → không bước | tên mới; mã không đổi; tên trùng trang khác được phép |
 | `movePage(id, to index:)` | chỉ số ngoài khoảng → từ chối; cùng chỗ → không bước | `order` đổi; trang đang mở giữ nguyên |
 | `duplicatePage(id)` | không | trang mới "Duplicate of <tên>" cuối `order`, mọi visual mã mới (kể cả visual trong nhóm, `parentGroupName` theo bảng mã), vị trí và `z` giữ, thành trang đang mở; trang gốc có `pageBinding`: bản sao không có, `notice` = "Bản sao không mang cấu hình drillthrough." |
-| `removePage(id)` | chỉ còn một trang → "Báo cáo phải còn ít nhất một trang."; còn nút `PageNavigation` trỏ tới → "Chưa xoá được: nút … trỏ tới trang này (chưa kiểm với Power BI Desktop)." kèm tên nút | trang biến; trang liền kề (phải, hoặc trái nếu cuối) thành trang đang mở; bookmark theo R7 gỡ; `notice` = "Đã xoá trang \"…\" và gỡ N bookmark: …" khi có gỡ |
+| `removePage(id)` | chỉ còn một trang → "Báo cáo phải còn ít nhất một trang."; nút `PageNavigation` trỏ tới **không chặn** (sửa 2026-11-13 theo VM-D8: Desktop xoá trang và để nguyên nút); thông báo sau khi xoá kể các nút vẫn trỏ tới trang | trang biến; trang liền kề (phải, hoặc trái nếu cuối) thành trang đang mở; bookmark theo R7 gỡ; `notice` = "Đã xoá trang \"…\" và gỡ N bookmark: …" khi có gỡ |
 
 ## Hoàn tác
 

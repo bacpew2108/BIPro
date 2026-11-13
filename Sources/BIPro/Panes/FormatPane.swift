@@ -55,9 +55,12 @@ private struct FormatCardView: View {
     let cardState: FormatCardState
     let blocker: String?
     @State private var open = false
+    /// `queryRef` của chuỗi đang chọn ở "Áp dụng cho"; nil là Tất cả (mục chung).
+    @State private var series: String?
 
     private var card: FormatCard { cardState.card }
     private var disabled: Bool { blocker != nil || !cardState.isEditable }
+    private var selectedSeries: FormatSeriesState? { series.flatMap { ref in cardState.series.first { $0.queryRef == ref } } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -78,9 +81,22 @@ private struct FormatCardView: View {
             .frame(height: 32)
             if open {
                 VStack(spacing: 0) {
-                    ForEach(card.properties.filter { !$0.isCardSwitch }, id: \.key) { property in
-                        FormatRow(state: state, card: card, property: property, value: cardState.values[property.key], disabled: disabled, help: rowHelp)
-                            .opacity(switchIsOff ? 0.5 : 1)   // công tắc thẻ tắt: mờ nhưng giữ nguyên giá trị (US2/AC4)
+                    if !card.seriesProperties.isEmpty { seriesPicker }
+                    if let selected = selectedSeries {
+                        // Mục riêng của một chuỗi (`selector.metadata`, VM-D8 mục 6).
+                        ForEach(card.seriesProperties, id: \.key) { property in
+                            FormatRow(state: state, card: card, property: property, value: selected.values[property.key],
+                                      disabled: blocker != nil || selected.blocker != nil, help: blocker ?? selected.blocker, series: selected.queryRef)
+                        }
+                        if let reason = selected.blocker {
+                            Text(reason).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
+                        }
+                    } else {
+                        ForEach(card.properties.filter { !$0.isCardSwitch }, id: \.key) { property in
+                            FormatRow(state: state, card: card, property: property, value: cardState.values[property.key], disabled: disabled, help: rowHelp)
+                                .opacity(switchIsOff ? 0.5 : 1)   // công tắc thẻ tắt: mờ nhưng giữ nguyên giá trị (US2/AC4)
+                        }
                     }
                     if cardState.isPresent {
                         HStack {
@@ -106,6 +122,30 @@ private struct FormatCardView: View {
         }
         .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.white))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
+    }
+
+    /// "Áp dụng cho": Tất cả hoặc một chuỗi, như ô "Apply settings to" của Desktop. Màu chỉ đặt được khi chọn một chuỗi.
+    @ViewBuilder private var seriesPicker: some View {
+        if cardState.series.isEmpty {
+            Text("Màu theo chuỗi: biểu đồ có trường ở ô Chú giải hoặc chưa có measure, chưa sửa được.")
+                .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
+        } else {
+            HStack {
+                Text("Áp dụng cho").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+                Spacer(minLength: 8)
+                Picker("", selection: Binding(get: { selectedSeries?.queryRef ?? "" }, set: { series = $0.isEmpty ? nil : $0 })) {
+                    Text("Tất cả").tag("")
+                    ForEach(cardState.series, id: \.queryRef) { Text($0.title).tag($0.queryRef) }
+                }
+                .labelsHidden().frame(maxWidth: 150)
+            }
+            .frame(minHeight: 26)
+            if selectedSeries == nil {
+                Text("Chọn một chuỗi để đổi màu.").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
     }
 
     /// Công tắc đầu thẻ đang tắt (theo file, hoặc theo mặc định đã quan sát khi file chưa có).
@@ -135,6 +175,8 @@ private struct FormatRow: View {
     let value: FormatValue?
     let disabled: Bool
     let help: String?
+    /// `queryRef` của chuỗi khi hàng này sửa mục riêng của một chuỗi.
+    var series: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -161,7 +203,7 @@ private struct FormatRow: View {
 
     @discardableResult
     private func commit(_ new: FormatValue) -> String? {
-        state.setFormat(new, scope: card.scope, object: card.objectKey, property: property.key)
+        state.setFormat(new, scope: card.scope, object: card.objectKey, property: property.key, series: series)
     }
 
     @ViewBuilder private var control: some View {
@@ -184,7 +226,7 @@ private struct FormatRow: View {
             .labelsHidden().frame(maxWidth: 130)
         case .color:
             ColorControl(theme: state.workspace.theme, value: value, onSet: { commit(.color($0)) },
-                         onReset: { state.resetFormat(scope: card.scope, object: card.objectKey, property: property.key) })
+                         onReset: { state.resetFormat(scope: card.scope, object: card.objectKey, property: property.key, series: series) })
         case .text(let maxLength, let allowsEmpty):
             TextControl(value: { if case .text(let t)? = value { return t } else { return nil } }(), maxLength: maxLength, allowsEmpty: allowsEmpty) {
                 commit(.text($0))

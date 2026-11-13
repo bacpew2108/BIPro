@@ -77,6 +77,8 @@ struct EditCanvasOverlay: View {
             .disabled(editor.groupBlocker() != nil)
         Button("Bỏ nhóm") { editor.ungroup(); onSelectionChange() }
             .disabled(editor.ungroupBlocker() != nil)
+        Button("Gộp vào nhóm") { editor.mergeIntoGroup(); onSelectionChange() }
+            .disabled(editor.mergeBlocker() != nil)
     }
 
     private func align(_ command: AlignCommand) {
@@ -159,8 +161,9 @@ struct EditCanvasOverlay: View {
         let hit = editor.hitTarget(x: Int(point.x), y: Int(point.y), isHidden: isHidden)
         if var hit {
             var deferred: String?
-            // Nhóm đang chọn (và chỉ nhóm đó): bấm vào con thì kéo vẫn dời nhóm, chọn con khi thả nếu không kéo.
-            if !extend, let group = items.first(where: { $0.id == hit })?.parentGroup, editor.selection == [group] {
+            // Nhóm đang chọn (và chỉ nhóm đó): bấm vào phần tử bên trong thì kéo vẫn dời nhóm, chọn phần tử đó khi thả nếu
+            // không kéo. Nhóm lồng nhau: nhóm đang chọn có thể là tổ tiên ở bất kỳ cấp nào của phần tử bấm trúng.
+            if !extend, let group = editor.ancestorIDs(of: hit).first(where: { editor.selection == [$0] }) {
                 deferred = hit
                 hit = group
             }
@@ -185,10 +188,13 @@ struct EditCanvasOverlay: View {
     /// Khung đầu của các phần tử đang chọn khi bắt đầu kéo: nhóm kéo theo khung các con để canvas dời chúng theo.
     private func dragStart() -> [(id: String, frame: Frame)] {
         let selected = items.filter { editor.selection.contains($0.id) && !isHidden($0) }
-        let groups = Set(selected.filter(\.isGroup).map(\.id))
         var out = selected.map { (id: $0.id, frame: Frame($0)) }
-        for visual in page.visuals where visual.parentGroup.map(groups.contains) ?? false && !editor.selection.contains(visual.id) {
-            out.append((id: visual.id, frame: Frame(visual)))
+        var seen = Set(out.map(\.id))
+        // Mọi hậu duệ của nhóm đang chọn (kể cả nhóm lồng và con của nó) đi theo khi kéo.
+        for group in selected where group.isGroup {
+            for inner in editor.descendants(ofGroup: group.id) where seen.insert(inner.id).inserted {
+                out.append((id: inner.id, frame: Frame(inner)))
+            }
         }
         return out
     }
@@ -210,7 +216,8 @@ struct EditCanvasOverlay: View {
                              width: Int(abs(point.x - origin.x).rounded()), height: Int(abs(point.y - origin.y).rounded()))
             marquee = rect
             let known = Set(page.groups.map(\.id))
-            let top = page.visuals.filter { $0.parentGroup.map { !known.contains($0) } ?? true } + page.groups
+            // Khung chọn chỉ lấy phần tử cấp ngoài cùng: visual ngoài nhóm và nhóm không nằm trong nhóm khác.
+            let top = (page.visuals + page.groups).filter { $0.parentGroup.map { !known.contains($0) } ?? true }
             let ids = LayoutGeometry.marquee(rect, visuals: top, isHidden: isHidden)
             editor.setSelection(Array(base) + ids, extend: false)
             _ = extend

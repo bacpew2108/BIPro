@@ -29,6 +29,9 @@ struct FormatCard: Equatable {
     let properties: [FormatProperty]
     /// Mục mới ghi `selector:{id:"default"}` sau `properties` (`cardVisual`, R6).
     let usesDefaultSelector: Bool
+    /// Thuộc tính đặt riêng cho từng chuỗi (mục có `selector.metadata` = `queryRef` của measure; VM-D8 mục 6).
+    /// Rỗng: thẻ không có định dạng theo chuỗi.
+    var seriesProperties: [FormatProperty] = []
 
     var cardSwitch: FormatProperty? { properties.first(where: \.isCardSwitch) }
 }
@@ -60,12 +63,17 @@ enum FormatCatalog {
                        addable: addable, defaultOn: defaultOn)
     }
 
-    private static func card(_ scope: FormatScope, _ key: String, _ title: String, selector: Bool = false, _ properties: [FormatProperty]) -> FormatCard {
-        FormatCard(scope: scope, objectKey: key, title: title, properties: properties, usesDefaultSelector: selector)
+    private static func card(_ scope: FormatScope, _ key: String, _ title: String, selector: Bool = false, _ properties: [FormatProperty],
+                             series: [FormatProperty] = []) -> FormatCard {
+        FormatCard(scope: scope, objectKey: key, title: title, properties: properties, usesDefaultSelector: selector, seriesProperties: series)
     }
 
     private static let nhom6 = "Nhom6"
     private static let vm = "VM-D4"
+    /// `docs/phase-d-evidence/vm-d8/QUAN-SAT.md` mục 6.
+    private static let vm8 = "VM-D8 mục 6"
+    /// Cỡ chữ tiêu đề: Desktop kẹp 8 đến 60 (VM-D8).
+    private static let titleFontSize = FormatKind.number(min: 8, max: 60, step: 1, tail: .d)
 
     private static let axisCharts: Set<String> = ["clusteredColumnChart", "columnChart", "clusteredBarChart", "hundredPercentStackedColumnChart",
                                                   "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart"]
@@ -81,7 +89,12 @@ enum FormatCatalog {
         card(.container, "title", "Tiêu đề", [
             prop("show", "Hiện tiêu đề", .bool, "\(nhom6), \(vm) mục 5", cardSwitch: true, defaultOn: true),
             prop("text", "Nội dung", plainText, "\(nhom6), \(vm) mục 1"),
-            prop("fontSize", "Cỡ chữ", fontSize, "\(vm) mục 1"),
+            prop("fontSize", "Cỡ chữ", titleFontSize, "\(vm) mục 1, \(vm8)"),
+            prop("fontFamily", "Phông chữ", .choice([
+                FormatChoice(title: "Segoe UI Semibold", literal: "'''Segoe UI Semibold'', wf_segoe-ui_semibold, helvetica, arial, sans-serif'"),
+                FormatChoice(title: "Georgia", literal: "'Georgia'")]), vm8, rendered: false),
+            prop("heading", "Cấp tiêu đề", .choice([FormatChoice(title: "Heading 2", literal: "'Heading2'")]), vm8, rendered: false),
+            prop("titleWrap", "Ngắt dòng", .bool, vm8, rendered: false, defaultOn: true),
             prop("bold", "Đậm", .bool, "\(vm) mục 3"),
             prop("alignment", "Căn lề", .choice([FormatChoice(title: "Trái", literal: "'left'"), FormatChoice(title: "Giữa", literal: "'center'"),
                                                    FormatChoice(title: "Phải", literal: "'right'")]), "\(vm) mục 1, vòng 2"),
@@ -92,6 +105,9 @@ enum FormatCatalog {
             prop("text", "Nội dung", plainText, nhom6, rendered: false),
             prop("fontSize", "Cỡ chữ", fontSize, nhom6, rendered: false),
             prop("fontColor", "Màu chữ", .color, nhom6, rendered: false),
+        ]),
+        card(.container, "divider", "Đường kẻ dưới tiêu đề", [
+            prop("show", "Hiện đường kẻ", .bool, vm8, rendered: false, cardSwitch: true, defaultOn: false),
         ]),
         card(.container, "background", "Nền", [
             prop("show", "Hiện nền", .bool, nhom6, cardSwitch: true, defaultOn: true),
@@ -106,6 +122,13 @@ enum FormatCatalog {
         ]),
         card(.container, "dropShadow", "Đổ bóng", [
             prop("show", "Hiện bóng", .bool, "\(nhom6), \(vm) mục 2", cardSwitch: true, defaultOn: false),
+            prop("color", "Màu", .color, vm8, rendered: false),
+            // Desktop ghi cả bộ số theo preset khi bật bóng (kiểu nguyên `L`); chỉ sửa khi file đã có, không tự thêm lẻ.
+            prop("transparency", "Độ trong suốt (%)", .number(min: 0, max: 100, step: 1, tail: .l), vm8, rendered: false, addable: false),
+            prop("shadowBlur", "Độ nhoè (px)", .number(min: 0, max: 100, step: 1, tail: .l), vm8, rendered: false, addable: false),
+            prop("shadowSpread", "Kích thước (px)", .number(min: 0, max: 100, step: 1, tail: .l), vm8, rendered: false, addable: false),
+            prop("shadowDistance", "Khoảng cách (px)", .number(min: 0, max: 100, step: 1, tail: .l), vm8, rendered: false, addable: false),
+            prop("angle", "Góc (độ)", .number(min: 0, max: 360, step: 1, tail: .l), vm8, rendered: false, addable: false),
         ]),
         card(.container, "padding", "Khoảng đệm", [
             prop("top", "Trên (px)", pixels, nhom6, rendered: false),
@@ -182,6 +205,13 @@ enum FormatCatalog {
                 card(.objects, "lineStyles", "Vùng tô và đường", [
                     prop("areaShow", "Tô vùng dưới đường", .bool, "\(vm) mục 3", rendered: false, cardSwitch: true, defaultOn: false),
                 ]),
+                // Mục chung (Series = All) chỉ có độ trong suốt; màu đặt theo từng chuỗi ở mục có `selector.metadata`
+                // (Desktop khoá ô màu khi chọn All).
+                card(.objects, "dataPoint", "Cột và thanh", [
+                    prop("fillTransparency", "Độ trong suốt (%)", percent, vm8, rendered: false),
+                ], series: [
+                    prop("fill", "Màu", .color, "\(nhom6), \(vm8)"),
+                ]),
             ]
         case "donutChart":
             return [
@@ -205,16 +235,23 @@ enum FormatCatalog {
                 ]),
                 card(.objects, "rowHeaders", "Tiêu đề hàng", [
                     prop("fontSize", "Cỡ chữ", fontSize, nhom6),
+                    prop("unfrozen", "Bỏ cố định tiêu đề hàng", .bool, vm8, rendered: false, defaultOn: false),
                 ]),
                 card(.objects, "values", "Giá trị", [
                     prop("fontSize", "Cỡ chữ", fontSize, nhom6),
                 ]),
                 card(.objects, "grid", "Lưới", [
                     prop("rowPadding", "Đệm hàng (px)", .number(min: 0, max: 50, step: 1, tail: .d), nhom6),
+                    prop("gridHorizontal", "Đường kẻ ngang", .bool, vm8, rendered: false, defaultOn: false),
+                    prop("gridVertical", "Đường kẻ dọc", .bool, vm8, rendered: false, defaultOn: false),
+                ]),
+                card(.objects, "general", "Bố cục", [
+                    // Danh sách của Desktop: Compact, Outline, Tabular; mới thấy literal của Tabular trong file.
+                    prop("layout", "Kiểu bố cục", .choice([FormatChoice(title: "Dạng bảng (Tabular)", literal: "'Tabular'")]), vm8, rendered: false),
                 ]),
                 card(.objects, "subTotals", "Tổng phụ", [
-                    prop("rowSubtotals", "Tổng phụ theo hàng", .bool, nhom6, addable: false),
-                    prop("columnSubtotals", "Tổng phụ theo cột", .bool, nhom6, addable: false),
+                    prop("rowSubtotals", "Tổng phụ theo hàng", .bool, "\(nhom6), \(vm8)", defaultOn: true),
+                    prop("columnSubtotals", "Tổng phụ theo cột", .bool, "\(nhom6), \(vm8)", defaultOn: true),
                 ]),
             ]
         case "actionButton":
@@ -255,11 +292,16 @@ enum FormatCatalog {
                 continue
             }
             let known = Set(card.properties.map(\.key))
+            let knownPerSeries = Set(card.seriesProperties.map(\.key))
             var boundToFields = false
             for entry in scopeJSON[key]?.array ?? [] {
                 if isEditable(entry) {
                     for property in (entry["properties"]?.object.keys.sorted() ?? []) where !known.contains(property) {
                         out.append(FormatReadOnlyItem(scope: scope, object: key, property: property, reason: "Chưa quan sát ở Power BI Desktop"))
+                    }
+                } else if !knownPerSeries.isEmpty, seriesRef(of: entry) != nil {
+                    for property in (entry["properties"]?.object.keys.sorted() ?? []) where !knownPerSeries.contains(property) {
+                        out.append(FormatReadOnlyItem(scope: scope, object: key, property: property, reason: "Theo chuỗi, chưa quan sát ở Power BI Desktop"))
                     }
                 } else {
                     boundToFields = true
@@ -278,4 +320,15 @@ enum FormatCatalog {
         let keys = Set(selector.object.keys)
         return keys == ["id"] && selector["id"]?.string == "default"
     }
+
+    /// `queryRef` của chuỗi mà mục này định dạng riêng: selector chỉ có `metadata` (VM-D8 mục 6). nil với mục khác.
+    static func seriesRef(of entry: JSONValue) -> String? {
+        guard let selector = entry["selector"], Set(selector.object.keys) == ["metadata"] else { return nil }
+        return selector["metadata"]?.string
+    }
+
+    /// Ô chứa measure mà mỗi measure là một chuỗi (cột/thanh ở `Y`, đường của combo ở `Y2`).
+    static let seriesRoles: Set<String> = ["Y", "Y2"]
+    /// Ô Chú giải: có trường ở đây thì chuỗi sinh từ giá trị của cột, màu theo chuỗi kiểu đó chưa quan sát.
+    static let legendRole = "Series"
 }

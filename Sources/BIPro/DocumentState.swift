@@ -141,6 +141,7 @@ final class DocumentState {
             : LayoutEditor.reading(archive: archive, report: workspace.report)
         self.interaction = ReportInteraction(workspace: workspace)
         let layout = self.layout
+        layout.decimalColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .double }.map { "\($0.tableName)[\($0.name)]" })
         self.interaction.pagesProvider = { layout.pages }
         self.interaction.removedBookmarksProvider = { layout.structure.removedBookmarks }
         self.interaction.pageJSONProvider = { layout.structure.created[$0]?.pageJSON }
@@ -227,18 +228,18 @@ final class DocumentState {
 
     /// Đặt một thuộc tính định dạng của visual đang chọn. Trả lý do từ chối hoặc nil.
     @discardableResult
-    func setFormat(_ value: FormatValue, scope: FormatScope, object: String, property: String) -> String? {
+    func setFormat(_ value: FormatValue, scope: FormatScope, object: String, property: String, series: String? = nil) -> String? {
         if let blocker = formatEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
         guard let id = visual?.id else { return nil }
-        return layout.setFormat(value, scope: scope, object: object, property: property, visual: id)
+        return layout.setFormat(value, scope: scope, object: object, property: property, visual: id, series: series)
     }
 
     /// Đặt lại về mặc định cả thẻ (`property` nil) hoặc một thuộc tính của visual đang chọn.
     @discardableResult
-    func resetFormat(scope: FormatScope, object: String, property: String? = nil) -> String? {
+    func resetFormat(scope: FormatScope, object: String, property: String? = nil, series: String? = nil) -> String? {
         if let blocker = formatEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
         guard let id = visual?.id else { return nil }
-        return layout.resetFormat(scope: scope, object: object, property: property, visual: id)
+        return layout.resetFormat(scope: scope, object: object, property: property, visual: id, series: series)
     }
 
     var tabs: [RibbonTab] {

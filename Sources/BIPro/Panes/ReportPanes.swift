@@ -303,7 +303,7 @@ struct SelectionPane: View {
         let children: [ReportVisual]
         var id: String { item.id }
 
-        /// Mắt của nhóm áp lên từng con: nhóm ẩn khi mọi con đang ẩn.
+        /// Mắt của nhóm áp lên từng visual bên trong (mọi cấp): nhóm ẩn khi mọi visual đó đang ẩn.
         @MainActor func isHidden(_ interaction: ReportInteraction) -> Bool {
             item.isGroup ? !children.isEmpty && children.allSatisfy { interaction.isHidden($0) } : interaction.isHidden(item)
         }
@@ -315,18 +315,21 @@ struct SelectionPane: View {
         }
     }
 
-    /// Theo thứ tự lớp (`z` giảm dần); các con của nhóm nằm ngay dưới nhóm.
+    /// Theo thứ tự lớp (`z` giảm dần); thành viên của nhóm nằm ngay dưới nhóm, nhóm lồng nhau thụt thêm một cấp (VM-D8).
     private var rows: [Row] {
         let page = state.page
         let groups = page?.groups ?? []
+        let all = (page?.visuals ?? []) + groups
         let known = Set(groups.map(\.id))
-        let top = ((page?.visuals ?? []).filter { $0.parentGroup.map { !known.contains($0) } ?? true } + groups).sorted { $0.z > $1.z }
         var out: [Row] = []
-        for item in top {
-            let kids = item.isGroup ? (page?.visuals ?? []).filter { $0.parentGroup == item.id }.sorted { $0.z > $1.z } : []
-            out.append(Row(item: item, indent: 0, children: kids))
-            out.append(contentsOf: kids.map { Row(item: $0, indent: 1, children: []) })
+        func add(_ item: ReportVisual, indent: Int) {
+            guard indent < 32 else { return }   // chặn vòng `parentGroupName` trong file hỏng
+            let inside = item.isGroup ? LayoutEditor.descendantIDs(of: item.id, in: all) : []
+            out.append(Row(item: item, indent: indent, children: all.filter { inside.contains($0.id) && !$0.isGroup }))
+            guard item.isGroup else { return }
+            for member in all.filter({ $0.parentGroup == item.id }).sorted(by: { $0.z > $1.z }) { add(member, indent: indent + 1) }
         }
+        for item in all.filter({ $0.parentGroup.map { !known.contains($0) } ?? true }).sorted(by: { $0.z > $1.z }) { add(item, indent: 0) }
         return out
     }
 
@@ -387,6 +390,8 @@ struct BookmarksPane: View {
     var collapse: (() -> Void)?
     @State private var renaming: String?
     @State private var newName = ""
+    /// Bookmark đánh dấu để nhóm (Shift-bấm), ngoài bookmark đang áp.
+    @State private var selectedBookmarks: Set<String> = []
 
     var body: some View {
         let interaction = state.interaction
@@ -403,7 +408,14 @@ struct BookmarksPane: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(groups(rows).enumerated()), id: \.offset) { _, group in
-                        if let name = group.name { SectionLabel(text: name) }
+                        if let name = group.name {
+                            SectionLabel(text: name)
+                                .contextMenu {
+                                    if let id = group.items.first?.groupID {
+                                        Button("Bỏ nhóm") { state.ungroupBookmarks(groupID: id) }.disabled(state.reportEditingBlocker != nil)
+                                    }
+                                }
+                        }
                         ForEach(group.items) { row in row_(row, interaction: interaction) }
                     }
                     if rows.isEmpty {
@@ -427,7 +439,17 @@ struct BookmarksPane: View {
         let blocker = state.reportEditingBlocker
         let unsaved = row.isUser ? state.bookmarkSaveBlocker(id: row.id) : nil
         return Button {
-            if let page = interaction.applyAnyBookmark(id: row.id) { state.pageID = page; state.visualID = nil }
+            if NSEvent.modifierFlags.contains(.shift) {
+                // Shift-bấm chọn nhiều bookmark để nhóm, không áp.
+                if selectedBookmarks.contains(row.id) { selectedBookmarks.remove(row.id) } else { selectedBookmarks.insert(row.id) }
+            } else if let page = interaction.applyAnyBookmark(id: row.id) {
+                selectedBookmarks = []
+                state.pageID = page; state.visualID = nil
+            } else {
+                selectedBookmarks = []
+            }
+            // Bỏ khỏi vùng chọn các bookmark không còn (đã xoá).
+            selectedBookmarks.formIntersection(Set(interaction.bookmarkRows.map(\.id)))
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: active ? "bookmark.fill" : "bookmark").font(.system(size: 11))
@@ -441,7 +463,9 @@ struct BookmarksPane: View {
             }
             .padding(.horizontal, 12)
             .frame(height: DS.Metrics.navRow)
-            .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(active ? DS.Palette.accent.opacity(0.12) : .clear).padding(.horizontal, 4))
+            .background(RoundedRectangle(cornerRadius: DS.Radius.control)
+                .fill(selectedBookmarks.contains(row.id) ? DS.Palette.accent.opacity(0.25) : (active ? DS.Palette.accent.opacity(0.12) : .clear))
+                .padding(.horizontal, 4))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -450,6 +474,12 @@ struct BookmarksPane: View {
             Button("Cập nhật") { state.updateBookmark(id: row.id) }.disabled(blocker != nil)
             Button("Đổi tên…") { newName = row.name; renaming = row.id }.disabled(blocker != nil)
             Button("Xoá", role: .destructive) { state.deleteBookmark(id: row.id) }.disabled(blocker != nil)
+            Divider()
+            Button(selectedBookmarks.count >= 2 && selectedBookmarks.contains(row.id) ? "Nhóm \(selectedBookmarks.count) bookmark" : "Nhóm với bookmark đang chọn") {
+                state.groupBookmarks(Array(selectedBookmarks.union([row.id])))
+            }
+            .disabled(blocker != nil || row.groupID != nil)
+            if row.groupID != nil { Button("Bỏ nhóm") { if let id = row.groupID { state.ungroupBookmarks(groupID: id) } }.disabled(blocker != nil) }
             Divider()
             Button("Chuyển lên") { state.moveBookmark(id: row.id, by: -1) }.disabled(blocker != nil)
             Button("Chuyển xuống") { state.moveBookmark(id: row.id, by: 1) }.disabled(blocker != nil)

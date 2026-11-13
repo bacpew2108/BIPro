@@ -165,13 +165,18 @@ enum DocumentSaver {
             guard let actual = written.groups.first(where: { $0.id == group.id }), Frame(actual) == Frame(group), Int(actual.z) == Int(group.z) else {
                 throw SaveError.verificationFailed("khung của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa")
             }
-            let kids = written.visuals.filter { $0.parentGroup == group.id }
+            guard actual.parentGroup == group.parentGroup else {
+                throw SaveError.verificationFailed("nhóm cha của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa")
+            }
+            // Thành viên: visual con và nhóm lồng bên trong (VM-D8).
+            let kids = (written.visuals + written.groups).filter { $0.parentGroup == group.id }
             if kids.isEmpty, !preexisting.contains(group.id) {
                 throw SaveError.verificationFailed("nhóm \(group.id) trong trang \(written.id) không có visual con")
             }
             // Chỉ kiểm phần editor đã đổi hoặc tạo: nhóm của Desktop có thể sẵn có con nằm ngoài khung.
             let baseGroup = editor.basePage(written.id)?.groups.first { $0.id == group.id }
-            let baseKids = Dictionary((editor.basePage(written.id)?.visuals ?? []).map { ($0.id, Frame($0)) }, uniquingKeysWith: { first, _ in first })
+            let basePage = editor.basePage(written.id)
+            let baseKids = Dictionary(((basePage?.visuals ?? []) + (basePage?.groups ?? [])).map { ($0.id, Frame($0)) }, uniquingKeysWith: { first, _ in first })
             let groupChanged = baseGroup.map { Frame($0) != Frame(group) } ?? true
             for kid in kids where (groupChanged || baseKids[kid.id] != Frame(kid)) && (kid.x < actual.x - 1 || kid.y < actual.y - 1
                 || kid.x + kid.width > actual.x + actual.width + 1 || kid.y + kid.height > actual.y + actual.height + 1) {
@@ -244,7 +249,7 @@ enum DocumentSaver {
                     throw SaveError.verificationFailed("thẻ lọc \(name) đã bỏ vẫn còn trong \(path)")
                 }
             case .set(let filter):
-                guard case .writable(let spec) = FilterExport.card(for: filter, key: key) else { continue }
+                guard case .writable(let spec) = FilterExport.card(for: filter, key: key, decimal: editor.decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]")) else { continue }
                 guard let card = found.first(where: { $0["name"]?.string == spec.name }) else {
                     throw SaveError.verificationFailed("thiếu thẻ lọc \(spec.name) trong \(path)")
                 }
@@ -260,7 +265,7 @@ enum DocumentSaver {
     }
 
     /// Cấu trúc trang (D5): thứ tự và tên khớp `editor.pages`; bookmark không trỏ trang không còn và khớp `bookmarks.json`;
-    /// không mã trang đã xoá còn trong `definition/` (`contracts/page-save.md`).
+    /// không còn tham chiếu tới trang đã xoá (`contracts/page-save.md`).
     private static func verifyPages(report: ReportDefinition, pbix: PBIXFile, editor: LayoutEditor) throws {
         let expected = editor.pages
         guard report.pages.map(\.id) == expected.map(\.id) else {
@@ -283,18 +288,29 @@ enum DocumentSaver {
         }
         if pbix.archive.entry(LayoutEditor.bookmarksJSONPath) != nil,
            let items = (try? JSONValue.parse(try pbix.archive.read(LayoutEditor.bookmarksJSONPath)))?["items"]?.array {
-            guard Set(items.compactMap { $0["name"]?.string }) == bookmarkNames else {
+            // Nhóm bookmark (VM-D8 mục 5): mục có `children` đại diện cho các bookmark con, không phải một file.
+            var listed = Set<String>()
+            for item in items {
+                // Con của nhóm là chuỗi mã, hoặc `{"name": …}` như bộ đọc `loadBookmarks` chấp nhận.
+                if let children = item["children"]?.array { listed.formUnion(children.compactMap { $0.string ?? $0["name"]?.string }) }
+                else if let name = item["name"]?.string { listed.insert(name) }
+            }
+            guard listed == bookmarkNames else {
                 throw SaveError.verificationFailed("bookmarks.json không khớp các file bookmark")
             }
         }
+        // Tham chiếu treo tới trang đã xoá, chỉ ở những chỗ là tham chiếu: thư mục trang, `activePageName` (bookmark đã kiểm
+        // ở trên, `pageOrder` qua thứ tự trang). Chuỗi trùng mã trang ở chỗ khác (tên hiển thị, chữ trong visual) không phải
+        // tham chiếu và không chặn lưu. Nút điều hướng trỏ trang đã xoá cũng không chặn: Desktop để nguyên nút (VM-D8).
         let gone = editor.usedPageIDs.subtracting(alive)
         guard !gone.isEmpty else { return }
-        for entry in pbix.archive.entries where entry.path.hasPrefix("Report/definition/") {
-            let text = String(decoding: try pbix.archive.read(entry), as: UTF8.self)
-            for id in gone {
-                if entry.path.contains("/pages/\(id)/") || text.contains("\"\(id)\"") {
-                    throw SaveError.verificationFailed("\(entry.path) còn nhắc tới trang đã xoá \(id)")
-                }
+        if pbix.archive.entry(LayoutEditor.pagesJSONPath) != nil,
+           let active = (try? JSONValue.parse(try pbix.archive.read(LayoutEditor.pagesJSONPath)))?["activePageName"]?.string, gone.contains(active) {
+            throw SaveError.verificationFailed("pages.json còn mở trang đã xoá \(active)")
+        }
+        for entry in pbix.archive.entries where entry.path.hasPrefix(LayoutEditor.pagesFolder) {
+            if let id = gone.first(where: { entry.path.hasPrefix("\(LayoutEditor.pagesFolder)\($0)/") }) {
+                throw SaveError.verificationFailed("\(entry.path) còn là phần của trang đã xoá \(id)")
             }
         }
     }

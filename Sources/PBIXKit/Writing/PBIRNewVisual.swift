@@ -6,7 +6,7 @@ public enum PBIRNewVisual {
     /// Default size by type (width, height): the sizes seen most in Nhom6. Types not listed cannot be added.
     private static let sizes: [String: (width: Int, height: Int)] = {
         var table: [String: (Int, Int)] = [
-            "card": (302, 108), "slicer": (364, 64), "textbox": (400, 100),
+            "card": (302, 108), "cardVisual": (302, 108), "slicer": (364, 64), "textbox": (400, 100),
         ]
         for type in ["clusteredBarChart", "clusteredColumnChart", "columnChart", "hundredPercentStackedColumnChart", "lineChart", "lineClusteredColumnComboChart",
                      "lineStackedColumnComboChart", "donutChart", "treemap", "pivotTable", "shapeMap"] {

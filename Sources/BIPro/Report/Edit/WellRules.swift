@@ -39,6 +39,8 @@ enum WellRules {
     /// (donut → treemap giữ cả ba cấp ở `Category`/`Group`, nên hai ô đó nhận nhiều cột).
     private static let observed: [String: [String: (kind: WellKind, single: Bool)]] = [
         "card": ["Values": (.measure, true)],
+        // VM-D3 mục A, B: "Card" trong thư viện của Desktop ghi `cardVisual`, ô `Data`; mới thấy measure vào ô này.
+        "cardVisual": ["Data": (.measure, false)],
         "slicer": ["Values": (.column, true)],
         // VM-D3 (`R-D3-t-clusteredColumn`, `-stackedColumn`): cột xếp chồng của Desktop có visualType `columnChart`.
         "clusteredColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],

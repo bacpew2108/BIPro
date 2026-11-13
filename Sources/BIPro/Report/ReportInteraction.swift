@@ -374,12 +374,23 @@ final class ReportInteraction {
 
     /// Bộ lọc theo measure của visual (Power BI: `__ValueFilterDM0`, xem `DAXQueryBuilder`).
     func valueFilters(for visual: ReportVisual) -> [ValueFilter] {
-        effectiveUserFilters.filter { $0.key.level == .visual && $0.key.scope == visual.id && $0.value.isMeasure }
-            .sorted { $0.key.filterID < $1.key.filterID }
-            .compactMap { entry in
-                guard let rule = entry.value.rule, rule.predicate(expression: "[x]") != nil else { return nil }
-                return ValueFilter(table: entry.value.column.table, measure: entry.value.column.column, rule: rule)
-            }
+        Self.valueFilters(visual: visualFilters(of: visual), visualID: visual.id, user: effectiveUserFilters, removed: effectiveRemovedFilters)
+    }
+
+    /// Thẻ measure của một visual thành bộ lọc dòng kết quả: thẻ người dùng sửa, và thẻ trong file chưa bị sửa hay bỏ.
+    nonisolated static func valueFilters(visual: [ReportFilter], visualID: String, user: [UserFilterKey: UserFilter],
+                                         removed: Set<UserFilterKey> = []) -> [ValueFilter] {
+        var entries = user.filter { $0.key.level == .visual && $0.key.scope == visualID && $0.value.isMeasure }
+            .map { (id: $0.key.filterID, filter: $0.value) }
+        for filter in visual {
+            let key = UserFilterKey(level: .visual, scope: visualID, filterID: filter.id)
+            if removed.contains(key) || user[key] != nil { continue }
+            if let read = UserFilter.from(filter), read.isMeasure { entries.append((filter.id, read)) }
+        }
+        return entries.sorted { $0.id < $1.id }.compactMap { entry in
+            guard let rule = entry.filter.rule, rule.predicate(expression: "[x]") != nil else { return nil }
+            return ValueFilter(table: entry.filter.column.table, measure: entry.filter.column.column, rule: rule)
+        }
     }
 
     /// Bộ lọc cấp visual của một visual: của file (theo mã visual), hoặc đọc từ `filterConfig` của chính visual khi mã là mới

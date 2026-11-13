@@ -51,6 +51,8 @@ public struct ReportBookmark: Sendable, Hashable, Identifiable {
     public let id: String
     public let displayName: String
     public let group: String?
+    /// Mã của nhóm bookmark chứa bookmark này (`name` của mục có `children` trong `bookmarks.json`); nil khi ở ngoài nhóm.
+    public var groupID: String?
     /// Trang mà bookmark ghi lại (`explorationState.activeSection`).
     public let activeSection: String?
     /// `options.suppressActiveSection`: áp bookmark không chuyển trang.
@@ -175,19 +177,21 @@ extension PBIXFile {
                 }
             }
             var result: [ReportBookmark] = []
-            func walk(_ items: [JSONValue], group: String?) {
+            func walk(_ items: [JSONValue], group: String?, groupID: String?) {
                 for item in items {
                     guard let name = item["name"]?.string else { continue }
                     if let children = item["children"]?.array {
                         walk(children.map { $0.string.map { JSONValue.object(["name": .string($0)]) } ?? $0 },
-                             group: item["displayName"]?.string ?? name)
+                             group: item["displayName"]?.string ?? name, groupID: name)
                     } else {
-                        result.append(parsed[name].map { ReportBookmark.parse($0, fallbackName: name, group: group) }
-                            ?? ReportBookmark(id: name, displayName: names[name] ?? name, group: group))
+                        var bookmark = parsed[name].map { ReportBookmark.parse($0, fallbackName: name, group: group) }
+                            ?? ReportBookmark(id: name, displayName: names[name] ?? name, group: group)
+                        bookmark.groupID = groupID
+                        result.append(bookmark)
                     }
                 }
             }
-            walk((try? jsonPart(root + "bookmarks.json"))?["items"]?.array ?? [], group: nil)
+            walk((try? jsonPart(root + "bookmarks.json"))?["items"]?.array ?? [], group: nil, groupID: nil)
             // Bookmarks missing from the index still exist on disk.
             for (name, display) in names.sorted(by: { $0.key < $1.key }) where !result.contains(where: { $0.id == name }) {
                 result.append(parsed[name].map { ReportBookmark.parse($0, fallbackName: name, group: nil) }

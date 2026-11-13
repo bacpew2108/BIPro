@@ -4,10 +4,10 @@ import Testing
 
 @Suite struct VisualTypesTests {
     @Test func supportedTypesAreTheObservedOnesPlusTheTextbox() {
-        #expect(Set(VisualTypes.supported) == ["card", "slicer", "clusteredBarChart", "hundredPercentStackedColumnChart", "lineChart",
+        #expect(Set(VisualTypes.supported) == ["card", "cardVisual", "slicer", "clusteredBarChart", "hundredPercentStackedColumnChart", "lineChart",
                                                "lineClusteredColumnComboChart", "lineStackedColumnComboChart", "donutChart", "treemap",
                                                "pivotTable", "shapeMap", "textbox", "clusteredColumnChart", "columnChart"])
-        #expect(VisualTypes.supported.count == 14)
+        #expect(VisualTypes.supported.count == 15)
     }
 
     @Test func everySupportedTypeHasAnObservedWellAndAMatchingDefaultSize() throws {

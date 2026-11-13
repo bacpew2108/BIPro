@@ -253,6 +253,101 @@ import Testing
         #expect(changes.addedParts.isEmpty && changes.removedParts.isEmpty && changes.reportParts.isEmpty && !env.editor.isDirty)
     }
 
+    // MARK: hoàn tác sau khi đã lưu việc xoá trang (review D5 b)
+
+    /// Mọi part dưới `prefix` của file hiện tại giống hệt file lúc mở (cùng tập đường dẫn, cùng byte).
+    func expectSameAsOpened(_ env: Env, under prefix: String) throws {
+        let after = try ZipArchive(url: env.source)
+        let before = env.archive.entries.map(\.path).filter { $0.hasPrefix(prefix) }
+        #expect(Set(after.entries.map(\.path).filter { $0.hasPrefix(prefix) }) == Set(before))
+        for path in before where after.entry(path) != nil {
+            #expect(try after.read(path) == env.archive.read(path), Comment(rawValue: path))
+        }
+    }
+
+    @Test func undoingASavedPageRemovalPutsThePageBackOnTheNextSave() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p1") == nil)
+        _ = try env.save()
+        #expect(try env.report().pages.map(\.id) == ["p2"])
+        env.editor.undo()
+        #expect(env.editor.isDirty)
+        _ = try env.save()
+        #expect(try env.report().pages.map(\.id) == ["p1", "p2"])
+        try expectSameAsOpened(env, under: "Report/definition/pages/")
+    }
+
+    @Test func undoingASavedPageRemovalPutsItsBookmarksBackToo() throws {
+        let env = try Env(bookmarks: PageRemoveTests.bookmarks); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p1") == nil)
+        _ = try env.save()
+        #expect(try ZipArchive(url: env.source).entry("Report/definition/bookmarks/A.bookmark.json") == nil)
+        env.editor.undo()
+        _ = try env.save()
+        // A (đã gỡ) có lại, B (đã bỏ mục p1) có lại mục đó, bookmarks.json về đúng thứ tự cũ
+        try expectSameAsOpened(env, under: "Report/definition/")
+    }
+
+    /// Byte của mọi part dưới `Report/definition/` trong file hiện tại.
+    func definitionParts(_ env: Env) throws -> [String: Data] {
+        let archive = try ZipArchive(url: env.source)
+        var parts: [String: Data] = [:]
+        for entry in archive.entries where entry.path.hasPrefix("Report/definition/") { parts[entry.path] = try archive.read(entry) }
+        return parts
+    }
+
+    @Test func aPageBroughtBackAfterASavedRemovalKeepsTheEditsSavedBeforeIt() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        env.editor.select(S.a1)
+        env.editor.move([S.a1], dx: 32, dy: 0, snap: false)
+        env.editor.delete([S.a2])                              // bm1 nhắc a2: lần lưu này dọn nó khỏi bookmark
+        #expect(env.editor.renamePage("p1", to: "Một") == nil)
+        _ = try env.save()
+        let saved = try definitionParts(env)
+        #expect(env.editor.removePage("p1") == nil)
+        _ = try env.save()
+        env.editor.undo()
+        _ = try env.save()
+        // file về đúng như sau lần lưu đầu: visual đã kéo, visual đã xoá, tên trang, bookmark đã dọn
+        let after = try definitionParts(env)
+        #expect(Set(after.keys) == Set(saved.keys))
+        for (path, data) in saved { #expect(after[path] == data, Comment(rawValue: path)) }
+        let page = try #require(try env.report().pages.first)
+        #expect(page.displayName == "Một" && Set(page.visuals.map(\.id)) == [S.a1, S.a3])
+        #expect(page.visuals.first { $0.id == S.a1 }?.x == 72)
+    }
+
+    @Test func aBookmarkBroughtBackWithItsPageDoesNotBringBackVisualsDeletedOnOtherPages() throws {
+        // B: trang chính p2, có mục của p1 và p2; mục p2 nhắc b1
+        let json = #"{"name":"B","displayName":"B","explorationState":{"version":"1.3","activeSection":"p2","sections":{"p1":{"visualContainers":{"\#(S.a1)":{"singleVisual":{"visualType":"card"}}}},"p2":{"visualContainers":{"\#(S.b1)":{"singleVisual":{"visualType":"card"}}}}}}}"#
+        let env = try Env(bookmarks: [("B", json)]); defer { env.cleanUp() }
+        env.editor.openPage("p2")
+        env.editor.delete([S.b1])
+        _ = try env.save()
+        let saved = try definitionParts(env)
+        #expect(!String(decoding: try #require(saved["Report/definition/bookmarks/B.bookmark.json"]), as: UTF8.self).contains(S.b1))
+        env.editor.openPage("p1")                              // hoàn tác đưa về trang này: `activePageName` như trong file
+        #expect(env.editor.removePage("p1") == nil)
+        _ = try env.save()
+        #expect(!(try env.read("Report/definition/bookmarks/B.bookmark.json")).contains(S.a1))     // mục p1 đã bỏ
+        env.editor.undo()
+        _ = try env.save()
+        let after = try definitionParts(env)
+        #expect(Set(after.keys) == Set(saved.keys))
+        for (path, data) in saved { #expect(after[path] == data, Comment(rawValue: path)) }
+    }
+
+    // MARK: chuỗi trùng mã trang không phải tham chiếu (review D5 a)
+
+    @Test func removingAPageSavesEvenWhenItsIDAppearsAsOrdinaryTextElsewhere() throws {
+        // tên hiển thị của p1 trùng mã của trang sắp xoá: không phải tham chiếu tới trang
+        let env = try Env(p1Page: #"{"name":"p1","displayName":"p2","width":1920,"height":1080}"#); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p2") == nil)
+        _ = try env.save()
+        let report = try env.report()
+        #expect(report.pages.map(\.id) == ["p1"] && report.pages.first?.displayName == "p2")
+    }
+
     // MARK: kiểm lúc lưu (US4)
 
     private func build(_ env: Env, adjusting: (inout PBIXChanges) -> Void = { _ in }) throws -> Data {
@@ -261,13 +356,13 @@ import Testing
         return try PBIXWriter.build(source: env.source, changes: changes).data
     }
 
-    private func expectRejected(_ data: Data, _ env: Env, _ comment: String) {
+    private func expectRejected(_ data: Data, _ env: Env, _ comment: String, mentioning expected: String? = nil) {
         do {
             try DocumentSaver.verifyLayout(data, editor: env.editor)
             Issue.record("verifyLayout phải từ chối: \(comment)")
         } catch let error as SaveError {
-            if case .verificationFailed = error { return }
-            Issue.record("sai loại lỗi: \(error)")
+            guard case .verificationFailed(let why) = error else { Issue.record("sai loại lỗi: \(error)"); return }
+            if let expected { #expect(why.contains(expected), Comment(rawValue: "\(comment): \(why)")) }
         } catch { Issue.record("lỗi lạ: \(error)") }
     }
 
@@ -308,14 +403,32 @@ import Testing
         expectRejected(stale, env, "bookmarks.json không khớp file bookmark")
     }
 
-    @Test func verifyRejectsAReferenceToARemovedPageAnywhereInDefinition() throws {
-        let env = try Env(p1Page: PageDuplicateTests.drillPage); defer { env.cleanUp() }
+    @Test func verifyRejectsARemovedPageStillOpenInPagesJSON() throws {
+        let env = try Env(); defer { env.cleanUp() }
         #expect(env.editor.removePage("p2") == nil)
-        // p1 có `"p2"` ở nơi khác (ví dụ visual của p1 nhắc p2): chèn vào một part còn lại
         let tainted = try build(env) { changes in
-            changes.reportParts[Self.pagePath("p1")] = Data(#"{"name":"p1","displayName":"P1","note":"p2","width":1920,"height":1080}"#.utf8)
+            changes.reportParts[Self.pagesPath] = Data(#"{"pageOrder":["p1"],"activePageName":"p2"}"#.utf8)
         }
-        expectRejected(tainted, env, "còn nhắc mã trang đã xoá")
+        expectRejected(tainted, env, "activePageName là trang đã xoá", mentioning: "pages.json")
+    }
+
+    /// VM-D8: Desktop để nguyên nút điều hướng trỏ tới trang đã xoá. Lưu được, part của nút giữ từng byte.
+    @Test func removingAPageSavesWithItsNavigationButtonLeftPointingAtIt() throws {
+        let link = #"[{"properties":{"show":{"expr":{"Literal":{"Value":"true"}}},"type":{"expr":{"Literal":{"Value":"'PageNavigation'"}}},"navigationSection":{"expr":{"Literal":{"Value":"'p2'"}}}}}]"#
+        let path = S.visualPath("p1", "nnnnnnnnnnnnnnnnnnnn")
+        let button = #"{"name":"nnnnnnnnnnnnnnnnnnnn","position":{"x":0,"y":0,"z":8000,"height":30,"width":90,"tabOrder":8000},"visual":{"visualType":"actionButton","visualContainerObjects":{"visualLink":\#(link)}}}"#
+        let env = try Env(extra: [(path, Data(button.utf8))]); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p2") == nil)
+        _ = try env.save()
+        #expect(try env.report().pages.map(\.id) == ["p1"])
+        #expect(try env.read(path) == button)
+    }
+
+    @Test func verifyRejectsALeftoverPartOfARemovedPage() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p2") == nil)
+        let leftover = try build(env) { changes in changes.removedParts.remove(S.visualPath("p2", S.b1)) }
+        expectRejected(leftover, env, "còn part của trang đã xoá", mentioning: S.visualPath("p2", S.b1))
     }
 }
 

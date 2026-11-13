@@ -29,6 +29,8 @@ extension ReportInteraction {
         let id: String
         let name: String
         let group: String?
+        /// Mã nhóm (`name` của mục nhóm trong `bookmarks.json`), nil khi ở ngoài nhóm.
+        var groupID: String? = nil
         let isUser: Bool
         let suppressData: Bool
     }
@@ -37,23 +39,29 @@ extension ReportInteraction {
         var rows: [BookmarkRow] = []
         let doc = documentEdits.bookmarks
         let pageRemoved = removedBookmarksProvider?() ?? []
+        /// Nhóm của bookmark sau khi áp nhóm tạo hoặc bỏ trong phiên (VM-D8 mục 5).
+        func placed(_ row: BookmarkRow, fileGroup: (id: String, name: String)?) -> BookmarkRow {
+            let group = doc.group(of: row.id, inFile: fileGroup)
+            return BookmarkRow(id: row.id, name: row.name, group: group?.name, groupID: group?.id, isUser: row.isUser, suppressData: row.suppressData)
+        }
         for bookmark in workspace.bookmarks where !deletedBookmarkIDs.contains(bookmark.id) && !doc.deleted.contains(bookmark.id) && !pageRemoved.contains(bookmark.id) {
+            let fileGroup = bookmark.group.map { (id: bookmark.groupID ?? $0, name: $0) }
             if let mine = userBookmarks.first(where: { $0.id == bookmark.id }) {
-                rows.append(BookmarkRow(id: mine.id, name: mine.name, group: bookmark.group, isUser: true, suppressData: !mine.data))
+                rows.append(placed(BookmarkRow(id: mine.id, name: mine.name, group: nil, isUser: true, suppressData: !mine.data), fileGroup: fileGroup))
             } else if let updated = doc.updated[bookmark.id] {
-                rows.append(BookmarkRow(id: bookmark.id, name: doc.renamed[bookmark.id] ?? updated.name, group: bookmark.group, isUser: true,
-                                        suppressData: !updated.data))
+                rows.append(placed(BookmarkRow(id: bookmark.id, name: doc.renamed[bookmark.id] ?? updated.name, group: nil, isUser: true,
+                                               suppressData: !updated.data), fileGroup: fileGroup))
             } else {
-                rows.append(BookmarkRow(id: bookmark.id, name: renamedBookmarks[bookmark.id] ?? doc.renamed[bookmark.id] ?? bookmark.displayName,
-                                        group: bookmark.group, isUser: false, suppressData: bookmark.suppressData))
+                rows.append(placed(BookmarkRow(id: bookmark.id, name: renamedBookmarks[bookmark.id] ?? doc.renamed[bookmark.id] ?? bookmark.displayName,
+                                               group: nil, isUser: false, suppressData: bookmark.suppressData), fileGroup: fileGroup))
             }
         }
         let fileIDs = Set(workspace.bookmarks.map(\.id))
         for added in doc.added {
-            rows.append(BookmarkRow(id: added.id, name: added.name, group: nil, isUser: true, suppressData: !added.data))
+            rows.append(placed(BookmarkRow(id: added.id, name: added.name, group: nil, isUser: true, suppressData: !added.data), fileGroup: nil))
         }
         for mine in userBookmarks where !fileIDs.contains(mine.id) && !doc.deleted.contains(mine.id) {
-            rows.append(BookmarkRow(id: mine.id, name: mine.name, group: nil, isUser: true, suppressData: !mine.data))
+            rows.append(placed(BookmarkRow(id: mine.id, name: mine.name, group: nil, isUser: true, suppressData: !mine.data), fileGroup: nil))
         }
         if let order = doc.order {
             let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })

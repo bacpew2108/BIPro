@@ -64,7 +64,7 @@ struct VisualQuerySpecReader {
         var used = Set<String>()
         var values: [QueryMeasure] = []
         var scoped: [QueryMeasure] = []
-        let roleOrder = ["Y", "Y2", "Values", "Tooltips"]
+        let roleOrder = ["Y", "Y2", "Values", "Data", "Tooltips"]
         let allIgnored = shape == .card || shape == .shapeMap
         let splitScope = shape == .chart && !spec.secondary.isEmpty && queryState["Y2"] != nil
         for role in roleOrder where !(shape.isSlicer) {
@@ -313,8 +313,9 @@ struct VisualQuerySpecReader {
     /// Bộ lọc report/page/visual trên một cột, dạng cột + vị từ DAX (để `FilterTranslator.assemble` ghép với tương tác).
     static func staticFilter(_ filter: ReportFilter, scope: FilterScope) -> StaticFilter? {
         // Bộ lọc Advanced: dịch qua cùng mô hình với Filters pane, để file và giao diện ra cùng văn bản DAX.
-        if filter.type == "Advanced" {
-            guard let user = UserFilter.from(filter), let predicate = user.predicate else { return nil }
+        // Top N cũng vậy. Thẻ measure không phải bộ lọc cột (lọc dòng kết quả, xem `ReportInteraction.valueFilters`).
+        if filter.type == "Advanced" || filter.type == "TopN" {
+            guard let user = UserFilter.from(filter), !user.isMeasure, let predicate = user.predicate else { return nil }
             return StaticFilter(column: user.column, predicate: predicate, scope: scope)
         }
         let raw = filter.raw

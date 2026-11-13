@@ -8,7 +8,9 @@
 | Sửa thẻ (đổi giá trị, là ↔ không phải) | `.set` thay thế | một bước (gộp như trên) |
 | Bỏ thẻ của file | `.remove` | một bước |
 | Bỏ thẻ do người dùng thêm | xoá mục `.set` | một bước |
-| Advanced, Top N, thẻ measure | như trên về mặt trạng thái; `FilterExport` trả `sessionOnly` đến khi VM-D6 chốt | |
+| Advanced, Top N, thẻ measure | như trên về mặt trạng thái. Ghi vào file (sửa 2026-11-13 theo VM-D8): Advanced chữ và số với một hoặc hai điều kiện nối Và/Hoặc (chứa, bắt đầu bằng, là, không phải, so sánh thứ tự, trống, không trống), Top N và Bottom N, thẻ Advanced của measure ở cấp visual. Còn `sessionOnly`: Basic có giá trị kiểu ngày hoặc tiền tệ | |
+
+**Đọc lại** (2026-11-13): thẻ Top N/Bottom N và thẻ measure trong file được đọc thành `UserFilter` (`UserFilter.from`) và áp vào truy vấn khi mở file, để lưu xong mở lại không mất điều kiện.
 
 **Hiệu lực**: bộ lọc hiệu lực = bộ lọc file, rồi `edits.filters`, rồi lớp phiên. Mọi visual nạp lại khi giá trị gộp đổi (cache theo văn bản DAX như hiện nay).
 

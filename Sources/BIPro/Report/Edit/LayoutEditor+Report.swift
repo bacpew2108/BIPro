@@ -60,6 +60,29 @@ extension LayoutEditor {
             // Dấu xoá luôn ghi: bookmark thêm trong phiên có thể đã nằm trong file từ lần lưu trước.
             edits.bookmarks.deleted.insert(id)
             edits.bookmarks.order?.removeAll { $0 == id }
+            // Nhóm tạo trong phiên mất thành viên này; nhóm hết thành viên thì không còn.
+            for index in edits.bookmarks.groupsAdded.indices { edits.bookmarks.groupsAdded[index].children.removeAll { $0 == id } }
+            edits.bookmarks.groupsAdded.removeAll { $0.children.isEmpty }
+        }
+    }
+
+    /// Gom các bookmark `ids` (đang ở ngoài nhóm tạo trong phiên) vào nhóm mới `id` tên `name`, như lệnh Group ở Bookmarks
+    /// pane của Desktop (VM-D8 mục 5). Cần từ 2 bookmark. Người gọi lo việc bookmark chưa nằm trong nhóm của file.
+    @discardableResult
+    func groupBookmarks(_ ids: [String], id: String, name: String) -> Bool {
+        var seen = Set<String>()
+        let members = ids.filter { seen.insert($0).inserted }
+        let grouped = Set(reportEdits.bookmarks.groupsAdded.flatMap(\.children))
+        guard members.count >= 2, grouped.isDisjoint(with: members), !reportEdits.bookmarks.groupsAdded.contains(where: { $0.id == id }) else { return false }
+        return commitReport { $0.bookmarks.groupsAdded.append(BookmarkGroupEdit(id: id, name: name, children: members)) }
+    }
+
+    /// Bỏ nhóm: các bookmark của nhóm về cấp gốc. Dấu bỏ luôn ghi (nhóm tạo trong phiên có thể đã nằm trong file từ lần lưu trước).
+    @discardableResult
+    func ungroupBookmarks(_ group: BookmarkGroupEdit) -> Bool {
+        commitReport { edits in
+            edits.bookmarks.groupsAdded.removeAll { $0.id == group.id }
+            if !edits.bookmarks.groupsRemoved.contains(where: { $0.id == group.id }) { edits.bookmarks.groupsRemoved.append(group) }
         }
     }
 
@@ -138,7 +161,8 @@ extension LayoutEditor {
         let savedIDs = Set(saved.added.map(\.id)).union(saved.updated.keys).union(saved.renamed.keys).union(saved.deleted)
         let currentIDs = Set(edits.added.map(\.id)).union(edits.updated.keys).union(edits.renamed.keys).union(edits.deleted)
         let reverted = savedIDs.subtracting(currentIDs)
-        guard !edits.isEmpty || !reverted.isEmpty else { return }
+        let groupsChanged = saved.groupsAdded != edits.groupsAdded || saved.groupsRemoved != edits.groupsRemoved
+        guard !edits.isEmpty || !reverted.isEmpty || groupsChanged else { return }
         let alive = Set(structure.order)
         let folder = Self.bookmarksFolder
         // Bookmark có trong file: mã → đường dẫn.
@@ -214,6 +238,26 @@ extension LayoutEditor {
             }
         }
 
+        // Nhóm bookmark (VM-D8 mục 5), so với nhóm đang có trong `bookmarks.json`.
+        if var data = index {
+            func has(_ id: String) -> Bool { PBIRBookmarkPatch.groups(in: data).contains { $0.id == id } }
+            // Hoàn tác sau khi lưu: nhóm đã ghi mà nay không còn trong thay đổi thì bỏ.
+            for group in saved.groupsAdded where !edits.groupsAdded.contains(where: { $0.id == group.id }) {
+                data = try PBIRBookmarkPatch.ungroupingItem(group.id, in: data)
+            }
+            for group in edits.groupsRemoved { data = try PBIRBookmarkPatch.ungroupingItem(group.id, in: data) }
+            // Hoàn tác việc bỏ nhóm sau khi lưu: dựng lại nhóm với thành viên lúc bỏ.
+            for group in saved.groupsRemoved where !edits.groupsRemoved.contains(where: { $0.id == group.id }) && !has(group.id) {
+                data = try PBIRBookmarkPatch.groupingItems(group.children, id: group.id, displayName: group.name, in: data)
+            }
+            for group in edits.groupsAdded where !has(group.id) {
+                let before = data
+                data = try PBIRBookmarkPatch.groupingItems(group.children, id: group.id, displayName: group.name, in: data)
+                if data == before { notes.append("Nhóm bookmark \"\(group.name)\": các bookmark trong nhóm chưa lưu được vào file nên chưa ghi nhóm.") }
+            }
+            index = data
+        }
+
         // Thứ tự.
         if let order = edits.order, let data = index { index = try PBIRBookmarkPatch.reorderingItems(order, in: data) }
 
@@ -279,7 +323,7 @@ extension LayoutEditor {
             case .remove(let name):
                 if let name { op = .remove(name: name) }
             case .set(let filter):
-                switch FilterExport.card(for: filter, key: key) {
+                switch FilterExport.card(for: filter, key: key, decimal: decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]")) {
                 case .writable(let card): op = .upsert(card)
                 case .sessionOnly(let reason): notes.append("Bộ lọc \(filter.column.column): \(reason)")
                 }

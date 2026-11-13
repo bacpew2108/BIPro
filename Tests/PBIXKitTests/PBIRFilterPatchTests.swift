@@ -80,6 +80,47 @@ struct PBIRFilterPatchTests {
         #expect(text == #"{"Version":2,"From":[{"Name":"d","Entity":"Dim_Client","Type":0}],"Where":[{"Condition":{"And":{"Left":{"Contains":{"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"sex"}},"Right":{"Literal":{"Value":"'e'"}}}},"Right":{"Not":{"Expression":{"Contains":{"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"sex"}},"Right":{"Literal":{"Value":"'x'"}}}}}}}}}]}"#)
     }
 
+    // MARK: Dạng filter theo mẫu Desktop (VM-D8, `docs/phase-d-evidence/vm-d8/json/the-loc-*.txt`)
+
+    @Test func measureComparisonsJoinedByOrMatchDesktop() {
+        let text = PBIRFilterPatch.advancedFilter(kind: .measure, entity: "Fact_CRM_Complaint", property: "Complaints",
+                                                  conditions: [.init(.lessThan, literal: .integer(500)), .init(.greaterThan, literal: .integer(2000))],
+                                                  useOr: true)
+        #expect(text == #"{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":3,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"500L"}}}},"Right":{"Comparison":{"ComparisonKind":1,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"2000L"}}}}}}}]}"#)
+    }
+
+    @Test func textIsOrIsNotMatchesDesktop() {
+        let text = PBIRFilterPatch.advancedFilter(entity: "Dim_CRM_Issue", property: "issue",
+                                                  conditions: [.init(.equal, literal: .string("Other")), .init(.equal, negated: true, literal: .string("Late fee"))],
+                                                  useOr: true)
+        #expect(text == #"{"Version":2,"From":[{"Name":"d","Entity":"Dim_CRM_Issue","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"'Other'"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}},"Right":{"Literal":{"Value":"'Late fee'"}}}}}}}}}]}"#)
+    }
+
+    @Test func numericColumnRangeMatchesDesktop() {
+        let text = PBIRFilterPatch.advancedFilter(entity: "Dim_Client", property: "birth_year",
+                                                  conditions: [.init(.greaterThan, literal: .integer(1980)), .init(.lessOrEqual, literal: .decimal(1990.5))])
+        #expect(text == #"{"Version":2,"From":[{"Name":"d","Entity":"Dim_Client","Type":0}],"Where":[{"Condition":{"And":{"Left":{"Comparison":{"ComparisonKind":1,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"birth_year"}},"Right":{"Literal":{"Value":"1980L"}}}},"Right":{"Comparison":{"ComparisonKind":4,"Left":{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"birth_year"}},"Right":{"Literal":{"Value":"1990.5D"}}}}}}}]}"#)
+    }
+
+    @Test func blankAndNotBlankCompareWithNull() {
+        let text = PBIRFilterPatch.advancedFilter(kind: .measure, entity: "Fact_CRM_Complaint", property: "Complaints",
+                                                  conditions: [.init(.blank), .init(.blank, negated: true)], useOr: true)
+        #expect(text == #"{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}}}}}}}]}"#)
+    }
+
+    @Test func greaterOrEqualIsKindTwoAndAConditionWithoutItsValueIsRejected() {
+        let text = PBIRFilterPatch.advancedFilter(entity: "E", property: "p", conditions: [.init(.greaterOrEqual, literal: .integer(1))])
+        #expect(text?.contains(#""ComparisonKind":2"#) == true)
+        #expect(PBIRFilterPatch.advancedFilter(entity: "E", property: "p", conditions: [.init(.lessThan)]) == nil)
+        #expect(PBIRFilterPatch.advancedFilter(entity: "E", property: "p", conditions: [.init(.contains, literal: .integer(1))]) == nil)
+    }
+
+    @Test func bottomNMatchesDesktopShape() {
+        let text = PBIRFilterPatch.topNFilter(entity: "Dim_CRM_Issue", property: "issue", measureEntity: "Fact_CRM_Complaint",
+                                              measureProperty: "Complaints", count: 3, bottom: true)
+        #expect(text == #"{"Version":2,"From":[{"Name":"subquery","Expression":{"Subquery":{"Query":{"Version":2,"From":[{"Name":"d","Entity":"Dim_CRM_Issue","Type":0},{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Select":[{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"},"Name":"field"}],"OrderBy":[{"Direction":1,"Expression":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}}}],"Top":3}}},"Type":2},{"Name":"d","Entity":"Dim_CRM_Issue","Type":0}],"Where":[{"Condition":{"In":{"Expressions":[{"Column":{"Expression":{"SourceRef":{"Source":"d"}},"Property":"issue"}}],"Table":{"SourceRef":{"Source":"subquery"}}}}}]}"#)
+    }
+
     @Test func advancedRejectsMoreThanTwoConditions() {
         let c = PBIRFilterPatch.TextCondition(.contains, text: "a")
         #expect(PBIRFilterPatch.advancedTextFilter(entity: "E", property: "p", conditions: [c, c, c]) == nil)

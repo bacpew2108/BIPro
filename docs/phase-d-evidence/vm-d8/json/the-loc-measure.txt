@@ -1,0 +1,9 @@
+{"name":"c43010247701b3e0a75e","field":{"Column":{"Expression":{"SourceRef":{"Entity":"Dim_CRM_Issue"}},"Property":"issue"}},"type":"Categorical"}
+
+{"name":"ad81f56525053133a951","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Complaints"}},"type":"Advanced","filter":{"Version":2,"From":[{"Name":"f","Entity":"Fact_CRM_Complaint","Type":0}],"Where":[{"Condition":{"Or":{"Left":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}},"Right":{"Not":{"Expression":{"Comparison":{"ComparisonKind":0,"Left":{"Measure":{"Expression":{"SourceRef":{"Source":"f"}},"Property":"Complaints"}},"Right":{"Literal":{"Value":"null"}}}}}}}}}]}}
+
+{"name":"021992f414a49202d076","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Pareto Cum %"}},"type":"Advanced"}
+
+{"name":"e6b4e0f330a1de830507","field":{"Measure":{"Expression":{"SourceRef":{"Entity":"Fact_CRM_Complaint"}},"Property":"Pareto 80% Line"}},"type":"Advanced"}
+
+top-level keys: ['$schema', 'name', 'position', 'visual', 'filterConfig']

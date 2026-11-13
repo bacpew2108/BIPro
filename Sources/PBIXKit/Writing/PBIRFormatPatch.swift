@@ -25,9 +25,13 @@ public struct FormatEdit: Equatable, Sendable {
     public var action: Action
     /// Khi tạo mục mới của khoá: ghi `"selector":{"id":"default"}` sau `properties` (`cardVisual`).
     public var selectorDefault: Bool
+    /// Mục riêng của một chuỗi: mục có `"selector":{"metadata":"<queryRef>"}` (màu theo chuỗi, VM-D8 mục 6).
+    /// nil: mục chung (không selector hoặc `id: default`).
+    public var selectorMetadata: String?
 
-    public init(scope: FormatScope, object: String, action: Action, selectorDefault: Bool = false) {
+    public init(scope: FormatScope, object: String, action: Action, selectorDefault: Bool = false, selectorMetadata: String? = nil) {
         self.scope = scope; self.object = object; self.action = action; self.selectorDefault = selectorDefault
+        self.selectorMetadata = selectorMetadata
     }
 
     var property: String? {
@@ -38,7 +42,7 @@ public struct FormatEdit: Equatable, Sendable {
         }
     }
 
-    /// `list` thêm `new`: mỗi `(phạm vi, khoá, thuộc tính)` giữ lệnh cuối; bỏ cả khoá xoá mọi lệnh của khoá và đứng một mình;
+    /// `list` thêm `new`: mỗi `(phạm vi, khoá, chuỗi, thuộc tính)` giữ lệnh cuối; bỏ cả khoá xoá mọi lệnh của khoá và đứng một mình;
     /// lệnh bỏ thuộc tính huỷ `set` cùng thuộc tính nhưng vẫn ở lại (thuộc tính có thể đã nằm trong file).
     public static func merging(_ list: [FormatEdit], adding new: FormatEdit) -> [FormatEdit] {
         var out = list.filter { old in
@@ -47,7 +51,7 @@ public struct FormatEdit: Equatable, Sendable {
             case .removeObject: return false
             case .set, .removeProperty:
                 if case .removeObject = old.action { return true }
-                return old.property != new.property
+                return old.property != new.property || old.selectorMetadata != new.selectorMetadata
             }
         }
         out.append(new)
@@ -114,8 +118,15 @@ public enum PBIRFormatPatch {
         return dict.keys.allSatisfy { $0 == "id" } && dict["id"] as? String == "default"
     }
 
-    /// Chỉ số mục chung (không selector hoặc `id: default`) đầu tiên của mảng ở `arrayPath`.
-    private static func editableIndex(at arrayPath: [JSONPathStep], in bytes: [UInt8]) throws -> Int? {
+    /// Mục mà `edit` nhắm tới: mục của đúng chuỗi (selector chỉ có `metadata`), hoặc mục chung.
+    private static func matches(_ entry: [String: Any], _ metadata: String?) -> Bool {
+        guard let metadata else { return isEditable(entry) }
+        guard let selector = entry["selector"] as? [String: Any] else { return false }
+        return selector.count == 1 && selector["metadata"] as? String == metadata
+    }
+
+    /// Chỉ số mục đầu tiên của mảng ở `arrayPath` mà lệnh nhắm tới (mục chung, hoặc mục của chuỗi `metadata`).
+    private static func entryIndex(at arrayPath: [JSONPathStep], in bytes: [UInt8], metadata: String?) throws -> Int? {
         guard opening(at: arrayPath, in: bytes) == UInt8(ascii: "["),
               let kids = JSONCursor.children(at: arrayPath, in: bytes), !kids.isEmpty else {
             throw WriteError.invalid("format entries are not a non-empty array in visual.json")
@@ -124,7 +135,7 @@ public enum PBIRFormatPatch {
             guard let entry = try? JSONSerialization.jsonObject(with: Data(bytes[kid.value])) as? [String: Any] else {
                 throw WriteError.invalid("a format entry is not an object")
             }
-            if isEditable(entry) { return index }
+            if matches(entry, metadata) { return index }
         }
         return nil
     }
@@ -159,7 +170,7 @@ public enum PBIRFormatPatch {
         case .removeProperty(let property):
             guard JSONCursor.locate(objectPath[...], in: bytes) != nil else { return }
             guard JSONCursor.locate(scopePath[...], in: bytes) != nil,
-                  let index = try editableIndex(at: objectPath, in: bytes) else { return }
+                  let index = try entryIndex(at: objectPath, in: bytes, metadata: edit.selectorMetadata) else { return }
             let propsPath = objectPath + [.index(index), .key("properties")]
             guard let kids = JSONCursor.children(at: propsPath, in: bytes) else { throw WriteError.invalid("properties is not an object") }
             guard let at = kids.firstIndex(where: { key(of: $0, in: bytes) == property }) else { return }
@@ -169,7 +180,8 @@ public enum PBIRFormatPatch {
             else { try removeObjectKey(scope: edit.scope, object: edit.object, in: &bytes) }
 
         case .set(let property, let value):
-            let member = "\"\(edit.object)\":[" + entryText(property: property, value: value, selectorDefault: edit.selectorDefault) + "]"
+            let entry = entryText(property: property, value: value, edit)
+            let member = "\"\(edit.object)\":[" + entry + "]"
             if JSONCursor.locate(scopePath[...], in: bytes) == nil {
                 // Phạm vi chưa có: tạo, đặt trước khoá đứng sau nó trong `visual` (nếu có).
                 let text = "\"\(edit.scope.key)\":{\(member)}"
@@ -190,8 +202,13 @@ public enum PBIRFormatPatch {
                 try appendMember(member, to: scopePath, in: &bytes)
                 return
             }
-            guard let index = try editableIndex(at: objectPath, in: bytes) else {
-                throw WriteError.invalid("\(edit.object) has only entries bound to a field or data point; not editable")
+            guard let index = try entryIndex(at: objectPath, in: bytes, metadata: edit.selectorMetadata) else {
+                // Chưa có mục của chuỗi này (hoặc chưa có mục chung): Desktop thêm mục mới vào cuối mảng (VM-D8 mục 6).
+                guard let last = JSONCursor.children(at: objectPath, in: bytes)?.last else {
+                    throw WriteError.invalid("format entries are not a non-empty array in visual.json")
+                }
+                insert(Array(("," + entry).utf8), at: last.value.upperBound, into: &bytes)
+                return
             }
             let propsPath = objectPath + [.index(index), .key("properties")]
             guard let kids = JSONCursor.children(at: propsPath, in: bytes) else { throw WriteError.invalid("properties is not an object") }
@@ -203,8 +220,17 @@ public enum PBIRFormatPatch {
         }
     }
 
-    private static func entryText(property: String, value: String, selectorDefault: Bool) -> String {
-        "{\"properties\":{\"\(property)\":\(value)}" + (selectorDefault ? ",\"selector\":{\"id\":\"default\"}" : "") + "}"
+    private static func entryText(property: String, value: String, _ edit: FormatEdit) -> String {
+        var selector = ""
+        if let metadata = edit.selectorMetadata { selector = ",\"selector\":{\"metadata\":\(stringToken(metadata))}" }
+        else if edit.selectorDefault { selector = ",\"selector\":{\"id\":\"default\"}" }
+        return "{\"properties\":{\"\(property)\":\(value)}" + selector + "}"
+    }
+
+    /// Chữ thành một token chuỗi JSON (có nháy kép), không thoát dấu `/`.
+    private static func stringToken(_ value: String) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed, .withoutEscapingSlashes])) ?? Data("\"\"".utf8)
+        return String(decoding: data, as: UTF8.self)
     }
 
     // MARK: - Mô hình (cấu trúc mong đợi)
@@ -223,13 +249,20 @@ public enum PBIRFormatPatch {
         return root
     }
 
-    private static func modelEditable(_ array: NSMutableArray) throws -> NSMutableDictionary? {
+    private static func modelEntry(_ array: NSMutableArray, _ metadata: String?) throws -> NSMutableDictionary? {
         guard array.count > 0 else { throw WriteError.invalid("format entries are not a non-empty array in visual.json") }
         for item in array {
             guard let entry = item as? NSMutableDictionary else { throw WriteError.invalid("a format entry is not an object") }
-            if isEditable(entry as? [String: Any] ?? [:]) { return entry }
+            if matches(entry as? [String: Any] ?? [:], metadata) { return entry }
         }
         return nil
+    }
+
+    private static func newModelEntry(_ property: String, _ value: Any, _ edit: FormatEdit) -> NSMutableDictionary {
+        let entry = NSMutableDictionary(dictionary: ["properties": NSMutableDictionary(dictionary: [property: value])])
+        if let metadata = edit.selectorMetadata { entry["selector"] = NSMutableDictionary(dictionary: ["metadata": metadata]) }
+        else if edit.selectorDefault { entry["selector"] = NSMutableDictionary(dictionary: ["id": "default"]) }
+        return entry
     }
 
     private static func applyModel(_ edit: FormatEdit, _ root: NSMutableDictionary) throws {
@@ -245,7 +278,7 @@ public enum PBIRFormatPatch {
             dropObject()
         case .removeProperty(let property):
             guard let scope = visual[key] as? NSMutableDictionary, let array = scope[edit.object] as? NSMutableArray,
-                  let entry = try modelEditable(array),
+                  let entry = try modelEntry(array, edit.selectorMetadata),
                   let props = entry["properties"] as? NSMutableDictionary, props[property] != nil else { return }
             props.removeObject(forKey: property)
             if props.count == 0 {
@@ -264,15 +297,14 @@ public enum PBIRFormatPatch {
             }
             if let existing = scope[edit.object] {
                 guard let array = existing as? NSMutableArray else { throw WriteError.invalid("\(edit.object) is not an array") }
-                guard let entry = try modelEditable(array) else {
-                    throw WriteError.invalid("\(edit.object) has only entries bound to a field or data point; not editable")
+                guard let entry = try modelEntry(array, edit.selectorMetadata) else {
+                    array.add(newModelEntry(property, value, edit))
+                    break
                 }
                 guard let props = entry["properties"] as? NSMutableDictionary else { throw WriteError.invalid("properties is not an object") }
                 props[property] = value
             } else {
-                let entry = NSMutableDictionary(dictionary: ["properties": NSMutableDictionary(dictionary: [property: value])])
-                if edit.selectorDefault { entry["selector"] = NSMutableDictionary(dictionary: ["id": "default"]) }
-                scope[edit.object] = NSMutableArray(array: [entry])
+                scope[edit.object] = NSMutableArray(array: [newModelEntry(property, value, edit)])
             }
         }
     }

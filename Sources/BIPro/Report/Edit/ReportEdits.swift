@@ -10,7 +10,16 @@ enum FilterChange: Equatable {
     case remove(name: String?)
 }
 
-/// Bookmark thay đổi so với file: thêm trong phiên, cập nhật, đổi tên, xoá, thứ tự mong muốn.
+/// Một nhóm bookmark (VM-D8 mục 5): mục của `bookmarks.json` có `children`.
+struct BookmarkGroupEdit: Equatable {
+    /// Mã nhóm (20 hex), `name` của mục.
+    var id: String
+    var name: String
+    /// Mã các bookmark trong nhóm.
+    var children: [String]
+}
+
+/// Bookmark thay đổi so với file: thêm trong phiên, cập nhật, đổi tên, xoá, thứ tự mong muốn, nhóm.
 struct BookmarkEdits: Equatable {
     /// Bookmark mới (chưa có trong file), theo thứ tự thêm.
     var added: [UserBookmark] = []
@@ -20,8 +29,22 @@ struct BookmarkEdits: Equatable {
     var deleted: Set<String> = []
     /// Thứ tự hiển thị mong muốn (mã); nil = thứ tự trong file rồi bookmark mới.
     var order: [String]?
+    /// Nhóm tạo trong phiên.
+    var groupsAdded: [BookmarkGroupEdit] = []
+    /// Nhóm đã bỏ (của file, hoặc tạo trong phiên và có thể đã ghi ở lần lưu trước), kèm thành viên lúc bỏ để dựng lại
+    /// khi hoàn tác sau khi lưu.
+    var groupsRemoved: [BookmarkGroupEdit] = []
 
-    var isEmpty: Bool { added.isEmpty && updated.isEmpty && renamed.isEmpty && deleted.isEmpty && order == nil }
+    var isEmpty: Bool {
+        added.isEmpty && updated.isEmpty && renamed.isEmpty && deleted.isEmpty && order == nil && groupsAdded.isEmpty && groupsRemoved.isEmpty
+    }
+
+    /// Nhóm đang chứa bookmark `id`: nhóm tạo trong phiên, hoặc nhóm của file (`inFile`) nếu chưa bị bỏ. nil: ở ngoài nhóm.
+    func group(of id: String, inFile: (id: String, name: String)?) -> (id: String, name: String)? {
+        if let mine = groupsAdded.first(where: { $0.children.contains(id) }) { return (mine.id, mine.name) }
+        if let inFile, !groupsRemoved.contains(where: { $0.id == inFile.id }) { return inFile }
+        return nil
+    }
 }
 
 struct ReportEdits: Equatable {

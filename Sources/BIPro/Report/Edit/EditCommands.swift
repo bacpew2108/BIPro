@@ -67,6 +67,8 @@ struct EditCommands: Commands {
             Button("Bỏ nhóm") { state?.ungroupSelection() }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
                 .disabled(state?.ungroupBlocker != nil)
+            Button("Gộp vào nhóm") { state?.mergeSelection() }
+                .disabled(state?.mergeBlocker != nil)
         }
         CommandGroup(replacing: .undoRedo) {
             Button("Hoàn tác") { perform(text: Selector(("undo:"))) { $0.undoLayout() } }
