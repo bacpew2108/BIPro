@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-13 (cuối phiên). **Phase D đã commit hết trên `main` (chưa push): `3d7bb5c` (đợt sau VM-D8), `2f639cb` (VM-D8c), `c251825`, `67f54eb` (màu theo giá trị Chú giải), `02620c8`.** Phase D xong bảy lát (D1 đến D7) cộng phần tồn đọng; `swift test` 1427 qua, golden nặng 97 qua (chạy ở `3d7bb5c`). Đã mở trong Power BI Desktop: `Nhom6_d3.pbix` đến `Nhom6_d8.pbix`, `Nhom2_d7.pbix` (kết quả ở `docs/phase-d-evidence/vm-d*/`; `.pbix` bằng chứng nằm ngoài git). Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-13 (cuối phiên). **Phase D đã commit hết trên `main` (chưa push): `3d7bb5c` (đợt sau VM-D8), `2f639cb` (VM-D8c), `c251825`, `67f54eb` (màu theo giá trị Chú giải), `02620c8`.** Phase D xong bảy lát (D1 đến D7) cộng phần tồn đọng; `swift test` 1436 qua, golden nặng 98 qua (chạy lại ở `e41f7a9` ngày 2026-11-14; test Gói P bị bỏ qua vì thiếu `Nhom6_Dashboard.pbix`). Đã mở trong Power BI Desktop: `Nhom6_d3.pbix` đến `Nhom6_d8.pbix`, `Nhom2_d7.pbix` (kết quả ở `docs/phase-d-evidence/vm-d*/`; `.pbix` bằng chứng nằm ngoài git). Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
