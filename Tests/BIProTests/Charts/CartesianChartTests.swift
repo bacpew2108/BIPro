@@ -403,3 +403,58 @@ import Testing
         }
     }
 }
+
+/// Nhãn danh mục xoay dọc không được chiếm hết chiều cao biểu đồ (Pareto D3: 38 vấn đề, tên dài, vùng vẽ chỉ còn ~15 pt).
+@Suite struct CategoryLabelFitTests {
+    @Test func shortLabelsAreKept() {
+        let fit = CategoryLabelFit(fontSize: 10, chartHeight: 380)
+        #expect(fit.text("Late fee") == "Late fee")
+        #expect(fit.text("2013-01") == "2013-01")
+    }
+
+    @Test func longLabelsAreCutWithAnEllipsisWithinAThirdOfTheHeight() {
+        let fit = CategoryLabelFit(fontSize: 10, chartHeight: 380)
+        let long = "Account opening, closing, or management and more text beyond"
+        let cut = fit.text(long)
+        #expect(cut.hasSuffix("…") && cut.count < long.count && long.hasPrefix(String(cut.dropLast())))
+        #expect(CGFloat(cut.count) * 10 * 0.6 <= 380 * 0.3 + 6)
+    }
+
+    @Test func aShortChartKeepsAtLeastAUsableLabel() {
+        let fit = CategoryLabelFit(fontSize: 10, chartHeight: 60)
+        #expect(fit.text("Credit card protection / Debt protection").count >= 8)
+    }
+
+    @Test func unknownHeightFallsBackToADefaultCap() {
+        let fit = CategoryLabelFit(fontSize: 10, chartHeight: 0)
+        #expect(fit.text(String(repeating: "x", count: 200)).count < 200)
+        #expect(fit.maxLength > 8)
+    }
+
+    @Test func theSameLabelsGiveTheSameWidthForAlignment() {
+        let fit = CategoryLabelFit(fontSize: 10, chartHeight: 380)
+        let labels = ["a", String(repeating: "b", count: 100)]
+        #expect(fit.width(for: labels) <= CGFloat(fit.maxLength) * 10 * 0.62 + 0.001)
+    }
+}
+
+@Suite struct CategoryWindowTests {
+    static let months = (1...10).map { "m\($0)" }
+
+    @Test func startsAtTheFirstCategoryWhenNoneIsGiven() {
+        #expect(CategoryWindow.slice(Self.months, from: "", count: 4) == ["m1", "m2", "m3", "m4"])
+    }
+
+    @Test func followsTheScrollPosition() {
+        #expect(CategoryWindow.slice(Self.months, from: "m4", count: 3) == ["m4", "m5", "m6"])
+    }
+
+    @Test func neverScrollsPastTheEnd() {
+        #expect(CategoryWindow.slice(Self.months, from: "m10", count: 4) == ["m7", "m8", "m9", "m10"])
+    }
+
+    @Test func aWindowLargerThanTheListKeepsEverything() {
+        #expect(CategoryWindow.slice(["a", "b"], from: "b", count: 5) == ["a", "b"])
+        #expect(CategoryWindow.slice([], from: "", count: 5).isEmpty)
+    }
+}

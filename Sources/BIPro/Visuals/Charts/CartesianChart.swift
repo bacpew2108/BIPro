@@ -932,6 +932,8 @@ struct CartesianChartView: View {
     private let layout: PreparedChartLayout
     /// Độ rộng vùng vẽ, đo bằng GeometryReader nền; dùng để quyết định xoay nhãn danh mục (như Power BI).
     @State private var plotWidth: CGFloat = 0
+    /// Chiều cao vùng chart (gồm trục), để giới hạn chiều dài nhãn xoay dọc.
+    @State private var chartHeight: CGFloat = 0
     /// Danh mục đầu tiên đang hiện khi trục cuộn ngang.
     @State private var scrollX: String = ""
     @State private var scrollRemainder: CGFloat = 0
@@ -999,6 +1001,13 @@ struct CartesianChartView: View {
         max(4, Int(plotWidth / (layout.categoryFontSize * 1.9)))
     }
 
+    /// Danh mục đang vẽ trên trục: cả danh sách, hoặc cửa sổ `visibleCategoryCount` phần tử bắt đầu từ `scrollX`.
+    /// Không dùng `chartScrollableAxes`: với canvas thu nhỏ (`scaleEffect`) nó làm SwiftUI vẽ lại liên tục (D3 tốn 40% CPU khi rảnh).
+    private var axisCategories: [String] {
+        guard needsCategoryScroll else { return layout.categories }
+        return CategoryWindow.slice(layout.categories, from: scrollX, count: visibleCategoryCount)
+    }
+
     private var needsCategoryScroll: Bool {
         guard !layout.isScalarAxis, kind != .clusteredBar, plotWidth > 0, rotateCategoryLabels else { return false }
         return layout.categories.count > visibleCategoryCount
@@ -1048,8 +1057,9 @@ struct CartesianChartView: View {
             chartViewWithEvents
                 .background(GeometryReader { geo in
                     Color.clear
-                        .onAppear { plotWidth = geo.size.width }
+                        .onAppear { plotWidth = geo.size.width; chartHeight = geo.size.height }
                         .onChange(of: geo.size.width) { _, w in plotWidth = w }
+                        .onChange(of: geo.size.height) { _, h in chartHeight = h }
                 })
             if needsCategoryScroll { scrollBar }
         }
@@ -1060,21 +1070,8 @@ struct CartesianChartView: View {
     }
 
     @ViewBuilder
-    private var scrollingChartBody: some View {
-        if needsCategoryScroll {
-            chartBody
-                .chartScrollableAxes(.horizontal)
-                .chartXVisibleDomain(length: visibleCategoryCount)
-                .chartScrollPosition(x: $scrollX)
-                .onAppear { if scrollX.isEmpty, let first = layout.categories.first { scrollX = first } }
-        } else {
-            chartBody
-        }
-    }
-
-    @ViewBuilder
     private var chartViewWithEvents: some View {
-        let base = scrollingChartBody
+        let base = chartBody
             .chartPlotStyle { plot in
                 plot.background(Color.clear)
             }
@@ -1163,7 +1160,7 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartYScale(domain: layout.categories)
+        .chartYScale(domain: axisCategories)
         .chartXScale(domain: layout.barXDomain)
         .chartYAxis {
             AxisMarks(preset: .extended, position: .leading, values: layout.categories) { val in
@@ -1222,7 +1219,7 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartXScale(domain: layout.categories)
+        .chartXScale(domain: axisCategories)
         .chartYScale(domain: layout.columnYDomain)
         .chartXAxis {
             categoryAxisMarks
@@ -1261,7 +1258,7 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartXScale(domain: layout.categories)
+        .chartXScale(domain: axisCategories)
         .chartYScale(domain: layout.stackYDomain)
         .chartXAxis {
             categoryAxisMarks
@@ -1328,7 +1325,7 @@ struct CartesianChartView: View {
                 .interpolationMethod(.catmullRom)
             }
         }
-        .chartXScale(domain: layout.categories)
+        .chartXScale(domain: axisCategories)
         .chartYScale(domain: layout.columnYDomain)
         .chartXAxis {
             if layout.isScalarAxis {
@@ -1393,7 +1390,7 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartXScale(domain: layout.categories)
+        .chartXScale(domain: axisCategories)
         .chartYScale(domain: layout.columnYDomain)
         .chartXAxis {
             categoryAxisMarks
@@ -1448,7 +1445,7 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartXScale(domain: layout.categories)
+        .chartXScale(domain: axisCategories)
         .chartYScale(domain: layout.stackYDomain)
         .chartXAxis {
             categoryAxisMarks
@@ -1477,7 +1474,7 @@ struct CartesianChartView: View {
                 if let str = val.as(String.self) {
                     // Nhãn xoay dọc: cùng độ rộng, căn mép gần trục, để các nhãn thẳng hàng (chữ số "1" hẹp hơn chữ số khác).
                     let rotated = rotateCategoryLabels
-                    Text(str)
+                    Text(rotated ? labelFit.text(str) : str)
                         .font(.system(size: layout.categoryFontSize).monospacedDigit())
                         .foregroundColor(Color(hex: "#252423") ?? .primary)
                         .lineLimit(1)
@@ -1490,8 +1487,10 @@ struct CartesianChartView: View {
 
     /// Độ rộng chung của nhãn danh mục khi xoay dọc: nhãn dài nhất theo số chữ số cùng độ rộng.
     private var rotatedLabelWidth: CGFloat {
-        CGFloat(layout.categories.map(\.count).max() ?? 0) * layout.categoryFontSize * 0.62
+        labelFit.width(for: layout.categories)
     }
+
+    private var labelFit: CategoryLabelFit { CategoryLabelFit(fontSize: layout.categoryFontSize, chartHeight: chartHeight) }
     
     private func primaryYAxisMarks(ticks: [Double], labels: [String]) -> some AxisContent {
         AxisMarks(position: .leading, values: ticks) { val in

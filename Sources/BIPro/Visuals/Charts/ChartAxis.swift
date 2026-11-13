@@ -140,3 +140,40 @@ enum ChartAxis {
         return 0
     }
 }
+
+/// Nhãn danh mục xoay dọc: giới hạn chiều dài để không lấn vùng vẽ (cắt bằng "…"), dùng chiều cao chart đo được.
+struct CategoryLabelFit {
+    /// Tỉ lệ chiều cao chart tối đa dành cho nhãn xoay. Chưa quan sát Desktop; chọn bảo thủ.
+    static let heightShare: CGFloat = 0.3
+    static let fallbackHeight: CGFloat = 300
+    static let minLength = 8
+
+    let fontSize: CGFloat
+    let chartHeight: CGFloat
+
+    /// Số ký tự tối đa (kể cả "…").
+    var maxLength: Int {
+        let height = chartHeight > 0 ? chartHeight : Self.fallbackHeight
+        return max(Self.minLength, Int(height * Self.heightShare / (fontSize * 0.6)))
+    }
+
+    func text(_ label: String) -> String {
+        guard label.count > maxLength else { return label }
+        return String(label.prefix(maxLength - 1)) + "…"
+    }
+
+    /// Độ rộng chung (trước khi xoay) của nhãn dài nhất sau khi cắt, để các nhãn thẳng hàng.
+    func width(for labels: [String]) -> CGFloat {
+        CGFloat(labels.map { min($0.count, maxLength) }.max() ?? 0) * fontSize * 0.62
+    }
+}
+
+/// Cửa sổ danh mục đang thấy khi trục chữ cuộn ngang.
+enum CategoryWindow {
+    /// `count` danh mục liên tiếp bắt đầu từ `first` (không có thì từ đầu), kẹp để không trượt quá cuối.
+    static func slice(_ categories: [String], from first: String, count: Int) -> [String] {
+        let visible = max(1, count)
+        let start = max(0, min(categories.count - visible, categories.firstIndex(of: first) ?? 0))
+        return Array(categories[start..<min(categories.count, start + visible)])
+    }
+}
