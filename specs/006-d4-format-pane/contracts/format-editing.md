@@ -34,7 +34,7 @@ Theo bảng R5. Mọi từ chối: không ghi, không tạo bước hoàn tác, 
 - Chuỗi đang tô màu theo công thức hoặc điểm dữ liệu (selector có thêm `data`) hoặc visual có trường ở ô Chú giải: từ chối kèm lý do, không ghi.
 - Đổi liên tiếp màu của một chuỗi gộp một bước; chuỗi khác là bước khác. "Đặt lại" ở một chuỗi bỏ `fill` của mục đó (mục rỗng thì bỏ cả mục); "Đặt lại" cả thẻ bỏ mọi mục sửa được (mục chung và mục theo chuỗi).
 - Mục theo chuỗi không còn bị liệt kê là chỉ-đọc ở thẻ có `seriesProperties`; thuộc tính lạ trong mục đó vẫn chỉ-đọc.
-- Matrix: thẻ "Bố cục" (`general.layout`), chỉ có `'Tabular'` (Compact, Outline có trong Desktop nhưng chưa thấy literal).
+- Matrix: thẻ "Bố cục" (`general.layout`), ba lựa chọn `'Compact'`, `'Outline'`, `'Tabular'` (VM-D8c: chọn Compact vẫn ghi tường minh). Màu khi biểu đồ có Chú giải ghi `selector.data[].scopeId` (VM-D8c mục 2), BI Pro chưa sửa được, chỉ đọc.
 
 ## Đặt lại
 

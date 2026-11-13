@@ -161,6 +161,9 @@ import Testing
         let env = try Env(); defer { env.cleanUp() }
         #expect(env.editor.setFormat(.choice("'Tabular'"), scope: .objects, object: "general", property: "layout", visual: S.f3) == nil)
         #expect(try bytes(env, S.f3).contains(#""general":[{"properties":{"layout":\#(S.lit("'Tabular'"))}}]"#))
-        #expect(env.editor.setFormat(.choice("'Outline'"), scope: .objects, object: "general", property: "layout", visual: S.f3) != nil)
+        #expect(env.editor.setFormat(.choice("'Outline'"), scope: .objects, object: "general", property: "layout", visual: S.f3) == nil)
+        #expect(try bytes(env, S.f3).contains(#""general":[{"properties":{"layout":\#(S.lit("'Outline'"))}}]"#))
+        #expect(env.editor.setFormat(.choice("'Compact'"), scope: .objects, object: "general", property: "layout", visual: S.f3) == nil)
+        #expect(env.editor.setFormat(.choice("'Staggered'"), scope: .objects, object: "general", property: "layout", visual: S.f3) != nil)
     }
 }

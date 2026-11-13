@@ -48,7 +48,7 @@ import Testing
             "position": ["'Bottom'", "'Top'"], "labelDisplayUnits": ["0D", "1D"], "labelOrientation": ["0D"],
             "alignment": ["'left'", "'center'", "'right'"], "labelStyle": ["'Percent of total'"],
             "fontFamily": ["'Georgia'", "'''Segoe UI Semibold'', wf_segoe-ui_semibold, helvetica, arial, sans-serif'"], "heading": ["'Heading2'"],
-            "layout": ["'Tabular'"],   // VM-D8 mục 6: Compact và Outline có trong danh sách của Desktop nhưng chưa thấy literal
+            "layout": ["'Compact'", "'Outline'", "'Tabular'"],   // VM-D8 mục 6, VM-D8c mục 1
         ]
         for card in Self.allCards {
             for property in card.properties {

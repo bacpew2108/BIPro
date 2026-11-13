@@ -1,0 +1,75 @@
+{
+ "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+ "name": "a41c178044853b209bbd",
+ "position": {
+  "x": 100,
+  "y": 100,
+  "z": 37001,
+  "height": 300,
+  "width": 300,
+  "tabOrder": 37001
+ },
+ "visual": {
+  "visualType": "clusteredColumnChart",
+  "query": {
+   "queryState": {
+    "Category": {
+     "projections": [
+      {
+       "field": {
+        "Column": {
+         "Expression": {
+          "SourceRef": {
+           "Entity": "Dim_Date"
+          }
+         },
+         "Property": "year"
+        }
+       },
+       "queryRef": "Dim_Date.year",
+       "nativeQueryRef": "year",
+       "active": true
+      }
+     ]
+    },
+    "Y": {
+     "projections": [
+      {
+       "field": {
+        "Measure": {
+         "Expression": {
+          "SourceRef": {
+           "Entity": "Fact_Transaction"
+          }
+         },
+         "Property": "Net_Cashflow"
+        }
+       },
+       "queryRef": "Fact_Transaction.Net_Cashflow",
+       "nativeQueryRef": "Net_Cashflow"
+      }
+     ]
+    }
+   },
+   "sortDefinition": {
+    "sort": [
+     {
+      "field": {
+       "Measure": {
+        "Expression": {
+         "SourceRef": {
+          "Entity": "Fact_Transaction"
+         }
+        },
+        "Property": "Net_Cashflow"
+       }
+      },
+      "direction": "Descending"
+     }
+    ],
+    "isDefaultSort": true
+   }
+  },
+  "drillFilterOtherVisuals": true
+ }
+}

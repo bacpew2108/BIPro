@@ -247,7 +247,8 @@ enum FormatCatalog {
                 ]),
                 card(.objects, "general", "Bố cục", [
                     // Danh sách của Desktop: Compact, Outline, Tabular; mới thấy literal của Tabular trong file.
-                    prop("layout", "Kiểu bố cục", .choice([FormatChoice(title: "Dạng bảng (Tabular)", literal: "'Tabular'")]), vm8, rendered: false),
+                    prop("layout", "Kiểu bố cục", .choice([FormatChoice(title: "Gọn (Compact)", literal: "'Compact'"), FormatChoice(title: "Phác thảo (Outline)", literal: "'Outline'"),
+                                                                           FormatChoice(title: "Dạng bảng (Tabular)", literal: "'Tabular'")]), vm8, rendered: false),
                 ]),
                 card(.objects, "subTotals", "Tổng phụ", [
                     prop("rowSubtotals", "Tổng phụ theo hàng", .bool, "\(nhom6), \(vm8)", defaultOn: true),

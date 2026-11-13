@@ -1,0 +1,356 @@
+{
+ "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+ "name": "70eec8cdea665a11db4a",
+ "position": {
+  "x": 1208,
+  "y": 688,
+  "z": 37000,
+  "height": 380,
+  "width": 688,
+  "tabOrder": 37000
+ },
+ "visual": {
+  "visualType": "pivotTable",
+  "query": {
+   "queryState": {
+    "Columns": {
+     "projections": [
+      {
+       "field": {
+        "HierarchyLevel": {
+         "Expression": {
+          "Hierarchy": {
+           "Expression": {
+            "SourceRef": {
+             "Entity": "Dim_Account"
+            }
+           },
+           "Hierarchy": "Chi nhánh"
+          }
+         },
+         "Level": "Vùng"
+        }
+       },
+       "queryRef": "Dim_Account.Chi nhánh.Vùng",
+       "nativeQueryRef": "Vùng",
+       "active": true,
+       "displayName": "Vùng"
+      },
+      {
+       "field": {
+        "HierarchyLevel": {
+         "Expression": {
+          "Hierarchy": {
+           "Expression": {
+            "SourceRef": {
+             "Entity": "Dim_Account"
+            }
+           },
+           "Hierarchy": "Chi nhánh"
+          }
+         },
+         "Level": "Bang"
+        }
+       },
+       "queryRef": "Dim_Account.Chi nhánh.Bang",
+       "nativeQueryRef": "Bang",
+       "active": false,
+       "displayName": "Bang"
+      },
+      {
+       "field": {
+        "HierarchyLevel": {
+         "Expression": {
+          "Hierarchy": {
+           "Expression": {
+            "SourceRef": {
+             "Entity": "Dim_Account"
+            }
+           },
+           "Hierarchy": "Chi nhánh"
+          }
+         },
+         "Level": "Chi nhánh"
+        }
+       },
+       "queryRef": "Dim_Account.Chi nhánh.Chi nhánh",
+       "nativeQueryRef": "Chi nhánh",
+       "active": false,
+       "displayName": "Chi nhánh"
+      }
+     ]
+    },
+    "Rows": {
+     "projections": [
+      {
+       "field": {
+        "Column": {
+         "Expression": {
+          "SourceRef": {
+           "Entity": "Dim_Client"
+          }
+         },
+         "Property": "age_group_current"
+        }
+       },
+       "queryRef": "Dim_Client.age_group_current",
+       "nativeQueryRef": "age_group_current",
+       "active": true,
+       "displayName": "Nhóm tuổi"
+      }
+     ]
+    },
+    "Values": {
+     "projections": [
+      {
+       "field": {
+        "Measure": {
+         "Expression": {
+          "SourceRef": {
+           "Entity": "Fact_Transaction"
+          }
+         },
+         "Property": "Trans per Client"
+        }
+       },
+       "queryRef": "Fact_Transaction.Trans per Client",
+       "nativeQueryRef": "Trans per Client",
+       "displayName": "GD / KH"
+      }
+     ]
+    }
+   }
+  },
+  "objects": {
+   "values": [
+    {
+     "properties": {
+      "backColor": {
+       "solid": {
+        "color": {
+         "expr": {
+          "FillRule": {
+           "Input": {
+            "Measure": {
+             "Expression": {
+              "SourceRef": {
+               "Entity": "Fact_Transaction"
+              }
+             },
+             "Property": "Trans per Client"
+            }
+           },
+           "FillRule": {
+            "linearGradient3": {
+             "min": {
+              "color": {
+               "Literal": {
+                "Value": "'#F7FCF5'"
+               }
+              }
+             },
+             "mid": {
+              "color": {
+               "Literal": {
+                "Value": "'#A1D99B'"
+               }
+              }
+             },
+             "max": {
+              "color": {
+               "Literal": {
+                "Value": "'#31A354'"
+               }
+              }
+             },
+             "nullColoringStrategy": {
+              "strategy": {
+               "Literal": {
+                "Value": "'asZero'"
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "selector": {
+      "data": [
+       {
+        "dataViewWildcard": {
+         "matchingOption": 1
+        }
+       }
+      ],
+      "metadata": "Fact_Transaction.Trans per Client"
+     }
+    },
+    {
+     "properties": {
+      "fontSize": {
+       "expr": {
+        "Literal": {
+         "Value": "13D"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "columnHeaders": [
+    {
+     "properties": {
+      "fontSize": {
+       "expr": {
+        "Literal": {
+         "Value": "12D"
+        }
+       }
+      },
+      "autoSizeColumnWidth": {
+       "expr": {
+        "Literal": {
+         "Value": "true"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "rowHeaders": [
+    {
+     "properties": {
+      "fontSize": {
+       "expr": {
+        "Literal": {
+         "Value": "12D"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "grid": [
+    {
+     "properties": {
+      "rowPadding": {
+       "expr": {
+        "Literal": {
+         "Value": "9D"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "columnWidth": [
+    {
+     "properties": {
+      "value": {
+       "expr": {
+        "Literal": {
+         "Value": "90D"
+        }
+       }
+      }
+     },
+     "selector": {
+      "metadata": "Dim_Client.age_group_current"
+     }
+    },
+    {
+     "properties": {
+      "value": {
+       "expr": {
+        "Literal": {
+         "Value": "113D"
+        }
+       }
+      }
+     },
+     "selector": {
+      "metadata": "Fact_Transaction.Trans per Client"
+     }
+    }
+   ],
+   "general": [
+    {
+     "properties": {
+      "layout": {
+       "expr": {
+        "Literal": {
+         "Value": "'Compact'"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  "visualContainerObjects": {
+   "title": [
+    {
+     "properties": {
+      "show": {
+       "expr": {
+        "Literal": {
+         "Value": "true"
+        }
+       }
+      },
+      "text": {
+       "expr": {
+        "Literal": {
+         "Value": "'Nhóm tuổi, địa bàn nào giao dịch nhiều nhất? (GD / KH)'"
+        }
+       }
+      }
+     }
+    }
+   ],
+   "subTitle": [
+    {
+     "properties": {
+      "show": {
+       "expr": {
+        "Literal": {
+         "Value": "true"
+        }
+       }
+      },
+      "text": {
+       "expr": {
+        "Literal": {
+         "Value": "'Q1.6 · ⇊ Drill: Vùng → Bang → Chi nhánh · màu đậm = GD/KH cao hơn · chuột phải → Drill through'"
+        }
+       }
+      },
+      "fontColor": {
+       "solid": {
+        "color": {
+         "expr": {
+          "Literal": {
+           "Value": "'#6A7179'"
+          }
+         }
+        }
+       }
+      },
+      "fontSize": {
+       "expr": {
+        "Literal": {
+         "Value": "9D"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  "drillFilterOtherVisuals": true
+ }
+}
