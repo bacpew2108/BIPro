@@ -9,7 +9,8 @@ public enum PBIRNewVisual {
             "card": (302, 108), "cardVisual": (302, 108), "slicer": (364, 64), "textbox": (400, 100),
         ]
         for type in ["clusteredBarChart", "clusteredColumnChart", "columnChart", "hundredPercentStackedColumnChart", "lineChart", "lineClusteredColumnComboChart",
-                     "lineStackedColumnComboChart", "donutChart", "treemap", "pivotTable", "shapeMap"] {
+                     "lineStackedColumnComboChart", "donutChart", "treemap", "pivotTable", "shapeMap",
+                     "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel"] {
             table[type] = (616, 380)
         }
         return table

@@ -60,6 +60,14 @@ import Testing
         }
     }
 
+    /// VM-D15: ô "Chú thích công cụ" của bản đồ hình hiện hai lần vì bảng đã có sẵn mà còn bị thêm cuối.
+    @Test func everyWellRoleAppearsOnce() {
+        for type in ["shapeMap", "card", "lineChart", "clusteredColumnChart", "pivotTable", "donutChart", "treemap", "scatterChart"] {
+            let roles = VisualCatalog.wells(for: Self.visual(type)).map(\.role)
+            #expect(roles.count == Set(roles).count, Comment(rawValue: "\(type): \(roles)"))
+        }
+    }
+
     @Test func unobservedWellsAreShownButRefuse() {
         let v = Self.visual("lineClusteredColumnComboChart")        // Series chưa quan sát ở loại này
         let rule = WellRules.rule(for: v, role: "Series")

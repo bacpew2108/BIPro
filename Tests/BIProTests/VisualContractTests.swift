@@ -145,12 +145,25 @@ import Testing
         #expect(NumberDisplay.text(DataCell(.double(3_227_472_424.5), formatString: "\\$#,0")) == "$3bn")
         #expect(NumberDisplay.text(DataCell(.double(197_151_288.7), formatString: "\\$#,0")) == "$197M")
         #expect(NumberDisplay.text(DataCell(.double(43_811.6572), formatString: "\\$#,0")) == "$44K")
+        // VM-D14: card "Giá trị TB/GD" (labelDisplayUnits = 0, Tự động) hiện `$5,924` ở Desktop, không phải `$6K`.
+        #expect(NumberDisplay.text(DataCell(.double(5_924.19), formatString: "\\$#,0")) == "$5,924")
         // labelDisplayUnits = 1 (Không): "Số giao dịch" 1,056,320.
         #expect(NumberDisplay.text(DataCell(.integer(1_056_320), formatString: "#,0"), units: DisplayUnits.none) == "1,056,320")
         // D2 (xf-D2.png): labelPrecision = 1 giữ số 0 cuối.
         #expect(NumberDisplay.text(DataCell(.double(33_000_000), formatString: "\\$#,0"), precision: 1) == "$33.0M")
         #expect(NumberDisplay.decimalPlaces(of: "$#,0.00;($#,0.00)") == 2)
         #expect(NumberDisplay.decimalPlaces(of: "") == nil)
+    }
+
+    /// Ngưỡng của "Tự động" (VM-D14): nghìn từ 10.000, triệu từ 999.500, tỉ từ 999.500.000 (như `DisplayUnitSystem` của Power BI,
+    /// khớp card `$5,924` của Desktop): số bốn chữ số giữ nguyên, số làm tròn lên 1M vẫn ghi theo M.
+    @Test func nguongDonViTuDong() {
+        #expect(NumberDisplay.text(DataCell(.integer(9_999), formatString: "#,0")) == "9,999")
+        #expect(NumberDisplay.text(DataCell(.integer(10_000))) == "10K")
+        #expect(NumberDisplay.text(DataCell(.double(999_499))) == "999.5K")
+        #expect(NumberDisplay.text(DataCell(.double(999_500))) == "1M")
+        #expect(NumberDisplay.text(DataCell(.double(999_500_000))) == "1bn")
+        #expect(NumberDisplay.text(DataCell(.double(999_500_000_000))) == "1T")
     }
 
     @Test func giuKyHieuTienTeVaPhanTram() {

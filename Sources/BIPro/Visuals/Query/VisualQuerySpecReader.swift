@@ -57,14 +57,16 @@ struct VisualQuerySpecReader {
             spec.primary = Array(groupFields(queryState["Category"], role: "Category", activeOnly: false).prefix(1))
         default:
             spec.primary = groupFields(queryState["Category"], role: "Category", activeOnly: true)
-            spec.secondary = groupFields(queryState["Series"], role: "Series", activeOnly: true)
+            // Thác nước dùng ô Breakdown thay cho Series (VM-D16: Category, Breakdown, Y).
+            let legendRole = type == "waterfallChart" ? "Breakdown" : "Series"
+            spec.secondary = groupFields(queryState[legendRole], role: legendRole, activeOnly: true)
         }
 
         // Measure theo thứ tự vai trò. Card và shape map: mọi measure IGNORE; Tooltips luôn IGNORE.
         var used = Set<String>()
         var values: [QueryMeasure] = []
         var scoped: [QueryMeasure] = []
-        let roleOrder = ["Y", "Y2", "Values", "Data", "Tooltips"]
+        let roleOrder = ["Y", "Y2", "Values", "Data", "Value", "Tooltips"]
         let allIgnored = shape == .card || shape == .shapeMap
         let splitScope = shape == .chart && !spec.secondary.isEmpty && queryState["Y2"] != nil
         for role in roleOrder where !(shape.isSlicer) {
@@ -256,7 +258,7 @@ struct VisualQuerySpecReader {
 
     // MARK: - Sắp xếp, giảm dữ liệu
 
-    private static func ascendingKeys(_ g: GroupField) -> [QuerySortKey] {
+    static func ascendingKeys(_ g: GroupField) -> [QuerySortKey] {
         (g.sortBy.map { [QuerySortKey(target: .column($0), ascending: true)] } ?? [])
             + [QuerySortKey(target: .column(g.column), ascending: true)]
     }
@@ -273,8 +275,8 @@ struct VisualQuerySpecReader {
                 return Self.ascendingKeys(g).map { QuerySortKey(target: $0.target, ascending: ascending) }
             }
         }
-        // Treemap mặc định theo giá trị giảm dần (D3-treemap).
-        if shape == .treemap, let m = spec.measures.first(where: { !$0.ignore }) {
+        // Treemap mặc định theo giá trị giảm dần (D3-treemap); phễu cũng vậy (VM-D15 mục 4: 2018 đứng đầu vì lớn nhất).
+        if shape == .treemap || spec.visualType == "funnel" || spec.visualType == "waterfallChart", let m = spec.measures.first(where: { !$0.ignore }) {
             return [QuerySortKey(target: .result(m.resultName), ascending: false)] + byAxis
         }
         return byAxis

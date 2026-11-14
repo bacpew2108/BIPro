@@ -84,6 +84,15 @@ enum ChartAxis {
     ///   - (0…30M, `$#,0`) → `["$0M","$10M","$20M","$30M"]`
     ///   - (0…1bn bước 0.5bn) → `["$0.0bn","$0.5bn","$1.0bn"]`
     ///   - định dạng `0%` → `["0%","5%","10%","15%"]`
+    /// Vạch của trục log: các luỹ thừa của 10 từ luỹ thừa ngay dưới `low` đến luỹ thừa ngay trên `high` (ít nhất hai vạch).
+    static func logTicks(low: Double, high: Double) -> [Double] {
+        guard low > 0, high >= low else { return [1, 10] }
+        let first = Int(floor(log10(low) + 1e-9))
+        var last = Int(ceil(log10(high) - 1e-9))
+        if last <= first { last = first + 1 }
+        return (first...last).map { pow(10.0, Double($0)) }
+    }
+
     static func labels(
         ticks: [Double],
         units: DisplayUnits = .auto,

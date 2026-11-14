@@ -82,6 +82,10 @@ struct ValueAxisFormat: Hashable, Sendable {
     var secondaryEnd: Double?
     var secondaryDisplayUnits: DisplayUnits = .auto
     var secondaryPrecision: Int?
+    /// `valueAxis.logAxisScale` (Desktop: Y-axis > Range > Logarithmic scale, VM-D17).
+    var logScale: Bool?
+    /// `valueAxis.roundRange` (Desktop: Y-axis > Range > Round range, mặc định bật; tắt thì trục lấy đúng miền dữ liệu, VM-D18).
+    var roundRange: Bool?
 }
 
 struct CategoryAxisFormat: Hashable, Sendable {
@@ -180,7 +184,8 @@ struct VisualFormat: Hashable, Sendable {
             precision: o.number("valueAxis", "labelPrecision").map { Int($0) },
             secondaryStart: o.number("valueAxis", "secStart"), secondaryEnd: o.number("valueAxis", "secEnd"),
             secondaryDisplayUnits: DisplayUnits(code: o.number("valueAxis", "secLabelDisplayUnits")),
-            secondaryPrecision: o.number("valueAxis", "secLabelPrecision").map { Int($0) })
+            secondaryPrecision: o.number("valueAxis", "secLabelPrecision").map { Int($0) },
+            logScale: o.bool("valueAxis", "logAxisScale"), roundRange: o.bool("valueAxis", "roundRange"))
         categoryAxis = CategoryAxisFormat(fontSize: o.number("categoryAxis", "fontSize"),
                                           axisType: o.string("categoryAxis", "axisType"))
         matrix = MatrixFormat(

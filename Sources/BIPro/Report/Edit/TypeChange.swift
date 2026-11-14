@@ -111,7 +111,7 @@ enum TypeChange {
     /// Loại có trục (cột, thanh, đường, vùng, combo…).
     static func hasAxes(_ type: String) -> Bool {
         type.hasSuffix("BarChart") || type.hasSuffix("ColumnChart") || type == "columnChart" || type.contains("Combo")
-            || ["lineChart", "areaChart", "stackedAreaChart", "ribbonChart", "waterfallChart"].contains(type)
+            || ["lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart"].contains(type)
     }
 
     /// Khoá `objects` có giữ khi đổi sang `type` không. Quan sát VM-D3: Desktop chỉ bỏ khoá không còn hợp lệ
@@ -123,6 +123,10 @@ enum TypeChange {
         if key == "forecast" { return type == "lineChart" }
         if key == "value" { return type == "donutChart" || type == "pieChart" }
         if key == "labels" { return type != "shapeMap" }   // VM-D12: Desktop bỏ `labels` khi thành bản đồ hình
+        // VM-D12 (`retype-waterfall`, `retype-funnel`, `retype-lineStackedColumn`): đường sang các loại này bỏ `trend`; phễu giữ
+        // `categoryAxis` (bỏ `valueAxis`).
+        if key == "trend", ["waterfallChart", "funnel", "lineStackedColumnComboChart"].contains(type) { return false }
+        if key == "categoryAxis", type == "funnel" { return true }
         if axisKeys.contains(key) { return hasAxes(type) }
         return true
     }

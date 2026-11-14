@@ -1,6 +1,13 @@
 import PBIXKit
 import SwiftUI
 
+/// Giá trị Desktop dùng khi file không đặt riêng (VM-D16, biểu đồ cột mới): Legend ở "Bottom left", chữ Segoe UI 10; giá trị trục chữ 10,5.
+enum ChartDefaults {
+    static let legendPosition = "BottomLeft"
+    static let legendFontSize = 10.0
+    static let axisFontSize = 10.5
+}
+
 struct LegendItem: Identifiable, Hashable, Sendable {
     var id: String
     var name: String
@@ -25,12 +32,12 @@ struct ChartLegendView: View {
     }
     
     private var size: CGFloat {
-        ReportUnits.pixels(fromPoints: fontSize ?? 9)
+        ReportUnits.pixels(fromPoints: fontSize ?? ChartDefaults.legendFontSize)
     }
     
     var body: some View {
-        let pos = position ?? "Top"
-        if pos.contains("Left") || pos.contains("Right") {
+        let pos = position ?? ChartDefaults.legendPosition
+        if ["Left", "Right", "LeftCenter", "RightCenter"].contains(pos) {   // BottomLeft, TopRight… vẫn xếp ngang
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(items) { item in
                     legendRow(item)

@@ -226,7 +226,35 @@ struct ShapeMapView: View {
         self.interactive = interactive
     }
 
+    /// Chú giải các giá trị Series (Legend) ở đáy bản đồ, như Desktop (VM-D15 mục 3): chấm màu dữ liệu của theme và nhãn.
+    private var legendHeight: CGFloat { data.series.isEmpty ? 0 : 26 }
+
     var body: some View {
+        VStack(spacing: 0) {
+            mapBody
+            if !data.series.isEmpty { legend.frame(height: legendHeight) }
+        }
+    }
+
+    private var legend: some View {
+        let size = ReportUnits.pixels(fromPoints: context.format.legend.fontSize ?? 9)
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(Array(data.series.enumerated()), id: \.offset) { index, value in
+                    HStack(spacing: 4) {
+                        Circle().fill(context.theme.dataColor(index)).frame(width: size, height: size)
+                        Text(data.seriesField?.text(value) ?? value.asText())
+                            .font(.system(size: size))
+                            .foregroundStyle(context.theme.foregroundColor)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+    }
+
+    private var mapBody: some View {
         GeometryReader { geo in
             let fittedMap = getFittedMap(for: geo.size)
 
@@ -262,7 +290,7 @@ struct ShapeMapView: View {
                     .fill(item.color.opacity(item.opacity))
                     .overlay {
                         item.path
-                            .stroke(Color.white.opacity(0.85), lineWidth: 0.6)
+                            .stroke(strokeColor, lineWidth: 0.6)
                     }
             }
         }
@@ -305,6 +333,33 @@ struct ShapeMapView: View {
         }
     }
 
+    private static func number(_ value: Value) -> Double? {
+        switch value {
+        case .integer(let i): Double(i)
+        case .double(let d): d
+        case .currency(let c): Double(c) / 10_000
+        default: nil
+        }
+    }
+
+    /// Màu Color saturation mặc định của Desktop: nội suy tuyến tính Min `#F8E5D8` đến Max `#D9ECFB`.
+    static func saturationColor(_ value: Double, low: Double, high: Double) -> Color {
+        let rgb = saturationRGB(value, low: low, high: high)
+        return Color(red: rgb.r, green: rgb.g, blue: rgb.b)
+    }
+
+    static func saturationRGB(_ value: Double, low: Double, high: Double) -> (r: Double, g: Double, b: Double) {
+        let t = high > low ? min(1, max(0, (value - low) / (high - low))) : 1
+        let (r0, g0, b0) = (0xF8 / 255.0, 0xE5 / 255.0, 0xD8 / 255.0)
+        let (r1, g1, b1) = (0xD9 / 255.0, 0xEC / 255.0, 0xFB / 255.0)
+        return (r0 + (r1 - r0) * t, g0 + (g1 - g0) * t, b0 + (b1 - b0) * t)
+    }
+
+    /// Viền bang: trắng như bản Nhom6 khi file đặt `defaultColors`; không thì xám đậm hơn nền, như Desktop (VM-D15 mục 3).
+    private var strokeColor: Color {
+        context.format.shapeMap.defaultColor == nil ? Color.black.opacity(0.3) : Color.white.opacity(0.85)
+    }
+
     private struct StateDrawable {
         var featureID: String
         var featureName: String
@@ -333,8 +388,20 @@ struct ShapeMapView: View {
             }
         }
 
+        // Bang không có dữ liệu: màu của `defaultColors` nếu file có, không thì xám như Desktop (VM-D15 mục 3).
+        // Ô Value ("Color saturation"): thang màu mặc định của Desktop, tuyến tính từ giá trị nhỏ nhất đến lớn nhất của các bang
+        // đang vẽ (VM-D15 mục 3: Min #F8E5D8, Max #D9ECFB; mọi bang cùng giá trị thì ra màu Max).
+        // Có chú giải Series thì các bang tô theo series (toàn màu đầu ở mẫu Desktop), không theo thang saturation (VM-D16 mục 2).
+        let saturationMeasure = data.series.isEmpty ? data.measureIndices(role: "Value").first : nil
+        var saturationRange: (low: Double, high: Double)?
+        if let m = saturationMeasure {
+            let numbers = data.categories.indices.compactMap { Self.number(data.cell(measure: m, series: 0, category: $0).value) }
+            if let low = numbers.min(), let high = numbers.max() { saturationRange = (low, high) }
+        }
         let defaultThemeColor = context.theme.color(context.format.shapeMap.defaultColor)
-            ?? (Color(hex: "#81B29A") ?? .teal)
+            ?? (Color(hex: "#C7C7C7") ?? .gray)
+        // Bang có dữ liệu mà chưa có màu riêng: màu dữ liệu đầu của theme (Desktop: bản đồ chỉ có Location ra toàn màu này).
+        let matchedDefaultColor = context.theme.dataColor(0)
 
         var result: [StateDrawable] = []
 
@@ -361,7 +428,13 @@ struct ShapeMapView: View {
                     }
                 }
 
-                let color = resolvedColor ?? defaultThemeColor
+                if resolvedColor == nil, let m = saturationMeasure, let range = saturationRange,
+                   let value = Self.number(data.cell(measure: m, series: 0, category: matched.catIndex).value) {
+                    resolvedColor = Self.saturationColor(value, low: range.low, high: range.high)
+                }
+                // Có ô Value mà bang này trống thì như bang không có dữ liệu (xám), như Desktop.
+                let blankValue = saturationMeasure.map { Self.number(data.cell(measure: $0, series: 0, category: matched.catIndex).value) == nil } ?? false
+                let color = resolvedColor ?? (blankValue ? defaultThemeColor : matchedDefaultColor)
                 var opacity = 1.0
                 if !context.selection.isEmpty {
                     opacity = context.selection.contains(matched.pointID) ? 1.0 : 0.40

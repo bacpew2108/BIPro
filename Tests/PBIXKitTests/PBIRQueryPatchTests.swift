@@ -474,5 +474,21 @@ import Testing
         let again = try PBIRVisualPatch.addingShapeMapDefaults(to: Data(extended.utf8))
         #expect(again == Data(extended.utf8))
     }
-}
 
+    // MARK: VM-D12 / VM-D15: thác nước và phễu bỏ `axisType` của trục danh mục
+
+    @Test func removingCategoryAxisTypeKeepsTheEntryAndTheOtherProperties() throws {
+        let line = Data(#"{"visual":{"visualType":"lineChart","objects":{"categoryAxis":[{"properties":{"axisType":{"expr":1},"fontSize":{"expr":2}}}],"labels":[{"properties":{}}]}}}"#.utf8)
+        let out = String(decoding: try PBIRVisualPatch.removingCategoryAxisType(from: line), as: UTF8.self)
+        #expect(out == #"{"visual":{"visualType":"lineChart","objects":{"categoryAxis":[{"properties":{"fontSize":{"expr":2}}}],"labels":[{"properties":{}}]}}}"#)
+        // Chỉ có axisType: còn mục với `properties` rỗng, như Desktop (`[{"properties":{}}]`).
+        let only = Data(#"{"visual":{"objects":{"categoryAxis":[{"properties":{"axisType":{"expr":1}}}]}}}"#.utf8)
+        #expect(String(decoding: try PBIRVisualPatch.removingCategoryAxisType(from: only), as: UTF8.self)
+                == #"{"visual":{"objects":{"categoryAxis":[{"properties":{}}]}}}"#)
+        // Không có axisType hoặc không có categoryAxis: giữ nguyên byte.
+        let none = Data(#"{"visual":{"objects":{"categoryAxis":[{"properties":{}}]}}}"#.utf8)
+        #expect(try PBIRVisualPatch.removingCategoryAxisType(from: none) == none)
+        let bare = Data(#"{"visual":{"visualType":"funnel"}}"#.utf8)
+        #expect(try PBIRVisualPatch.removingCategoryAxisType(from: bare) == bare)
+    }
+}

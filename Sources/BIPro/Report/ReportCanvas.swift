@@ -252,6 +252,7 @@ struct VisualContentView: View {
         "clusteredBarChart", "clusteredColumnChart", "stackedColumnChart", "columnChart", "hundredPercentStackedColumnChart",
         "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
         "donutChart", "treemap", "shapeMap",
+        "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel",
     ]
 
     var body: some View {

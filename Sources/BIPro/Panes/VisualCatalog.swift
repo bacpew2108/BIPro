@@ -16,6 +16,7 @@ enum VisualCatalog {
         Entry(type: "lineChart", name: "Biểu đồ đường", symbol: "chart.xyaxis.line"),
         Entry(type: "areaChart", name: "Biểu đồ vùng", symbol: "chart.line.uptrend.xyaxis"),
         Entry(type: "stackedAreaChart", name: "Vùng xếp chồng", symbol: "square.stack.3d.up"),
+        Entry(type: "hundredPercentStackedAreaChart", name: "Vùng xếp chồng 100%", symbol: "square.stack.3d.up.fill"),
         Entry(type: "lineStackedColumnComboChart", name: "Đường và cột xếp chồng", symbol: "chart.bar.doc.horizontal"),
         Entry(type: "lineClusteredColumnComboChart", name: "Đường và cột nhóm", symbol: "chart.bar.xaxis.ascending"),
         Entry(type: "ribbonChart", name: "Biểu đồ ruy băng", symbol: "waveform.path"),
@@ -71,12 +72,16 @@ enum VisualCatalog {
                      Well(role: "Y2", label: "Trục Y (đường)"), Well(role: "Series", label: "Chú giải cột")]
         case _ where t.hasSuffix("BarChart"):
             wells = [Well(role: "Category", label: "Trục Y"), Well(role: "Y", label: "Trục X"), Well(role: "Series", label: "Chú giải")]
-        case _ where t.hasSuffix("ColumnChart") || t == "columnChart" || t == "ribbonChart" || t == "waterfallChart":
+        case "waterfallChart":
+            wells = [Well(role: "Category", label: "Trục X"), Well(role: "Breakdown", label: "Chia nhỏ"), Well(role: "Y", label: "Trục Y")]
+        case "funnel":
+            wells = [Well(role: "Category", label: "Danh mục"), Well(role: "Y", label: "Giá trị")]
+        case _ where t.hasSuffix("ColumnChart") || t == "columnChart" || t == "ribbonChart":
             wells = [Well(role: "Category", label: "Trục X"), Well(role: "Y", label: "Trục Y"), Well(role: "Series", label: "Chú giải")]
-        case "lineChart", "areaChart", "stackedAreaChart":
+        case "lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart":
             wells = [Well(role: "Category", label: "Trục X"), Well(role: "Y", label: "Trục Y"),
                      Well(role: "Y2", label: "Trục Y phụ"), Well(role: "Series", label: "Chú giải")]
-        case "donutChart", "pieChart", "funnel":
+        case "donutChart", "pieChart":
             wells = [Well(role: "Category", label: "Chú giải"), Well(role: "Y", label: "Giá trị"), Well(role: "Series", label: "Chi tiết")]
         case "treemap":
             wells = [Well(role: "Group", label: "Danh mục"), Well(role: "Details", label: "Chi tiết"), Well(role: "Values", label: "Giá trị")]
@@ -110,7 +115,7 @@ enum VisualCatalog {
         for role in visual.fields.map(\.role) where role != "Tooltips" && !wells.contains(where: { $0.role == role }) {
             wells.append(Well(role: role, label: role))
         }
-        if !wells.isEmpty { wells.append(Well(role: "Tooltips", label: "Chú thích công cụ")) }
+        if !wells.isEmpty, !wells.contains(where: { $0.role == "Tooltips" }) { wells.append(Well(role: "Tooltips", label: "Chú thích công cụ")) }
         return wells
     }
 }

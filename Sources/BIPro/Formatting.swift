@@ -49,6 +49,11 @@ extension ReportTheme {
         Color(hex: dataColors[index % max(1, dataColors.count)]) ?? .accentColor
     }
 
+    /// Màu cảm xúc của thác nước (VM-D15 mục 4: Desktop tô cột tăng bằng `good`, cột giảm bằng `bad`, giá trị mặc định khi theme không có).
+    var goodColor: Color { Color(hex: good ?? "#1AAB40") ?? .green }
+    var neutralColor: Color { Color(hex: neutral ?? "#D9B300") ?? .yellow }
+    var badColor: Color { Color(hex: bad ?? "#D64554") ?? .red }
+
     var foregroundColor: Color { foreground.flatMap(Color.init(hex:)) ?? Color(hex: "#252423")! }
 }
 

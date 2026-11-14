@@ -54,6 +54,14 @@ enum WellRules {
         "lineClusteredColumnComboChart": ["Category": (.column, true), "Tooltips": (.measure, false), "Y": (.measure, false), "Y2": (.measure, false)],
         "lineStackedColumnComboChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false),
                                         "Y": (.measure, false), "Y2": (.measure, false)],
+        // VM-D15 mục 4 (VM-D12 `retype-*`, tạo mới trong Desktop): vùng và ruy-băng có Category, Series (Legend), Y, Tooltips;
+        // thác nước có Category, Breakdown, Y, Tooltips (VM-D16 mục 3), phễu Category, Y, Tooltips.
+        "areaChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Y2": (.measure, false), "Tooltips": (.measure, false)],
+        "hundredPercentStackedAreaChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Y2": (.measure, false), "Tooltips": (.measure, false)],
+        "stackedAreaChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Y2": (.measure, false), "Tooltips": (.measure, false)],
+        "ribbonChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Tooltips": (.measure, false)],
+        "waterfallChart": ["Category": (.column, true), "Breakdown": (.column, true), "Y": (.measure, false), "Tooltips": (.measure, false)],
+        "funnel": ["Category": (.column, false), "Y": (.measure, false), "Tooltips": (.measure, false)],
         "pivotTable": ["Columns": (.column, true), "Rows": (.column, true), "Values": (.measure, false)],
         // VM-D12: bản đồ hình tạo trong Desktop có thêm `Series` (Chú giải) và `Value` (Độ bão hoà màu).
         "shapeMap": ["Category": (.column, true), "Series": (.column, true), "Value": (.measure, true), "Tooltips": (.measure, false)],

@@ -131,6 +131,37 @@ public enum PBIRVisualPatch {
         return Data(bytes)
     }
 
+    // MARK: - Category axis type
+
+    /// `json` with the `axisType` property removed from `objects.categoryAxis[*].properties` (the entries stay, possibly with
+    /// empty `properties`). Power BI Desktop does this when a line chart becomes a waterfall or a funnel, which have no
+    /// continuous axis (VM-D12 `retype-waterfall`, `retype-funnel`). Does nothing when no entry has `axisType`.
+    public static func removingCategoryAxisType(from json: Data) throws -> Data {
+        let root = try parseObject(json)
+        guard var visual = root["visual"] as? [String: Any], var objects = visual["objects"] as? [String: Any],
+              var entries = objects["categoryAxis"] as? [[String: Any]] else { return json }
+        var bytes = [UInt8](json)
+        var changed = false
+        for index in entries.indices.reversed() {
+            let path = objectsPath + [.key("categoryAxis"), .index(index), .key("properties")]
+            guard var properties = entries[index]["properties"] as? [String: Any], properties["axisType"] != nil,
+                  let kids = JSONCursor.children(at: path, in: bytes) else { continue }
+            let names = kids.map { $0.key.flatMap { JSONCursor.string(in: bytes, $0) } ?? "" }
+            let drop = Set(names.indices.filter { names[$0] == "axisType" })
+            bytes = JSONCursor.removing(drop, from: kids, in: bytes)
+            properties["axisType"] = nil
+            entries[index]["properties"] = properties
+            changed = true
+        }
+        guard changed else { return json }
+        objects["categoryAxis"] = entries
+        visual["objects"] = objects
+        var expected = root
+        expected["visual"] = visual
+        try verify(Data(bytes), equals: expected, what: "category axis type splice")
+        return Data(bytes)
+    }
+
     // MARK: - Text box
 
     /// `json` with the paragraphs of a text box set to `lines`. A paragraph with one run keeps its style and only its

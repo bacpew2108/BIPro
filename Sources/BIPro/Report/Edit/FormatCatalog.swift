@@ -74,11 +74,14 @@ enum FormatCatalog {
     private static let vm8 = "VM-D8 mục 6"
     /// `docs/phase-d-evidence/vm-d12/QUAN-SAT.md` mục 3 (công tắc mặc định của visual mới).
     private static let vm12 = "VM-D12 mục 3"
+    private static let vm15 = "VM-D15 mục 2"
     /// Cỡ chữ tiêu đề: Desktop kẹp 8 đến 60 (VM-D8).
     private static let titleFontSize = FormatKind.number(min: 8, max: 60, step: 1, tail: .d)
 
     private static let axisCharts: Set<String> = ["clusteredColumnChart", "columnChart", "clusteredBarChart", "hundredPercentStackedColumnChart",
-                                                  "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart"]
+                                                  "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
+                                                  // VM-D15 mục 4: khoá `categoryAxis`, `valueAxis`, `labels`… đã thấy trên các loại này (VM-D12).
+                                                  "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart"]
 
     // MARK: Thẻ
 
@@ -97,13 +100,13 @@ enum FormatCatalog {
                 FormatChoice(title: "Georgia", literal: "'Georgia'")]), vm8, rendered: false),
             prop("heading", "Cấp tiêu đề", .choice([FormatChoice(title: "Heading 2", literal: "'Heading2'")]), vm8, rendered: false),
             prop("titleWrap", "Ngắt dòng", .bool, vm8, rendered: false, defaultOn: true),
-            prop("bold", "Đậm", .bool, "\(vm) mục 3"),
+            prop("bold", "Đậm", .bool, "\(vm) mục 3, \(vm15)", defaultOn: false),
             prop("alignment", "Căn lề", .choice([FormatChoice(title: "Trái", literal: "'left'"), FormatChoice(title: "Giữa", literal: "'center'"),
                                                    FormatChoice(title: "Phải", literal: "'right'")]), "\(vm) mục 1, vòng 2"),
             prop("fontColor", "Màu chữ", .color, "\(vm) mục 1"),
         ]),
         card(.container, "subTitle", "Phụ đề", [
-            prop("show", "Hiện phụ đề", .bool, nhom6, rendered: false, cardSwitch: true),
+            prop("show", "Hiện phụ đề", .bool, "\(nhom6), \(vm15)", rendered: false, cardSwitch: true, defaultOn: true),
             prop("text", "Nội dung", plainText, nhom6, rendered: false),
             prop("fontSize", "Cỡ chữ", fontSize, nhom6, rendered: false),
             prop("fontColor", "Màu chữ", .color, nhom6, rendered: false),
@@ -193,6 +196,8 @@ enum FormatCatalog {
                     prop("show", "Hiện giá trị trục", .bool, "\(vm) mục 3", rendered: false, defaultOn: true),
                     prop("showAxisTitle", "Hiện tiêu đề trục", .bool, "\(vm) mục 3", rendered: false, defaultOn: false),
                     prop("invertAxis", "Đảo trục", .bool, "\(vm) mục 3", rendered: false, defaultOn: false),
+                    prop("logAxisScale", "Thang logarit", .bool, "VM-D17", defaultOn: false),
+                    prop("roundRange", "Làm tròn miền", .bool, "VM-D18", defaultOn: true),
                     prop("start", "Nhỏ nhất", .number(min: -1_000_000_000, max: 1_000_000_000, step: 1, tail: .d), nhom6),
                     prop("end", "Lớn nhất", .number(min: -1_000_000_000, max: 1_000_000_000, step: 1, tail: .d), nhom6),
                     prop("labelDisplayUnits", "Đơn vị hiển thị", units, nhom6),

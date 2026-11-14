@@ -15,10 +15,11 @@ enum NumberDisplay {
     static func resolve(_ units: DisplayUnits, reference: Double) -> DisplayUnits {
         guard units == .auto else { return units }
         let r = abs(reference)
-        if r >= 1e12 { return .trillions }
-        if r >= 1e9 { return .billions }
-        if r >= 1e6 { return .millions }
-        if r >= 1e3 { return .thousands }
+        // Ngưỡng như `DisplayUnitSystem` của Power BI; card `$5,924` của Desktop (VM-D14) khớp ngưỡng nghìn 10.000.
+        if r >= 999_500_000_000 { return .trillions }
+        if r >= 999_500_000 { return .billions }
+        if r >= 999_500 { return .millions }
+        if r >= 10_000 { return .thousands }
         return .none
     }
 

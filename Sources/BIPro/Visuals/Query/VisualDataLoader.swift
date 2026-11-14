@@ -30,6 +30,31 @@ actor VisualDataLoader {
 
     /// Chạy truy vấn của `spec` và trả DataView. Ném `DAXError` (kể cả `.cancelled`).
     func load(_ spec: VisualQuerySpec) async throws -> Loaded {
+        // Bản đồ hình có ô Series (Legend): Desktop vẽ chú giải các giá trị của nó dưới bản đồ, có hay chưa có cột vị trí
+        // (VM-D15 mục 3, VM-D16 mục 2); chú giải bỏ giá trị mà measure Value để trống (bắt đầu từ 2013, không phải 2011 của bảng ngày).
+        guard case .shapeMap = spec.shape, let legendField = spec.secondary.first else { return try await loadPlain(spec) }
+        var legendSpec = spec
+        legendSpec.shape = .treemap
+        legendSpec.primary = [legendField]
+        legendSpec.primaryOrder = spec.secondaryOrder
+        legendSpec.secondary = []
+        legendSpec.measures = spec.measures.filter { $0.field.role == "Value" }.map { var m = $0; m.ignore = false; return m }
+        let inner = try await loadPlain(legendSpec)
+        guard case .categorical(let source) = inner.view else { return inner }
+        let legendValues = source.categories.compactMap(\.values.first)
+        if spec.primary.isEmpty {
+            let data = CategoricalData(categoryLevels: [], categories: [], seriesField: legendField.field, series: legendValues, measures: [],
+                                       values: [], highlights: nil, isReduced: source.isReduced)
+            return Loaded(view: .categorical(data), query: inner.query, elapsed: inner.elapsed, fromCache: inner.fromCache)
+        }
+        let main = try await loadPlain(spec)
+        guard case .categorical(var data) = main.view else { return main }
+        data.seriesField = legendField.field
+        data.series = legendValues
+        return Loaded(view: .categorical(data), query: main.query, elapsed: main.elapsed, fromCache: main.fromCache)
+    }
+
+    private func loadPlain(_ spec: VisualQuerySpec) async throws -> Loaded {
         // Bản đồ hình chưa có cột vị trí (`Category`), như khi vừa đổi từ biểu đồ khác (VM-D12): không có truy vấn, vẽ bản đồ trơn.
         if case .shapeMap = spec.shape, spec.primary.isEmpty {
             let empty = QueryResult(tables: [ResultTable(columns: [], rows: [])], elapsedNanoseconds: 0)

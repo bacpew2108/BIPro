@@ -20,6 +20,8 @@ enum VisualTypes {
         ("card", .value), ("cardVisual", .value), ("slicer", .slicer),
         ("clusteredBarChart", .xy), ("clusteredColumnChart", .xy), ("columnChart", .xy), ("hundredPercentStackedColumnChart", .xy), ("lineChart", .xy),
         ("lineClusteredColumnComboChart", .xy), ("lineStackedColumnComboChart", .xy),
+        // VM-D15 mục 4: Desktop tạo các loại này với ô Category, Y, Tooltips (VM-D12) và BI Pro đã có bộ vẽ.
+        ("areaChart", .xy), ("stackedAreaChart", .xy), ("hundredPercentStackedAreaChart", .xy), ("ribbonChart", .xy), ("waterfallChart", .xy), ("funnel", .circular),
         ("donutChart", .circular), ("treemap", .circular),
         ("pivotTable", .matrix), ("shapeMap", .map), ("textbox", .text),
     ]
@@ -36,8 +38,7 @@ enum VisualTypes {
 
     /// Lý do (tiếng Việt) một loại chưa thêm được hoặc chưa đổi tới được.
     static func refusal(for type: String) -> String {
-        let needsObservation: Set<String> = ["stackedColumnChart", "stackedBarChart", "hundredPercentStackedBarChart",
-                                             "areaChart", "stackedAreaChart", "ribbonChart", "waterfallChart", "funnel", "pieChart"]
+        let needsObservation: Set<String> = ["stackedColumnChart", "stackedBarChart", "hundredPercentStackedBarChart", "pieChart"]
         let needsResources: Set<String> = ["image", "actionButton", "pageNavigator", "shape", "basicShape", "bookmarkNavigator"]
         if needsObservation.contains(type) {
             return "Loại này chưa có luật ô quan sát từ Power BI Desktop (chờ buổi VM-D3), nên chưa thêm hoặc đổi tới được."

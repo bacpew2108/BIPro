@@ -25,7 +25,7 @@ enum InteractionRules {
         case "clusteredBarChart", "clusteredColumnChart",
              "stackedBarChart", "stackedColumnChart", "columnChart",
              "hundredPercentStackedColumnChart",
-             "lineChart", "areaChart",
+             "lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel",
              "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
              "donutChart", "pieChart",
              "treemap",

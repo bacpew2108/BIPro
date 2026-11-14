@@ -1,0 +1,8 @@
+# VM-D17: Logarithmic scale của trục Y (2026-11-14)
+
+Claude điều khiển VM (ngoại lệ một lần). Bản sao `Nhom6_work.pbix` (đã xoá sau khi xong). Biểu đồ đường "Giá trị giao dịch…" của D1, Format > Y-axis > Range > Logarithmic scale = On, lưu trong Desktop.
+
+- **Khoá trong file:** `objects.valueAxis[0].properties.logAxisScale = {"expr":{"Literal":{"Value":"true"}}}` (cạnh `labelDisplayUnits`, `labelPrecision`).
+- **Hình Desktop** (`desktop-log-axis.png`): vạch tại các luỹ thừa của 10 bao trọn giá trị dương: `$0M` (0,1M), `$1M`, `$10M`, `$100M`, `$1,000M`; đơn vị chọn theo vạch giữa (M), không số lẻ; lưới theo các vạch. Đường xu hướng là **đường thẳng trên trục log** (hồi quy trên log), đi từ ≈ 0,5M đến ≈ 170M; dự báo vẫn vẽ.
+- **Đường xu hướng trên trục log:** hồi quy tuyến tính **theo giá trị** (không theo log) trên 72 tháng cho hai đầu `0,41M` (tháng đầu) và `173,4M` (tháng cuối), đúng hai đầu đường đứt của Desktop; Desktop chỉ vẽ **đoạn thẳng nối hai đầu đó** trên trục log. (Hồi quy theo log cho `14,6M → 275,7M` và hồi quy mũ bình phương tối thiểu cho `30,5M → 193M`, đều không khớp.)
+- **BI Pro:** `ValueAxisFormat.logScale` đọc khoá, `ChartAxis.logTicks`, `PreparedChartLayout.useLogScale`, `.chartYScale(type: .log)` cho cột, đường, vùng và combo cụm; không áp cho cột/vùng xếp chồng và combo xếp chồng. Trên trục log đường xu hướng chỉ là đoạn nối hai đầu hồi quy. Công tắc **"Thang logarit"** ở thẻ Trục Y của Format pane (`FormatCatalog`, `valueAxis.logAxisScale`, mặc định tắt). Nhãn, vạch và đường xu hướng khớp hình Desktop (`bipro-log-axis.png`: bật công tắc trong BI Pro trên bản sao Nhom6). Test `thangLogDungLuyThuaCuaMuoiVaDonViTheoVachGiua`.

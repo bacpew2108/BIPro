@@ -230,12 +230,14 @@ struct D5Nhom6Tests {
             return object as NSDictionary
         }
         #expect(try normalised(written) == normalised(desktop))
-        // Vẽ: không có cột vị trí nên không chạy truy vấn, vẫn ra DataView (bản đồ trơn).
+        // Vẽ: không có cột vị trí nên không có bang nào được tô; ô Series (tháng) vẫn cho chú giải (VM-D15 mục 3).
         let interaction = ReportInteraction(workspace: workspace)
         let page = try #require(editor.page(Self.d1))
         let visual = try #require(editor.visual(id))
         let loaded = try await interaction.load(page: page, visual: visual, state: interaction.state(for: page))
-        #expect(loaded.query.isEmpty)
+        guard case .categorical(let legend) = loaded.view else { Issue.record("không phải categorical"); return }
+        #expect(legend.categories.isEmpty && !legend.series.isEmpty, "chú giải là các tháng có dữ liệu")
+        #expect(legend.series.count < 100, "chỉ tháng có giao dịch, không phải mọi ngày của bảng ngày")
 
         // Donut Q1.2 (ba cột ở Category, hai measure ở Tooltips): chỉ cột đầu vào Series, `labels`/`value` bị bỏ,
         // `legend`/`dataPoint` giữ và `dataPoint` thêm mục chuyển sắc, như Desktop (`retype-shapeMap-donut.visual.json`).
@@ -247,6 +249,68 @@ struct D5Nhom6Tests {
         #expect(second.changeType(of: donut, to: "shapeMap") == nil)
         let donutWritten = try #require(try second.makeChanges(archive: archive).reportParts[LayoutEditor.visualPath(page: Self.d1, id: donut)])
         #expect(try normalised(donutWritten) == normalised(donutDesktop))
+    }
+
+    /// VM-D15 mục 4: đổi biểu đồ đường D1 sang vùng, vùng xếp chồng, ruy-băng, thác nước, phễu ra đúng `visual.json` mà Desktop ghi
+    /// (VM-D12 `retype-*.visual.json`, cùng biểu đồ nguồn).
+    @Test func doiDuongSangVungRuyBangThacNuocPheuNhuDesktop() async throws {
+        let source = try #require(nhom6)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let archive = try PBIXFile(url: source).archive
+        let workspace = try Workspace(data: Data(contentsOf: source))
+        let id = "c36625920078b7e0c75a"
+        func normalised(_ data: Data) throws -> NSDictionary {
+            var object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+            object["$schema"] = nil
+            return object as NSDictionary
+        }
+        for (type, file) in [("areaChart", "area"), ("stackedAreaChart", "stackedArea"), ("hundredPercentStackedAreaChart", "hundredPercentArea"), ("ribbonChart", "ribbon"),
+                             ("waterfallChart", "waterfall"), ("funnel", "funnel")] {
+            let desktop = try Data(contentsOf: root.appendingPathComponent("docs/phase-d-evidence/vm-d12/json/retype-\(file).visual.json"))
+            let editor = LayoutEditor.reading(archive: archive, report: workspace.report)
+            editor.dateColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .dateTime }.map { "\($0.tableName)[\($0.name)]" })
+            editor.showPage(Self.d1)
+            editor.select(id)
+            #expect(editor.changeType(of: id, to: type) == nil, Comment(rawValue: type))
+            let written = try #require(try editor.makeChanges(archive: archive).reportParts[LayoutEditor.visualPath(page: Self.d1, id: id)])
+            // Ghi bản BI Pro để so từng khoá khi lệch (`build/d-out/D15/`).
+            let outDir = root.appendingPathComponent("build/d-out/D15", isDirectory: true)
+            try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+            try written.write(to: outDir.appendingPathComponent("retype-\(file).visual.json"))
+            #expect(try normalised(written) == normalised(desktop), Comment(rawValue: type))
+        }
+    }
+
+    /// VM-D15 mục 4: thêm vùng, vùng xếp chồng, ruy-băng, thác nước, phễu vào D1 (Category + Y), lưu qua đường lưu của BI Pro và mở lại.
+    /// Tệp ra ở `build/d-out/D15/Nhom6_d15.pbix` để mở bằng Power BI Desktop trên VM.
+    @Test func themBoLoaiMoiLuuVaMoLai() async throws {
+        let source = try #require(nhom6)
+        let stamp = try FileStamp.of(source)
+        let archive = try PBIXFile(url: source).archive
+        let workspace = try Workspace(data: Data(contentsOf: source))
+        let editor = LayoutEditor.reading(archive: archive, report: workspace.report)
+        editor.showPage(Self.d1)
+        let month = FieldRef(kind: .column, entity: "Dim_Date", property: "month_name", family: .text)
+        let inflow = FieldRef(kind: .measure, entity: "Fact_Transaction", property: "Total_Credit_Inflow")
+        var ids: [String] = []
+        for type in ["areaChart", "stackedAreaChart", "ribbonChart", "waterfallChart", "funnel"] {
+            let id = try #require(editor.insertVisual(type: type, visibleRect: CGRect(x: 100, y: 100, width: 1200, height: 700)), Comment(rawValue: type))
+            #expect(editor.addField(month, to: "Category", visual: id) == nil, Comment(rawValue: type))
+            #expect(editor.addField(inflow, to: "Y", visual: id) == nil, Comment(rawValue: type))
+            ids.append(id)
+        }
+        let outDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/d-out/D15", isDirectory: true)
+        try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+        let output = outDir.appendingPathComponent("Nhom6_d15.pbix")
+        _ = try save(editor, source: source, stamp: stamp, to: output)
+        let reopened = try Workspace(data: Data(contentsOf: output)).report
+        let d1 = try #require(reopened.pages.first { $0.id == Self.d1 })
+        for (id, type) in zip(ids, ["areaChart", "stackedAreaChart", "ribbonChart", "waterfallChart", "funnel"]) {
+            let visual = try #require(d1.visuals.first { $0.id == id }, Comment(rawValue: type))
+            #expect(visual.type == type)
+            #expect(Set(visual.fields.map(\.role)) == ["Category", "Y"], Comment(rawValue: type))
+        }
     }
 
     // MARK: gói chia đôi cho VM

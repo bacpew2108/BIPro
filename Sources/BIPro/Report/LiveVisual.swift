@@ -138,6 +138,12 @@ struct LiveVisualView: View {
             DonutChartView(data: data, context: context)
         case "treemap":
             TreemapView(data: data, context: context)
+        case "waterfallChart":
+            WaterfallChartView(data: data, context: context)
+        case "funnel":
+            FunnelChartView(data: data, context: context)
+        case "ribbonChart":
+            RibbonChartView(data: data, context: context)
         case "shapeMap":
             if let map = interaction.shapeMap() {
                 ShapeMapView(data: data, map: map, context: context)

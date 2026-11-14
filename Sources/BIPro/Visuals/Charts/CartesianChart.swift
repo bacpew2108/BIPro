@@ -7,7 +7,13 @@ import SwiftUI
 
 enum CartesianKind: Hashable, Sendable {
     case clusteredBar, clusteredColumn, stackedColumn, hundredPercentStackedColumn, line, comboClustered, comboStacked
+    /// Vùng chồng lên nhau và vùng xếp chồng (VM-D15 mục 4): vẽ như đường kèm tô phần dưới.
+    case area, stackedArea, hundredPercentStackedArea
     
+    var isLineLike: Bool { self == .line || isArea }
+    var isArea: Bool { self == .area || self == .stackedArea || self == .hundredPercentStackedArea }
+    var isStackedArea: Bool { self == .stackedArea || self == .hundredPercentStackedArea }
+
     init?(visualType: String) {
         switch visualType {
         case "clusteredBarChart", "clusteredBar":
@@ -20,6 +26,12 @@ enum CartesianKind: Hashable, Sendable {
             self = .hundredPercentStackedColumn
         case "lineChart", "line":
             self = .line
+        case "areaChart":
+            self = .area
+        case "stackedAreaChart":
+            self = .stackedArea
+        case "hundredPercentStackedAreaChart":
+            self = .hundredPercentStackedArea
         case "lineClusteredColumnComboChart", "lineClusteredColumnCombo", "comboClustered":
             self = .comboClustered
         case "lineStackedColumnComboChart", "lineStackedColumnCombo", "comboStacked":
@@ -239,6 +251,8 @@ struct ChartLinePointDatum: Identifiable, Sendable {
     var rawValue: Double
     var opacity: Double
     var dataLabel: String?
+    /// Mép dưới của phần tô (biểu đồ vùng): 0 hoặc mép dưới của lớp bên dưới khi xếp chồng.
+    var base: Double = 0
 }
 
 struct ChartLineSeriesDatum: Identifiable, Sendable {
@@ -291,6 +305,8 @@ struct PreparedChartLayout: Sendable {
     var trendPoints: [ChartTrendPointDatum]
     var showTrend: Bool
     var forecastPoints: [ChartForecastDatum]
+    /// Trục Y theo thang log (`valueAxis.logAxisScale`, VM-D17).
+    var useLogScale: Bool
     var isScalarAxis: Bool
     var scalarXTicks: [String]
     var scalarXLabels: [String: String]
@@ -324,7 +340,7 @@ struct PreparedChartLayout: Sendable {
         let theme = context.theme
         let sel = context.selection
         
-        let catFontSize = ReportUnits.pixels(fromPoints: format.categoryAxis.fontSize ?? 9)
+        let catFontSize = ReportUnits.pixels(fromPoints: format.categoryAxis.fontSize ?? ChartDefaults.axisFontSize)
         self.categoryFontSize = catFontSize
         self.hasHighlights = data.highlights != nil
         self.dataLabelFontSize = ReportUnits.pixels(fromPoints: format.dataLabels.fontSize ?? 9)
@@ -370,7 +386,7 @@ struct PreparedChartLayout: Sendable {
         }
         let shouldShowLegend = (format.legend.show ?? true) && (hasSeries || yMeasureIndices.count > 1)
         self.showLegend = shouldShowLegend
-        self.legendPosition = format.legend.position ?? "Top"
+        self.legendPosition = format.legend.position ?? ChartDefaults.legendPosition
         self.legendFontSize = format.legend.fontSize
         
         var legItems: [LegendItem] = []
@@ -646,10 +662,27 @@ struct PreparedChartLayout: Sendable {
         
         // MARK: 4. Lines (Line chart or Combo Y2)
         let hasY2 = (kind == .comboClustered || kind == .comboStacked) && !roleY2Indices.isEmpty
-        let lineMeasureIndices = (kind == .line) ? roleYIndices : roleY2Indices
+        let lineMeasureIndices = kind.isLineLike ? roleYIndices : roleY2Indices
         
+        // Vùng: trục bắt đầu từ 0; vùng xếp chồng: miền lấy theo tổng các series ở mỗi danh mục.
+        if kind.isArea {
+            minValY1 = Swift.min(minValY1, 0)
+            maxValY1 = Swift.max(maxValY1, 0)
+        }
+        var stackedTotals = [Double](repeating: 0, count: kind.isStackedArea ? numCats : 0)
+        if kind.isStackedArea {
+            for mIdx in roleYIndices {
+                for sIdx in 0..<data.values[mIdx].count {
+                    for cIdx in 0..<numCats {
+                        if let v = NumberDisplay.numericValue(data.cell(measure: mIdx, series: sIdx, category: cIdx).value) { stackedTotals[cIdx] += v }
+                    }
+                }
+            }
+            maxValY1 = Swift.max(maxValY1, kind == .hundredPercentStackedArea ? 1 : (stackedTotals.max() ?? 0))
+            minValY1 = Swift.min(minValY1, 0)
+        }
         // If line chart, gather Y1 bounds from line measures
-        if kind == .line {
+        if kind == .line || kind == .area {
             for mIdx in roleYIndices {
                 let mValCount = data.values[mIdx].count
                 for sIdx in 0..<mValCount {
@@ -728,19 +761,55 @@ struct PreparedChartLayout: Sendable {
         let primaryFormatString = axisFormat(roleYIndices.first ?? (kind == .clusteredBar ? data.measures.indices.first : nil))
         let secondaryFormatString = axisFormat(roleY2Indices.first)
         
-        let y1Ticks = ChartAxis.niceTicks(
-            min: format.valueAxis.start ?? minValY1,
-            max: format.valueAxis.end ?? maxValY1,
-            targetCount: 4
-        )
-        let y1Labels = ChartAxis.labels(
-            ticks: y1Ticks,
-            units: format.valueAxis.displayUnits,
-            precision: format.valueAxis.precision,
-            formatString: primaryFormatString
-        )
-        let y1MinBound = y1Ticks.first ?? 0
-        let y1MaxBound = y1Ticks.last ?? 1
+        // Thang log (VM-D17): vạch tại các luỹ thừa của 10 bao trọn giá trị dương; Desktop chọn đơn vị theo vạch giữa
+        // (`$1M`, `$10M`, `$100M`, `$1,000M`). Không áp cho cột xếp chồng, vùng xếp chồng và combo xếp chồng.
+        let logAllowed = format.valueAxis.logScale == true && !kind.isStackedArea && kind != .stackedColumn
+            && kind != .hundredPercentStackedColumn && kind != .comboStacked
+        let positives = logAllowed ? roleYIndices.flatMap { m in
+            data.values[m].flatMap { $0 }.compactMap { NumberDisplay.numericValue($0.value) }.filter { $0 > 0 }
+        } : []
+        var y1Ticks: [Double]
+        var y1Labels: [String]
+        var logActive = false
+        if let low = positives.min(), let high = positives.max() {
+            y1Ticks = ChartAxis.logTicks(low: low, high: high)
+            let middle = y1Ticks[y1Ticks.count / 2]
+            y1Labels = ChartAxis.labels(ticks: y1Ticks, units: NumberDisplay.resolve(format.valueAxis.displayUnits, reference: middle),
+                                        precision: format.valueAxis.precision ?? 0, formatString: primaryFormatString)   // Desktop không ghi số lẻ
+            self.useLogScale = true
+            logActive = true
+        } else {
+            y1Ticks = ChartAxis.niceTicks(
+                min: format.valueAxis.start ?? minValY1,
+                max: format.valueAxis.end ?? maxValY1,
+                targetCount: 4
+            )
+            y1Labels = ChartAxis.labels(
+                ticks: y1Ticks,
+                units: format.valueAxis.displayUnits,
+                precision: format.valueAxis.precision,
+                formatString: primaryFormatString
+            )
+            self.useLogScale = false
+        }
+        if kind == .hundredPercentStackedArea {
+            y1Ticks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+            y1Labels = y1Ticks.map { "\(Int($0 * 100))%" }
+        }
+        // Round range tắt (VM-D18, biểu đồ đường): miền trục là đúng [nhỏ nhất, lớn nhất] của dữ liệu (cả dải dự báo), vạch chỉ
+        // còn những giá trị đẹp nằm trong miền đó; không ép bắt đầu từ 0 hay kết thúc ở vạch tròn.
+        let dataValues = roleYIndices.flatMap { m in data.values[m].flatMap { $0 }.compactMap { NumberDisplay.numericValue($0.value) } }
+        let dataLow = Swift.min(dataValues.min() ?? 0, forecastRows.map(\.lower).min() ?? .infinity)
+        let dataHigh = Swift.max(maxValY1, dataValues.max() ?? 0)
+        let roundOff = format.valueAxis.roundRange == false && kind == .line && !logActive && format.valueAxis.start == nil
+            && format.valueAxis.end == nil && dataHigh > dataLow
+        if roundOff {
+            y1Ticks = ChartAxis.niceTicks(min: dataLow, max: dataHigh, targetCount: 4).filter { $0 >= dataLow && $0 <= dataHigh }
+            y1Labels = ChartAxis.labels(ticks: y1Ticks, units: format.valueAxis.displayUnits, precision: format.valueAxis.precision,
+                                        formatString: primaryFormatString)
+        }
+        let y1MinBound = roundOff ? dataLow : (y1Ticks.first ?? 0)
+        let y1MaxBound = roundOff ? dataHigh : (y1Ticks.last ?? 1)
         
         var y2Ticks: [Double] = []
         var y2Labels: [String] = []
@@ -764,6 +833,8 @@ struct PreparedChartLayout: Sendable {
             }
         }
         
+        // Vùng xếp chồng: tổng cộng dồn của các series đã vẽ ở mỗi danh mục.
+        var stackedBase = [Double](repeating: 0, count: kind.isStackedArea ? numCats : 0)
         // Build line points
         for (mOrder, mIdx) in lineMeasureIndices.enumerated() {
             let mField = data.measures[mIdx]
@@ -809,14 +880,28 @@ struct PreparedChartLayout: Sendable {
                         labelText = nil
                     }
                     
+                    var areaBase = Swift.max(y1MinBound, Swift.min(0, y1MaxBound))
+                    var plotted = scaledV
+                    if kind.isStackedArea {
+                        areaBase = stackedBase[cIdx]
+                        plotted = areaBase + v
+                        stackedBase[cIdx] = plotted
+                        // 100%: mỗi danh mục chuẩn hoá về tổng 1 (cột xếp chồng 100% cũng vậy).
+                        if kind == .hundredPercentStackedArea {
+                            let total = stackedTotals[cIdx] > 0 ? stackedTotals[cIdx] : 1
+                            areaBase /= total
+                            plotted /= total
+                        }
+                    }
                     pts.append(ChartLinePointDatum(
                         pointID: ptID,
                         category: catStrings[cIdx],
                         seriesName: sName,
-                        value: scaledV,
+                        value: plotted,
                         rawValue: v,
                         opacity: pointOpacity(ptID: ptID),
-                        dataLabel: labelText
+                        dataLabel: labelText,
+                        base: areaBase
                     ))
                 }
                 
@@ -830,13 +915,16 @@ struct PreparedChartLayout: Sendable {
         let showTrend = (format.analytics.trendShow == true && kind == .line)
         if showTrend, let firstLine = computedLines.first, firstLine.points.count >= 2 {
             var fitPoints: [(x: Double, y: Double)] = []
+            // Hồi quy tuyến tính theo giá trị. Trục log: Desktop chỉ vẽ đoạn thẳng nối hai đầu của đường hồi quy (VM-D17: ở D1 là
+            // 0,41M → 173,4M, đúng hai đầu đường thẳng trên trục log), không vẽ đường cong.
             for (idx, pt) in firstLine.points.enumerated() {
                 fitPoints.append((x: Double(idx), y: pt.value))
             }
             if let fit = TrendLine.linearFit(fitPoints) {
-                for (idx, pt) in firstLine.points.enumerated() {
+                let ends: [Int] = logActive ? [0, firstLine.points.count - 1] : Array(firstLine.points.indices)
+                for idx in ends {
                     let y = fit.slope * Double(idx) + fit.intercept
-                    computedTrend.append(ChartTrendPointDatum(category: pt.category, y: y))
+                    computedTrend.append(ChartTrendPointDatum(category: firstLine.points[idx].category, y: logActive ? Swift.max(y, 1e-9) : y))
                 }
             }
         }
@@ -1119,7 +1207,7 @@ struct CartesianChartView: View {
             columnChart
         case .stackedColumn, .hundredPercentStackedColumn:
             stackedColumnChart
-        case .line:
+        case .line, .area, .stackedArea, .hundredPercentStackedArea:
             lineChart
         case .comboClustered:
             comboClusteredChart
@@ -1220,7 +1308,7 @@ struct CartesianChartView: View {
             }
         }
         .chartXScale(domain: axisCategories)
-        .chartYScale(domain: layout.columnYDomain)
+        .chartYScale(domain: layout.columnYDomain, type: layout.useLogScale ? .log : .linear)
         .chartXAxis {
             categoryAxisMarks
         }
@@ -1270,6 +1358,21 @@ struct CartesianChartView: View {
     
     private var lineChart: some View {
         Chart {
+            // Vùng (VM-D15 mục 4): phần tô nhạt dưới đường, vẽ trước để đường nằm trên; mờ ≈ 0,43 như Desktop.
+            if kind.isArea {
+                ForEach(layout.lineSeries) { s in
+                    ForEach(s.points) { pt in
+                        AreaMark(
+                            x: .value("Category", pt.category),
+                            yStart: .value("Base", pt.base),
+                            yEnd: .value("Value", pt.value),
+                            series: .value("AreaSeries", s.name)
+                        )
+                        .foregroundStyle(s.color.opacity(0.43 * pt.opacity))
+                        .interpolationMethod(.catmullRom)
+                    }
+                }
+            }
             ForEach(layout.lineSeries) { s in
                 ForEach(s.points) { pt in
                     LineMark(
@@ -1278,7 +1381,7 @@ struct CartesianChartView: View {
                         series: .value("Series", s.name)
                     )
                     .foregroundStyle(s.color.opacity(pt.opacity))
-                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)) // Power BI: nét mặc định 3 (so ảnh VM)
+                    .lineStyle(StrokeStyle(lineWidth: kind.isArea ? 2 : 3, lineCap: .round, lineJoin: .round)) // Power BI: nét mặc định 3 (so ảnh VM); vùng 2
                     .interpolationMethod(.catmullRom)
                     .annotation(position: .top) {
                         if let label = pt.dataLabel {
@@ -1326,7 +1429,7 @@ struct CartesianChartView: View {
             }
         }
         .chartXScale(domain: axisCategories)
-        .chartYScale(domain: layout.columnYDomain)
+        .chartYScale(domain: layout.columnYDomain, type: layout.useLogScale ? .log : .linear)
         .chartXAxis {
             if layout.isScalarAxis {
                 AxisMarks(position: .bottom, values: layout.scalarXTicks) { val in
@@ -1391,7 +1494,7 @@ struct CartesianChartView: View {
             }
         }
         .chartXScale(domain: axisCategories)
-        .chartYScale(domain: layout.columnYDomain)
+        .chartYScale(domain: layout.columnYDomain, type: layout.useLogScale ? .log : .linear)
         .chartXAxis {
             categoryAxisMarks
         }
@@ -1563,16 +1666,30 @@ struct CartesianChartView: View {
             // Trục có thể đang cuộn hoặc có thêm tháng dự báo: hỏi biểu đồ danh mục tại vị trí này thay vì chia đều theo số điểm.
             if let name = p.value(atX: relX, as: String.self), let at = layout.categories.firstIndex(of: name) {
                 guard at < data.categories.count else { return nil }
-                return buildPointID(c: at, s: 0)
+                return buildPointID(c: at, s: areaSeriesIndex(category: at, location: location, proxy: p, geometry: geo))
             }
             let frac = relX / plotW
             let idx = Int(frac * CGFloat(data.categories.count))
             cIdx = Swift.max(0, Swift.min(data.categories.count - 1, idx))
         }
         
-        return buildPointID(c: cIdx, s: 0)
+        return buildPointID(c: cIdx, s: areaSeriesIndex(category: cIdx, location: location, proxy: proxy, geometry: geometry))
     }
-    
+
+    /// Series ở vị trí chuột trên biểu đồ vùng (VM-D16): vùng xếp chồng lấy lớp chứa giá trị y; vùng chồng lên nhau lấy vùng phủ
+    /// phía trên con trỏ có đỉnh thấp nhất (vùng trên cùng ở chỗ đó). Loại khác hoặc không có Series: series đầu.
+    private func areaSeriesIndex(category c: Int, location: CGPoint, proxy: ChartProxy?, geometry: GeometryProxy?) -> Int {
+        guard kind.isArea, data.seriesField != nil, layout.lineSeries.count > 1, c < layout.categories.count,
+              let proxy, let geometry, let plot = proxy.plotFrame,
+              let y = proxy.value(atY: location.y - geometry[plot].origin.y, as: Double.self) else { return 0 }
+        let name = layout.categories[c]
+        let rows = layout.lineSeries.enumerated().compactMap { index, series in
+            series.points.first { $0.category == name }.map { (index: index, base: $0.base, top: $0.value) }
+        }
+        if kind.isStackedArea { return rows.first { y >= $0.base && y <= $0.top }?.index ?? rows.last?.index ?? 0 }
+        return rows.filter { $0.top >= y }.min { $0.top < $1.top }?.index ?? rows.max { $0.top < $1.top }?.index ?? 0
+    }
+
     /// Điểm để hiện tooltip: như `findPointID`, nhưng tháng dự báo và điểm neo (tháng cuối thật) mang thêm số dự báo
     /// (`VisualTooltip.forecastKey`). Tooltip của Power BI ở vùng dự báo: tên dự báo, Upper bound, Lower bound (VM C2 B6).
     private func hoverPointID(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) -> DataPointID? {

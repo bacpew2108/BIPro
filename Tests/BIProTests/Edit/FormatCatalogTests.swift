@@ -235,4 +235,12 @@ import Testing
         #expect(on("donutChart", "legend") == true && on("donutChart", "labels") == true)
         #expect(on("slicer", "header") == true)
     }
+
+    /// VM-D15 mục 2: matrix mới ở Desktop, tab General: Title bật (cỡ 12, không đậm), Subtitle bật, Divider tắt.
+    @Test func titleAndSubtitleDefaultsSampledFromDesktop() {
+        let title = card("pivotTable", .container, "title")
+        #expect(title?.cardSwitch?.defaultOn == true)
+        #expect(title?.properties.first { $0.key == "bold" }?.defaultOn == false)
+        #expect(card("pivotTable", .container, "subTitle")?.cardSwitch?.defaultOn == true)
+    }
 }

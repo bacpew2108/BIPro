@@ -416,6 +416,7 @@ public enum SummarizeColumns {
     /// Tuần tự khi `parallel` tắt, khi ít ô, hoặc khi evaluator không phải `Evaluator`. Song song: mỗi luồng một
     /// `Evaluator` riêng (khung row/VAR là trạng thái riêng của từng evaluator), dùng chung cache và kho cột (đều an toàn luồng).
     /// Luồng gọi vẫn ở trong Task của người gọi nên canh huỷ: thấy `Task.isCancelled` thì bật cờ dừng cho các luồng.
+    /// Luồng gọi cũng tự làm ô, nên không bao giờ kẹt khi nhóm luồng GCD đã hết (`ParallelCells`).
     private static func evaluateCells(count: Int, parallel: Bool, evaluator: any Evaluating,
                                       _ cell: @escaping (Int, any Evaluating) throws(DAXError) -> [Value]?) throws(DAXError) -> [[Value]] {
         let workers = min(Int(ProcessInfo.processInfo.environment["DAX_WORKERS"] ?? "") ?? ProcessInfo.processInfo.activeProcessorCount, count)
@@ -427,51 +428,14 @@ public enum SummarizeColumns {
             }
             return out
         }
-        final class Shared: @unchecked Sendable {
-            let lock = NSLock()
-            var next = 0
-            var error: DAXError?
-            var stop = false
-            var results: [[Value]?]
-            init(count: Int) { results = [[Value]?](repeating: nil, count: count) }
-            func take(count: Int) -> Int? {
-                lock.lock(); defer { lock.unlock() }
-                guard !stop, next < count else { return nil }
-                defer { next += 1 }
-                return next
-            }
-            func fail(_ e: DAXError) { lock.lock(); if error == nil { error = e }; stop = true; lock.unlock() }
-            func store(_ row: [Value]?, at i: Int) { lock.lock(); results[i] = row; lock.unlock() }
-        }
-        let shared = Shared(count: count)
         let cancelFlag = CancellationFlag()
+        // Luồng gọi cũng làm việc (xem `ParallelCells`): `workers - 1` khối phụ chỉ là hỗ trợ thêm.
         // `cell` không Sendable, nhưng chỉ đọc dữ liệu bất biến và mỗi luồng có evaluator riêng.
-        nonisolated(unsafe) let work = cell
-        let group = DispatchGroup()
-        for _ in 0..<workers {
-            group.enter()
-            DispatchQueue.global(qos: .userInitiated).async {
-                defer { group.leave() }
-                let ev = root.fork(cancelFlag: cancelFlag)
-                while let i = shared.take(count: count) {
-                    do throws(DAXError) {
-                        shared.store(try work(i, ev), at: i)
-                    } catch {
-                        shared.fail(error)
-                        return
-                    }
-                }
-            }
-        }
-        while group.wait(timeout: DispatchTime.now() + .milliseconds(20)) == .timedOut {
-            if Task.isCancelled {
-                cancelFlag.set()
-                shared.lock.lock(); shared.stop = true; shared.lock.unlock()
-            }
-        }
-        if let error = shared.error { throw error }
+        let rows = try ParallelCells.run(count: count, helpers: workers - 1, isCancelled: { Task.isCancelled },
+                                         cancel: { cancelFlag.set() },
+                                         makeContext: { root.fork(cancelFlag: cancelFlag) }, cell: cell)
         try QueryExecutor.checkCancelled()
-        return shared.results.compactMap { $0 }
+        return rows
     }
 
     /// [SUY ĐOÁN] Lọc candidateTuples theo filterTable khi có NONVISUAL

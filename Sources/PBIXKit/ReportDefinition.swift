@@ -346,6 +346,10 @@ public struct ReportTheme: Sendable {
     public var dataColors: [String]
     public var background: String?
     public var foreground: String?
+    /// Màu cảm xúc của theme (thác nước: tăng, trung tính, giảm). nil: dùng giá trị mặc định của Power BI.
+    public var good: String?
+    public var neutral: String?
+    public var bad: String?
 
     public static let fallback = ReportTheme(
         dataColors: ["#118DFF", "#12239E", "#E66C37", "#6B007B", "#E044A7", "#744EC2", "#D9B300", "#D64550"],
@@ -361,6 +365,9 @@ extension PBIXFile {
             if !colors.isEmpty { theme.dataColors = colors }
             if let bg = json["background"]?.string { theme.background = bg }
             if let fg = json["foreground"]?.string { theme.foreground = fg }
+            if let good = json["good"]?.string { theme.good = good }
+            if let neutral = json["neutral"]?.string { theme.neutral = neutral }
+            if let bad = json["bad"]?.string { theme.bad = bad }
         }
         return theme
     }

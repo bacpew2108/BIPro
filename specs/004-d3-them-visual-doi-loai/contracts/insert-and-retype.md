@@ -52,3 +52,8 @@
 - Phần ngoài `visualType`, `objects` (khoá bị bỏ), `query.queryState` (ô đổi), `objects.general…paragraphs` (hộp văn bản) và `position` của một visual đã sửa giữ nguyên từng byte.
 - Mã visual không bao giờ dùng lại (kể cả mã của visual mới đã xoá hoặc hoàn tác).
 - File lưu không chứa trường tham chiếu treo (sắp xếp, bộ lọc, định dạng theo trường).
+
+## Bổ sung 2026-11-14 (VM-D15 mục 4): vùng, ruy-băng, thác nước, phễu
+
+`areaChart`, `stackedAreaChart`, `ribbonChart`, `waterfallChart`, `funnel` thêm được và đổi tới được (BI Pro đã có bộ vẽ). Ô theo Desktop: vùng và ruy-băng `Category`, `Series`, `Y`, `Tooltips` (vùng thêm `Y2`); thác nước và phễu `Category`, `Y`, `Tooltips` (Breakdown của thác nước chưa liệt kê). Đổi đường sang các loại này khớp từng khoá `visual.json` Desktop ghi (VM-D12): thêm `sortDefinition` tăng dần theo ngày; thác nước và phễu bỏ `trend` và `axisType` của `categoryAxis`; phễu bỏ `valueAxis` và giữ `categoryAxis`.
+

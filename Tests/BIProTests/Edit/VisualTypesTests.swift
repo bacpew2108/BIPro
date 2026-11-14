@@ -6,8 +6,10 @@ import Testing
     @Test func supportedTypesAreTheObservedOnesPlusTheTextbox() {
         #expect(Set(VisualTypes.supported) == ["card", "cardVisual", "slicer", "clusteredBarChart", "hundredPercentStackedColumnChart", "lineChart",
                                                "lineClusteredColumnComboChart", "lineStackedColumnComboChart", "donutChart", "treemap",
-                                               "pivotTable", "shapeMap", "textbox", "clusteredColumnChart", "columnChart"])
-        #expect(VisualTypes.supported.count == 15)
+                                               "pivotTable", "shapeMap", "textbox", "clusteredColumnChart", "columnChart",
+                                               // VM-D15 mục 4: bốn loại Desktop tạo với ô Category, Y, Tooltips, nay BI Pro đã vẽ được.
+                                               "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel"])
+        #expect(VisualTypes.supported.count == 21)
     }
 
     @Test func everySupportedTypeHasAnObservedWellAndAMatchingDefaultSize() throws {

@@ -862,7 +862,12 @@ final class LayoutEditor {
 
     /// Khoá và mục Desktop tự thêm khi visual thành `type` (VM-D12): bản đồ hình có `objects.shape` và mục tô màu chuyển sắc.
     nonisolated static func applyingTypeDefaults(_ json: Data, type: String) throws -> Data {
-        type == "shapeMap" ? try PBIRVisualPatch.addingShapeMapDefaults(to: json) : json
+        switch type {
+        case "shapeMap": return try PBIRVisualPatch.addingShapeMapDefaults(to: json)
+        // Thác nước và phễu không có trục liên tục: Desktop bỏ `axisType` khỏi `categoryAxis` (VM-D12).
+        case "waterfallChart", "funnel": return try PBIRVisualPatch.removingCategoryAxisType(from: json)
+        default: return json
+        }
     }
 
     /// Báo cáo có tài nguyên bản đồ `usa.states.topo` (Desktop tự thêm nó vào file nếu thiếu; BI Pro không có nguồn của nó).
@@ -891,7 +896,7 @@ final class LayoutEditor {
     static func defaultSortRole(_ type: String) -> String? {
         if type == "slicer" { return "Values" }
         let withCategory = type.hasSuffix("ColumnChart") || type.hasSuffix("BarChart") || type == "columnChart"
-            || type.hasSuffix("AreaChart") || type.hasSuffix("ComboChart")
+            || type.hasSuffix("AreaChart") || type == "areaChart" || type.hasSuffix("ComboChart")
             || ["ribbonChart", "waterfallChart", "donutChart", "funnel"].contains(type)
         return withCategory ? "Category" : nil
     }
