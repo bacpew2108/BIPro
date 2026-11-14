@@ -2,6 +2,9 @@ import DAXEngine
 import Foundation
 
 enum ChartAxis {
+    /// Số vạch muốn có ở trục giá trị chính (VM-D19, Desktop ở cỡ visual 660×380: "Rủi ro thấu chi" 0…≈190 ra 0, 50, 100, 150, 200;
+    /// cột "Tiền vào/ra" 0…0,96 tỉ ra 0,0/0,5/1,0). Trục phụ thưa hơn (4): "$0K, $20K, $40K". Chưa đo ở visual cao hơn hoặc thấp hơn.
+    static let primaryTargetCount = 5
     /// Tính vạch "đẹp" (bước 1, 2, 2.5, 5 × 10^k), bao trọn [min, max] và bắt đầu từ 0 khi min ≥ 0.
     static func niceTicks(min: Double, max: Double, targetCount: Int = 4) -> [Double] {
         var minVal = min
@@ -31,14 +34,14 @@ enum ChartAxis {
         let exponent = floor(log10(rawStep))
         let fraction = rawStep / pow(10.0, exponent)
         
+        // Làm tròn LÊN theo 1, 2, 5 × 10^k (VM-D19: Desktop cột "Tiền vào/ra" max 0,96 tỉ ra $0,0bn/$0,5bn/$1,0bn, không phải bước 0,25 tỉ;
+        // "Rủi ro thấu chi" 0…140 ra 0, 50, 100, 150, 200). Bản cũ có thêm bước 2,5 và làm tròn tới gần nhất.
         let niceMultiplier: Double
-        if fraction <= 1.25 {
+        if fraction <= 1.0 + 1e-9 {
             niceMultiplier = 1.0
-        } else if fraction <= 2.25 {
+        } else if fraction <= 2.0 + 1e-9 {
             niceMultiplier = 2.0
-        } else if fraction <= 3.75 {
-            niceMultiplier = 2.5
-        } else if fraction <= 7.5 {
+        } else if fraction <= 5.0 + 1e-9 {
             niceMultiplier = 5.0
         } else {
             niceMultiplier = 10.0
@@ -77,6 +80,88 @@ enum ChartAxis {
         return ticks
     }
     
+    /// Khoảng cách tối thiểu giữa hai vạch (đơn vị trang). Số đo trên Desktop (VM-D19, visual 660×380): trục chính ≥ 47 (cột "Rủi ro thấu chi" giữ
+    /// 47,5, "Tiền vào/ra" bỏ 46,6, "Chất lượng nợ" 100% bỏ 47,1); trục phụ thưa hơn, ≥ 60 (Pareto trục phải chỉ 0% và 100% ở vùng vẽ cao ≈100, "$0K, $20K, $40K").
+    static let minSpacingPrimary = 47.3
+    static let minSpacingSecondary = 60.0
+    /// Trục giá trị nằm ngang (thanh ngang): nhãn rộng hơn nên thưa hơn; thanh "Giá trị GD" ($0M, $50M … $200M trên ≈590) và "Khiếu nại" (0K…4K)
+    /// bỏ bước cách ≈70 và giữ bước cách ≈125.
+    static let minSpacingHorizontal = 100.0
+    /// Miền trục chỉ kéo lên vạch kế tiếp khi vạch đó cách dữ liệu không quá phần này của miền (Desktop: 0,96 tỉ lên $1,0bn,
+    /// 518 lên 600 ở D3 "TB 3 tháng"; Pareto 5,9K không lên 10K mà giữ đúng 5,9K).
+    static let domainExtension = 0.20
+    /// Trục giá trị nằm ngang chỉ kéo khi cách ≤ 5% (Desktop: thanh max 4,49K không lên 5K, 210M không lên 250M, 0,989 lên 100%).
+    static let horizontalDomainExtension = 0.05
+
+    struct FittedTicks {
+        var ticks: [Double]
+        var lower: Double
+        var upper: Double
+    }
+
+    /// Vạch theo chiều cao vùng vẽ: bước 1, 2, 5 × 10^k nhỏ nhất mà các vạch còn cách nhau ít nhất `minSpacing`.
+    /// Đường không bắt đầu từ 0 khi giá trị nhỏ nhất ≥ 1/3 giá trị lớn nhất (VM-D19: đường "Dòng tiền ròng" 18M…50M ra $10M…$50M, năm 2018
+    /// 128M…211M ra $50M…$250M, "số dư BQ/TK" ≈31K…44K ra $30K…$50K; còn 0,25 của Pareto, 0,15 của "số dư" cả giai đoạn thì bắt đầu từ 0).
+    static func floatingLow(values: [Double]) -> Double? {
+        guard let low = values.min(), let high = values.max(), low > 0, low >= high / 3 else { return nil }
+        return low
+    }
+
+    /// `floatingFrom`: giá trị nhỏ nhất của đường khi trục không bắt đầu từ 0; cận dưới là vạch ngay dưới giá trị đó (và dưới cả dải dự báo,
+    /// nên truyền `min` đã gồm dự báo), cận trên là vạch ngay trên `max`.
+    static func fittingTicks(min: Double, max: Double, plotHeight: Double, minSpacing: Double, floating: Bool = false,
+                             extend: Double = domainExtension) -> FittedTicks {
+        let low = Swift.min(min, max), high = Swift.max(min, max)
+        if floating, low > 0, high > low, plotHeight > 0 {
+            var exponent = floor(log10((high - low) / 1000))
+            while true {
+                for multiplier in [1.0, 2.0, 5.0] {
+                    let step = multiplier * pow(10.0, exponent)
+                    let lower = floor(low / step + 1e-9) * step, upper = ceil(high / step - 1e-9) * step
+                    guard plotHeight * step / (upper - lower) >= minSpacing - 1e-9 else { continue }
+                    let factor = pow(10.0, Double(Swift.max(0, Int(ceil(-floor(log10(step)))) + 2)))
+                    let first = Int((lower / step).rounded()), last = Int((upper / step).rounded())
+                    var indices = Array(first...last)
+                    // Bước dạng 1 × 10^k: Desktop chỉ ghi nhãn ở bội chẵn (miền $10M…$50M của "Dòng tiền ròng" ghi $20M và $40M); miền vẫn như cũ.
+                    if multiplier == 1, indices.count > 3 { indices = indices.filter { $0 % 2 == 0 } }
+                    let ticks: [Double] = indices.map { index in
+                        let raw: Double = Double(index) * step
+                        return (raw * factor).rounded() / factor
+                    }
+                    return FittedTicks(ticks: ticks, lower: lower, upper: upper)
+                }
+                exponent += 1
+            }
+        }
+        let from = low >= 0 ? 0.0 : low
+        guard high > from, plotHeight > 0 else {
+            let ticks = niceTicks(min: min, max: max, targetCount: primaryTargetCount)
+            return FittedTicks(ticks: ticks, lower: ticks.first ?? 0, upper: ticks.last ?? 1)
+        }
+        let range = high - from
+        var exponent = floor(log10(range / 1000))
+        while true {
+            for multiplier in [1.0, 2.0, 5.0] {
+                let step = multiplier * pow(10.0, exponent)
+                let upperTick = ceil(high / step - 1e-9) * step
+                let lowerTick = low >= 0 ? 0.0 : floor(low / step + 1e-9) * step
+                let upper = upperTick - high <= extend * range ? upperTick : high
+                let lower = low >= 0 ? 0.0 : (low - lowerTick <= extend * range ? lowerTick : low)
+                let spacing = plotHeight * step / (upper - lower)
+                guard spacing >= minSpacing - 1e-9 else { continue }
+                let factor = pow(10.0, Double(Swift.max(0, Int(ceil(-floor(log10(step)))) + 2)))
+                let first = Int(ceil(lower / step - 1e-9)), last = Int(floor(upper / step + 1e-9))
+                var ticks = first <= last ? (first...last).map { i -> Double in
+                    let value = Double(i) * step
+                    return abs(value) < step * 1e-9 ? 0 : (value * factor).rounded() / factor
+                } : []
+                if ticks.isEmpty { ticks = [lower, upper] }
+                return FittedTicks(ticks: ticks, lower: lower, upper: upper)
+            }
+            exponent += 1
+        }
+    }
+
     /// Định dạng danh sách nhãn:
     /// - mọi vạch cùng một đơn vị, chọn theo giá trị tuyệt đối lớn nhất;
     /// - chữ số thập phân vừa đủ để các vạch khác nhau;
@@ -114,7 +199,7 @@ enum ChartAxis {
         }
         
         let maxAbs = ticks.map { abs($0) }.max() ?? 0
-        let unit = NumberDisplay.resolve(units, reference: maxAbs)
+        let unit = NumberDisplay.resolve(units, reference: maxAbs, axis: true)
         let div = NumberDisplay.divisor(unit)
         let sfx = NumberDisplay.suffix(unit)
         let (prefix, patternSuffix) = NumberDisplay.affixes(of: formatString ?? "")

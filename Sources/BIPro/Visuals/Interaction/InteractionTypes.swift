@@ -65,9 +65,12 @@ struct VisualRenderContext {
     /// Lựa chọn hiện tại khi visual là slicer.
     var slicerSelection: SlicerSelection
     var actions: VisualActions
+    /// Kích thước visual trên trang (đơn vị trang); trục giá trị chia vạch theo chiều cao vùng vẽ ước từ đó. nil = số vạch cố định.
+    var visualSize: CGSize?
 
     init(theme: ReportTheme = .fallback, format: VisualFormat = VisualFormat(), selection: Set<DataPointID> = [],
-         slicerSelection: SlicerSelection = SlicerSelection(), actions: VisualActions = .none) {
+         slicerSelection: SlicerSelection = SlicerSelection(), actions: VisualActions = .none, visualSize: CGSize? = nil) {
+        self.visualSize = visualSize
         self.theme = theme
         self.format = format
         self.selection = selection

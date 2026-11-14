@@ -200,7 +200,8 @@ struct LiveVisualView: View {
             format: VisualFormat(objects: visual.objects),
             selection: state.selection.points(forVisual: visual.id),
             slicerSelection: state.slicers[visual.id]?.selection ?? SlicerSelection(),
-            actions: actions)
+            actions: actions,
+            visualSize: CGSize(width: visual.width, height: visual.height))
     }
 
     // MARK: - Drill và menu chuột phải

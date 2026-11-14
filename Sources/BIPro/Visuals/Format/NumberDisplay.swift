@@ -12,14 +12,15 @@ enum NumberDisplay {
     static let culture = "en-US"
 
     /// Đơn vị dùng cho `reference` khi `units == .auto`.
-    static func resolve(_ units: DisplayUnits, reference: Double) -> DisplayUnits {
+    /// `axis`: nhãn trục dùng ngưỡng nghìn 1.000 (Desktop, VM-D19: Pareto 0K/5K, thanh 0K…4K), còn số trên thẻ và nhãn dữ liệu 10.000.
+    static func resolve(_ units: DisplayUnits, reference: Double, axis: Bool = false) -> DisplayUnits {
         guard units == .auto else { return units }
         let r = abs(reference)
         // Ngưỡng như `DisplayUnitSystem` của Power BI; card `$5,924` của Desktop (VM-D14) khớp ngưỡng nghìn 10.000.
         if r >= 999_500_000_000 { return .trillions }
         if r >= 999_500_000 { return .billions }
         if r >= 999_500 { return .millions }
-        if r >= 10_000 { return .thousands }
+        if r >= (axis ? 999.5 : 10_000) { return .thousands }
         return .none
     }
 

@@ -287,6 +287,11 @@ struct PreparedChartLayout: Sendable {
     var barXTicks: [Double]
     var barXLabels: [String]
     var barXDomain: ClosedRange<Double>
+    /// Vạch cuối cách mép phải miền dưới 8% (nhãn dễ bị cắt).
+    var barLastLabelNearEdge: Bool {
+        guard let last = barXTicks.last, barXDomain.upperBound > barXDomain.lowerBound else { return false }
+        return (barXDomain.upperBound - last) / (barXDomain.upperBound - barXDomain.lowerBound) < 0.12
+    }
     
     // Column (Clustered)
     var columns: [ChartBarDatum]
@@ -771,6 +776,29 @@ struct PreparedChartLayout: Sendable {
         var y1Ticks: [Double]
         var y1Labels: [String]
         var logActive = false
+        // Chiều cao (thanh ngang: độ rộng) vùng vẽ ước theo số đo Desktop (VM-D19): 0,92 × chiều cao visual − phần cố định 92 (có chú giải; 67 không có) − dải nhãn (khớp 233 và 190 ở visual cao 380, 104 ở cao 240 đo được) (tiêu đề, phụ đề, chú giải, lề) − dải nhãn trục
+        // danh mục (nhãn ngang ≈ 18; nhãn xoay dọc: độ dài nhãn dài nhất đã cắt, cộng thanh cuộn 14). Thanh ngang: trục giá trị nằm ngang, không ước.
+        let tickPlotHeight: Double? = {
+            guard let size = context.visualSize, size.height > 0 else { return nil }
+            if kind == .clusteredBar {
+                // Thanh ngang: trục giá trị nằm ngang, vùng vẽ rộng = độ rộng visual − dải nhãn danh mục bên trái − lề (VM-D19).
+                let longest = catStrings.map(\.count).max() ?? 0
+                let labels = isScalar ? 30.0 : Swift.min(Double(size.width) * 0.25, Double(longest) * Double(catFontSize) * 0.6 + 10)
+                return Swift.max(60, Double(size.width) - labels - 16)
+            }
+            let chrome = 67.0 + (shouldShowLegend ? 25.0 : 0.0)
+            let longest = catStrings.map(\.count).max() ?? 0
+            let plotWidth = Double(size.width) - 90
+            let rotated = !isScalar && Double(longest) * Double(catFontSize) * 0.6 + 8 > 0 && plotWidth > 0
+                && (Double(longest) * Double(catFontSize) * 0.6 + 8) * Double(catStrings.count) > plotWidth
+            var band = Double(catFontSize) * 1.2 + 8
+            if rotated {
+                let fit = CategoryLabelFit(fontSize: catFontSize, chartHeight: CGFloat(size.height - 110))
+                band = Double(Swift.min(longest, fit.maxLength)) * Double(catFontSize) * 0.55 + 14   // 0,55: khớp dải nhãn 68 đo được ở "Rủi ro thấu chi"
+            }
+            return Swift.max(40, 0.92 * Double(size.height) - chrome - band)
+        }()
+        var fittedY1: (lower: Double, upper: Double)?
         if let low = positives.min(), let high = positives.max() {
             y1Ticks = ChartAxis.logTicks(low: low, high: high)
             let middle = y1Ticks[y1Ticks.count / 2]
@@ -779,11 +807,26 @@ struct PreparedChartLayout: Sendable {
             self.useLogScale = true
             logActive = true
         } else {
-            y1Ticks = ChartAxis.niceTicks(
-                min: format.valueAxis.start ?? minValY1,
-                max: format.valueAxis.end ?? maxValY1,
-                targetCount: 4
-            )
+            if let plotHeight = tickPlotHeight, kind != .hundredPercentStackedArea {
+                // Đường (không cột): trục không bắt đầu từ 0 khi dữ liệu nằm xa 0 (VM-D19), kể cả dải dự báo ở cận dưới.
+                let lineValues = kind == .line ? roleYIndices.flatMap { m in data.values[m].flatMap { $0 }.compactMap { NumberDisplay.numericValue($0.value) } } : []
+                let floatLow = format.valueAxis.start == nil && format.valueAxis.end == nil && format.valueAxis.logScale != true
+                    ? ChartAxis.floatingLow(values: lineValues) : nil
+                let fit = ChartAxis.fittingTicks(min: format.valueAxis.start ?? (floatLow.map { Swift.min($0, forecastRows.map(\.lower).min() ?? $0) } ?? minValY1),
+                                                 max: format.valueAxis.end ?? maxValY1,
+                                                 plotHeight: plotHeight,
+                                                 minSpacing: kind == .clusteredBar ? ChartAxis.minSpacingHorizontal : ChartAxis.minSpacingPrimary,
+                                                 floating: floatLow != nil,
+                                                 extend: kind == .clusteredBar ? ChartAxis.horizontalDomainExtension : ChartAxis.domainExtension)
+                y1Ticks = fit.ticks
+                fittedY1 = (fit.lower, fit.upper)
+            } else {
+                y1Ticks = ChartAxis.niceTicks(
+                    min: format.valueAxis.start ?? minValY1,
+                    max: format.valueAxis.end ?? maxValY1,
+                    targetCount: ChartAxis.primaryTargetCount
+                )
+            }
             y1Labels = ChartAxis.labels(
                 ticks: y1Ticks,
                 units: format.valueAxis.displayUnits,
@@ -804,30 +847,40 @@ struct PreparedChartLayout: Sendable {
         let roundOff = format.valueAxis.roundRange == false && kind == .line && !logActive && format.valueAxis.start == nil
             && format.valueAxis.end == nil && dataHigh > dataLow
         if roundOff {
-            y1Ticks = ChartAxis.niceTicks(min: dataLow, max: dataHigh, targetCount: 4).filter { $0 >= dataLow && $0 <= dataHigh }
+            y1Ticks = ChartAxis.niceTicks(min: dataLow, max: dataHigh, targetCount: ChartAxis.primaryTargetCount).filter { $0 >= dataLow && $0 <= dataHigh }
             y1Labels = ChartAxis.labels(ticks: y1Ticks, units: format.valueAxis.displayUnits, precision: format.valueAxis.precision,
                                         formatString: primaryFormatString)
         }
-        let y1MinBound = roundOff ? dataLow : (y1Ticks.first ?? 0)
-        let y1MaxBound = roundOff ? dataHigh : (y1Ticks.last ?? 1)
+        let y1MinBound = roundOff ? dataLow : (fittedY1?.lower ?? y1Ticks.first ?? 0)
+        let y1MaxBound = roundOff ? dataHigh : (fittedY1?.upper ?? y1Ticks.last ?? 1)
         
         var y2Ticks: [Double] = []
+        var fittedY2: (lower: Double, upper: Double)?
         var y2Labels: [String] = []
         var scaledY2Ticks: [Double] = []
         if hasY2 {
-            y2Ticks = ChartAxis.niceTicks(
-                min: format.valueAxis.secondaryStart ?? minValY2,
-                max: format.valueAxis.secondaryEnd ?? maxValY2,
-                targetCount: 4
-            )
+            if let plotHeight = tickPlotHeight {
+                let lineValues = roleY2Indices.flatMap { m in data.values[m].flatMap { $0 }.compactMap { NumberDisplay.numericValue($0.value) } }
+                let floatLow = format.valueAxis.secondaryStart == nil && format.valueAxis.secondaryEnd == nil ? ChartAxis.floatingLow(values: lineValues) : nil
+                let fit = ChartAxis.fittingTicks(min: format.valueAxis.secondaryStart ?? floatLow ?? minValY2, max: format.valueAxis.secondaryEnd ?? maxValY2,
+                                                 plotHeight: plotHeight, minSpacing: floatLow != nil ? ChartAxis.minSpacingPrimary : ChartAxis.minSpacingSecondary, floating: floatLow != nil)
+                y2Ticks = fit.ticks
+                fittedY2 = (fit.lower, fit.upper)
+            } else {
+                y2Ticks = ChartAxis.niceTicks(
+                    min: format.valueAxis.secondaryStart ?? minValY2,
+                    max: format.valueAxis.secondaryEnd ?? maxValY2,
+                    targetCount: 4
+                )
+            }
             y2Labels = ChartAxis.labels(
                 ticks: y2Ticks,
                 units: format.valueAxis.secondaryDisplayUnits,
                 precision: format.valueAxis.secondaryPrecision,
                 formatString: secondaryFormatString
             )
-            let y2MinBound = y2Ticks.first ?? 0
-            let y2MaxBound = y2Ticks.last ?? 1
+            let y2MinBound = fittedY2?.lower ?? y2Ticks.first ?? 0
+            let y2MaxBound = fittedY2?.upper ?? y2Ticks.last ?? 1
             scaledY2Ticks = y2Ticks.map {
                 ComboChart.secondaryScale(value: $0, y2Min: y2MinBound, y2Max: y2MaxBound, targetMin: y1MinBound, targetMax: y1MaxBound)
             }
@@ -864,8 +917,8 @@ struct PreparedChartLayout: Sendable {
                     let ptID = makePointID(c: cIdx, s: sIdx)
                     let scaledV: Double
                     if hasY2 {
-                        let y2MinBound = y2Ticks.first ?? 0
-                        let y2MaxBound = y2Ticks.last ?? 1
+                        let y2MinBound = fittedY2?.lower ?? y2Ticks.first ?? 0
+                        let y2MaxBound = fittedY2?.upper ?? y2Ticks.last ?? 1
                         scaledV = ComboChart.secondaryScale(value: v, y2Min: y2MinBound, y2Max: y2MaxBound, targetMin: y1MinBound, targetMax: y1MaxBound)
                     } else {
                         scaledV = v
@@ -957,7 +1010,11 @@ struct PreparedChartLayout: Sendable {
         self.showTrend = showTrend
         self.forecastPoints = forecastRows
         
-        self.hasSecondaryAxis = hasY2
+        // Desktop (VM-D21): trục phụ chỉ hiện khi miền của nó khác miền trục chính; trùng miền thì chỉ một trục (D3 "TB 3 tháng" cùng 0…600
+        // với cột; đặt Maximum của trục chính 300 thì trục phải 0…600 hiện ra). Đường đã quy về thang chính nên vẽ y hệt.
+        let axesCoincide = hasY2 && y2Ticks == y1Ticks && (fittedY2?.lower ?? y2Ticks.first) == (fittedY1?.lower ?? y1Ticks.first)
+            && (fittedY2?.upper ?? y2Ticks.last) == (fittedY1?.upper ?? y1Ticks.last)
+        self.hasSecondaryAxis = hasY2 && !axesCoincide
         self.y2Ticks = y2Ticks
         self.y2Labels = y2Labels
         self.scaledY2Ticks = scaledY2Ticks
@@ -1086,7 +1143,8 @@ struct CartesianChartView: View {
     
     /// Số danh mục hiện cùng lúc khi nhãn đã xoay dọc mà vẫn không đủ chỗ (Power BI cuộn ngang trục chữ, D1 "Rủi ro thấu chi").
     private var visibleCategoryCount: Int {
-        max(4, Int(plotWidth / (layout.categoryFontSize * 1.9)))
+        // Desktop xếp nhãn xoay dọc cách nhau ≈ 20,5 đơn vị trang (VM-D19: "Khiếu nại thay đổi" 23 nhãn, "Rủi ro thấu chi" 25 nhãn trên ≈ 500), tức 1,46 × cỡ chữ 14.
+        max(4, Int(plotWidth / (layout.categoryFontSize * 1.46)))
     }
 
     /// Danh mục đang vẽ trên trục: cả danh sách, hoặc cửa sổ `visibleCategoryCount` phần tử bắt đầu từ `scrollX`.
@@ -1223,7 +1281,8 @@ struct CartesianChartView: View {
             ForEach(layout.bars) { bar in
                 BarMark(
                     x: .value("Value", bar.value),
-                    y: .value("Category", bar.category)
+                    y: .value("Category", bar.category),
+                    height: layout.isScalarAxis ? .ratio(0.85) : .automatic   // trục ngày liên tục: thanh mảnh (VM-D19)
                 )
                 .position(by: .value("Series", bar.series))
                 .foregroundStyle(bar.color.opacity(layout.hasHighlights ? 0.4 : bar.opacity))
@@ -1248,9 +1307,24 @@ struct CartesianChartView: View {
                 }
             }
         }
-        .chartYScale(domain: axisCategories)
-        .chartXScale(domain: layout.barXDomain)
+        // Trục ngày liên tục (`axisType` Scalar): giá trị nhỏ ở dưới, mới nhất ở trên, chỉ ghi nhãn năm tại vạch đầu năm (VM-D19).
+        .chartYScale(domain: layout.isScalarAxis ? axisCategories.reversed() : axisCategories)
+        // Chừa chỗ cho nhãn vạch cuối khi nó sát mép phải ("100%" của thanh phần trăm, "$200M"): không thì bị cắt hoặc bỏ.
+        .chartXScale(domain: layout.barXDomain, range: .plotDimension(endPadding: layout.barLastLabelNearEdge ? 24 : 0))
         .chartYAxis {
+            if layout.isScalarAxis {
+                AxisMarks(preset: .extended, position: .leading, values: layout.scalarXTicks) { val in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: []))
+                        .foregroundStyle(Color.gray.opacity(0.18))
+                    AxisValueLabel(centered: true) {
+                        if let str = val.as(String.self), let year = layout.scalarXLabels[str] {
+                            Text(year)
+                                .font(.system(size: layout.categoryFontSize))
+                                .foregroundColor(Color(hex: "#252423") ?? .primary)
+                        }
+                    }
+                }
+            } else {
             AxisMarks(preset: .extended, position: .leading, values: layout.categories) { val in
                 // Nhãn danh mục ở trục trái, ngoài vùng vẽ, căn giữa theo thanh (như Power BI).
                 AxisValueLabel(centered: true) {
@@ -1261,15 +1335,17 @@ struct CartesianChartView: View {
                     }
                 }
             }
+            }
         }
         .chartXAxis {
             AxisMarks(position: .bottom, values: layout.barXTicks) { val in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: []))
                     .foregroundStyle(Color.gray.opacity(0.18))
-                AxisValueLabel {
+                AxisValueLabel(anchor: .top, collisionResolution: .disabled) {
                     if let d = val.as(Double.self) {
                         let labelText = formattedTickLabel(d, ticks: layout.barXTicks, labels: layout.barXLabels)
                         Text(labelText)
+                            .fixedSize()   // không để Charts cắt nhãn vạch cuối sát mép thành "…" hoặc bỏ
                             .font(.system(size: layout.categoryFontSize))
                             .foregroundColor(Color(hex: "#252423") ?? .primary)
                     }
@@ -1649,6 +1725,10 @@ struct CartesianChartView: View {
             let plotH = plotRect.height
             let relY = location.y - plotRect.origin.y
             guard relY >= 0 && relY <= plotH else { return nil }
+            // Thứ tự có thể đảo (trục ngày liên tục): hỏi biểu đồ danh mục tại vị trí này.
+            if let name = p.value(atY: relY, as: String.self), let at = layout.categories.firstIndex(of: name), at < data.categories.count {
+                return buildPointID(c: at, s: 0)
+            }
             let frac = relY / plotH
             let idx = Int(frac * CGFloat(data.categories.count))
             cIdx = Swift.max(0, Swift.min(data.categories.count - 1, idx))
