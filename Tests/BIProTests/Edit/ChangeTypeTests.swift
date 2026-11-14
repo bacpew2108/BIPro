@@ -128,6 +128,43 @@ import Testing
         #expect(props(env, "Values") == ["month_start"])
     }
 
+    // MARK: bản đồ hình (VM-D12)
+
+    private static let shapeReport = Data(#"{"resourcePackages":[{"name":"SharedResources","type":"SharedResources","items":[{"name":"usa.states.topo","path":"Shapemaps/usa.states.topo.json","type":"ShapeMap"}]}]}"#.utf8)
+
+    private func shapeEditor(_ env: Env, withResource: Bool) throws -> LayoutEditor {
+        let archive = env.archive
+        let report = try PBIXFile(url: env.source).loadReport()
+        let editor = LayoutEditor(report: report, sourceJSON: { page, id in try? archive.read(LayoutEditor.visualPath(page: page, id: id)) },
+                                  openedParts: { prefix in
+            withResource && prefix == LayoutEditor.reportJSONPath ? [(LayoutEditor.reportJSONPath, Self.shapeReport)] : []
+        })
+        editor.showPage("p1")
+        return editor
+    }
+
+    @Test func aLineBecomesAShapeMapWithSeriesValueAndTheShapeObjects() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        let editor = try shapeEditor(env, withResource: true)
+        #expect(editor.changeType(of: S.c1, to: "shapeMap") == nil)
+        let fields = editor.visual(S.c1)?.fields ?? []
+        #expect(fields.filter { $0.role == "Series" }.map(\.property) == ["month_start"])
+        #expect(fields.filter { $0.role == "Value" }.map(\.property) == ["Credit"])
+        #expect(fields.filter { $0.role == "Category" }.isEmpty)
+        let objects = try #require(editor.visual(S.c1)?.raw["visual"]?["objects"])
+        #expect(objects["shape"]?[0]?["properties"]?["map"]?["geoJson"]?["name"]?["expr"]?["Literal"]?["Value"]?.string == "'usa.states.topo'")
+        #expect(objects["dataPoint"]?[0]?["properties"]?["fillRule"]?["linearGradient2"] != nil)
+        editor.undo()
+        #expect(editor.visual(S.c1)?.raw["visual"]?["objects"]?["shape"] == nil)
+    }
+
+    @Test func aShapeMapNeedsTheMapResourceInTheFile() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        let editor = try shapeEditor(env, withResource: false)
+        #expect(editor.changeType(of: S.c1, to: "shapeMap")?.contains("usa.states.topo") == true)
+        #expect(editor.visual(S.c1)?.type == "lineChart")
+    }
+
     // MARK: chặn, không đổi, từ chối
 
     @Test func isBlockedWhenADroppedFieldStillDrivesTheSort() throws {

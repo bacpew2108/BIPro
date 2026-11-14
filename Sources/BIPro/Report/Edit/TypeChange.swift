@@ -39,6 +39,12 @@ enum TypeChange {
         "pivotTable": ["Category": ["Rows"], "Tooltips": ["Values"]],
     ]
 
+    /// Ô ưu tiên trước ô cùng tên ở loại đích (VM-D12): bản đồ hình nhận cột ở `Series` (ô "Chú giải"), không phải `Category`
+    /// (vị trí), và `Y` vào `Value` (độ bão hoà màu); đã thử với cột ngày và cột chữ.
+    private static let targetFirst: [String: [String: [String]]] = [
+        "shapeMap": ["Category": ["Series"], "Y": ["Value"]],
+    ]
+
     /// - Parameters:
     ///   - visual: visual hiện tại (loại, trường).
     ///   - wells: cấu hình ô hiện tại.
@@ -70,7 +76,7 @@ enum TypeChange {
         for well in wells {
             for element in well.elements {
                 guard let kind = WellKind(element.field.kind) else { dropped.append(element.field); continue }
-                let candidates = [well.role] + (fallbacks[well.role] ?? []) + (targetFallbacks[type]?[well.role] ?? [])
+                let candidates = (targetFirst[type]?[well.role] ?? []) + [well.role] + (fallbacks[well.role] ?? []) + (targetFallbacks[type]?[well.role] ?? [])
                 guard let rule = candidates.lazy.compactMap({ role in rules.first { $0.role == role && $0.accepts.contains(kind) } }).first else {
                     dropped.append(element.field); continue
                 }
@@ -79,6 +85,7 @@ enum TypeChange {
                 if placed[i].elements.contains(where: { $0.field.queryRef == element.field.queryRef }) { dropped.append(element.field); continue }
                 var moved = element
                 moved.field.role = rule.role
+                if type == "shapeMap", rule.role == "Series" { moved = moved.withoutActive() }   // VM-D12: không có `active`
                 placed[i].elements.append(moved)
             }
         }
@@ -115,6 +122,7 @@ enum TypeChange {
         if seen.contains(key) { return true }
         if key == "forecast" { return type == "lineChart" }
         if key == "value" { return type == "donutChart" || type == "pieChart" }
+        if key == "labels" { return type != "shapeMap" }   // VM-D12: Desktop bỏ `labels` khi thành bản đồ hình
         if axisKeys.contains(key) { return hasAxes(type) }
         return true
     }

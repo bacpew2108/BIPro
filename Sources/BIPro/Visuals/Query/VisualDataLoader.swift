@@ -30,6 +30,11 @@ actor VisualDataLoader {
 
     /// Chạy truy vấn của `spec` và trả DataView. Ném `DAXError` (kể cả `.cancelled`).
     func load(_ spec: VisualQuerySpec) async throws -> Loaded {
+        // Bản đồ hình chưa có cột vị trí (`Category`), như khi vừa đổi từ biểu đồ khác (VM-D12): không có truy vấn, vẽ bản đồ trơn.
+        if case .shapeMap = spec.shape, spec.primary.isEmpty {
+            let empty = QueryResult(tables: [ResultTable(columns: [], rows: [])], elapsedNanoseconds: 0)
+            return Loaded(view: DataViewMapper.map(empty, spec: spec), query: "", elapsed: .zero, fromCache: false)
+        }
         let query = DAXQueryBuilder.build(spec)
         let clock = ContinuousClock()
         let start = clock.now

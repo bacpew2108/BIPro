@@ -207,6 +207,48 @@ struct D5Nhom6Tests {
         try unzipTest(output)   // giữ file ở build/d-out/D5 để mở thử bằng Power BI Desktop
     }
 
+    // MARK: đổi sang bản đồ hình (VM-D13)
+
+    /// Desktop (VM-D13, `docs/phase-d-evidence/vm-d13/json/retype-shapeMap-line.visual.json`): biểu đồ đường Q1.1 của D1 đổi sang
+    /// bản đồ hình. BI Pro cho ra cùng cấu trúc (trừ thứ tự khoá và `$schema`) và truy vấn của visual không làm hỏng engine.
+    @Test func doiDuongSangBanDoHinhNhuDesktop() async throws {
+        let source = try #require(nhom6)
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let desktop = try Data(contentsOf: root.appendingPathComponent("docs/phase-d-evidence/vm-d13/json/retype-shapeMap-line.visual.json"))
+        let archive = try PBIXFile(url: source).archive
+        let workspace = try Workspace(data: Data(contentsOf: source))
+        let editor = LayoutEditor.reading(archive: archive, report: workspace.report)
+        editor.showPage(Self.d1)
+        let id = "c36625920078b7e0c75a"
+        editor.select(id)
+        #expect(editor.changeType(of: id, to: "shapeMap") == nil)
+        let changes = try editor.makeChanges(archive: archive)
+        let written = try #require(changes.reportParts[LayoutEditor.visualPath(page: Self.d1, id: id)])
+        func normalised(_ data: Data) throws -> NSDictionary {
+            var object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+            object["$schema"] = nil
+            return object as NSDictionary
+        }
+        #expect(try normalised(written) == normalised(desktop))
+        // Vẽ: không có cột vị trí nên không chạy truy vấn, vẫn ra DataView (bản đồ trơn).
+        let interaction = ReportInteraction(workspace: workspace)
+        let page = try #require(editor.page(Self.d1))
+        let visual = try #require(editor.visual(id))
+        let loaded = try await interaction.load(page: page, visual: visual, state: interaction.state(for: page))
+        #expect(loaded.query.isEmpty)
+
+        // Donut Q1.2 (ba cột ở Category, hai measure ở Tooltips): chỉ cột đầu vào Series, `labels`/`value` bị bỏ,
+        // `legend`/`dataPoint` giữ và `dataPoint` thêm mục chuyển sắc, như Desktop (`retype-shapeMap-donut.visual.json`).
+        let donut = "b1106ee1bf9281ad7b51"
+        let donutDesktop = try Data(contentsOf: root.appendingPathComponent("docs/phase-d-evidence/vm-d13/json/retype-shapeMap-donut.visual.json"))
+        let second = LayoutEditor.reading(archive: archive, report: workspace.report)
+        second.showPage(Self.d1)
+        second.select(donut)
+        #expect(second.changeType(of: donut, to: "shapeMap") == nil)
+        let donutWritten = try #require(try second.makeChanges(archive: archive).reportParts[LayoutEditor.visualPath(page: Self.d1, id: donut)])
+        #expect(try normalised(donutWritten) == normalised(donutDesktop))
+    }
+
     // MARK: gói chia đôi cho VM
 
     @Test func goiChiaDoiThemVaDoiTen() async throws {

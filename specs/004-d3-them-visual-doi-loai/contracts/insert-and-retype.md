@@ -30,7 +30,7 @@
 
 - Sắp xếp mặc định tăng dần theo cột ngày khi đổi loại nay áp cho mọi loại có `Category`: cột, thanh, vùng (cả xếp chồng, 100%), hai loại combo, ruy-băng, thác nước, donut, phễu; slicer thì theo cột ở ô `Values`. Treemap, bảng, matrix, KPI, bản đồ hình không thêm (`LayoutEditor.defaultSortRole`). Thay cho "chưa quan sát: đích combo" ở trên.
 - Slicer nhận cột `Category` vào `Values`; matrix nhận `Category` vào `Rows` và measure của `Tooltips` vào `Values` (`TypeChange.targetFallbacks`).
-- Chưa làm: đích bản đồ hình (Desktop: `Category` → `Series`, `Y` → `Value`, thêm `objects.shape.map`).
+- Đích bản đồ hình (VM-D13): cột đầu của `Category` vào `Series` (bỏ `active`), `Y` vào `Value`, `Tooltips` giữ; bỏ `labels`; thêm `objects.shape` và mục `dataPoint` chuyển sắc ở cuối mảng (`PBIRVisualPatch.addingShapeMapDefaults`). Từ chối khi file chưa có tài nguyên `usa.states.topo`.
 
 ## Đổi loại (`changeType`)
 

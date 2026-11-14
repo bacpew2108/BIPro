@@ -458,4 +458,21 @@ import Testing
         let back = try PBIRQueryPatch.wells(in: Data(out.utf8)).first { $0.role == "Category" }
         #expect(back?.elements.map(\.field.kind) == [.hierarchyLevel, .hierarchyLevel] && back?.elements.map(\.field.property) == ["Năm", "Quý"])
     }
+
+    // MARK: VM-D12: khoá Desktop thêm khi thành bản đồ hình
+
+    @Test func shapeMapDefaultsCreateOrExtendObjects() throws {
+        let bare = Data(#"{"name":"a","visual":{"visualType":"shapeMap","query":{"queryState":{}},"drillFilterOtherVisuals":true}}"#.utf8)
+        let created = String(decoding: try PBIRVisualPatch.addingShapeMapDefaults(to: bare), as: UTF8.self)
+        #expect(created.contains(#""query":{"queryState":{}},"objects":{"dataPoint":[{"properties":{"fillRule""#) && created.contains(#""shape":[{"properties":{"datasourceType""#))
+        // Đã có dataPoint: thêm mục chuyển sắc vào cuối; khoá khác giữ nguyên byte.
+        let withObjects = Data(#"{"visual":{"visualType":"shapeMap","objects":{"legend":[{"properties":{}}],"dataPoint":[{"properties":{"fill":1},"selector":{"id":"x"}}]}}}"#.utf8)
+        let extended = String(decoding: try PBIRVisualPatch.addingShapeMapDefaults(to: withObjects), as: UTF8.self)
+        #expect(extended.contains(#""legend":[{"properties":{}}],"dataPoint":[{"properties":{"fill":1},"selector":{"id":"x"}},{"properties":{"fillRule""#))
+        #expect(extended.contains(#""shape":[{"properties":{"datasourceType""#))
+        // Đã có `shape`: không làm gì.
+        let again = try PBIRVisualPatch.addingShapeMapDefaults(to: Data(extended.utf8))
+        #expect(again == Data(extended.utf8))
+    }
 }
+

@@ -102,6 +102,13 @@ struct PageStructure: Equatable {
         pageCount <= 1 ? "Báo cáo phải còn ít nhất một trang." : nil
     }
 
+    /// Desktop không cho xoá trang hiển thị duy nhất (menu của tab chỉ có "Set as landing page", "Duplicate", "Rename"; VM-D13):
+    /// trang cần xoá không ẩn và không còn trang hiển thị nào khác (trang ẩn như trang drillthrough không tính).
+    static func removalRefusal(removingHidden: Bool, otherVisiblePages: Int) -> String? {
+        !removingHidden && otherVisiblePages == 0
+            ? "Đây là trang hiển thị duy nhất; Power BI Desktop không cho xoá (còn trang ẩn thì vẫn không)." : nil
+    }
+
     static func bookmarkImpact(removing ids: Set<String>, bookmarks: [BookmarkInfo]) -> BookmarkImpact {
         var impact = BookmarkImpact()
         guard !ids.isEmpty else { return impact }

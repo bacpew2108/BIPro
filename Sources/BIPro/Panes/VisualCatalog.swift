@@ -90,7 +90,10 @@ enum VisualCatalog {
             wells = [Well(role: "Values", label: "Cột")]
         case "pivotTable":
             wells = [Well(role: "Rows", label: "Hàng"), Well(role: "Columns", label: "Cột"), Well(role: "Values", label: "Giá trị")]
-        case "shapeMap", "filledMap", "map", "azureMap":
+        case "shapeMap":
+            wells = [Well(role: "Category", label: "Vị trí"), Well(role: "Series", label: "Chú giải"),
+                     Well(role: "Value", label: "Độ bão hoà màu"), Well(role: "Tooltips", label: "Chú thích công cụ")]
+        case "filledMap", "map", "azureMap":
             wells = [Well(role: "Category", label: "Vị trí"), Well(role: "Series", label: "Chú giải"), Well(role: "Y", label: "Độ bão hoà màu")]
         case "scatterChart":
             wells = [Well(role: "Category", label: "Giá trị"), Well(role: "Series", label: "Chú giải"),

@@ -807,6 +807,9 @@ final class LayoutEditor {
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
         if isLegacy { return refuse(Self.legacyMessage) }
         guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một visual để đổi loại.") }
+        if type == "shapeMap", visual.type != "shapeMap", !hasShapeMapResource {
+            return refuse("Báo cáo chưa có bản đồ hình (usa.states.topo); Power BI Desktop tự thêm, BI Pro thì chưa.")
+        }
         if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa đổi loại được.") }
         guard let base = baseJSON(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).") }
         let isNew = edited[pageID]?.added[id] != nil
@@ -827,7 +830,7 @@ final class LayoutEditor {
         let bytes: Data, raw: JSONValue, fields: [ReportField]
         var sortsByDate = false
         do {
-            let retyped = try PBIRVisualPatch.setVisualType(in: base, to: type, dropObjectKeys: drop)
+            let retyped = try Self.applyingTypeDefaults(PBIRVisualPatch.setVisualType(in: base, to: type, dropObjectKeys: drop), type: type)
             // Định dạng chờ của khoá bị bỏ cũng bỏ, nếu không áp lại sẽ tạo lại khoá vừa bỏ (D4, R8).
             // Desktop thêm sắp xếp mặc định tăng dần theo cột ngày khi đổi đường sang cột/thanh (VM-D9 mục 1), vùng, combo,
             // ruy-băng, thác nước, donut, phễu và slicer (VM-D12).
@@ -855,6 +858,17 @@ final class LayoutEditor {
         }
         notice = plan.notice
         return nil
+    }
+
+    /// Khoá và mục Desktop tự thêm khi visual thành `type` (VM-D12): bản đồ hình có `objects.shape` và mục tô màu chuyển sắc.
+    nonisolated static func applyingTypeDefaults(_ json: Data, type: String) throws -> Data {
+        type == "shapeMap" ? try PBIRVisualPatch.addingShapeMapDefaults(to: json) : json
+    }
+
+    /// Báo cáo có tài nguyên bản đồ `usa.states.topo` (Desktop tự thêm nó vào file nếu thiếu; BI Pro không có nguồn của nó).
+    var hasShapeMapResource: Bool {
+        guard let report = openedParts(Self.reportJSONPath).first(where: { $0.path == Self.reportJSONPath })?.data else { return false }
+        return PBIRResourcePatch.items(in: report).contains { $0.type == "ShapeMap" && $0.name == "usa.states.topo" }
     }
 
     /// Cột đầu của ô `role` là cột kiểu ngày giờ của mô hình.
@@ -1138,7 +1152,7 @@ final class LayoutEditor {
                     let onDisk = try bytes(path)
                     var json = onDisk
                     if let retype = edit.retyped[visual.id] {
-                        json = try PBIRVisualPatch.setVisualType(in: json, to: retype.type, dropObjectKeys: retype.dropObjectKeys)
+                        json = try Self.applyingTypeDefaults(PBIRVisualPatch.setVisualType(in: json, to: retype.type, dropObjectKeys: retype.dropObjectKeys), type: retype.type)
                     }
                     if let lines = edit.texts[visual.id] { json = try PBIRVisualPatch.setText(in: json, lines: lines) }
                     if let wells = edit.queries[visual.id] { json = try applyQuery(wells, to: json, retype: edit.retyped[visual.id]) }

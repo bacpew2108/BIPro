@@ -44,6 +44,10 @@ import Testing
     @Test func removalIsRefusedOnlyForTheLastPage() {
         #expect(PageStructure.removalRefusal(pageCount: 1)?.contains("ít nhất một trang") == true)
         #expect(PageStructure.removalRefusal(pageCount: 3) == nil)
+        // VM-D13: trang hiển thị duy nhất không xoá được; trang ẩn thì xoá được.
+        #expect(PageStructure.removalRefusal(removingHidden: false, otherVisiblePages: 0) != nil)
+        #expect(PageStructure.removalRefusal(removingHidden: false, otherVisiblePages: 1) == nil)
+        #expect(PageStructure.removalRefusal(removingHidden: true, otherVisiblePages: 0) == nil)
     }
 
     // MARK: (d) tác động lên bookmark

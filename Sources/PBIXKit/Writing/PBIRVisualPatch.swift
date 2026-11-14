@@ -76,6 +76,61 @@ public enum PBIRVisualPatch {
         return Data(bytes)
     }
 
+    // MARK: - Shape map
+
+    private static let shapeText = #"[{"properties":{"datasourceType":{"expr":{"Literal":{"Value":"'file_upload'"}}},"map":{"geoJson":{"type":{"expr":{"Literal":{"Value":"'shared'"}}},"name":{"expr":{"Literal":{"Value":"'usa.states.topo'"}}},"content":{"expr":{"ResourcePackageItem":{"PackageName":"SharedResources","PackageType":2,"ItemName":"usa.states.topo"}}}}},"projectionEnum":{"expr":{"Literal":{"Value":"'albersUsa'"}}}}}]"#
+    private static let gradientText = #"{"properties":{"fillRule":{"linearGradient2":{"min":{"color":{"expr":{"Literal":{"Value":"'minColor'"}}}},"max":{"color":{"expr":{"Literal":{"Value":"'maxColor'"}}}},"nullColoringStrategy":{"strategy":{"expr":{"Literal":{"Value":"'asZero'"}}}}}}}}"#
+
+    /// What Power BI Desktop adds when a visual becomes a shape map (VM-D12, `docs/phase-d-evidence/vm-d12/`): `objects.shape`
+    /// (the shared `usa.states.topo` map, Albers USA projection), and an entry of `objects.dataPoint` with a two-colour
+    /// gradient `fillRule` (appended after the entries already there). Does nothing when the visual already has `objects.shape`.
+    /// The caller makes sure the report has the `usa.states.topo` resource.
+    public static func addingShapeMapDefaults(to json: Data) throws -> Data {
+        let root = try parseObject(json)
+        guard let visual = root["visual"] as? [String: Any] else { throw WriteError.invalid("visual.json has no visual") }
+        let objects = visual["objects"] as? [String: Any]
+        if objects?["shape"] != nil { return json }
+        var bytes = [UInt8](json)
+        let gradient = Array(gradientText.utf8)
+        var appended: [String] = []
+        if objects == nil {
+            guard let kids = JSONCursor.children(at: [.key("visual")], in: bytes),
+                  let query = kids.first(where: { $0.key.flatMap { JSONCursor.string(in: bytes, $0) } == "query" }) else {
+                throw WriteError.invalid("visual has no query to put objects after")
+            }
+            let text = Array(#","objects":{"dataPoint":["#.utf8) + gradient + Array(#"],"shape":"#.utf8) + Array(shapeText.utf8) + [UInt8(ascii: "}")]
+            bytes.insert(contentsOf: text, at: query.value.upperBound)
+        } else {
+            let dataPointPath: [JSONPathStep] = objectsPath + [.key("dataPoint")]
+            if let entries = JSONCursor.children(at: dataPointPath, in: bytes) {
+                guard let range = JSONCursor.locate(dataPointPath[...], in: bytes) else { throw WriteError.invalid("dataPoint not found") }
+                if let last = entries.last {
+                    bytes.insert(contentsOf: [UInt8(ascii: ",")] + gradient, at: last.value.upperBound)
+                } else {
+                    bytes.insert(contentsOf: gradient, at: range.lowerBound + 1)
+                }
+            } else {
+                appended.append(#""dataPoint":["# + gradientText + "]")
+            }
+            appended.append(#""shape":"# + shapeText)
+            guard let range = JSONCursor.locate(objectsPath[...], in: bytes), let kids = JSONCursor.children(at: objectsPath, in: bytes) else {
+                throw WriteError.invalid("objects not found")
+            }
+            let text = (kids.isEmpty ? "" : ",") + appended.joined(separator: ",")
+            bytes.insert(contentsOf: Array(text.utf8), at: range.upperBound - 1)
+        }
+        var expected = root
+        var newVisual = visual
+        var newObjects = objects ?? [:]
+        let gradientJSON = try JSONSerialization.jsonObject(with: Data(gradientText.utf8))
+        newObjects["dataPoint"] = ((newObjects["dataPoint"] as? [Any]) ?? []) + [gradientJSON]
+        newObjects["shape"] = try JSONSerialization.jsonObject(with: Data(shapeText.utf8))
+        newVisual["objects"] = newObjects
+        expected["visual"] = newVisual
+        try verify(Data(bytes), equals: expected, what: "shape map defaults splice")
+        return Data(bytes)
+    }
+
     // MARK: - Text box
 
     /// `json` with the paragraphs of a text box set to `lines`. A paragraph with one run keeps its style and only its

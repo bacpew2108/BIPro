@@ -16,6 +16,20 @@ public enum PBIRQueryPatch {
             self.field = field
             self.source = source
         }
+
+        /// The element without its `active` flag (the `Series` column of a shape map has none: VM-D12). Bytes found in the
+        /// file lose only `"active":…` and its comma; a new element is written without the flag.
+        public func withoutActive() -> Element {
+            var copy = self
+            copy.field.active = nil
+            guard let source, var text = String(data: source, encoding: .utf8) else { return copy }
+            for flag in [#","active":true"#, #","active":false"#, #""active":true,"#, #""active":false,"#] where text.contains(flag) {
+                text = text.replacingOccurrences(of: flag, with: "")
+                break
+            }
+            copy.source = Data(text.utf8)
+            return copy
+        }
     }
 
     /// A well (`Category`, `Y`, `Values`…) with its fields in order.

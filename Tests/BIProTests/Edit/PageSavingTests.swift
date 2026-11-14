@@ -432,6 +432,18 @@ import Testing
         expectRejected(leftover, env, "còn part của trang đã xoá", mentioning: S.visualPath("p2", S.b1))
     }
 
+    // MARK: trang hiển thị duy nhất (VM-D13)
+
+    @Test func theOnlyVisiblePageCannotBeDeletedButAHiddenOneCan() throws {
+        let hidden = #"{"name":"p1","displayName":"P1","width":1920,"height":1080,"visibility":"HiddenInViewMode"}"#
+        let env = try Env(p1Page: hidden); defer { env.cleanUp() }
+        // p1 ẩn, p2 hiển thị: p2 là trang hiển thị duy nhất.
+        #expect(env.editor.removePage("p2")?.contains("hiển thị duy nhất") == true)
+        #expect(env.editor.pages.map(\.id) == ["p1", "p2"] && !env.editor.isDirty)
+        #expect(env.editor.removePage("p1") == nil)
+        #expect(env.editor.pages.map(\.id) == ["p2"])
+    }
+
     // MARK: tài nguyên chỉ trang đã xoá còn dùng (VM-D12)
 
     private static let resourceReport = #"{"themeCollection":{"baseTheme":{"name":"CY"}},"resourcePackages":[{"name":"SharedResources","type":"SharedResources","items":[{"name":"Fluent","path":"BaseThemes/Fluent.json","type":"BaseTheme"},{"name":"usa.states.topo","path":"Shapemaps/usa.states.topo.json","type":"ShapeMap"}]},{"name":"RegisteredResources","type":"RegisteredResources","items":[{"name":"icon_a.svg","path":"icon_a.svg","type":"Image"},{"name":"icon_b.svg","path":"icon_b.svg","type":"Image"},{"name":"icon_c.svg","path":"icon_c.svg","type":"Image"},{"name":"Custom.json","path":"Custom.json","type":"CustomTheme"}]}]}"#

@@ -188,6 +188,8 @@ extension LayoutEditor {
         resetMessages()
         guard let target = page(id), structure.order.contains(id) else { return refuse("Không tìm thấy trang.") }
         if let reason = PageStructure.removalRefusal(pageCount: structure.order.count) { return refuse(reason) }
+        let otherVisible = pages.filter { $0.id != id && !$0.isHidden }.count
+        if let reason = PageStructure.removalRefusal(removingHidden: target.isHidden, otherVisiblePages: otherVisible) { return refuse(reason) }
         // Nút điều hướng trang ở các trang còn lại trỏ tới trang này: Desktop để nguyên (VM-D8), BI Pro làm theo và báo nút nào.
         var buttons: [String] = []
         for other in pages where other.id != id {

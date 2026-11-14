@@ -59,3 +59,7 @@ Desktop bỏ mục `ShapeMap` (`SharedResources`) và `Image` (`RegisteredResour
 - Tính lại từ đầu mỗi lần lưu: hoàn tác xoá trang sau khi đã lưu đưa mục và file (byte lúc mở) trở lại; lưu lần hai không ghi gì; không trang nào xoá và file đủ mục thì không làm gì.
 - Mục không trang nào nhắc tới lúc mở (và mọi loại khác `ShapeMap`/`Image`) không đụng.
 
+## Xoá trang hiển thị duy nhất (VM-D13)
+
+Desktop không cho xoá (menu không có Delete) trang hiển thị duy nhất, dù còn trang ẩn. `removePage` từ chối kèm lý do khi trang đích không ẩn và không còn trang hiển thị nào khác; trang ẩn xoá được.
+

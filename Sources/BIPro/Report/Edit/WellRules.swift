@@ -55,7 +55,8 @@ enum WellRules {
         "lineStackedColumnComboChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false),
                                         "Y": (.measure, false), "Y2": (.measure, false)],
         "pivotTable": ["Columns": (.column, true), "Rows": (.column, true), "Values": (.measure, false)],
-        "shapeMap": ["Category": (.column, true), "Tooltips": (.measure, false)],
+        // VM-D12: bản đồ hình tạo trong Desktop có thêm `Series` (Chú giải) và `Value` (Độ bão hoà màu).
+        "shapeMap": ["Category": (.column, true), "Series": (.column, true), "Value": (.measure, true), "Tooltips": (.measure, false)],
         "treemap": ["Group": (.column, false), "Tooltips": (.measure, false), "Values": (.measure, true)],
     ]
 
