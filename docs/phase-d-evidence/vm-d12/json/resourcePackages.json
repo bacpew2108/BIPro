@@ -1,0 +1,75 @@
+{
+ "truoc (s0)": {
+  "SharedResources": [
+   "Fluent2-CY26SU09",
+   "usa.states.topo"
+  ],
+  "RegisteredResources": [
+   "icon_alert_g.svg",
+   "icon_alert_o.svg",
+   "icon_avg_g.svg",
+   "icon_bank_g.svg",
+   "icon_chat_p.svg",
+   "icon_check_o.svg",
+   "icon_clock_p.svg",
+   "icon_coins_o.svg",
+   "icon_document_o.svg",
+   "icon_dollar_g.svg",
+   "icon_exchange_g.svg",
+   "icon_hourglass_o.svg",
+   "icon_scale_p.svg",
+   "icon_star_p.svg",
+   "icon_stopwatch_p.svg",
+   "icon_wallet_g.svg",
+   "Nhom6Theme.json"
+  ]
+ },
+ "sau xoa D2 (v1)": {
+  "SharedResources": [
+   "Fluent2-CY26SU09",
+   "usa.states.topo"
+  ],
+  "RegisteredResources": [
+   "icon_alert_g.svg",
+   "icon_alert_o.svg",
+   "icon_avg_g.svg",
+   "icon_bank_g.svg",
+   "icon_chat_p.svg",
+   "icon_check_o.svg",
+   "icon_clock_p.svg",
+   "icon_coins_o.svg",
+   "icon_document_o.svg",
+   "icon_dollar_g.svg",
+   "icon_exchange_g.svg",
+   "icon_hourglass_o.svg",
+   "icon_scale_p.svg",
+   "icon_star_p.svg",
+   "icon_stopwatch_p.svg",
+   "icon_wallet_g.svg",
+   "Nhom6Theme.json"
+  ]
+ },
+ "sau xoa D2 va D3 (v2)": {
+  "SharedResources": [
+   "Fluent2-CY26SU09",
+   "usa.states.topo"
+  ],
+  "RegisteredResources": [
+   "icon_alert_g.svg",
+   "icon_alert_o.svg",
+   "icon_avg_g.svg",
+   "icon_bank_g.svg",
+   "icon_chat_p.svg",
+   "icon_clock_p.svg",
+   "icon_coins_o.svg",
+   "icon_document_o.svg",
+   "icon_dollar_g.svg",
+   "icon_exchange_g.svg",
+   "icon_hourglass_o.svg",
+   "icon_scale_p.svg",
+   "icon_stopwatch_p.svg",
+   "icon_wallet_g.svg",
+   "Nhom6Theme.json"
+  ]
+ }
+}

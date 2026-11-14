@@ -138,15 +138,16 @@ extension LayoutEditor {
         var notes: [String] = []
         try addBookmarkChanges(to: &changes, archive: archive, notes: &notes)
         try addFilterChanges(to: &changes, archive: archive, notes: &notes)
+        try addResourceChanges(to: &changes, archive: archive)
         return notes
     }
 
-    private func current(_ path: String, in changes: PBIXChanges, archive: ZipArchive) -> Data? {
+    func current(_ path: String, in changes: PBIXChanges, archive: ZipArchive) -> Data? {
         if changes.removedParts.contains(path) { return nil }
         return changes.reportParts[path] ?? changes.addedParts[path] ?? (archive.entry(path) != nil ? try? archive.read(path) : nil)
     }
 
-    private func store(_ data: Data, at path: String, changes: inout PBIXChanges, archive: ZipArchive) {
+    func store(_ data: Data, at path: String, changes: inout PBIXChanges, archive: ZipArchive) {
         if archive.entry(path) != nil {
             if (try? archive.read(path)) == data { changes.reportParts[path] = nil } else { changes.reportParts[path] = data }
         } else {

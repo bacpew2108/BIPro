@@ -54,7 +54,8 @@ enum SyntheticReport {
     }
 
     static func members(withChart: Bool = false, chart: Data? = nil, p1Page: String? = nil,
-                        extra: [(path: String, data: Data)] = [], bookmarks: [(name: String, json: String)]? = nil) -> [(path: String, data: Data, method: UInt16)] {
+                        extra: [(path: String, data: Data)] = [], bookmarks: [(name: String, json: String)]? = nil,
+                        reportJSON: String? = nil) -> [(path: String, data: Data, method: UInt16)] {
         func text(_ s: String) -> Data { Data(s.utf8) }
         var members: [(path: String, data: Data, method: UInt16)] = [
             ("Version", text("1.32"), 0),
@@ -62,7 +63,7 @@ enum SyntheticReport {
             ("DataModel", Data((0..<4000).map { UInt8(truncatingIfNeeded: $0 &* 7 ^ ($0 >> 2)) }), 0),
             ("SecurityBindings", Data([9, 8, 7]), 0),
             ("Report/definition/version.json", text(#"{"version":"2.0.0"}"#), 8),
-            ("Report/definition/report.json", text(#"{"themeCollection":{"baseTheme":{"name":"CY"}}}"#), 8),
+            ("Report/definition/report.json", text(reportJSON ?? #"{"themeCollection":{"baseTheme":{"name":"CY"}}}"#), 8),
             ("Report/definition/pages/pages.json", text(#"{"pageOrder":["p1","p2"],"activePageName":"p1"}"#), 8),
             ("Report/definition/bookmarks/bookmarks.json", text(#"{"items":[{"name":"bm1"}]}"#), 8),
             ("Report/definition/bookmarks/bm1.bookmark.json",
@@ -96,9 +97,9 @@ enum SyntheticReport {
     @discardableResult
     static func make(in directory: URL, name: String = "report.pbix", withChart: Bool = false, chart: Data? = nil,
                      p1Page: String? = nil, extra: [(path: String, data: Data)] = [],
-                     bookmarks: [(name: String, json: String)]? = nil) throws -> URL {
+                     bookmarks: [(name: String, json: String)]? = nil, reportJSON: String? = nil) throws -> URL {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let list = members(withChart: withChart, chart: chart, p1Page: p1Page, extra: extra, bookmarks: bookmarks).map { (path: $0.path, source: ZipWriter.Source.bytes($0.data, method: $0.method)) }
+        let list = members(withChart: withChart, chart: chart, p1Page: p1Page, extra: extra, bookmarks: bookmarks, reportJSON: reportJSON).map { (path: $0.path, source: ZipWriter.Source.bytes($0.data, method: $0.method)) }
         let url = directory.appendingPathComponent(name)
         try ZipWriter.write(list, modified: nil).write(to: url)
         return url

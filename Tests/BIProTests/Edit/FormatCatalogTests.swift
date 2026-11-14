@@ -224,4 +224,15 @@ import Testing
             }
         }
     }
+
+    /// VM-D12 mục 3: công tắc Desktop bật sẵn cho visual mới.
+    @Test func switchesDesktopTurnsOnForANewVisualDefaultToOn() {
+        func on(_ type: String, _ object: String) -> Bool? {
+            card(type, .objects, object)?.cardSwitch?.defaultOn
+        }
+        #expect(on("clusteredColumnChart", "legend") == true && on("lineChart", "legend") == true)
+        #expect(on("clusteredColumnChart", "labels") == false)       // Nhãn dữ liệu: tắt (VM-D4 mục 2)
+        #expect(on("donutChart", "legend") == true && on("donutChart", "labels") == true)
+        #expect(on("slicer", "header") == true)
+    }
 }

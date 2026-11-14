@@ -50,3 +50,12 @@ Mỗi hàm ghép byte rồi phân tích lại và so với cấu trúc mong đ�
 4. Không còn tham chiếu tới trang đã xoá ở những chỗ là tham chiếu (SC-005): part dưới `pages/<mã>/`, `pageOrder` và `activePageName` của `pages.json`, `activeSection` và `sections` của bookmark, nút `PageNavigation` trong `visual.json`. Chuỗi trùng mã trang ở chỗ khác (tên hiển thị, chữ trong visual) không phải tham chiếu và không chặn lưu (sửa 2026-11-13; trước đó tìm chuỗi trong mọi file nên có thể chặn nhầm, và không bắt được nút điều hướng vì mã nằm trong dấu nháy đơn). Sửa lần hai 2026-11-13 (VM-D8): nút `PageNavigation` trỏ trang đã xoá **không** tính là lỗi; Desktop để nguyên nút, BI Pro giữ part của nút từng byte.
 
 Lỗi ở bước nào thì `SaveError.verificationFailed`, file đích còn nguyên.
+
+## Dọn tài nguyên khi xoá trang (bổ sung 2026-11-14, VM-D12 mục 2)
+
+Desktop bỏ mục `ShapeMap` (`SharedResources`) và `Image` (`RegisteredResources`) khỏi `report.json` > `resourcePackages`, cùng file của nó ở `Report/StaticResources/<gói>/<path>`, khi **mọi** trang nhắc tới nó (`"ItemName":"<tên>"` trong part của trang) đã xoá; còn một trang nhắc tới thì giữ; theme không đụng.
+
+- `LayoutEditor.addResourceChanges` (cuối `addReportChanges`, sau bộ lọc, trên `report.json` hiện có trong `changes`): so với `report.json` lúc mở (`openedParts`), mục bị bỏ = mục mà các trang của file lúc mở nhắc tới, không trang nào còn trong thứ tự trang nhắc, và không part nào còn lại của báo cáo nhắc. Ghép byte `items` bằng `PBIRResourcePatch.settingItems` (mục bỏ chỉ trong `items`, phần khác nguyên byte, kiểm lại bằng so cấu trúc).
+- Tính lại từ đầu mỗi lần lưu: hoàn tác xoá trang sau khi đã lưu đưa mục và file (byte lúc mở) trở lại; lưu lần hai không ghi gì; không trang nào xoá và file đủ mục thì không làm gì.
+- Mục không trang nào nhắc tới lúc mở (và mọi loại khác `ShapeMap`/`Image`) không đụng.
+

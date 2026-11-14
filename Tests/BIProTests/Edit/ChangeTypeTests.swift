@@ -91,16 +91,41 @@ import Testing
         #expect(sort["sort"]?[0]?["field"]?["Column"]?["Property"]?.string == "full_date")
     }
 
-    @Test func noSortIsAddedForOtherCategoriesOrTargets() throws {
+    @Test func noSortIsAddedForTextCategories() throws {
         let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
         // Cột chữ (không biết Desktop sắp thế nào): không đoán.
         #expect(env.editor.changeType(of: S.c1, to: "clusteredColumnChart") == nil)
         #expect(env.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
-        // Cột ngày nhưng đích là combo: chưa quan sát.
-        let other = try Env(chart: Self.lineWithoutSort); defer { other.cleanUp() }
-        other.editor.dateColumns = ["Dim_Date[month_start]"]
-        #expect(other.editor.changeType(of: S.c1, to: "lineClusteredColumnComboChart") == nil)
-        #expect(other.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"] == nil)
+    }
+
+    /// VM-D12: combo, donut và slicer (và vùng, ruy-băng, thác nước, phễu khi BI Pro hỗ trợ làm đích) cũng thêm sắp xếp mặc định; treemap thì không.
+    @Test func everySupportedAxisTargetSortsAscendingByTheDateColumnExceptTreemap() throws {
+        for type in ["lineClusteredColumnComboChart", "lineStackedColumnComboChart", "donutChart", "slicer", "treemap"] {
+            let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+            env.editor.dateColumns = ["Dim_Date[month_start]"]
+            #expect(env.editor.changeType(of: S.c1, to: type) == nil, "\(type)")
+            let sort = env.editor.visual(S.c1)?.raw["visual"]?["query"]?["sortDefinition"]
+            if type == "treemap" {
+                #expect(sort == nil, "\(type)")
+            } else {
+                #expect(sort?["isDefaultSort"]?.bool == true, "\(type)")
+                #expect(sort?["sort"]?[0]?["direction"]?.string == "Ascending", "\(type)")
+                #expect(sort?["sort"]?[0]?["field"]?["Column"]?["Property"]?.string == "month_start", "\(type)")
+            }
+        }
+    }
+
+    /// VM-D12: đường có Category ngày và Y, Chú giải công cụ (`Tooltips`) đổi sang matrix hoặc slicer như Desktop.
+    @Test func aLineBecomesAMatrixWithRowsAndAllMeasuresLikeDesktop() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        #expect(env.editor.changeType(of: S.c1, to: "pivotTable") == nil)
+        #expect(props(env, "Rows") == ["month_start"] && props(env, "Values") == ["Credit"])
+    }
+
+    @Test func aLineBecomesASlicerOverItsCategory() throws {
+        let env = try Env(chart: Self.lineWithoutSort); defer { env.cleanUp() }
+        #expect(env.editor.changeType(of: S.c1, to: "slicer") == nil)
+        #expect(props(env, "Values") == ["month_start"])
     }
 
     // MARK: chặn, không đổi, từ chối

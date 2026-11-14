@@ -72,6 +72,8 @@ enum FormatCatalog {
     private static let vm = "VM-D4"
     /// `docs/phase-d-evidence/vm-d8/QUAN-SAT.md` mục 6.
     private static let vm8 = "VM-D8 mục 6"
+    /// `docs/phase-d-evidence/vm-d12/QUAN-SAT.md` mục 3 (công tắc mặc định của visual mới).
+    private static let vm12 = "VM-D12 mục 3"
     /// Cỡ chữ tiêu đề: Desktop kẹp 8 đến 60 (VM-D8).
     private static let titleFontSize = FormatKind.number(min: 8, max: 60, step: 1, tail: .d)
 
@@ -165,7 +167,7 @@ enum FormatCatalog {
         case "slicer":
             return [
                 card(.objects, "header", "Tiêu đề slicer", [
-                    prop("show", "Hiện tiêu đề", .bool, "\(nhom6), \(vm) mục 6", cardSwitch: true),
+                    prop("show", "Hiện tiêu đề", .bool, "\(nhom6), \(vm) mục 6, \(vm12)", cardSwitch: true, defaultOn: true),
                     prop("fontColor", "Màu chữ", .color, nhom6),
                     prop("textSize", "Cỡ chữ", fontSize, nhom6),
                 ]),
@@ -176,7 +178,7 @@ enum FormatCatalog {
         case _ where axisCharts.contains(type):
             return [
                 card(.objects, "legend", "Chú giải", [
-                    prop("show", "Hiện chú giải", .bool, "\(nhom6), \(vm) mục 3", cardSwitch: true),
+                    prop("show", "Hiện chú giải", .bool, "\(nhom6), \(vm) mục 3, \(vm12)", cardSwitch: true, defaultOn: true),
                     prop("position", "Vị trí", .choice([FormatChoice(title: "Dưới", literal: "'Bottom'"), FormatChoice(title: "Trên", literal: "'Top'")]), nhom6),
                     prop("fontSize", "Cỡ chữ", fontSize, nhom6),
                 ]),
@@ -216,12 +218,12 @@ enum FormatCatalog {
         case "donutChart":
             return [
                 card(.objects, "legend", "Chú giải", [
-                    prop("show", "Hiện chú giải", .bool, nhom6, cardSwitch: true),
+                    prop("show", "Hiện chú giải", .bool, "\(nhom6), \(vm12)", cardSwitch: true, defaultOn: true),
                     prop("position", "Vị trí", .choice([FormatChoice(title: "Dưới", literal: "'Bottom'"), FormatChoice(title: "Trên", literal: "'Top'")]), nhom6),
                     prop("fontSize", "Cỡ chữ", fontSize, nhom6),
                 ]),
                 card(.objects, "labels", "Nhãn dữ liệu", [
-                    prop("show", "Hiện nhãn", .bool, nhom6, cardSwitch: true),
+                    prop("show", "Hiện nhãn", .bool, "\(nhom6), \(vm12)", cardSwitch: true, defaultOn: true),
                     prop("labelStyle", "Kiểu nhãn", .choice([FormatChoice(title: "Phần trăm tổng", literal: "'Percent of total'")]), nhom6),
                     prop("fontSize", "Cỡ chữ", fontSize, nhom6),
                     prop("labelDisplayUnits", "Đơn vị hiển thị", units, nhom6),

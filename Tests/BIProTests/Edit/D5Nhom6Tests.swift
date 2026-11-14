@@ -176,6 +176,37 @@ struct D5Nhom6Tests {
         #expect(editor.notice?.contains("drillthrough") == true)
     }
 
+    // MARK: tài nguyên chỉ trang đã xoá còn dùng (VM-D8, VM-D12)
+
+    /// Desktop: xoá D2 (trang duy nhất có bản đồ hình) bỏ `usa.states.topo` (VM-D8); xoá D3 bỏ `icon_check_o.svg` và
+    /// `icon_star_p.svg` (chỉ D3 dùng; VM-D12 mục 2). Icon trang khác còn dùng giữ nguyên.
+    @Test func xoaTrangDonTaiNguyenNhuDesktop() async throws {
+        let source = try #require(nhom6)
+        let archive = try PBIXFile(url: source).archive
+        let workspace = try Workspace(data: Data(contentsOf: source))
+        let editor = LayoutEditor.reading(archive: archive, report: workspace.report)
+        editor.showPage(Self.d1)
+        #expect(editor.removePage(Self.d2) == nil && editor.removePage(Self.d3) == nil)
+        let changes = try editor.makeChanges(archive: archive)
+        let gone = changes.removedParts.filter { $0.hasPrefix("Report/StaticResources/") }
+        #expect(gone == ["Report/StaticResources/SharedResources/Shapemaps/usa.states.topo.json",
+                         "Report/StaticResources/RegisteredResources/icon_check_o.svg",
+                         "Report/StaticResources/RegisteredResources/icon_star_p.svg"])
+        let report = try #require(changes.reportParts[LayoutEditor.reportJSONPath])
+        let names = PBIRResourcePatch.items(in: report).map(\.name)
+        #expect(!names.contains("usa.states.topo") && !names.contains("icon_check_o.svg") && !names.contains("icon_star_p.svg"))
+        #expect(names.contains("Fluent2-CY26SU09") && names.contains("Nhom6Theme.json") && names.contains("icon_avg_g.svg"))
+        #expect(names.count == PBIRResourcePatch.items(in: try archive.read(LayoutEditor.reportJSONPath)).count - 3)
+        // Lưu thật, mở lại: gói đọc được, không còn file tài nguyên đã bỏ, báo cáo còn D1 và D4.
+        let output = try outputDirectory().appendingPathComponent("Nhom6_d12_xoa.pbix")
+        _ = try save(editor, source: source, stamp: try FileStamp.of(source), to: output)
+        let reopened = try Workspace(data: Data(contentsOf: output))
+        #expect(reopened.report.pages.map(\.id) == [Self.d1, Self.d4])
+        let after = try ZipArchive(url: output)
+        for path in gone { #expect(after.entry(path) == nil, Comment(rawValue: path)) }
+        try unzipTest(output)   // giữ file ở build/d-out/D5 để mở thử bằng Power BI Desktop
+    }
+
     // MARK: gói chia đôi cho VM
 
     @Test func goiChiaDoiThemVaDoiTen() async throws {

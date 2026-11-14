@@ -15,9 +15,10 @@ import Testing
         let editor: LayoutEditor
         let stamp: FileStamp
 
-        init(p1Page: String? = nil, extra: [(path: String, data: Data)] = [], bookmarks: [(name: String, json: String)]? = nil) throws {
+        init(p1Page: String? = nil, extra: [(path: String, data: Data)] = [], bookmarks: [(name: String, json: String)]? = nil,
+             reportJSON: String? = nil) throws {
             dir = SyntheticReport.temporaryDirectory("pagesave")
-            source = try SyntheticReport.make(in: dir, p1Page: p1Page, extra: extra, bookmarks: bookmarks)
+            source = try SyntheticReport.make(in: dir, p1Page: p1Page, extra: extra, bookmarks: bookmarks, reportJSON: reportJSON)
             archive = try ZipArchive(url: source)
             backups = dir.appendingPathComponent("Backups", isDirectory: true)
             editor = LayoutEditor.reading(archive: archive, report: try PBIXFile(url: source).loadReport())
@@ -430,5 +431,77 @@ import Testing
         let leftover = try build(env) { changes in changes.removedParts.remove(S.visualPath("p2", S.b1)) }
         expectRejected(leftover, env, "còn part của trang đã xoá", mentioning: S.visualPath("p2", S.b1))
     }
-}
 
+    // MARK: tài nguyên chỉ trang đã xoá còn dùng (VM-D12)
+
+    private static let resourceReport = #"{"themeCollection":{"baseTheme":{"name":"CY"}},"resourcePackages":[{"name":"SharedResources","type":"SharedResources","items":[{"name":"Fluent","path":"BaseThemes/Fluent.json","type":"BaseTheme"},{"name":"usa.states.topo","path":"Shapemaps/usa.states.topo.json","type":"ShapeMap"}]},{"name":"RegisteredResources","type":"RegisteredResources","items":[{"name":"icon_a.svg","path":"icon_a.svg","type":"Image"},{"name":"icon_b.svg","path":"icon_b.svg","type":"Image"},{"name":"icon_c.svg","path":"icon_c.svg","type":"Image"},{"name":"Custom.json","path":"Custom.json","type":"CustomTheme"}]}]}"#
+
+    private static func refs(_ names: [String]) -> Data {
+        Data(#"{"name":"x","visual":{"visualType":"image","objects":{"image":[{"properties":{"sourceType":{"expr":{"Literal":{"Value":"'ImageData'"}}},"sourceFile":{"expr":{"ResourcePackageItem":{"PackageName":"RegisteredResources","PackageType":1,"ItemName":"\#(names[0])"}}}}}]}\#(names.dropFirst().map { #","other\#($0)":{"ResourcePackageItem":{"ItemName":"\#($0)"}}"# }.joined())}}"#.utf8)
+    }
+
+    private static var resourceExtras: [(path: String, data: Data)] {
+        [("Report/StaticResources/SharedResources/BaseThemes/Fluent.json", Data("{}".utf8)),
+         ("Report/StaticResources/SharedResources/Shapemaps/usa.states.topo.json", Data("topo".utf8)),
+         ("Report/StaticResources/RegisteredResources/icon_a.svg", Data("a".utf8)),
+         ("Report/StaticResources/RegisteredResources/icon_b.svg", Data("b".utf8)),
+         ("Report/StaticResources/RegisteredResources/icon_c.svg", Data("c".utf8)),
+         ("Report/StaticResources/RegisteredResources/Custom.json", Data("{}".utf8)),
+         // p1 nhắc bản đồ, icon_a, icon_b; p2 nhắc icon_b, icon_c
+         (S.visualPath("p1", "rrrrrrrrrrrrrrrrrrr1"), refs(["usa.states.topo", "icon_a.svg", "icon_b.svg"])),
+         (S.visualPath("p2", "rrrrrrrrrrrrrrrrrrr2"), refs(["icon_b.svg", "icon_c.svg"]))]
+    }
+
+    private static func itemNames(_ report: String) -> [String] {
+        PBIRResourcePatch.items(in: Data(report.utf8)).map(\.name)
+    }
+
+    @Test func deletingAPageDropsTheResourcesOnlyThatPageUses() throws {
+        let env = try Env(extra: Self.resourceExtras, reportJSON: Self.resourceReport); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p2") == nil)
+        let changes = try env.editor.makeChanges(archive: env.archive)
+        #expect(changes.removedParts.contains("Report/StaticResources/RegisteredResources/icon_c.svg"))
+        #expect(!changes.removedParts.contains("Report/StaticResources/RegisteredResources/icon_b.svg"))
+        #expect(!changes.removedParts.contains("Report/StaticResources/SharedResources/Shapemaps/usa.states.topo.json"))
+        #expect(!changes.removedParts.contains("Report/StaticResources/RegisteredResources/Custom.json"))
+        _ = try env.save()
+        let report = try env.read("Report/definition/report.json")
+        #expect(Self.itemNames(report) == ["Fluent", "usa.states.topo", "icon_a.svg", "icon_b.svg", "Custom.json"])
+        #expect(try ZipArchive(url: env.source).entry("Report/StaticResources/RegisteredResources/icon_c.svg") == nil)
+        // Lưu lần hai không ghi gì.
+        let again = try env.editor.makeChanges(archive: try ZipArchive(url: env.source))
+        #expect(again.reportParts.isEmpty && again.addedParts.isEmpty && again.removedParts.isEmpty)
+    }
+
+    @Test func theLastPageUsingAShapeMapTakesItAway() throws {
+        let env = try Env(extra: Self.resourceExtras, reportJSON: Self.resourceReport); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p1") == nil)
+        _ = try env.save()
+        let report = try env.read("Report/definition/report.json")
+        #expect(Self.itemNames(report) == ["Fluent", "icon_b.svg", "icon_c.svg", "Custom.json"])   // icon_b: p2 còn dùng
+        let after = try ZipArchive(url: env.source)
+        #expect(after.entry("Report/StaticResources/SharedResources/Shapemaps/usa.states.topo.json") == nil)
+        #expect(after.entry("Report/StaticResources/RegisteredResources/icon_a.svg") == nil)
+        #expect(after.entry("Report/StaticResources/SharedResources/BaseThemes/Fluent.json") != nil)
+        #expect(after.entry("Report/StaticResources/RegisteredResources/icon_b.svg") != nil)
+    }
+
+    @Test func undoingTheDeletionAfterSavingBringsTheResourcesBack() throws {
+        let env = try Env(extra: Self.resourceExtras, reportJSON: Self.resourceReport); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p1") == nil)
+        _ = try env.save()
+        env.editor.undo()
+        _ = try env.save()
+        let report = try env.read("Report/definition/report.json")
+        #expect(Self.itemNames(report) == ["Fluent", "usa.states.topo", "icon_a.svg", "icon_b.svg", "icon_c.svg", "Custom.json"])
+        #expect(try env.read("Report/StaticResources/SharedResources/Shapemaps/usa.states.topo.json") == "topo")
+        #expect(report == Self.resourceReport)
+    }
+
+    @Test func aReportWithoutResourcePackagesIsLeftAlone() throws {
+        let env = try Env(); defer { env.cleanUp() }
+        #expect(env.editor.removePage("p2") == nil)
+        let changes = try env.editor.makeChanges(archive: env.archive)
+        #expect(changes.reportParts["Report/definition/report.json"] == nil)
+    }
+}

@@ -32,6 +32,13 @@ enum TypeChange {
         "Y2": ["Y"], "Group": ["Category"], "Category": ["Group"], "Values": ["Y"], "Y": ["Values"],
     ]
 
+    /// Ô thay thế riêng theo loại đích (VM-D12, đổi đường có cột ngày ở `Category` sang loại đó trên Desktop): slicer nhận cột
+    /// vào `Values`; ma trận nhận cột vào `Rows` và measure ở `Tooltips` vào `Values` (cùng ô với measure của `Y`).
+    private static let targetFallbacks: [String: [String: [String]]] = [
+        "slicer": ["Category": ["Values"]],
+        "pivotTable": ["Category": ["Rows"], "Tooltips": ["Values"]],
+    ]
+
     /// - Parameters:
     ///   - visual: visual hiện tại (loại, trường).
     ///   - wells: cấu hình ô hiện tại.
@@ -63,7 +70,7 @@ enum TypeChange {
         for well in wells {
             for element in well.elements {
                 guard let kind = WellKind(element.field.kind) else { dropped.append(element.field); continue }
-                let candidates = [well.role] + (fallbacks[well.role] ?? [])
+                let candidates = [well.role] + (fallbacks[well.role] ?? []) + (targetFallbacks[type]?[well.role] ?? [])
                 guard let rule = candidates.lazy.compactMap({ role in rules.first { $0.role == role && $0.accepts.contains(kind) } }).first else {
                     dropped.append(element.field); continue
                 }

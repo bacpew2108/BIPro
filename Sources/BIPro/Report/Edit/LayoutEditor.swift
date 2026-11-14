@@ -829,8 +829,9 @@ final class LayoutEditor {
         do {
             let retyped = try PBIRVisualPatch.setVisualType(in: base, to: type, dropObjectKeys: drop)
             // Định dạng chờ của khoá bị bỏ cũng bỏ, nếu không áp lại sẽ tạo lại khoá vừa bỏ (D4, R8).
-            // Desktop thêm sắp xếp mặc định tăng dần theo cột ngày khi đổi đường sang cột/thanh (VM-D9 mục 1).
-            sortsByDate = Self.sortsAscendingByDate(type) && isDateCategory(plan.wells)
+            // Desktop thêm sắp xếp mặc định tăng dần theo cột ngày khi đổi đường sang cột/thanh (VM-D9 mục 1), vùng, combo,
+            // ruy-băng, thác nước, donut, phễu và slicer (VM-D12).
+            sortsByDate = Self.defaultSortRole(type).map { isDateColumn(in: plan.wells, role: $0) } ?? false
             let patched = try applyQuery(plan.wells, to: retyped, retype: Retype(type: type, dropObjectKeys: drop, sortsByDateCategory: sortsByDate))
             bytes = try withFormats(patched, page: pageID, id: id, formats: keptFormats)
             raw = try JSONValue.parse(bytes)
@@ -856,22 +857,29 @@ final class LayoutEditor {
         return nil
     }
 
-    /// Cột `Category` đầu của các ô là cột kiểu ngày giờ của mô hình.
-    func isDateCategory(_ wells: [PBIRQueryPatch.Well]) -> Bool {
-        guard let field = wells.first(where: { $0.role == "Category" })?.elements.first?.field, field.kind == .column else { return false }
+    /// Cột đầu của ô `role` là cột kiểu ngày giờ của mô hình.
+    func isDateColumn(in wells: [PBIRQueryPatch.Well], role: String) -> Bool {
+        guard let field = wells.first(where: { $0.role == role })?.elements.first?.field, field.kind == .column else { return false }
         return dateColumns.contains("\(field.entity)[\(field.property)]")
     }
 
     /// `PBIRQueryPatch.apply`, rồi thêm sắp xếp mặc định tăng dần theo cột ngày nếu lần đổi loại của visual đòi (VM-D9 mục 1).
     func applyQuery(_ wells: [PBIRQueryPatch.Well], to json: Data, retype: Retype?) throws -> Data {
         let out = try PBIRQueryPatch.apply(wells, to: json)
-        guard retype?.sortsByDateCategory == true, isDateCategory(wells) else { return out }
-        return try PBIRQueryPatch.addingDefaultCategorySort(out)
+        guard retype?.sortsByDateCategory == true, let type = retype?.type, let role = Self.defaultSortRole(type),
+              isDateColumn(in: wells, role: role) else { return out }
+        return try PBIRQueryPatch.addingDefaultCategorySort(out, role: role)
     }
 
-    /// Loại có trục chữ mà Desktop sắp tăng dần theo cột ngày của `Category` sau khi đổi loại: cột và thanh (không combo).
-    static func sortsAscendingByDate(_ type: String) -> Bool {
-        type.hasSuffix("ColumnChart") || type.hasSuffix("BarChart") || type == "columnChart"
+    /// Ô mà Desktop sắp tăng dần theo cột ngày sau khi đổi loại (VM-D9 mục 1, VM-D12): `Category` của cột, thanh, vùng
+    /// (cả xếp chồng và 100%), hai loại combo, ruy-băng, thác nước, donut, phễu; `Values` của slicer. Không có ở treemap,
+    /// bảng, matrix, KPI và bản đồ hình (đều quan sát được là không thêm).
+    static func defaultSortRole(_ type: String) -> String? {
+        if type == "slicer" { return "Values" }
+        let withCategory = type.hasSuffix("ColumnChart") || type.hasSuffix("BarChart") || type == "columnChart"
+            || type.hasSuffix("AreaChart") || type.hasSuffix("ComboChart")
+            || ["ribbonChart", "waterfallChart", "donutChart", "funnel"].contains(type)
+        return withCategory ? "Category" : nil
     }
 
     /// Phần diện tích của `frame` bị `other` che (0...1).

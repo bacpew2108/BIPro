@@ -26,6 +26,12 @@
 - `sortDefinition` mặc định (`isDefaultSort:true`, giảm dần theo measure đầu của ô `Y`, hoặc `Data` với `cardVisual`) chỉ thêm khi visual chưa có `sortDefinition`, chỉ có measure (chưa có cột nhóm) và là biểu đồ trục hoặc `cardVisual`. Thêm cột nhóm khi đã có sắp xếp mặc định theo measure: giữ nguyên (VM-D8c). Cột Category mà sắp xếp mặc định trỏ tới bị thay bằng đúng một cột khác: sắp xếp chuyển sang cột mới, giữ hướng (VM-D9 mục 5); trường được sắp trỏ tới không còn mà không có cột thay thế rõ ràng thì `sortDefinition` mặc định bị bỏ (rồi dựng lại theo measure đầu nếu visual lại chỉ có measure); sắp xếp do người dùng đặt giữ nguyên. Sắp xếp mặc định theo measure không chặn bỏ measure; theo cột hoặc do người dùng đặt vẫn chặn.
 - Đổi sang cột/thanh (`clustered/stacked/100% … ColumnChart`, `…BarChart`, `columnChart`) khi visual chưa có `sortDefinition` và cột `Category` đầu là kiểu ngày giờ của mô hình (`LayoutEditor.dateColumns`): thêm `sortDefinition` tăng dần theo cột đó, `isDefaultSort:true` (VM-D9 mục 1; `PBIRQueryPatch.addingDefaultCategorySort`). Chưa quan sát: cột Category kiểu chữ hoặc số khi đổi loại, đích combo/vùng.
 
+## Bổ sung VM-D12 (2026-11-14, `docs/phase-d-evidence/vm-d12/QUAN-SAT.md` mục 1)
+
+- Sắp xếp mặc định tăng dần theo cột ngày khi đổi loại nay áp cho mọi loại có `Category`: cột, thanh, vùng (cả xếp chồng, 100%), hai loại combo, ruy-băng, thác nước, donut, phễu; slicer thì theo cột ở ô `Values`. Treemap, bảng, matrix, KPI, bản đồ hình không thêm (`LayoutEditor.defaultSortRole`). Thay cho "chưa quan sát: đích combo" ở trên.
+- Slicer nhận cột `Category` vào `Values`; matrix nhận `Category` vào `Rows` và measure của `Tooltips` vào `Values` (`TypeChange.targetFallbacks`).
+- Chưa làm: đích bản đồ hình (Desktop: `Category` → `Series`, `Y` → `Value`, thêm `objects.shape.map`).
+
 ## Đổi loại (`changeType`)
 
 Điều kiện: đúng một visual được chọn, có trong trang hiện tại, loại đích `isSupported` và khác loại hiện tại.

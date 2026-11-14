@@ -403,15 +403,15 @@ public enum PBIRQueryPatch {
         }
     }
 
-    /// Đổi loại sang biểu đồ cột/thanh khi visual chưa có `sortDefinition`: Desktop thêm sắp tăng dần theo cột Category đầu
-    /// (VM-D9 mục 1, cột ngày). Người gọi chỉ dùng khi biết cột đó là kiểu ngày; không có `Category` dạng cột thì giữ nguyên byte.
-    public static func addingDefaultCategorySort(_ json: Data) throws -> Data {
+    /// Đổi loại sang biểu đồ có trục danh mục khi visual chưa có `sortDefinition`: Desktop thêm sắp tăng dần theo cột đầu của ô
+    /// `role` (VM-D9 mục 1, VM-D12; cột ngày). Người gọi chỉ dùng khi biết cột đó là kiểu ngày; không có `Category` dạng cột thì giữ nguyên byte.
+    public static func addingDefaultCategorySort(_ json: Data, role: String = "Category") throws -> Data {
         let root = try parseObject(json)
         guard let visual = root["visual"] as? [String: Any], let query = visual["query"] as? [String: Any],
               query["sortDefinition"] == nil, query["queryState"] != nil else { return json }
-        guard let well = (try Self.wells(in: json)).first(where: { $0.role == "Category" }), let first = well.elements.first,
+        guard let well = (try Self.wells(in: json)).first(where: { $0.role == role }), let first = well.elements.first,
               first.field.kind == .column else { return json }
-        return try insertingSort(json, role: "Category", index: 0, direction: "Ascending")
+        return try insertingSort(json, role: role, index: 0, direction: "Ascending")
     }
 
     /// Chèn `sortDefinition` mặc định (một khoá) theo trường của phần tử `index` của ô `role`, ở cuối `query` (đúng chỗ Desktop ghi).
