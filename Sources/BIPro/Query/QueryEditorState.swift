@@ -127,6 +127,10 @@ public final class QueryEditorState {
     public private(set) var stepErrors: [String: String] = [:]
     /// Có thay đổi chưa "Close & Apply".
     public var hasPendingChanges = false
+    /// Lý do Close & Apply bị từ chối (hiện ở thanh dưới); `nil` khi chưa áp dụng hoặc đã xong. Lead gán sau khi gọi `closeAndApply`.
+    public var applyMessage: String?
+    /// Đang áp dụng (nút Close & Apply tắt, hiện vòng quay).
+    public var isApplying = false
 
     @ObservationIgnored private var bases: [UUID: TableData] = [:]
     @ObservationIgnored private var caches: [UUID: MPreviewCache] = [:]
