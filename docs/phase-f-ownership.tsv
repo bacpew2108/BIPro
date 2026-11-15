@@ -22,6 +22,7 @@ F-MCORE	lead	Sources/MEngine/Parser.swift
 F-MCORE	lead	Sources/MEngine/Evaluator.swift
 F-MCORE	lead	Sources/MEngine/Value.swift
 F-MCORE	lead	Sources/MEngine/Library/TableJoinGroup.swift
+F-CONN1	agy-conn	Sources/Connectors/Common/**
 F-CONN1	agy-conn	Sources/Connectors/CSV/**
 F-CONN1	agy-conn	Sources/Connectors/Excel/**
 F-CONN1	agy-conn	Sources/Connectors/JSON/**
