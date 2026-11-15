@@ -12,6 +12,9 @@ enum MBuiltins {
         case "#datetime": return .function(dateTime)
         case "#time": return .function(time)
         case "#duration": return .function(duration)
+        // Hằng số của thư viện chuẩn (tài liệu M): Order.Ascending 0 / Descending 1; QuoteStyle.None 0 / Csv 1.
+        case "Order.Ascending", "QuoteStyle.None": return .number(0)
+        case "Order.Descending", "QuoteStyle.Csv": return .number(1)
         default: return nil
         }
     }

@@ -80,7 +80,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MEngineTests",
-            dependencies: ["MEngine", "ColumnStore"],
+            dependencies: ["MEngine", "ColumnStore", "Connectors"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
