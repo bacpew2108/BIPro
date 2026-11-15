@@ -122,6 +122,8 @@ final class DocumentState {
     var layoutRevision = 0
     /// Tăng mỗi khi mô hình hiệu lực đổi (sửa, hoàn tác, làm lại); view và visual đọc nó để vẽ lại (Phase E).
     private(set) var modelVersion = 0
+    /// Hộp thoại Get Data đang mở (Phase F); nil khi đóng.
+    var getDataState: NavigatorState?
     /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 
@@ -153,9 +155,7 @@ final class DocumentState {
             : LayoutEditor.reading(archive: archive, report: workspace.report)
         self.interaction = ReportInteraction(workspace: workspace)
         let layout = self.layout
-        layout.decimalColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .double }.map { "\($0.tableName)[\($0.name)]" })
-        layout.currencyColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .decimal }.map { "\($0.tableName)[\($0.name)]" })
-        layout.dateColumns = Set((workspace.metadata?.columns ?? []).filter { $0.dataType == .dateTime }.map { "\($0.tableName)[\($0.name)]" })
+        Self.applyColumnKinds(to: layout, metadata: workspace.metadata)
         let interaction = self.interaction
         layout.legendValuesProvider = { [weak interaction] id in interaction?.legendValues[id] ?? [] }
         self.interaction.pagesProvider = { layout.pages }
@@ -180,6 +180,7 @@ final class DocumentState {
                 self?.layout.noteFieldRefusal("Không áp lại được thay đổi mô hình: \(error)")
             }
             self?.modelVersion += 1
+            if let self { Self.applyColumnKinds(to: self.layout, metadata: self.workspace.metadata) }
             self?.interaction.modelDidChange()
         }
         pageID = workspace.activePageID.flatMap { id in workspace.report.pages.contains { $0.id == id } ? id : nil }

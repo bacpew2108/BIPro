@@ -120,7 +120,7 @@ import Connectors
             state: state,
             existingTableNames: ["Existing"],
             pickFile: { _ in url.path },
-            onLoad: { tables in loadedTables = tables },
+            onLoad: { tables in loadedTables = tables; return nil },
             onTransform: { tables in transformedTables = tables },
             onClose: { closed = true },
             scrollable: false

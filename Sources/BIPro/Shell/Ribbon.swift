@@ -1,3 +1,4 @@
+import Connectors
 import PBIXKit
 import SwiftUI
 
@@ -50,7 +51,7 @@ struct RibbonView: View {
         case (.report, .view): ReportViewCommands(state: state)
         case (.report, .format): FormatCommands()
         case (.report, .dataDrill): DataDrillCommands()
-        case (.table, .home): DataSourceCommands()
+        case (.table, .home): DataSourceCommands(state: state)
         case (.table, .tableTools): TableToolsCommands(state: state)
         case (.table, .columnTools): ColumnToolsCommands(state: state)
         case (.model, .home): ModelHomeCommands(state: state)
@@ -67,10 +68,13 @@ struct RibbonView: View {
 // MARK: - Shared groups
 
 private struct DataSourceCommands: View {
+    let state: DocumentState
     var body: some View {
         RibbonGroup(title: "Dữ liệu") {
-            RibbonButton(title: "Lấy dữ liệu", symbol: "cylinder.split.1x2", tint: DS.Palette.accent, phase: "Phase F")
-            RibbonButton(title: "Excel", symbol: "tablecells.badge.ellipsis", tint: DS.Palette.success, phase: "Phase F")
+            RibbonButton(title: "Lấy dữ liệu", symbol: "cylinder.split.1x2", tint: DS.Palette.accent,
+                         disabledReason: state.getDataBlocker) { state.showGetData() }
+            RibbonButton(title: "Excel", symbol: "tablecells.badge.ellipsis", tint: DS.Palette.success,
+                         disabledReason: state.getDataBlocker) { state.showGetData(kind: .excel) }
             RibbonButton(title: "SQL", symbol: "server.rack", tint: DS.Palette.indigo, phase: "Phase F")
             RibbonButton(title: "Nhập dữ liệu", symbol: "square.and.pencil", phase: "Phase F")
         }
@@ -106,7 +110,7 @@ private struct ReportHomeCommands: View {
             }
         }
         RibbonDivider()
-        DataSourceCommands()
+        DataSourceCommands(state: state)
         RibbonDivider()
         RibbonGroup(title: "Chèn") {
             RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
@@ -400,7 +404,7 @@ func summarizeName(_ column: ModelMetadata.Column) -> String {
 private struct ModelHomeCommands: View {
     let state: DocumentState
     var body: some View {
-        DataSourceCommands()
+        DataSourceCommands(state: state)
         RibbonDivider()
         ModelingCommands(state: state)
     }

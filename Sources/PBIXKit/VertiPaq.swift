@@ -51,6 +51,12 @@ public struct DecodedColumn: Sendable {
     public let dataType: ModelMetadata.DataType
     public let storage: Storage
 
+    public init(name: String, dataType: ModelMetadata.DataType, storage: Storage) {
+        self.name = name
+        self.dataType = dataType
+        self.storage = storage
+    }
+
     public var count: Int {
         switch storage {
         case .dictionary(let codes, _): codes.count

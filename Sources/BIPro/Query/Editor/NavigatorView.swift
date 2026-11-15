@@ -6,8 +6,10 @@ import Connectors
 struct NavigatorView: View {
     let state: NavigatorState
     var existingTableNames: Set<String> = []
-    var onLoad: ([LoadedTable]) -> Void = { _ in }
-    var onTransform: ([LoadedTable]) -> Void = { _ in }
+    /// Trả lý do (tiếng Việt) khi mô hình từ chối bảng; hộp thoại ở lại và hiện lý do ở chân. nil là đã nhận.
+    var onLoad: ([LoadedTable]) -> String? = { _ in nil }
+    /// nil: chưa có Query Editor nên không có nút "Chuyển đổi dữ liệu".
+    var onTransform: (([LoadedTable]) -> Void)?
     var onClose: () -> Void = {}
     var scrollable: Bool = true
 
@@ -195,23 +197,28 @@ struct NavigatorView: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 
-                Button("Chuyển đổi dữ liệu") {
-                    Task {
-                        if let tables = await state.load(existingNames: existingTableNames) {
-                            onTransform(tables)
-                            onClose()
+                if let onTransform {
+                    Button("Chuyển đổi dữ liệu") {
+                        Task {
+                            if let tables = await state.load(existingNames: existingTableNames) {
+                                onTransform(tables)
+                                onClose()
+                            }
                         }
                     }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .disabled(!state.canLoad)
+                    .opacity(state.canLoad ? 1.0 : 0.4)
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(!state.canLoad)
-                .opacity(state.canLoad ? 1.0 : 0.4)
 
                 Button("Tải") {
                     Task {
                         if let tables = await state.load(existingNames: existingTableNames) {
-                            onLoad(tables)
-                            onClose()
+                            if let refusal = onLoad(tables) {
+                                state.phase = .failed(refusal)
+                            } else {
+                                onClose()
+                            }
                         }
                     }
                 }

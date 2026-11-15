@@ -4,6 +4,7 @@
 import Foundation
 import ColumnStore
 import Connectors
+import PBIXKit
 
 /// Bảng đã nạp từ nguồn, đang chờ đưa vào mô hình. `data` giữ trong bộ nhớ đến khi lưu.
 public struct LoadedTable: Identifiable, Sendable {
@@ -95,5 +96,43 @@ public enum TableLoader {
         }
         progress?(1)
         return result
+    }
+}
+
+extension TableLoader {
+    /// `ModelEdit.addTable` / `.replaceTable` mang bảng này: cột (tên, kiểu mô hình) và `TableData` gắn kèm (dữ liệu ô ở lại bộ nhớ,
+    /// các ảnh chụp hoàn tác dùng chung một bản). `queryExpression` là biểu thức M nạp bảng (nil khi chưa có truy vấn).
+    static func newTable(from loaded: LoadedTable, queryExpression: String? = nil, enableLoad: Bool = true) -> NewTable {
+        let columns = loaded.data.columns.map { NewTableColumn(name: $0.name, dataType: modelType($0.data.type)) }
+        return NewTable(name: loaded.name, columns: columns, queryExpression: queryExpression, enableLoad: enableLoad,
+                        attachment: loaded.data)
+    }
+
+    /// Kiểu cột của engine → `Column.DataType` của mô hình (tiền tệ là `decimal`, như Power BI).
+    static func modelType(_ type: DAXType) -> ModelMetadata.DataType {
+        switch type {
+        case .integer: .int64
+        case .double: .double
+        case .currency: .decimal
+        case .dateTime: .dateTime
+        case .boolean: .boolean
+        case .string: .string
+        }
+    }
+}
+
+extension TableLoader {
+    /// Đưa các bảng đã nạp vào mô hình qua `ModelEditor`: `.new` → `addTable`, `.replaced` → `replaceTable`, `.unchanged` bỏ qua.
+    /// Cả lần nạp là một bước ⌘Z; một bảng bị từ chối (tên trùng, cột sai…) thì không bảng nào vào. Trả lý do hoặc nil.
+    @MainActor @discardableResult
+    static func apply(_ tables: [LoadedTable], to editor: ModelEditor) -> String? {
+        let edits: [ModelEdit] = tables.compactMap { loaded in
+            switch loaded.status {
+            case .new: .addTable(newTable(from: loaded))
+            case .replaced: .replaceTable(name: loaded.name, newTable(from: loaded))
+            case .unchanged: nil
+            }
+        }
+        return editor.apply(edits)
     }
 }

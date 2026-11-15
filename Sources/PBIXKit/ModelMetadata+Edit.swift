@@ -3,14 +3,15 @@ import Foundation
 extension ModelMetadata {
     /// Bản sao với các danh sách đã sửa; mọi trường khác giữ nguyên.
     init(copying other: ModelMetadata, columns: [Column]? = nil, measures: [Measure]? = nil,
-         relationships: [Relationship]? = nil, tables: [Table]? = nil) {
+         relationships: [Relationship]? = nil, tables: [Table]? = nil, hierarchies: [Hierarchy]? = nil,
+         storage: [ColumnStorage]? = nil, partitionQueries: [String: String]? = nil) {
         self.tables = tables ?? other.tables
         self.columns = columns ?? other.columns
         self.measures = measures ?? other.measures
-        hierarchies = other.hierarchies
+        self.hierarchies = hierarchies ?? other.hierarchies
         self.relationships = relationships ?? other.relationships
-        storage = other.storage
-        partitionQueries = other.partitionQueries
+        self.storage = storage ?? other.storage
+        self.partitionQueries = partitionQueries ?? other.partitionQueries
         roles = other.roles
         perspectives = other.perspectives
         cultures = other.cultures
@@ -120,7 +121,11 @@ extension ModelMetadata {
                                      crossFilteringBehavior: new.crossFilteringBehavior)
             return ModelMetadata(copying: self, relationships: relationships + [added])
 
-        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable:
+        case .addTable(let new): return try addingTable(new)
+        case .replaceTable(let name, let new): return try replacingTable(name, with: new)
+        case .dropTable(let name): return try droppingTable(name)
+
+        case .addCalculatedColumn, .addCalculatedTable:
             throw ModelEditError("Chưa hỗ trợ (Phase F, đang cài)")
 
         case .deleteRelationship(let name):

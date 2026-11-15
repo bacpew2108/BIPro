@@ -19,6 +19,8 @@ final class ModelRuntime: @unchecked Sendable {
     private var cachedEngine: DAXEngine?
     private var tmdl: [TMDLWriter.Document]?
     private var versionValue = 0
+    private var overlayCache: [TableID: TableData] = [:]
+    private var overlayVersion = -1
 
     init(metadata: ModelMetadata, abf: ABFBackup) {
         base = metadata
@@ -33,6 +35,18 @@ final class ModelRuntime: @unchecked Sendable {
 
     /// Tăng mỗi khi mô hình hiệu lực đổi (khoá nạp lại của visual).
     var version: Int { lock.withLock { versionValue } }
+
+    /// Dữ liệu ô của bảng nạp trong bộ nhớ (mới hoặc thay thế) có tên `name` trong mô hình hiệu lực; nil với bảng của file.
+    func overlay(named name: String) -> TableData? {
+        lock.withLock {
+            if overlayVersion != versionValue {
+                overlayCache = currentEdits.hasTableEdits ? currentEdits.tableData(in: effective) : [:]
+                overlayVersion = versionValue
+            }
+            guard let table = effective.userTables.first(where: { $0.name == name }) else { return nil }
+            return overlayCache[TableID(raw: table.id)]
+        }
+    }
 
     /// Văn bản TMDL sinh từ mô hình hiệu lực.
     var tmdlDocuments: [TMDLWriter.Document] {
@@ -70,7 +84,11 @@ final class ModelRuntime: @unchecked Sendable {
             let (cached, metadata, edits, builtVersion) = lock.withLock { (cachedEngine, effective, currentEdits, versionValue) }
             if let cached { return cached }
             let store: ColumnStore
-            if edits.touchesSchema {
+            if edits.hasTableEdits {
+                // Bảng nạp mới/thay thế chồng lên kho gốc; bảng còn lại dùng lại cột đã giải mã.
+                let overlays = edits.tableData(in: metadata)
+                store = ColumnStore(source: OverlayColumnSource(base: try rootStore(), schema: ModelSchema(metadata: metadata), tables: overlays))
+            } else if edits.touchesSchema {
                 // Lược đồ mới (quan hệ, cột) nhưng cột đã giải mã dùng lại từ kho gốc; không được thì dựng từ file.
                 let root = try rootStore()
                 if let source = ReschematedColumnSource(base: root, schema: ModelSchema(metadata: metadata)) {
@@ -114,5 +132,42 @@ extension ModelEdits {
             case .addMeasure, .updateMeasure, .deleteMeasure: false
             }
         }
+    }
+}
+
+extension ModelEdits {
+    /// Có thao tác thêm, thay hoặc xoá bảng (nguồn cột phải chồng dữ liệu trong bộ nhớ).
+    var hasTableEdits: Bool {
+        items.contains {
+            switch $0 {
+            case .addTable, .replaceTable, .dropTable: true
+            default: false
+            }
+        }
+    }
+
+    /// Dữ liệu ô của các bảng đang có hiệu lực, theo `Table.ID` của mô hình hiệu lực `metadata`. Duyệt theo thứ tự thao tác:
+    /// thêm/thay đặt dữ liệu theo tên bảng mới (`NewTable.attachment`), xoá bỏ.
+    func tableData(in metadata: ModelMetadata) -> [TableID: TableData] {
+        var byName: [String: TableData] = [:]
+        func key(_ name: String) -> String { name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        for item in items {
+            switch item {
+            case .addTable(let table):
+                if table.enableLoad, let data = table.attachment as? TableData { byName[key(table.name)] = data }
+            case .replaceTable(let old, let table):
+                byName[key(old)] = nil
+                if table.enableLoad, let data = table.attachment as? TableData { byName[key(table.name)] = data }
+            case .dropTable(let name):
+                byName[key(name)] = nil
+            default:
+                break
+            }
+        }
+        var result: [TableID: TableData] = [:]
+        for table in metadata.userTables {
+            if let data = byName[key(table.name)] { result[TableID(raw: table.id)] = data }
+        }
+        return result
     }
 }

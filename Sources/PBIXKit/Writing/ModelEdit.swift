@@ -107,14 +107,23 @@ public struct NewRelationship: Sendable, Hashable {
     }
 }
 
-/// Một cột của bảng mới (Phase F). Kiểu mở rộng (tiền tệ, ngày, logic, `null` mọi kiểu) thêm ở `VertiPaqWriter.Values` (T014).
+/// Một cột của bảng mới (Phase F). `dataType` là kiểu trong mô hình; `values` là dữ liệu đã mã hoá cho `VertiPaqWriter` (T014 mở rộng
+/// kiểu), `nil` khi dữ liệu nằm ở `TableData` phía ứng dụng (kiểu tiền tệ, ngày, logic chưa có trong `Values`).
 public struct NewTableColumn: Sendable, Equatable {
     public var name: String
-    public var values: VertiPaqWriter.Values
+    public var dataType: ModelMetadata.DataType
+    public var values: VertiPaqWriter.Values?
 
     public init(name: String, values: VertiPaqWriter.Values) {
         self.name = name
+        self.dataType = values.dataType
         self.values = values
+    }
+
+    public init(name: String, dataType: ModelMetadata.DataType) {
+        self.name = name
+        self.dataType = dataType
+        self.values = nil
     }
 }
 
@@ -127,12 +136,19 @@ public final class NewTable: Hashable, Sendable {
     public let queryExpression: String?
     /// Cờ "Enable load" của truy vấn.
     public let enableLoad: Bool
+    /// `Table.LineageTag`, sinh một lần cho mỗi bảng để mô hình hiệu lực ổn định khi áp dụng lại (khoá của `DiagramLayout`).
+    public let lineageTag: String
+    /// Dữ liệu ô do ứng dụng gắn kèm (BIPro gắn `TableData`); PBIXKit không đọc. Cùng đời với bảng nên các ảnh chụp hoàn tác dùng chung.
+    public let attachment: (any Sendable)?
 
-    public init(name: String, columns: [NewTableColumn], queryExpression: String? = nil, enableLoad: Bool = true) {
+    public init(name: String, columns: [NewTableColumn], queryExpression: String? = nil, enableLoad: Bool = true,
+                attachment: (any Sendable)? = nil) {
         self.name = name
         self.columns = columns
         self.queryExpression = queryExpression
         self.enableLoad = enableLoad
+        self.lineageTag = UUID().uuidString.lowercased()
+        self.attachment = attachment
     }
 
     public static func == (lhs: NewTable, rhs: NewTable) -> Bool { lhs === rhs }

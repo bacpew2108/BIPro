@@ -27,6 +27,7 @@ final class Workspace: @unchecked Sendable {
     private var tableCache: [String: [DecodedColumn]] = [:]
     private var imageCache: [String: NSImage] = [:]
     private var rowCountCache: [String: Int] = [:]
+    private var overlayTableCache: [String: (version: Int, columns: [DecodedColumn])] = [:]
 
     init(data: Data) throws {
         pbix = try PBIXFile(data: data)
@@ -118,6 +119,7 @@ final class Workspace: @unchecked Sendable {
 
     /// Row count from segment metadata only (no column decoding).
     func rowCount(_ table: String) -> Int {
+        if let loaded = runtime?.overlay(named: table) { return loaded.rowCount }
         if let cached = lock.withLock({ rowCountCache[table] }) { return cached }
         guard let metadata = runtime?.base, let abf, let storage = metadata.storage(table: table).first else { return 0 }
         let count = (try? VertiPaq.rowCount(storage, abf: abf)) ?? 0
@@ -129,6 +131,15 @@ final class Workspace: @unchecked Sendable {
 
     /// Decodes a table (cached). Columns follow the model's column order.
     func table(_ name: String) throws -> [DecodedColumn] {
+        if let loaded = runtime?.overlay(named: name), let runtime {
+            // Bảng nạp trong bộ nhớ (Phase F): cache theo phiên bản mô hình, vì thay bảng đổi dữ liệu cùng tên.
+            let version = runtime.version
+            if let cached = lock.withLock({ overlayTableCache[name] }), cached.version == version { return cached.columns }
+            let columns = runtime.metadata.columns.filter { $0.tableName == name && $0.kind != .rowNumber }
+            let decoded = TableDataDecoding.decode(loaded, names: columns.map(\.name), types: columns.map(\.dataType))
+            lock.withLock { overlayTableCache[name] = (version, decoded) }
+            return decoded
+        }
         if let cached = lock.withLock({ tableCache[name] }) { return cached }
         guard let metadata = runtime?.base, let abf else { throw CocoaError(.fileReadUnknown) }
         let decoded = try VertiPaq.decodeTable(name, metadata: metadata, abf: abf)

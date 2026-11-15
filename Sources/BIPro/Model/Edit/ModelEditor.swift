@@ -34,4 +34,25 @@ final class ModelEditor {
         layout.commitModel(proposed, coalesceKey: coalesceKey)
         return nil
     }
+
+    /// Áp nhiều thao tác như một bước hoàn tác (nạp nhiều bảng cùng lúc). Tất cả hoặc không: thao tác nào bị từ chối thì không
+    /// thao tác nào vào. Trả lý do (tiếng Việt) hoặc nil khi chấp nhận (cả khi `edits` rỗng).
+    @discardableResult
+    func apply(_ edits: [ModelEdit]) -> String? {
+        guard !edits.isEmpty else { return nil }
+        var proposed = layout.modelEdits
+        for edit in edits { proposed = proposed.appending(edit) }
+        do {
+            try validate(proposed)
+        } catch let error as ModelEditError {
+            refusal = error.reason
+            return error.reason
+        } catch {
+            refusal = "\(error)"
+            return refusal
+        }
+        refusal = nil
+        layout.commitModel(proposed)
+        return nil
+    }
 }

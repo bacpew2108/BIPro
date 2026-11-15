@@ -416,16 +416,16 @@ struct GetDataFlowView: View {
     let state: NavigatorState
     let existingTableNames: Set<String>
     let pickFile: (SourceKind) -> String?
-    let onLoad: ([LoadedTable]) -> Void
-    let onTransform: ([LoadedTable]) -> Void
+    let onLoad: ([LoadedTable]) -> String?
+    let onTransform: (([LoadedTable]) -> Void)?
     let onClose: () -> Void
     var scrollable: Bool
 
     init(state: NavigatorState,
          existingTableNames: Set<String>,
          pickFile: @escaping (SourceKind) -> String? = GetDataFilePicker.pick,
-         onLoad: @escaping ([LoadedTable]) -> Void,
-         onTransform: @escaping ([LoadedTable]) -> Void,
+         onLoad: @escaping ([LoadedTable]) -> String?,
+         onTransform: (([LoadedTable]) -> Void)? = nil,
          onClose: @escaping () -> Void,
          scrollable: Bool = true) {
         self.state = state

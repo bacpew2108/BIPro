@@ -25,6 +25,13 @@ struct ShellView: View {
         .ignoresSafeArea(.container, edges: .top)
         .environment(\.colorScheme, .light)
         .tint(DS.Palette.accent)
+        .sheet(isPresented: Binding(get: { state.getDataState != nil }, set: { if !$0 { state.closeGetData() } })) {
+            if let navigator = state.getDataState {
+                GetDataFlowView(state: navigator, existingTableNames: state.existingTableNames,
+                                onLoad: { state.loadFromGetData($0) }, onClose: { state.closeGetData() })
+                    .environment(\.colorScheme, .light)
+            }
+        }
     }
 
     @ViewBuilder private var workspace: some View {
