@@ -1,6 +1,7 @@
 // Phase F (T016): áp `.addTable`, `.replaceTable`, `.dropTable` lên mô hình hiệu lực (chỉ siêu dữ liệu trong bộ nhớ).
 // Dữ liệu ô nằm ở `TableData` phía ứng dụng (nguồn cột chồng, T020); ghi ra `.pbix` là việc của T015, T017, T022.
-// [SUY ĐOÁN] cột mới có `summarizeBy` = 1 (mặc định), không `formatString`, đến khi quan sát file Desktop (VM-F1, T012).
+// [SUY ĐOÁN] cột mới: `summarizeBy` 3 (cộng dồn) cho kiểu số, 2 (không) cho chuỗi/ngày/logic (khớp cột của Nhom6); không `formatString`;
+// đến khi quan sát file Desktop nạp CSV/Excel (VM-F1, T012).
 
 import Foundation
 
@@ -190,9 +191,10 @@ extension ModelMetadata {
     private static func dataColumn(id: Int, tableID: Int, table: String, from column: NewTableColumn, keeping old: Column?) -> Column {
         let name = column.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let sameType = old.map { $0.dataType == column.dataType } ?? false
+        let defaultSummarize = column.dataType.isNumeric ? 3 : 2
         return Column(id: id, tableID: tableID, tableName: table, name: name, kind: .data, dataType: column.dataType,
                       isHidden: old?.isHidden ?? false, expression: nil, formatString: sameType ? old?.formatString : nil,
-                      sortByColumnID: old?.sortByColumnID, summarizeBy: sameType ? (old?.summarizeBy ?? 1) : 1,
+                      sortByColumnID: old?.sortByColumnID, summarizeBy: sameType ? (old?.summarizeBy ?? defaultSummarize) : defaultSummarize,
                       dataCategory: old?.dataCategory, displayFolder: old?.displayFolder, isKey: old?.isKey ?? false,
                       sourceColumn: name, description: old?.description, lineageTag: old?.lineageTag)
     }

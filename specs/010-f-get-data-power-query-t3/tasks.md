@@ -70,7 +70,7 @@ Trong lúc chờ T010, được làm song song: Giai đoạn 4 (đọc nguồn) 
 - [X] T042 [US1] [LEAD] Review F-UI (như T038): `git diff --stat`, ảnh PNG so thiết kế, build/test
 - [X] T043 [US1] [LEAD] `Sources/BIPro/Shell/Ribbon.swift`: nút "Get data" (Home, Report/Table/Model) mở `GetDataDialog`; "Load" gọi `TableLoader`; bảng mới hiện ở Data pane, Table View, Model View (thẻ mới trong `DiagramLayout` tab "All tables"); cột "Bảng mới" vẫn là Phase F (US6)
 - [X] T044 [US1] [LEAD] Test `Tests/BIProTests/Model/GetDataTests.swift`: CSV và Excel nhiều trang tính → nhiều bảng; ⌘Z/⇧⌘Z; lỗi file hỏng/trống/sai mã hoá; truy vấn DAX trên bảng mới (`SUM`, `COUNTROWS`); card trong Report dùng cột mới
-- [ ] T045 [US1] [LEAD] Bấm thử trong app (bản sao Nhom6 và tài liệu mới): Get Data CSV, Excel nhiều mục, Load, xem Table View, thêm card, ⌘S, mở lại; ghi `docs/STATE.md` "Đã bấm thử"
+- [X] T045 (đã bấm thử CSV trên bản sao Nhom6 ngày 2026-11-15; Excel nhiều mục và ⌘S/mở lại chờ T022; xem docs/STATE.md) [US1] [LEAD] Bấm thử trong app (bản sao Nhom6 và tài liệu mới): Get Data CSV, Excel nhiều mục, Load, xem Table View, thêm card, ⌘S, mở lại; ghi `docs/STATE.md` "Đã bấm thử"
 - [ ] T046 [US1] [VM] Gate: file `Nhom6_f2.pbix` (bảng từ CSV và Excel) mở trong Desktop, so số dòng, kiểu, tổng với bản Desktop tự nạp (T032); kết quả `docs/phase-f-evidence/vm-f2/CHECKLIST-KET-QUA.md`
 
 ## Giai đoạn 5: US2, Query Editor, ngôn ngữ M, Close & Apply (P1)
