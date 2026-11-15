@@ -120,6 +120,9 @@ extension ModelMetadata {
                                      crossFilteringBehavior: new.crossFilteringBehavior)
             return ModelMetadata(copying: self, relationships: relationships + [added])
 
+        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable:
+            throw ModelEditError("Chưa hỗ trợ (Phase F, đang cài)")
+
         case .deleteRelationship(let name):
             guard relationships.contains(where: { $0.name == name }) else { throw ModelEditError("Không có quan hệ \(name)") }
             return ModelMetadata(copying: self, relationships: relationships.filter { $0.name != name })

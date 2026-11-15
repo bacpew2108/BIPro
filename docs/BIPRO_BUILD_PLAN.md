@@ -37,7 +37,7 @@ Các bản có hậu tố `_fixed` được coi là bản chuẩn. Một số �
 | `model_view` (+ 3 biến thể) | Model View | Sơ đồ bảng dạng card (PK/FK/DAX), đường quan hệ 1/\* có mũi tên, popover và side panel Relationship properties, cây Semantic model, tab layout, zoom | Metadata (đã có) | A, E |
 | `dax_query_view` | DAX Query View | Tab query, Run/Cancel/Format/Comment/Update model, editor DAX, lưới kết quả + Copy/Export CSV, Data Model tree, Quick queries, DAX Quick Guide. *Ô "Generate" (AI) ẩn đi* | DAX query | B |
 | TMDL View | TMDL View | Editor TMDL | Serialize/parse TMDL | A (chỉ đọc), E (sửa) |
-| `get_data_dialog`, `navigator_dialog_fixed` | Modal | Danh mục connector, xem trước, Load / Transform Data | DuckDB / connector | F |
+| `get_data_dialog`, `navigator_dialog_fixed` | Modal | Danh mục connector, xem trước, Load / Transform Data | Connectors tự viết | F |
 | `query_editor_1/2/3`, `_transform_tab` | Cửa sổ Query Editor | Ribbon File/Home/Transform/Add Column/View, cây query có nhóm, formula bar M, lưới có column quality/distribution/profile, Applied Steps, Close & Apply | M engine | F |
 | `advanced_editor`, `custom_column`, `merge_dialog_1/2` | Modal | Editor M, công thức cột, join có thống kê độ khớp | M engine | F |
 | `query_dependencies_exact_graph_coordinates` | Cửa sổ | Đồ thị 4 cột Sources → Staging → Final → Model | Lineage | F |
@@ -95,8 +95,8 @@ BI Pro (SwiftUI + AppKit, macOS 15+)
 │
 ├── Engines
 │   ├── ColumnStore · DAXEngine · QueryPlanner
-│   ├── MEngine         parser M + các hàm Table.*; fold sang SQL khi được
-│   └── Connectors      DuckDB (CSV, Parquet, JSON, Excel; Postgres/SQLite qua extension)
+│   ├── MEngine         parser M + các hàm Table.* tự viết, chạy trên cột từ điển của ColumnStore (không fold sang SQL)
+│   └── Connectors      tự viết, chỉ framework hệ thống (CSV, Excel xlsx, JSON, SQLite; Parquet và PostgreSQL tập con ở P3)
 │
 └── PBIXKit           đọc (đã có) + ghi: PBIRWriter, MetadataWriter (SQLite), ABFWriter,
                       VertiPaqWriter, XPress9 encoder
@@ -104,7 +104,7 @@ BI Pro (SwiftUI + AppKit, macOS 15+)
 
 **Quyết định kỹ thuật:**
 1. **`.pbix` là định dạng duy nhất** cho tài liệu (đọc và ghi). File Layout cũ (1.28) khi lưu sẽ được nâng lên PBIR, giống cách Power BI Desktop đời mới làm. Trước khi ghi đè, BI Pro hỏi người dùng hoặc tạo bản sao lưu.
-2. **DuckDB** (`duckdb-swift`, MIT) lo nạp dữ liệu và thực thi các bước Power Query. DAX vẫn dùng engine tự viết. App nặng thêm khoảng 30–50 MB.
+2. **Nạp dữ liệu và chạy Power Query tự viết** (không DuckDB), chỉ dùng framework hệ thống (`Compression`, `XMLParser`, `JSONSerialization`, `sqlite3`, `Network`). Chốt 2026-11-15 khi duyệt `specs/010-f-get-data-power-query-t3/plan.md` (R1): DuckDB chỉ chạy SQL, không giải ngữ nghĩa M. Parquet đủ nén `zstd` và PostgreSQL đầy đủ để P3; cần thì hỏi lại về thư viện ngoài. DAX vẫn dùng engine tự viết.
 3. DAX Query View được làm cùng engine, vừa là tính năng vừa là công cụ debug.
 4. **AppKit cho các phần nặng:** lưới (NSTableView), editor DAX/M/TMDL (NSTextView + TextKit 2), sơ đồ model và đồ thị (Canvas).
 5. **An toàn dữ liệu khi lưu:** ghi ra file tạm → đọc lại bằng chính PBIXKit để kiểm tra → mới thay file thật. Giữ một bản sao lưu `.pbix.bak` ở lần lưu đầu tiên.
@@ -186,7 +186,8 @@ Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md).
 - **Xong khi:** thêm measure và quan hệ trong BI Pro, lưu, rồi Power BI Desktop đọc đúng. **Đạt** (`vm-e2`, `vm-e3`).
 
 ### Phase F: Get Data, Power Query + lưu T3 (8–10 tuần) → **M3**
-- [ ] Connector DuckDB: Excel, CSV, Parquet, JSON (đợt 1); PostgreSQL, SQLite (đợt 2).
+- [ ] Connector tự viết (không DuckDB): CSV, Excel (đợt 1, P1); JSON, SQLite; Parquet và PostgreSQL tập con (P3).
+> **Đang làm (2026-11-15)**: Spec Kit `specs/010-f-get-data-power-query-t3/` (spec, plan, tasks đã duyệt). Đợt 0 bắt đầu.
 - [ ] Get Data → Navigator → Query Editor (Applied Steps, formula bar, column profile, ribbon) → Close & Apply.
 - [ ] M engine (khoảng 30 hàm `Table.*`), các hộp thoại Advanced Editor, Custom Column, Merge, Append, Group By, cửa sổ Query Dependencies.
 - [ ] **Lưu tầng T3** (dữ liệu mới vào VertiPaq), tạo `.pbix` mới từ đầu.

@@ -42,6 +42,18 @@ let package = Package(
             dependencies: ["ColumnStore", "DAXEngine"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // Phase F: nạp dữ liệu và ngôn ngữ M, tự viết, chỉ dùng framework hệ thống (không thư viện ngoài).
+        .target(
+            name: "Connectors",
+            dependencies: ["ColumnStore", "PBIXKit"],
+            swiftSettings: [.swiftLanguageMode(.v6)],
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
+        .target(
+            name: "MEngine",
+            dependencies: ["ColumnStore"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .executableTarget(
             name: "dax-run",
             dependencies: ["DAXEngine", "ColumnStore", "PBIXKit"],
@@ -49,7 +61,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "BIPro",
-            dependencies: ["PBIXKit", "ColumnStore", "DAXEngine"],
+            dependencies: ["PBIXKit", "ColumnStore", "DAXEngine", "Connectors", "MEngine"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
@@ -60,6 +72,16 @@ let package = Package(
             name: "BIProTests",
             dependencies: ["BIPro", "DAXEngine"],
             swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .testTarget(
+            name: "ConnectorsTests",
+            dependencies: ["Connectors", "ColumnStore", "PBIXKit"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "MEngineTests",
+            dependencies: ["MEngine", "ColumnStore"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "ColumnStoreTests",

@@ -107,6 +107,38 @@ public struct NewRelationship: Sendable, Hashable {
     }
 }
 
+/// Một cột của bảng mới (Phase F). Kiểu mở rộng (tiền tệ, ngày, logic, `null` mọi kiểu) thêm ở `VertiPaqWriter.Values` (T014).
+public struct NewTableColumn: Sendable, Equatable {
+    public var name: String
+    public var values: VertiPaqWriter.Values
+
+    public init(name: String, values: VertiPaqWriter.Values) {
+        self.name = name
+        self.values = values
+    }
+}
+
+/// Bảng nạp từ truy vấn (Phase F, T3). Là lớp tham chiếu: dữ liệu có thể hàng triệu dòng nên `ModelEdit` so sánh và băm
+/// theo định danh, không theo nội dung, và các ảnh chụp hoàn tác dùng chung một bản dữ liệu.
+public final class NewTable: Hashable, Sendable {
+    public let name: String
+    public let columns: [NewTableColumn]
+    /// Biểu thức M của truy vấn nạp bảng (`Partition.QueryDefinition`); `nil` cho bảng chỉ có dữ liệu.
+    public let queryExpression: String?
+    /// Cờ "Enable load" của truy vấn.
+    public let enableLoad: Bool
+
+    public init(name: String, columns: [NewTableColumn], queryExpression: String? = nil, enableLoad: Bool = true) {
+        self.name = name
+        self.columns = columns
+        self.queryExpression = queryExpression
+        self.enableLoad = enableLoad
+    }
+
+    public static func == (lhs: NewTable, rhs: NewTable) -> Bool { lhs === rhs }
+    public func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(self)) }
+}
+
 /// Một thao tác sửa mô hình.
 public enum ModelEdit: Sendable, Hashable {
     case addMeasure(NewMeasure)
@@ -117,6 +149,20 @@ public enum ModelEdit: Sendable, Hashable {
     case addRelationship(NewRelationship)
     case deleteRelationship(name: String)
     case updateTable(name: String, patch: TablePatch)
+    // Phase F (T3): bảng và cột tính toán. Khung hợp đồng, chưa áp dụng được cho đến T016, T084.
+    case addTable(NewTable)
+    case replaceTable(name: String, NewTable)
+    case dropTable(name: String)
+    case addCalculatedColumn(table: String, name: String, expression: String)
+    case addCalculatedTable(name: String, expression: String)
+
+    /// Thao tác thuộc Phase F cần tầng T3.
+    var needsData: Bool {
+        switch self {
+        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: true
+        default: false
+        }
+    }
 }
 
 /// Lý do một thao tác không hợp lệ.
@@ -137,7 +183,7 @@ public struct ModelEdits: Sendable, Hashable {
     public mutating func append(_ edit: ModelEdit) { items.append(edit) }
 
     /// Tầng lưu tối thiểu: có thao tác nào thì phải ghi `metadata.sqlitedb`.
-    public var tier: SaveTier { isEmpty ? .report : .metadata }
+    public var tier: SaveTier { isEmpty ? .report : (items.contains { $0.needsData } ? .data : .metadata) }
 }
 
 // MARK: - Gộp thao tác liền kề

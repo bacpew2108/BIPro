@@ -109,7 +109,8 @@ extension ModelEdits {
     var touchesSchema: Bool {
         items.contains {
             switch $0 {
-            case .updateRelationship, .updateColumn, .addRelationship, .deleteRelationship, .updateTable: true
+            case .updateRelationship, .updateColumn, .addRelationship, .deleteRelationship, .updateTable,
+                 .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: true
             case .addMeasure, .updateMeasure, .deleteMeasure: false
             }
         }

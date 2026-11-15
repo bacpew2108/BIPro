@@ -1,0 +1,99 @@
+// Phase F (T003): bảng trong bộ nhớ của Get Data và Power Query. Hợp đồng: specs/010-f-get-data-power-query-t3/data-model.md.
+//
+// Cột dùng lại `ColumnData` (từ điển + mã) của ColumnStore, nên cùng dạng với dữ liệu đọc từ VertiPaq và với
+// dữ liệu ghi lại VertiPaq. Ô lỗi của M (`Error`) không nằm trong cột (kiểu cột giữ nguyên, ô đó là BLANK) mà ở
+// `errorMask`: cột → dòng → thông điệp, thưa.
+
+public struct TableColumn: Sendable {
+    public let name: String
+    public let data: ColumnData
+
+    public init(name: String, data: ColumnData) {
+        self.name = name
+        self.data = data
+    }
+}
+
+public enum TableDataError: Error, Equatable, Sendable {
+    case emptyColumnName
+    case duplicateColumn(String)
+    case rowCountMismatch(column: String, expected: Int, actual: Int)
+    case errorOutOfRange(column: Int, row: Int)
+}
+
+public struct TableData: Sendable {
+    public let columns: [TableColumn]
+    public let rowCount: Int
+    /// cột → dòng → thông điệp lỗi. Chỉ chứa ô lỗi.
+    public let errorMask: [Int: [Int: String]]
+
+    /// Bất biến: mọi cột cùng `rowCount`; tên cột không rỗng và duy nhất (phân biệt hoa thường, như M);
+    /// mọi ô trong `errorMask` nằm trong bảng.
+    public init(columns: [TableColumn], errorMask: [Int: [Int: String]] = [:]) throws {
+        var seen = Set<String>()
+        let rows = columns.first?.data.rowCount ?? 0
+        for column in columns {
+            guard !column.name.isEmpty else { throw TableDataError.emptyColumnName }
+            guard seen.insert(column.name).inserted else { throw TableDataError.duplicateColumn(column.name) }
+            guard column.data.rowCount == rows else {
+                throw TableDataError.rowCountMismatch(column: column.name, expected: rows, actual: column.data.rowCount)
+            }
+        }
+        for (column, cells) in errorMask {
+            for row in cells.keys where column < 0 || column >= columns.count || row < 0 || row >= rows {
+                throw TableDataError.errorOutOfRange(column: column, row: row)
+            }
+        }
+        self.columns = columns
+        self.rowCount = rows
+        self.errorMask = errorMask
+    }
+
+    public func index(ofColumn name: String) -> Int? {
+        columns.firstIndex { $0.name == name }
+    }
+
+    /// Giá trị ô. Ô lỗi trả `.blank` (xem `error(row:column:)`).
+    public func value(row: Int, column: Int) -> StoredValue {
+        guard column >= 0, column < columns.count else { return .blank }
+        return columns[column].data.value(at: row)
+    }
+
+    public func error(row: Int, column: Int) -> String? {
+        errorMask[column]?[row]
+    }
+
+    /// `count` dòng đầu (dùng cho xem trước). Mã hoá lại từ điển theo thứ tự xuất hiện.
+    public func prefix(_ count: Int) -> TableData {
+        let n = max(0, min(count, rowCount))
+        if n == rowCount { return self }
+        let taken = columns.map { TableColumn(name: $0.name, data: $0.data.prefix(n)) }
+        let mask = errorMask.compactMapValues { cells -> [Int: String]? in
+            let kept = cells.filter { $0.key < n }
+            return kept.isEmpty ? nil : kept
+        }
+        // Bất biến giữ nguyên (cùng cột, dòng ngắn đi), nên không thể ném.
+        return try! TableData(columns: taken, errorMask: mask)
+    }
+}
+
+extension ColumnData {
+    /// `count` dòng đầu của cột, cùng kiểu.
+    func prefix(_ count: Int) -> ColumnData {
+        let n = max(0, min(count, rowCount))
+        switch type {
+        case .integer:
+            return ColumnBuilder.integers((0..<n).map { if case .integer(let v) = value(at: $0) { v } else { nil } })
+        case .currency:
+            return ColumnBuilder.currency((0..<n).map { if case .currency(let v) = value(at: $0) { v } else { nil } })
+        case .double:
+            return ColumnBuilder.doubles((0..<n).map { if case .double(let v) = value(at: $0) { v } else { nil } })
+        case .dateTime:
+            return ColumnBuilder.dateTimes((0..<n).map { if case .dateTime(let v) = value(at: $0) { v } else { nil } })
+        case .boolean:
+            return ColumnBuilder.booleans((0..<n).map { if case .boolean(let v) = value(at: $0) { v } else { nil } })
+        case .string:
+            return ColumnBuilder.strings((0..<n).map { if case .string(let v) = value(at: $0) { v } else { nil } })
+        }
+    }
+}

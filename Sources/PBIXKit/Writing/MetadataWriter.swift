@@ -180,6 +180,8 @@ extension MetadataWriter {
                 payloads = try Self.addRelationship(db, relationship, records: index.values.count, files: files, now: now)
             }
             addedFiles += payloads
+        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable:
+            throw WriteError.invalid("Chưa hỗ trợ ghi bảng và cột tính toán (Phase F, đang cài)")
         case .deleteRelationship(let name):
             var removed: [String] = []
             try transaction { db, now in removed = try Self.deleteRelationship(db, name: name, now: now) }
