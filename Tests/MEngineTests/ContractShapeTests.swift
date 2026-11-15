@@ -10,13 +10,6 @@ import ColumnStore
         #expect(error.message.contains("Table.Fuzzy") && error.message.contains("4"))
     }
 
-    @Test func parserAndEvaluatorAreStubsUntilImplemented() async {
-        #expect(throws: MError.self) { try MParser.parse("1 + 1") }
-        let evaluator = MEvaluator(environment: MEnvironment())
-        await #expect(throws: MError.self) { try await evaluator.evaluate(MExpression(source: "1")) }
-        #expect(MLibrary.functions.isEmpty)
-    }
-
     @Test func valuesHoldTablesAndErrorsAsData() throws {
         let table = try TableData(columns: [TableColumn(name: "A", data: ColumnBuilder.integers([1]))])
         let record = MValue.record([MField(name: "t", value: .table(table)), MField(name: "e", value: .error(MError(reason: "r", message: "m")))])

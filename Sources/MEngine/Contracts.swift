@@ -1,5 +1,5 @@
-// Phase F (T005): chữ ký bộ phân tích và bộ chạy M. Thân hàm là khung: ném "chưa hỗ trợ" cho đến khi cài
-// (parser và evaluator do lead làm ở T048, T049). Xem contracts/m-engine.md.
+// Phase F (T005): kiểu dùng chung của bộ phân tích và bộ chạy M. Parser: Parser.swift (T048), bộ chạy: Evaluator.swift (T049).
+// Xem contracts/m-engine.md.
 
 import ColumnStore
 
@@ -15,21 +15,6 @@ public struct MSyntaxError: Error, Equatable, Sendable {
     }
 }
 
-/// Cây cú pháp của một biểu thức M. Khung: T048 thay bằng cây thật.
-public struct MExpression: Sendable {
-    public let source: String
-
-    public init(source: String) {
-        self.source = source
-    }
-}
-
-public enum MParser {
-    public static func parse(_ source: String) throws -> MExpression {
-        throw MError.unsupported("MParser.parse")
-    }
-}
-
 /// Môi trường tên → giá trị (các bước đã đánh giá, hàm thư viện).
 public struct MEnvironment: Sendable {
     public var bindings: [String: MValue]
@@ -39,20 +24,14 @@ public struct MEnvironment: Sendable {
     }
 }
 
-public struct MEvaluator: Sendable {
-    public let environment: MEnvironment
-
-    public init(environment: MEnvironment) {
-        self.environment = environment
-    }
-
-    /// `step`: đánh giá đến hết bước này (xem trước ở bước giữa). `rowLimit`: gợi ý cắt sớm (xem trước 1000 dòng).
-    public func evaluate(_ expression: MExpression, upTo step: String? = nil, rowLimit: Int? = nil) async throws -> MValue {
-        throw MError.unsupported("MEvaluator.evaluate")
-    }
-}
-
 public enum MLibrary {
-    /// Tên đầy đủ ("Table.SelectRows") → hàm. Rỗng cho đến khi gói F-MFUN và lead cài hàm.
-    public static var functions: [String: MFunction] { [:] }
+    /// Tên đầy đủ ("Table.SelectRows") → hàm. Gộp các nhóm; tên trùng giữa nhóm là lỗi lập trình (test `MLibraryTests` bắt).
+    public static let functions: [String: MFunction] = {
+        var table: [String: MFunction] = [:]
+        for function in all { table[function.name] = function }
+        return table
+    }()
+
+    static let all: [MFunction] = TableColumnsLibrary.functions + TableRowsLibrary.functions
+        + ValueLibrary.functions + JoinGroupLibrary.functions
 }

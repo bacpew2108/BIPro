@@ -15,6 +15,11 @@ public struct MError: Error, Sendable, Equatable {
     }
 
     /// Hàm hoặc cú pháp ngoài phạm vi Phase F: báo thẳng, không trả kết quả đoán (FR-031).
+    /// Lỗi `Expression.Error` thông thường.
+    public static func expression(_ message: String, detail: String? = nil) -> MError {
+        MError(reason: "Expression.Error", message: message, detail: detail)
+    }
+
     public static func unsupported(_ name: String, line: Int? = nil) -> MError {
         let where_ = line.map { " (dòng \($0))" } ?? ""
         return MError(reason: "Expression.Unsupported", message: "Chưa hỗ trợ: \(name)\(where_)", detail: name)
@@ -47,17 +52,56 @@ public enum MValue: Sendable {
     case record([MField])
     case table(TableData)
     case function(MFunction)
+    case type(MType)
+    /// Giá trị lỗi nằm trong danh sách/bản ghi (chỉ ném khi truy cập phần tử đó).
     case error(MError)
+}
+
+/// Giá trị kiểu của M (`type text`, `Int64.Type`, `type table [A = number]`).
+public struct MType: Sendable, Equatable {
+    public enum Kind: String, Sendable {
+        case any, anynonnull, none, null, logical, number, int64, int32, int16, int8, double, decimal, currency, percentage
+        case text, date, datetime, datetimezone, time, duration, binary, list, record, table, function, type
+    }
+
+    public var kind: Kind
+    public var isNullable: Bool
+    /// Trường của `record`/`table` (rỗng nếu không nêu).
+    public var fields: [MTypeField]
+    /// Kiểu phần tử của `list` (0 hoặc 1 phần tử; mảng để tránh đệ quy trực tiếp).
+    public var listItem: [MType]
+
+    public init(_ kind: Kind, isNullable: Bool = false, fields: [MTypeField] = [], listItem: [MType] = []) {
+        self.kind = kind
+        self.isNullable = isNullable || kind == .any || kind == .null
+        self.fields = fields
+        self.listItem = listItem
+    }
+
+    public var nullable: MType { var copy = self; copy.isNullable = true; return copy }
+}
+
+public struct MTypeField: Sendable, Equatable {
+    public let name: String
+    public let type: MType
+    public let isOptional: Bool
+
+    public init(name: String, type: MType, isOptional: Bool = false) {
+        self.name = name
+        self.type = type
+        self.isOptional = isOptional
+    }
 }
 
 /// Hàm trong thư viện M. `observed == false` nghĩa là ngữ nghĩa chưa quan sát ở Desktop: [SUY ĐOÁN].
 public struct MFunction: @unchecked Sendable {
     public let name: String
-    public let parameters: [String]
+    public let parameters: [MParameter]
     public let observed: Bool
+    /// Nhận đúng `parameters.count` đối số; tham số tuỳ chọn không có thì là `.null`.
     public let implementation: @Sendable ([MValue]) throws -> MValue
 
-    public init(name: String, parameters: [String], observed: Bool,
+    public init(name: String, parameters: [MParameter], observed: Bool,
                 implementation: @escaping @Sendable ([MValue]) throws -> MValue) {
         self.name = name
         self.parameters = parameters
