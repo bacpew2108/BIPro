@@ -119,13 +119,44 @@ public struct ExcelSource: DataSource {
         // [SUY ĐOÁN] Thứ tự trả về: mọi trang tính theo thứ tự trong workbook, rồi mọi bảng đặt tên
         var result: [any SourceItem] = []
         for sInfo in sheetInfos {
-            result.append(ExcelSheetItem(url: url, info: sInfo, options: options))
+            var item = ExcelSheetItem(url: url, info: sInfo, options: options)
+            item.rowCountHint = Self.dimensionRowCount(zip: zip, path: sInfo.targetPath, promoteHeaders: options.promoteHeaders)
+            result.append(item)
         }
         for tInfo in tableInfos {
             result.append(ExcelTableItem(url: url, info: tInfo, options: options))
         }
 
         return result
+    }
+
+    /// Số dòng dữ liệu của trang, chỉ là gợi ý cho Navigator (không đọc ô). Ưu tiên `<dimension ref="A1:H501"/>` ở đầu XML;
+    /// Excel thật có khi bỏ phần tử này (file mẫu không có) nên dự phòng bằng số thứ tự của `<row r="N">` đầu và cuối.
+    /// Trang rỗng thì `nil`.
+    static func dimensionRowCount(zip: ZipArchive, path: String, promoteHeaders: Bool) -> Int? {
+        guard let xml = try? zip.read(path) else { return nil }
+        func attribute(_ name: String, after marker: [UInt8], in bytes: Data, from start: Data.Index) -> String? {
+            guard let at = bytes.range(of: Data(marker), in: start..<bytes.endIndex) else { return nil }
+            let key = Data((name + "=\"").utf8)
+            guard let k = bytes.range(of: key, in: at.upperBound..<min(bytes.endIndex, at.upperBound + 200)),
+                  let e = bytes.range(of: Data("\"".utf8), in: k.upperBound..<bytes.endIndex) else { return nil }
+            return String(decoding: bytes[k.upperBound..<e.lowerBound], as: UTF8.self)
+        }
+        var rows: Int?
+        let head = xml.prefix(4096)
+        if let ref = attribute("ref", after: Array("<dimension".utf8), in: head, from: head.startIndex),
+           let range = ExcelRefParser.parseRangeRef(ref) {
+            rows = range.maxRow - range.minRow + 1
+        } else if let first = attribute("r", after: Array("<row".utf8), in: xml, from: xml.startIndex).flatMap(Int.init) {
+            // Dòng cuối: `<row` cuối cùng trong file (tìm ngược, nên dòng dài vẫn đúng).
+            var last: Int?
+            if let at = xml.range(of: Data("<row".utf8), options: .backwards) {
+                last = attribute("r", after: Array("<row".utf8), in: xml, from: at.lowerBound).flatMap(Int.init)
+            }
+            rows = max(1, (last ?? first) - first + 1)
+        }
+        guard let total = rows else { return nil }
+        return promoteHeaders ? max(0, total - 1) : total
     }
 }
 

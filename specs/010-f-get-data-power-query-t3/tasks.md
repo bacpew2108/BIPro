@@ -20,8 +20,8 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 ## Giai đoạn 2: Gate F-T3 (S0, chặn T3 nấc 2 trở đi; không chặn đọc nguồn và M)
 
-- [ ] T010 [VM] S0 / F-T3: bạn mở `build/w-out/W4/tuan6.2_W4_table.pbix` trong Desktop theo T009, ghi kết quả vào `docs/phase-f-evidence/vm-f0/CHECKLIST-KET-QUA.md` (đạt/trượt, thông báo lỗi nguyên văn nếu trượt)
-- [ ] T011 [LEAD] Quyết định theo T010: **đạt** → làm T3 đầy đủ (Giai đoạn 3); **trượt** → ghi `docs/phase-f-evidence/vm-f0/QUYET-DINH.md`, bật nhánh dự phòng Enter Data (T029–T031) và mở lại nghiên cứu T3 song song; cập nhật `docs/STATE.md`, `docs/PHASE_W_PLAN.md` (gate W4)
+- [X] T010 [VM] S0 / F-T3: bạn mở `build/w-out/W4/tuan6.2_W4_table.pbix` trong Desktop theo T009, ghi kết quả vào `docs/phase-f-evidence/vm-f0/CHECKLIST-KET-QUA.md` (đạt/trượt, thông báo lỗi nguyên văn nếu trượt)
+- [X] T011 [LEAD] Quyết định theo T010: **đạt** → làm T3 đầy đủ (Giai đoạn 3); **trượt** → ghi `docs/phase-f-evidence/vm-f0/QUYET-DINH.md`, bật nhánh dự phòng Enter Data (T029–T031) và mở lại nghiên cứu T3 song song; cập nhật `docs/STATE.md`, `docs/PHASE_W_PLAN.md` (gate W4)
 
 Trong lúc chờ T010, được làm song song: Giai đoạn 4 (đọc nguồn) và phần M lõi (T048 trở đi) vì không phụ thuộc kết quả gate.
 

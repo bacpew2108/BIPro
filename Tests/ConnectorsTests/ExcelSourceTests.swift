@@ -26,6 +26,19 @@ import ColumnStore
         #expect(items[3].kind == .namedTable)
     }
 
+    /// Navigator hiện số dòng từng trang tính (lấy từ `<dimension>`, không phải đọc hết ô). Sales: 500 dòng dữ liệu, Customers: 50.
+    @Test func sheetRowCountHintTuDimension() async throws {
+        guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
+        let items = try await ExcelSource(url: url).items()
+        #expect(items[0].rowCountHint == 500)
+        #expect(items[1].rowCountHint == 50)
+        let noHeader = try await ExcelSource(url: url, options: .init(promoteHeaders: false)).items()
+        #expect(noHeader[0].rowCountHint == 501)
+        // Gợi ý khớp số dòng thật khi nạp.
+        let loaded = try await items[0].load(progress: nil)
+        #expect(items[0].rowCountHint == loaded.rowCount)
+    }
+
     @Test func salesSheetLoadAndPreview() async throws {
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
         let source = ExcelSource(url: url)

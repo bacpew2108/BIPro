@@ -110,7 +110,8 @@ public struct TableMetadataWriter {
                 INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment)
                 VALUES (?, ?, 3, ?, 1, ?)
                 """, [.int(segmentMapID), .int(partitionStorageID), .int(Int64(table.rowCount)), .int(Int64(table.rowCount))])
-            // A table without a source query. Power BI treats it as a stored (Type 4) partition with an empty query.
+            // SAI (gate F-T3, 2026-11-15): Desktop chạy bộ phân tích M trên mọi phân vùng kiểu 4 và báo "Token Literal expected" với truy vấn rỗng.
+            // Phải ghi M hợp lệ, xem docs/phase-f-evidence/vm-f0/CHECKLIST-KET-QUA.md (sửa ở T015).
             try db.run("""
                 INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type,
                     PartitionStorageID, Mode, DataView, ModifiedTime, RefreshedTime, SystemFlags, ErrorMessage,
