@@ -373,13 +373,13 @@ public struct TableMetadataWriter {
             """, [.int(id), .int(owner), .int(ownerType), .int(folder), .text(fileName)])
     }
 
-    /// `Column.SummarizeBy` as observed in Desktop (`f1csvxlsx.pbix`, 2026-11-15): strings 2, numbers 3 (sum), RowNumber 1;
-    /// a number whose name ends in "ID" is 2 (CustomerID 2). `[SUY ĐOÁN]`: Desktop gave OrderID 6 (count), probably because the
-    /// column is unique; not reproduced.
+    /// `Column.SummarizeBy` as observed in Desktop (`f1csvxlsx.pbix`, VM-F3 `pk.pbix`, 2026-11-15): strings and dates 2, numbers 3 (sum),
+    /// RowNumber 1; a number whose name ends in "ID" is 6 (count), or 2 (none) when the column is in a relationship (CustomerID after
+    /// Desktop's auto-detect). BI Pro does not set 2 on relationship creation yet.
     static func summarizeBy(_ type: ModelMetadata.DataType, name: String, isRowNumber: Bool) -> Int64 {
         if isRowNumber { return 1 }
         if type == .string || type == .dateTime || type == .boolean { return 2 }
-        return name.lowercased().hasSuffix("id") ? 2 : 3
+        return name.lowercased().hasSuffix("id") ? 6 : 3
     }
 
     /// `let Source = #table(type table [...], {}) in Source`: a valid M query for a table whose data does not come from M.

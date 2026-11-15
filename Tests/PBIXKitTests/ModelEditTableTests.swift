@@ -38,8 +38,8 @@ import Testing
         let cols = columns(result, "Sales2026")
         #expect(cols.map(\.name) == ["OrderID", "Amount", "Region", "OrderDate"])
         #expect(cols.map(\.dataType) == [.int64, .double, .string, .dateTime])
-        // Như Desktop nạp CSV (2026-11-15): số cộng dồn (3), nhưng số tên kết thúc "ID" thì không (2); chuỗi/ngày 2.
-        #expect(cols.map(\.summarizeBy) == [2, 3, 2, 2])
+        // Như Desktop (2026-11-15): số cộng dồn (3), số tên kết thúc "ID" đếm (6); chuỗi/ngày 2.
+        #expect(cols.map(\.summarizeBy) == [6, 3, 2, 2])
         #expect(cols.allSatisfy { $0.kind == .data && $0.tableID == table.id && !$0.isHidden })
         #expect(result.partitionQueries["Sales2026"] == "let Source = 1 in Source")
         // Mô hình gốc không đổi.

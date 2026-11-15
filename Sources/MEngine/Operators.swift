@@ -103,9 +103,9 @@ enum MOperators {
         case (.null, .null): return true
         case (.logical(let x), .logical(let y)): return x == y
         case (.text(let x), .text(let y)): return x == y
-        // [SUY ĐOÁN] date và datetime so theo số ngày (bảng ngày của mô hình lưu cả hai là dateTime).
-        case (.date(let x), .date(let y)), (.dateTime(let x), .dateTime(let y)), (.date(let x), .dateTime(let y)),
-             (.dateTime(let x), .date(let y)), (.time(let x), .time(let y)), (.duration(let x), .duration(let y)): return x == y
+        // Desktop 2.159 (VM-F3, 2026-11-15): `#date(2026,1,1) = #datetime(2026,1,1,0,0,0)` là false (khác kiểu), không đổi qua lại.
+        case (.date(let x), .date(let y)), (.dateTime(let x), .dateTime(let y)),
+             (.time(let x), .time(let y)), (.duration(let x), .duration(let y)): return x == y
         case (.list(let x), .list(let y)): return x.count == y.count && zip(x, y).allSatisfy { equals($0, $1) }
         case (.record(let x), .record(let y)):
             guard x.count == y.count else { return false }
@@ -125,8 +125,9 @@ enum MOperators {
             if x.unicodeScalars.elementsEqual(y.unicodeScalars) { return 0 }
             return x.unicodeScalars.lexicographicallyPrecedes(y.unicodeScalars, by: { $0.value < $1.value }) ? -1 : 1
         case (.logical(let x), .logical(let y)): return order(x ? 1 : 0, y ? 1 : 0)
-        case (.date(let x), .date(let y)), (.dateTime(let x), .dateTime(let y)), (.date(let x), .dateTime(let y)),
-             (.dateTime(let x), .date(let y)), (.time(let x), .time(let y)), (.duration(let x), .duration(let y)): return order(x, y)
+        // `date < datetime` báo lỗi "We cannot apply operator < to types Date and DateTime" trong Desktop (VM-F3): không so khác kiểu.
+        case (.date(let x), .date(let y)), (.dateTime(let x), .dateTime(let y)),
+             (.time(let x), .time(let y)), (.duration(let x), .duration(let y)): return order(x, y)
         default: return nil
         }
     }
