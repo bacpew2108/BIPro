@@ -146,6 +146,11 @@ Lead tự làm theo `/tdd`, sửa hợp đồng của spec cũ (không mở spec
 - **Màu theo giá trị Chú giải (2026-11-13, `67f54eb`, đã bấm thử trong app trên biểu đồ Q3.6 của Nhom6: đổi Female, lưu, file chỉ đổi đúng mục đó):** ô "Áp dụng cho" liệt kê các giá trị Chú giải đã có mục `selector.data` trong file và sửa tại chỗ (`FormatCatalog.legendValue`, `PBIRFormatPatch.matches` hiểu khoá `data:<literal>`); giá trị chưa có mục bị từ chối.
 - **Chưa làm:** thêm màu cho giá trị Chú giải chưa có mục (cần danh sách giá trị từ truy vấn) và theo điểm dữ liệu; sắp xếp đường sang cột (tăng dần theo Category, chưa quan sát); chạy `zsh scripts/build-app.sh` và bấm thử giao diện mới (ô "Áp dụng cho", Gộp vào nhóm, nhóm bookmark, thẻ cardVisual); mở file BI Pro ghi (bộ lọc mới, nhóm lồng, nhóm bookmark, màu chuỗi, cardVisual) trong Desktop để kiểm (cần cho phép VM); `/code-review` cho cả đợt; shape-map resource cleanup khi xoá trang chưa phản chiếu.
 
+## Phase F: điểm dừng 2026-11-16 (commit `8bf3027`, chưa push)
+
+Xong: T001–T065 trừ T066; T063b; US1–US3 (Get Data, Query Editor, Close & Apply, lưu T3 gồm thay/xoá bảng chưa dính quan hệ). `swift test` 2043 qua. Worker agy F-UI Query Editor và F-MFUN đã merge; worktree `f-conn1`, `f-ui`, `f-mfun`, `f-ui-qe` còn, chưa xoá.
+Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay theo `docs/phase-f-evidence/vm-f3/CHECKLIST-F6.md`, hoặc cho Claude lái VM; bốn file ở `build/f-out/f6/`, VM đang suspended; Desktop chưa từng mở file có M thật); (2) còn tồn đọng nhỏ: T063 (so golden Desktop từng bước, ca nguồn bị xoá/Refresh), hộp "Pending changes" khi Đóng chưa bấm thử, chụp lại khung Hồ sơ cột sau khi nới, cuộn lưới không về đầu khi đổi bước, lưu bảng dính quan hệ chưa làm (chỉ mục `R$` phải dựng lại); (3) US4 (Merge/Append/Group, T067+, `TableJoinGroup.swift` T068 của lead), rồi US5 tạo tài liệu mới. Phase mới cần bạn duyệt `tasks.md` theo quy trình Spec Kit nếu có thay đổi.
+
 ## Việc tiếp theo
 
 **Phase E, chờ bạn (2026-11-14 đêm):**
@@ -193,4 +198,4 @@ Lead tự làm theo `/tdd`, sửa hợp đồng của spec cũ (không mở spec
 4. **D6 Bookmark và bộ lọc ghi vào file: xong** (2026-11-11, xem mục D6 ở trên).
 5. **D7 xong** (2026-11-11, xem mục D7 ở trên): nhóm visual, sửa bố cục báo cáo định dạng cũ, chép dán giữa các trang, căn lề và phân bố. Phase D còn lại: danh mục D4 (33 cặp), D3b chưa sửa, phần D6 mới giữ trong phiên, quan sát Desktop thêm cho D7 (review D5 đã xong 2026-11-13).
 
-Phase D xong khi sửa trang Nhom6 trong BI Pro (bố cục, trường, loại, định dạng, trang), lưu, rồi mở lại được cả trong BI Pro lẫn Power BI Desktop. Phase W đã được bạn xác nhận ổn. **T066 chuẩn bị xong (2026-11-16), chờ bạn quyết người chạy:** bốn file gate ở `build/f-out/f6/` (`q1-csv`, `q2-excel`, `q3-thay`, `q4-xoa`, sinh bởi `FGateTests.taoFileGateTruyVan`, số mong đợi trong `docs/phase-f-evidence/vm-f3/CHECKLIST-F6.md`); VM "Windows 11" đang suspended; Claude chưa lái VM vì chiếm chuột thật của bạn (cần bạn cho phép lần này, hoặc bạn tự chạy theo checklist).
+Phase D xong khi sửa trang Nhom6 trong BI Pro (bố cục, trường, loại, định dạng, trang), lưu, rồi mở lại được cả trong BI Pro lẫn Power BI Desktop. Phase W đã được bạn xác nhận ổn.
