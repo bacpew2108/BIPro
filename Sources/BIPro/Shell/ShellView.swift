@@ -28,7 +28,24 @@ struct ShellView: View {
         .sheet(isPresented: Binding(get: { state.getDataState != nil }, set: { if !$0 { state.closeGetData() } })) {
             if let navigator = state.getDataState {
                 GetDataFlowView(state: navigator, existingTableNames: state.existingTableNames,
-                                onLoad: { state.loadFromGetData($0) }, onClose: { state.closeGetData() })
+                                onLoad: { state.loadFromGetData($0) },
+                                onTransform: { tables in
+                                    // Sheet Get Data đóng xong mới mở sheet Query Editor (hai sheet cùng lúc thì SwiftUI bỏ sheet sau).
+                                    state.closeGetData()
+                                    Task { @MainActor in
+                                        try? await Task.sleep(for: .milliseconds(400))
+                                        state.showQueryEditor(loaded: tables)
+                                    }
+                                },
+                                onClose: { state.closeGetData() })
+                    .environment(\.colorScheme, .light)
+            }
+        }
+        .sheet(isPresented: Binding(get: { state.queryEditorState != nil }, set: { if !$0 { state.closeQueryEditor() } })) {
+            if let editor = state.queryEditorState {
+                QueryEditorWindow(state: editor, existingTableNames: state.existingTableNames,
+                                  onApply: { state.applyQueryEditor() }, onClose: { state.closeQueryEditor() })
+                    .frame(minWidth: 1100, idealWidth: 1280, minHeight: 680, idealHeight: 800)
                     .environment(\.colorScheme, .light)
             }
         }

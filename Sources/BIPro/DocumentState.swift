@@ -124,6 +124,8 @@ final class DocumentState {
     private(set) var modelVersion = 0
     /// Hộp thoại Get Data đang mở (Phase F); nil khi đóng.
     var getDataState: NavigatorState?
+    /// Cửa sổ Query Editor đang mở (Phase F, T060); nil khi đóng.
+    var queryEditorState: QueryEditorState?
     /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 

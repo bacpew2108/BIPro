@@ -80,7 +80,8 @@ private struct DataSourceCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: "Truy vấn") {
-            RibbonButton(title: "Biến đổi dữ liệu", symbol: "slider.horizontal.3", phase: "Phase F")
+            RibbonButton(title: "Biến đổi dữ liệu", symbol: "slider.horizontal.3",
+                         disabledReason: state.queryEditorBlocker) { state.showQueryEditor() }
             RibbonButton(title: "Làm mới", symbol: "arrow.clockwise", phase: "Phase F")
         }
     }
