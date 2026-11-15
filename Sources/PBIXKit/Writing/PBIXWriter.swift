@@ -15,10 +15,21 @@ public enum PBIXWriter {
     static let metadataPath = "metadata.sqlitedb"
     static let securityBindingsPath = "SecurityBindings"
     static let contentTypesPath = "[Content_Types].xml"
+    static let diagramLayoutPath = "DiagramLayout"
 
     /// Builds the new `.pbix` bytes in memory and verifies them. With `rebuildModel`, the DataModel
     /// goes through the ABF rebuild and XPress9 recompression even when nothing in it changed
     /// (the test path used by gate W1).
+    /// `BIPRO_TIMING=1` prints the time of each step of `build` to stderr (Phase E measurements).
+    private static let timing = ProcessInfo.processInfo.environment["BIPRO_TIMING"] == "1"
+
+    private static func timed<T>(_ label: String, _ body: () throws -> T) rethrows -> T {
+        guard timing else { return try body() }
+        let start = Date()
+        defer { FileHandle.standardError.write(Data("[timing] \(label): \(String(format: "%.2f", Date().timeIntervalSince(start))) s\n".utf8)) }
+        return try body()
+    }
+
     public static func build(source: URL, changes: PBIXChanges, rebuildModel: Bool = false) throws -> Result {
         let archive = try ZipArchive(url: source)
         for path in changes.reportParts.keys.sorted() where archive.entry(path) == nil {
@@ -35,8 +46,11 @@ public enum PBIXWriter {
         for path in changes.addedParts.keys.sorted() where archive.entry(path) != nil {
             throw WriteError.invalid("cannot add \(path): already a member of \(source.lastPathComponent)")
         }
-        let needsModel = rebuildModel || !changes.measures.isEmpty
-        let model = needsModel ? try rebuiltDataModel(archive: archive, measures: changes.measures) : nil
+        if changes.diagramLayout != nil, archive.entry(Self.diagramLayoutPath) == nil {
+            throw WriteError.invalid("cannot replace \(Self.diagramLayoutPath): not a member of \(source.lastPathComponent)")
+        }
+        let needsModel = rebuildModel || changes.changesModel
+        let model = needsModel ? try timed("rebuiltDataModel") { try rebuiltDataModel(archive: archive, edits: changes.allModelEdits) } : nil
 
         let dropsBinding = changes.changesReport && archive.entry(Self.securityBindingsPath) != nil
         var members: [(path: String, source: ZipWriter.Source)] = []
@@ -49,6 +63,8 @@ public enum PBIXWriter {
             } else if entry.path == "DataModel", let model {
                 // The DataModel member is stored (method 0) in every Power BI file; keep it so.
                 members.append((path: entry.path, source: .bytes(model, method: 0)))
+            } else if entry.path == Self.diagramLayoutPath, let layout = changes.diagramLayout {
+                members.append((path: entry.path, source: .bytes(layout, method: 8)))
             } else if let part = changes.reportParts[entry.path] {
                 members.append((path: entry.path, source: .bytes(part, method: 8)))
             } else {
@@ -59,8 +75,8 @@ public enum PBIXWriter {
             let index = insertionIndex(for: path, in: members.map(\.path))
             members.insert((path: path, source: .bytes(changes.addedParts[path]!, method: 8)), at: index)
         }
-        let data = try ZipWriter.write(members, modified: nil)
-        try verify(data, changes: changes, source: archive)
+        let data = try timed("zip") { try ZipWriter.write(members, modified: nil) }
+        try timed("verify") { try verify(data, changes: changes, source: archive) }
         return Result(data: data, tier: changes.tier)
     }
 
@@ -162,19 +178,31 @@ public enum PBIXWriter {
 
     /// T2: adds measures to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel.
     static func rebuiltDataModel(archive: ZipArchive, measures: [NewMeasure]) throws -> Data {
+        try rebuiltDataModel(archive: archive, edits: ModelEdits(measures.map { .addMeasure($0) }))
+    }
+
+    /// T2: applies model edits to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel.
+    static func rebuiltDataModel(archive: ZipArchive, edits: ModelEdits) throws -> Data {
         guard let entry = archive.entry("DataModel") else { throw ZipArchive.Error.missingEntry("DataModel") }
         let stream = try archive.storedSlice(entry) ?? archive.read(entry)
-        let (abfBytes, _) = try DataModelStream.decompress(stream)
+        let (abfBytes, _) = try timed("decompress") { try DataModelStream.decompress(stream) }
         let abf = try ABFBackup(data: abfBytes)
         guard let metadataFile = abf.file(named: metadataPath) else {
             throw WriteError.invalid("the data model has no \(metadataPath)")
         }
         var metadata = try MetadataWriter(sqlite: try abf.contents(of: metadataFile))
-        for measure in measures {
-            try metadata.addMeasure(measure)
+        // Chỉ mục quan hệ mới đọc từ dữ liệu cột của ABF gốc (lược đồ lưu trữ cột không đổi giữa các thao tác).
+        let sourceModel = try ModelMetadata(sqlite: try abf.contents(of: metadataFile))
+        metadata.relationshipIndexProvider = { new in
+            guard let from = sourceModel.storage(table: new.fromTable, column: new.fromColumn),
+                  let to = sourceModel.storage(table: new.toTable, column: new.toColumn) else {
+                throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] hoặc \(new.toTable)[\(new.toColumn)] không có dữ liệu lưu trữ")
+            }
+            return (try RelationshipIndex.values(from: from, to: to, abf: abf), try VertiPaq.rowCount(to, abf: abf))
         }
-        let newABF = try ABFWriter.rebuild(abf, replacing: [ABFPayload(path: metadataFile.path, data: try metadata.serialize())])
-        return try DataModelStream.compress(abf: newABF)
+        try metadata.apply(edits)
+        let newABF = try timed("abfRebuild") { try ABFWriter.rebuild(abf, replacing: [ABFPayload(path: metadataFile.path, data: try metadata.serialize())], adding: metadata.addedFiles, removing: metadata.removedFiles) }
+        return try timed("compress") { try DataModelStream.compress(abf: newABF) }
     }
 
     /// Reads the written bytes back and checks every change. With the source archive it also checks that
@@ -206,7 +234,13 @@ public enum PBIXWriter {
                     throw WriteError.verificationFailed("[Content_Types].xml still mentions SecurityBindings")
                 }
             }
-            let isModelRebuilt = !changes.measures.isEmpty
+            let isModelRebuilt = changes.changesModel
+            if let layout = changes.diagramLayout {
+                touched.insert(Self.diagramLayoutPath)
+                guard let entry = pbix.archive.entry(Self.diagramLayoutPath), try pbix.archive.read(entry) == layout else {
+                    throw WriteError.verificationFailed("DiagramLayout does not read back")
+                }
+            }
             for entry in source.entries where !touched.contains(entry.path) {
                 if isModelRebuilt && entry.path == "DataModel" { continue }
                 guard let now = pbix.archive.entry(entry.path), now.crc32 == entry.crc32,
@@ -219,14 +253,71 @@ public enum PBIXWriter {
                 throw WriteError.verificationFailed("unexpected number of members")
             }
         }
-        guard !changes.measures.isEmpty else { return }
-        let (abf, _) = try pbix.loadDataModel()
+        guard changes.changesModel else { return }
+        let (abf, _) = try timed("verify.decompressNew") { try pbix.loadDataModel() }
         let model = try ModelMetadata(sqlite: try abf.contents(named: metadataPath))
-        for measure in changes.measures {
-            let found = model.measures.contains {
-                $0.tableName == measure.table && $0.name == measure.name && $0.expression == measure.expression
+        if let source {
+            // Mô hình đọc lại phải bằng mô hình nguồn sau khi áp đúng danh sách thao tác (bỏ `lineageTag` của measure mới).
+            let (oldABF, _) = try timed("verify.decompressOld") { try PBIXFile(archive: source).loadDataModel() }
+            let oldModel = try ModelMetadata(sqlite: try oldABF.contents(named: metadataPath))
+            let expected: ModelMetadata
+            do { expected = try oldModel.applying(changes.allModelEdits) } catch {
+                throw WriteError.verificationFailed("model edits do not apply to the source model: \(error)")
             }
-            guard found else { throw WriteError.verificationFailed("measure \(measure.name) is missing after save") }
+            func plain(_ m: ModelMetadata.Measure) -> ModelMetadata.Measure {
+                ModelMetadata.Measure(tableName: m.tableName, name: m.name, expression: m.expression, formatString: m.formatString,
+                                      displayFolder: m.displayFolder, isHidden: m.isHidden, description: m.description, lineageTag: nil,
+                                      dataType: m.dataType, state: m.state, formatStringDefinition: nil)
+            }
+            func sorted(_ list: [ModelMetadata.Measure]) -> [ModelMetadata.Measure] {
+                list.map(plain).sorted { ($0.tableName, $0.name) < ($1.tableName, $1.name) }
+            }
+            guard sorted(model.measures).map({ "\($0)" }) == sorted(expected.measures).map({ "\($0)" }) else {
+                throw WriteError.verificationFailed("measures read back differ from the edited model")
+            }
+            guard model.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) == expected.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) else {
+                throw WriteError.verificationFailed("tables read back differ from the edited model")
+            }
+            guard model.relationships == expected.relationships else {
+                throw WriteError.verificationFailed("relationships read back differ from the edited model")
+            }
+            // Cột `INDEX` của bảng hệ thống `R$` (chỉ mục quan hệ) không thuộc mô hình hiệu lực.
+            func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] { m.columns.filter { !$0.tableName.hasPrefix("R$") } }
+            guard userColumns(model) == userColumns(expected) else {
+                throw WriteError.verificationFailed("columns read back differ from the edited model")
+            }
+            // Mọi tệp ABF khác metadata.sqlitedb giữ nguyên byte; chỉ có thêm hoặc bớt tệp chỉ mục quan hệ (2 tệp mỗi quan hệ).
+            let compareStart = Date()
+            defer { if timing { FileHandle.standardError.write(Data("[timing] verify.compareFiles: \(String(format: "%.2f", Date().timeIntervalSince(compareStart))) s\n".utf8)) } }
+            let oldPaths = Set(oldABF.files.map { $0.path }), newPaths = Set(abf.files.map { $0.path })
+            let isIndex: (String) -> Bool = { $0.hasSuffix("INDEX.0.idf") || $0.hasSuffix("INDEX.0.idfmeta") }
+            let addedPaths = newPaths.subtracting(oldPaths), removedPaths = oldPaths.subtracting(newPaths)
+            let adds = changes.allModelEdits.items.filter { if case .addRelationship = $0 { true } else { false } }.count
+            let deletes = changes.allModelEdits.items.filter { if case .deleteRelationship = $0 { true } else { false } }.count
+            guard addedPaths.allSatisfy(isIndex), removedPaths.allSatisfy(isIndex),
+                  addedPaths.count <= 2 * adds, removedPaths.count <= 2 * deletes else {
+                throw WriteError.verificationFailed("the ABF file list changed unexpectedly")
+            }
+            let newFiles = Dictionary(uniqueKeysWithValues: abf.files.map { ($0.path, $0) })
+            let metadataFilePath = abf.file(named: metadataPath)?.path
+            for file in oldABF.files where file.path != metadataFilePath && !removedPaths.contains(file.path) {
+                guard let other = newFiles[file.path],
+                      try oldABF.contents(of: file) == abf.contents(of: other) else {
+                    throw WriteError.verificationFailed("\(file.path) changed although it was not meant to")
+                }
+            }
+        } else {
+            for measure in changes.measures {
+                let found = model.measures.contains {
+                    $0.tableName == measure.table && $0.name == measure.name && $0.expression == measure.expression
+                }
+                guard found else { throw WriteError.verificationFailed("measure \(measure.name) is missing after save") }
+            }
         }
     }
+}
+
+extension PBIXFile {
+    /// A `PBIXFile` over an archive that is already open.
+    init(archive: ZipArchive) { self.archive = archive }
 }

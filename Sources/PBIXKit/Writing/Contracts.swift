@@ -46,7 +46,7 @@ public struct ABFPayload: Sendable, Equatable {
 }
 
 /// A measure to add to the model (T2).
-public struct NewMeasure: Sendable, Equatable {
+public struct NewMeasure: Sendable, Hashable {
     public var table: String
     public var name: String
     /// DAX expression without the leading `=`.
@@ -55,9 +55,11 @@ public struct NewMeasure: Sendable, Equatable {
     public var displayFolder: String?
     public var description: String?
     public var isHidden: Bool
+    /// AMO `DataType` của kết quả (Int64 6, Double 8, ...). `nil`: dùng `MetadataWriter.measureDataType`.
+    public var dataType: Int?
 
     public init(table: String, name: String, expression: String, formatString: String? = nil,
-                displayFolder: String? = nil, description: String? = nil, isHidden: Bool = false) {
+                displayFolder: String? = nil, description: String? = nil, isHidden: Bool = false, dataType: Int? = nil) {
         self.table = table
         self.name = name
         self.expression = expression
@@ -65,6 +67,7 @@ public struct NewMeasure: Sendable, Equatable {
         self.displayFolder = displayFolder
         self.description = description
         self.isHidden = isHidden
+        self.dataType = dataType
     }
 }
 
@@ -77,12 +80,26 @@ public struct PBIXChanges: Sendable {
     public var addedParts: [String: Data] = [:]
     /// T1: ZIP member paths to drop. Each path must exist, and must not also be replaced.
     public var removedParts: Set<String> = []
-    /// T2: measures to add.
+    /// T2: measures to add (kept for older callers; same as `.addMeasure` edits placed before `modelEdits`).
     public var measures: [NewMeasure] = []
+    /// T2: model edits (Phase E), applied to `metadata.sqlitedb` in order after `measures`.
+    public var modelEdits = ModelEdits()
+    /// Replaces the `DiagramLayout` member (UTF-16LE JSON). The member must exist. Does not touch the DataModel.
+    public var diagramLayout: Data?
 
     public init() {}
 
-    public var tier: SaveTier { measures.isEmpty ? .report : .metadata }
+    public var tier: SaveTier { measures.isEmpty && modelEdits.isEmpty ? .report : .metadata }
+
+    /// True when the DataModel member is rebuilt.
+    var changesModel: Bool { !measures.isEmpty || !modelEdits.isEmpty }
+
+    /// `measures` and `modelEdits` as one ordered list.
+    var allModelEdits: ModelEdits {
+        var all = ModelEdits(measures.map { .addMeasure($0) })
+        for edit in modelEdits.items { all.append(edit) }
+        return all
+    }
 
     /// True when any `Report/definition/**` part is replaced, added or removed. Power BI Desktop then refuses a
     /// file that still carries the old `SecurityBindings` ("This file is corrupted..."), so the writer drops that

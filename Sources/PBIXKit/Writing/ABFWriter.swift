@@ -14,7 +14,8 @@ import Foundation
 public enum ABFWriter {
     static let pageSize = 4096
 
-    public static func rebuild(_ source: ABFBackup, replacing: [ABFPayload] = [], adding: [ABFPayload] = []) throws -> Data {
+    public static func rebuild(_ source: ABFBackup, replacing: [ABFPayload] = [], adding: [ABFPayload] = [],
+                               removing: [String] = []) throws -> Data {
         guard let logEntry = source.virtualEntries.last else {
             throw WriteError.invalid("the backup's virtual directory cannot be rewritten")
         }
@@ -44,7 +45,13 @@ public enum ABFWriter {
             guard !payload.path.hasPrefix("\\") else { throw WriteError.invalid("path must be relative: \(payload.path)") }
         }
 
-        let changed = !replacementByStorage.isEmpty || !adding.isEmpty
+        var removedStorage = Set<String>()
+        for path in removing {
+            guard let file = files[path] else { throw WriteError.invalid("no file named \(path) in the backup to remove") }
+            guard replacementByStorage[file.storagePath] == nil else { throw WriteError.invalid("\(path) is both replaced and removed") }
+            removedStorage.insert(file.storagePath)
+        }
+        let changed = !replacementByStorage.isEmpty || !adding.isEmpty || !removedStorage.isEmpty
         if changed && source.header.errorCode {
             throw WriteError.invalid("a backup with an error-code trailer cannot be rewritten")
         }
@@ -62,6 +69,7 @@ public enum ABFWriter {
         for (storage, data) in replacementByStorage.sorted(by: { $0.key < $1.key }) {
             log = try updateLogEntry(log, storagePath: storage, size: data.count, lastWrite: stamp)
         }
+        for storage in removedStorage.sorted() { log = try removeLogEntry(log, storagePath: storage) }
         for item in added {
             log = try appendLogEntry(log, databasePath: source.databasePersistPath, path: item.path,
                                      storagePath: item.storage, size: item.data.count, lastWrite: stamp)
@@ -78,6 +86,7 @@ public enum ABFWriter {
         var directory: [String] = []
 
         for entry in source.virtualEntries.dropLast() {
+            if removedStorage.contains(entry.storagePath) { continue }
             var payload = source.data[entry.offset..<(entry.offset + entry.size)]
             var xml = entry.xml
             if let replacement = replacementByStorage[entry.storagePath] {
@@ -170,6 +179,19 @@ public enum ABFWriter {
         let edited = try setTag(try setTag(element, "Size", String(size)), "LastWriteTime", lastWrite)
         var out = log
         out.replaceSubrange(start.lowerBound..<end.upperBound, with: edited)
+        return out
+    }
+
+    /// Removes the log entry whose `StoragePath` is `storagePath`.
+    static func removeLogEntry(_ log: String, storagePath: String) throws -> String {
+        let marker = "<StoragePath>\(storagePath)</StoragePath>"
+        guard let found = log.range(of: marker),
+              let start = log.range(of: "<BackupFile>", options: .backwards, range: log.startIndex..<found.lowerBound),
+              let end = log.range(of: "</BackupFile>", range: found.upperBound..<log.endIndex) else {
+            throw WriteError.invalid("the backup log has no entry for \(storagePath)")
+        }
+        var out = log
+        out.removeSubrange(start.lowerBound..<end.upperBound)
         return out
     }
 

@@ -53,12 +53,12 @@ public enum TMDLWriter {
     }
 
     static func tableDocument(_ table: ModelMetadata.Table, model: ModelMetadata) -> String {
-        var out = "table \(name(table.name))\n"
+        var out = docComment(table.description, depth: 0) + "table \(name(table.name))\n"
         if table.isHidden { out += "\tisHidden\n" }
         if let tag = table.lineageTag { out += "\tlineageTag: \(tag)\n" }
 
         for m in model.measures where m.tableName == table.name {
-            out += "\n" + expressionHeader("measure", m.name, m.expression, depth: 1)
+            out += "\n" + docComment(m.description, depth: 1) + expressionHeader("measure", m.name, m.expression, depth: 1)
             if let f = m.formatString { out += "\t\tformatString: \(f)\n" }
             if m.isHidden { out += "\t\tisHidden\n" }
             if let d = m.displayFolder { out += "\t\tdisplayFolder: \(d)\n" }
@@ -67,9 +67,9 @@ public enum TMDLWriter {
 
         for c in model.columns where c.tableID == table.id && c.kind != .rowNumber {
             if c.kind == .calculated, let expression = c.expression {
-                out += "\n" + expressionHeader("column", c.name, expression, depth: 1)
+                out += "\n" + docComment(c.description, depth: 1) + expressionHeader("column", c.name, expression, depth: 1)
             } else {
-                out += "\n\tcolumn \(name(c.name))\n"
+                out += "\n" + docComment(c.description, depth: 1) + "\tcolumn \(name(c.name))\n"
             }
             out += "\t\tdataType: \(c.dataType.tmdlName)\n"
             if c.isHidden { out += "\t\tisHidden\n" }
@@ -78,7 +78,7 @@ public enum TMDLWriter {
             if let d = c.displayFolder { out += "\t\tdisplayFolder: \(d)\n" }
             if let tag = c.lineageTag { out += "\t\tlineageTag: \(tag)\n" }
             if let category = c.dataCategory { out += "\t\tdataCategory: \(category)\n" }
-            out += "\t\tsummarizeBy: \(c.summarizeByName == "default" ? "none" : c.summarizeByName)\n"
+            out += "\t\tsummarizeBy: \(c.summarizeByName)\n"
             if c.kind == .data, let source = c.sourceColumn { out += "\t\tsourceColumn: \(source)\n" }
             if let sortID = c.sortByColumnID, let sortBy = model.column(id: sortID) { out += "\t\tsortByColumn: \(name(sortBy.name))\n" }
         }
@@ -102,6 +102,14 @@ public enum TMDLWriter {
     }
 
     // MARK: Helpers
+
+    /// Mô tả đối tượng: mỗi dòng một `///` ngay trước khai báo (cú pháp TMDL).
+    static func docComment(_ description: String?, depth: Int) -> String {
+        guard let description, !description.isEmpty else { return "" }
+        let tabs = String(repeating: "\t", count: depth)
+        return description.replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n", omittingEmptySubsequences: false)
+            .map { "\(tabs)/// \($0)\n" }.joined()
+    }
 
     /// `measure 'Name' = expr` on one line, or a multi-line expression indented two levels deeper.
     static func expressionHeader(_ keyword: String, _ objectName: String, _ expression: String, depth: Int) -> String {
