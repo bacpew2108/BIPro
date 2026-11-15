@@ -259,7 +259,7 @@ public struct MetadataWriter {
     private static func requireReplaceable(_ db: MetadataDatabase, tableID: Int, name: String, action: String) throws {
         let columns = "SELECT ID FROM [Column] WHERE TableID = \(tableID)"
         if (try db.int("SELECT COUNT(*) FROM Relationship WHERE FromColumnID IN (\(columns)) OR ToColumnID IN (\(columns))") ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng đang tham gia quan hệ (chỉ mục quan hệ chưa dựng lại được, T063b)")
+            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng đang tham gia quan hệ (chỉ mục quan hệ chưa dựng lại được)")
         }
         if db.tableExists("Hierarchy"), (try db.int("SELECT COUNT(*) FROM Hierarchy WHERE TableID = ?", [.int(Int64(tableID))]) ?? 0) > 0 {
             throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có phân cấp")

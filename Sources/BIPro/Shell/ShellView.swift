@@ -45,7 +45,7 @@ struct ShellView: View {
             if let editor = state.queryEditorState {
                 QueryEditorWindow(state: editor, existingTableNames: state.existingTableNames,
                                   onApply: { state.applyQueryEditor() }, onClose: { state.closeQueryEditor() })
-                    .frame(minWidth: 1100, idealWidth: 1280, minHeight: 680, idealHeight: 800)
+                    .frame(minWidth: 1000, idealWidth: 1280, maxWidth: .infinity, minHeight: 640, idealHeight: 800, maxHeight: .infinity)
                     .environment(\.colorScheme, .light)
             }
         }

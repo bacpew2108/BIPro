@@ -103,6 +103,7 @@ enum DocumentSaver {
             switch error {
             case .backupFailed(let why): throw SaveError.backupFailed(why)
             case .verificationFailed(let why): throw SaveError.verificationFailed(why)
+            case .invalid(let why): throw SaveError.writeFailed(why)   // lý do đã là tiếng Việt, không kèm "invalid write request:"
             default: throw SaveError.writeFailed("\(error)")
             }
         } catch {

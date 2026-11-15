@@ -151,7 +151,8 @@ public struct QueryEditorWindow: View {
                             .hairline(.top)
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
 
                     // Right Column: Query Settings / Applied Steps
                     if showQuerySettingsPane {
@@ -169,7 +170,8 @@ public struct QueryEditorWindow: View {
                 statusBar
                     .hairline(.top)
             }
-            .frame(width: 1280, height: 800)
+            // Kích thước cố định chỉ để xuất ảnh PNG; trong cửa sổ thật (sheet) bố cục co giãn theo khung.
+            .modifier(FixedImageFrame(enabled: !scrollable))
             .background(Color.white)
 
             // Overlays / Dialogs
@@ -227,13 +229,15 @@ public struct QueryEditorWindow: View {
 
     private var windowTitleBar: some View {
         HStack(spacing: 8) {
-            // macOS traffic lights
-            HStack(spacing: 6) {
-                Circle().fill(Color(hex: "#FF5F57")!).frame(width: 12, height: 12)
-                Circle().fill(Color(hex: "#FEBC2E")!).frame(width: 12, height: 12)
-                Circle().fill(Color(hex: "#28C840")!).frame(width: 12, height: 12)
+            // Ba nút đèn chỉ vẽ trong ảnh PNG (không có thanh tiêu đề hệ thống); trong sheet thật không vẽ nút giả.
+            if !scrollable {
+                HStack(spacing: 6) {
+                    Circle().fill(Color(hex: "#FF5F57")!).frame(width: 12, height: 12)
+                    Circle().fill(Color(hex: "#FEBC2E")!).frame(width: 12, height: 12)
+                    Circle().fill(Color(hex: "#28C840")!).frame(width: 12, height: 12)
+                }
+                .padding(.leading, 8)
             }
-            .padding(.leading, 8)
 
             Spacer()
 
@@ -250,8 +254,7 @@ public struct QueryEditorWindow: View {
 
             Spacer()
 
-            // Balance traffic lights
-            Color.clear.frame(width: 48, height: 12)
+            if !scrollable { Color.clear.frame(width: 48, height: 12) }
         }
         .padding(.horizontal, 12)
         .frame(height: 38)
@@ -517,5 +520,13 @@ public struct QueryEditorWindow: View {
         } else {
             onClose()
         }
+    }
+}
+
+/// 1280 × 800 pt khi xuất ảnh; ngược lại lấp đầy khung được cấp.
+private struct FixedImageFrame: ViewModifier {
+    let enabled: Bool
+    func body(content: Content) -> some View {
+        if enabled { content.frame(width: 1280, height: 800) } else { content.frame(maxWidth: .infinity, maxHeight: .infinity) }
     }
 }

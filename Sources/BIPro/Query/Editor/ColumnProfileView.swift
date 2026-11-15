@@ -64,11 +64,11 @@ struct ColumnProfileView: View {
         HStack(spacing: 8) {
             // Left Card: Column Statistics
             statisticsCard(profile: profile)
-                .frame(width: 320)
+                .frame(minWidth: 220, idealWidth: 320, maxWidth: 320)
 
             // Right Card: Value Distribution
             distributionCard(profile: profile)
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 0, maxWidth: .infinity)
         }
     }
 
@@ -169,7 +169,7 @@ struct ColumnProfileView: View {
                     Text(bucket.label.isEmpty ? "(Trống)" : bucket.label)
                         .font(DS.Typeface.bodySmall)
                         .foregroundStyle(bucket.label.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
-                        .frame(width: 90, alignment: .leading)
+                        .frame(width: 64, alignment: .leading)
                         .lineLimit(1)
 
                     GeometryReader { geo in
@@ -188,7 +188,7 @@ struct ColumnProfileView: View {
                     Text("\(bucket.count) (\(QueryEditorFormat.percent(bucket.count, of: totalCount)))")
                         .font(DS.Typeface.mono)
                         .foregroundStyle(DS.Palette.secondaryLabel)
-                        .frame(width: 80, alignment: .trailing)
+                        .frame(width: 64, alignment: .trailing)
                         .lineLimit(1)
                 }
                 .padding(.vertical, 1)

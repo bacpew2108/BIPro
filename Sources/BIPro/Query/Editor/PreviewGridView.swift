@@ -84,6 +84,9 @@ struct PreviewGridView: View {
                 ScrollView([.horizontal, .vertical]) {
                     gridContent(table: table, rowLimit: table.rowCount)
                 }
+                // Không để bề rộng của 11+ cột (dựng lười) đẩy rộng cả cửa sổ: lưới cuộn trong phần được cấp.
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                .clipped()
             } else {
                 gridContent(table: table, rowLimit: min(table.rowCount, 16))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -103,8 +106,20 @@ struct PreviewGridView: View {
 
     // MARK: - Grid Content
 
+    /// Hàng dựng lười khi cuộn được (1000 dòng × nhiều cột dựng hết một lần làm đứng cửa sổ hơn 10 s). `ImageRenderer` không vẽ được
+    /// `LazyVStack` nên ảnh PNG (không cuộn, 16 dòng) dùng `VStack`.
+    @ViewBuilder
     private func gridContent(table: TableData, rowLimit: Int) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        if scrollable {
+            LazyVStack(alignment: .leading, spacing: 0) { gridRows(table: table, rowLimit: rowLimit) }
+        } else {
+            VStack(alignment: .leading, spacing: 0) { gridRows(table: table, rowLimit: rowLimit) }
+        }
+    }
+
+    @ViewBuilder
+    private func gridRows(table: TableData, rowLimit: Int) -> some View {
+        Group {
             // Header Row
             HStack(spacing: 0) {
                 // # Column header

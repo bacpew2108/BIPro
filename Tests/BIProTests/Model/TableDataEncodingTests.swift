@@ -34,4 +34,29 @@ import Testing
         let a = DecodedColumn(name: "A", dataType: .int64, storage: .values([1]))
         #expect(TableDataEncoding.tableData(from: [a, a]) == nil)
     }
+
+    @Test func duongNhanhChoCotTheoGiaTriVaCotTrong() throws {
+        let columns = [
+            DecodedColumn(name: "D", dataType: .double, storage: .values([1.5, .nan, 2.5])),
+            DecodedColumn(name: "T", dataType: .dateTime, storage: .values([45_000, 45_001, .nan])),
+            DecodedColumn(name: "E", dataType: .string, storage: .empty(count: 3)),
+            DecodedColumn(name: "S", dataType: .string, storage: .dictionary(codes: [1, -1, 0], dictionary: [.string("a"), .string("b")])),
+        ]
+        let table = try #require(TableDataEncoding.tableData(from: columns))
+        let rows = (0..<3).map { row in table.columns.map { $0.data.value(at: row) } }
+        #expect(rows[0] == [.double(1.5), .dateTime(45_000), .blank, .string("b")])
+        #expect(rows[1] == [.blank, .dateTime(45_001), .blank, .blank])
+        #expect(rows[2] == [.double(2.5), .blank, .blank, .string("a")])
+    }
+
+    @Test func tuDienHonHaiTramNamMuoiLamMuc() throws {
+        let entries = (0..<300).map { CellValue.int(Int64($0 * 3)) }
+        let codes = (0..<1000).map { Int32($0 % 300) }
+        let table = try #require(TableDataEncoding.tableData(from: [DecodedColumn(name: "N", dataType: .int64, storage: .dictionary(codes: codes, dictionary: entries))]))
+        #expect(table.rowCount == 1000)
+        #expect(table.columns[0].data.value(at: 0) == .integer(0))
+        #expect(table.columns[0].data.value(at: 299) == .integer(897))
+        #expect(table.columns[0].data.value(at: 300) == .integer(0))
+        #expect(table.columns[0].data.value(at: 999) == .integer(Int64((999 % 300) * 3)))
+    }
 }

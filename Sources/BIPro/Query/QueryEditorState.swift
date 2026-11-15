@@ -133,6 +133,10 @@ public final class QueryEditorState {
     public var isApplying = false
 
     @ObservationIgnored private var bases: [UUID: TableData] = [:]
+    /// Bảng nền nạp lười (bảng lớn trong file): chỉ dựng khi truy vấn được xem trước hoặc áp dụng, ngoài luồng chính.
+    @ObservationIgnored private var baseLoaders: [UUID: @Sendable () -> TableData?] = [:]
+    /// Lần dựng đang chạy: xem trước và Close & Apply cùng chờ một lần, không dựng hai lần và không chạy khi chưa có nền.
+    @ObservationIgnored private var baseTasks: [UUID: Task<TableData?, Never>] = [:]
     @ObservationIgnored private var caches: [UUID: MPreviewCache] = [:]
     @ObservationIgnored private var undoStack: [Snapshot] = []
     @ObservationIgnored private var redoStack: [Snapshot] = []
@@ -177,6 +181,25 @@ public final class QueryEditorState {
         queries.append(query)
         if let base { bases[query.id] = base }
         if selectedQueryID == nil { selectQuery(query.id) }
+    }
+
+    /// Như `addQuery(_:base:)` nhưng bảng nền dựng lười bằng `baseLoader` (chạy ngoài luồng chính, một lần, khi cần).
+    public func addQuery(_ query: QueryModel, baseLoader: @escaping @Sendable () -> TableData?) {
+        queries.append(query)
+        baseLoaders[query.id] = baseLoader
+        if selectedQueryID == nil { selectQuery(query.id) }
+    }
+
+    /// Dựng bảng nền lười của truy vấn nếu chưa dựng (không thử lại khi `baseLoader` trả `nil`).
+    private func ensureBase(_ query: QueryModel) async {
+        guard bases[query.id] == nil else { return }
+        if baseTasks[query.id] == nil, let loader = baseLoaders.removeValue(forKey: query.id) {
+            baseTasks[query.id] = Task.detached(priority: .userInitiated) { loader() }
+        }
+        guard let task = baseTasks[query.id] else { return }
+        let base = await task.value
+        if let base, bases[query.id] == nil { bases[query.id] = base }
+        baseTasks[query.id] = nil
     }
 
     /// Truy vấn từ bảng vừa nạp bằng Get Data: các bước đầu do nguồn tạo, khoá, kết quả là chính bảng đã nạp.
@@ -368,6 +391,8 @@ public final class QueryEditorState {
         }
         let name = query.steps[index].name
         let effective = effectiveQuery(query)
+        await ensureBase(query)
+        guard mine == generation else { return }
         let cache = cacheFor(query)
         do {
             let value = try await cache.preview(effective, stepIndex: index, rowLimit: ColumnProfiler.defaultRowLimit)
@@ -394,6 +419,7 @@ public final class QueryEditorState {
     /// Đánh giá đủ (không cắt dòng) kết quả của truy vấn, cho Close & Apply.
     func evaluateFull(_ query: QueryModel) async throws -> TableData {
         guard !query.steps.isEmpty else { throw MError.expression("Truy vấn không có bước nào.") }
+        await ensureBase(query)
         let value = try await cacheFor(query).preview(effectiveQuery(query), stepIndex: query.steps.count - 1, rowLimit: nil)
         guard case .table(let table) = value else { throw MError.expression("Kết quả không phải bảng (\(value.kindName)).") }
         return table
@@ -521,11 +547,12 @@ extension QueryEditorState {
     /// Liệt kê truy vấn đã có trong file (`Partition.QueryDefinition` của mỗi bảng, FR-014). Bước đọc từ file bị khoá: kết quả của chúng
     /// là bảng đang có trong mô hình (`tableData`), nên bước người dùng thêm phía sau tính từ dữ liệu đó. `tableData` trả `nil` khi
     /// chưa có dữ liệu (xem trước báo thiếu nguồn).
-    func addQueries(from metadata: ModelMetadata, tableData: (String) -> TableData?) {
+    func addQueries(from metadata: ModelMetadata, tableData: @escaping @Sendable (String) -> TableData?) {
         for table in metadata.userTables {
             guard let text = metadata.partitionQueries[table.name], !text.isEmpty else { continue }
             let query = Self.model(name: table.name, source: text, tableName: table.name, locked: true)
-            addQuery(query, base: tableData(table.name))
+            let name = table.name
+            addQuery(query, baseLoader: { tableData(name) })
         }
     }
 }

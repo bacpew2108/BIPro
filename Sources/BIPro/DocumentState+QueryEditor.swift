@@ -19,6 +19,7 @@ extension DocumentState {
         let editor = QueryEditorState()
         if loaded.isEmpty {
             if let metadata = workspace.metadata {
+                // Bảng nền dựng lười và ngoài luồng chính: bảng lớn (hàng triệu dòng) không làm đứng cửa sổ lúc mở.
                 editor.addQueries(from: metadata) { [workspace] name in
                     (try? workspace.table(name)).flatMap(TableDataEncoding.tableData(from:))
                 }
