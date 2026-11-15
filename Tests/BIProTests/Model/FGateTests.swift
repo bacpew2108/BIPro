@@ -1,5 +1,7 @@
 import CoreGraphics
 import Foundation
+import Connectors
+import MEngine
 import PBIXKit
 import Testing
 @testable import BIPro
@@ -95,5 +97,89 @@ struct FGateTests {
         let diagrams = try #require(PBIXFile(url: target).loadDiagramLayout()).diagrams
         #expect(diagrams.map(\.name) == ["All tables", "Layout 1", "Layout 3"] && diagrams[1].nodes.map(\.table) == ["Dim_Client"])
         print("KEY F4 file gate: \(target.path)")
+    }
+
+    /// Gate F-Query (T066): bốn file Nhom6 do BI Pro lưu có truy vấn M với đường dẫn Windows `C:\\Users\\bacpew\\f6\\...`: (1) bảng CSV + bước giữ 500 dòng,
+    /// (2) bảng Excel + sắp xếp + giữ 50 dòng, (3) như (1) rồi sửa truy vấn (giữ 20 dòng) và lưu lần hai (thay bảng), (4) như (1) rồi tắt
+    /// Enable load (xoá bảng). Ghi ra `build/f-out/f6/`. Mở trong Desktop theo `docs/phase-f-evidence/vm-f3/CHECKLIST-F6.md`.
+    @Test func taoFileGateTruyVan() async throws {
+        let dir = try EFixtures.outputDirectory("../f-out/f6")
+        let backups = dir.appendingPathComponent("Backups")
+        let windowsRoot = #"C:\Users\bacpew\f6\"#
+        func fresh(_ name: String) throws -> URL {
+            let url = dir.appendingPathComponent(name)
+            try? FileManager.default.removeItem(at: url)
+            try FileManager.default.copyItem(at: try #require(EFixtures.nhom6), to: url)
+            return url
+        }
+        func open(_ url: URL) throws -> DocumentState {
+            DocumentState(workspace: try Workspace(data: Data(contentsOf: url)), fileName: url.lastPathComponent, fileURL: url)
+        }
+        func save(_ state: DocumentState, _ url: URL) throws {
+            #expect(try DocumentSaver.save(editor: state.layout, source: url, to: url, expectedStamp: nil, readOnlyRoots: [], backupDirectory: backups).didWrite)
+        }
+        /// Nạp thật từ file mẫu trên Mac nhưng ghi nguồn là đường dẫn Windows để Desktop Refresh được sau khi chép file sang VM.
+        func load(_ state: DocumentState, kind: SourceKind, file: String, item: String) async throws -> LoadedTable {
+            let url = try #require(FFixtures.sample(file))
+            state.showGetData(kind: kind, pickFile: { _ in url.path })
+            let navigator = try #require(state.getDataState)
+            for _ in 0..<200 where navigator.phase == .choosingSource || navigator.phase == .listingItems { try await Task.sleep(for: .milliseconds(25)) }
+            for entry in navigator.items where entry.name == item { navigator.toggle(entry.id) }
+            let loaded = try #require(await navigator.load(existingNames: state.existingTableNames)).first.unsafelyUnwrapped
+            state.closeGetData()
+            let origin = try #require(loaded.origin)
+            return LoadedTable(name: loaded.name, data: loaded.data,
+                               origin: LoadedOrigin(kind: kind, location: windowsRoot + file, itemName: origin.itemName, itemKind: origin.itemKind))
+        }
+        func apply(_ state: DocumentState, _ table: LoadedTable, steps: [StepCommand]) async throws {
+            state.showQueryEditor(loaded: [table])
+            let editor = try #require(state.queryEditorState)
+            for step in steps { #expect(editor.perform(step) == .applied) }
+            state.applyQueryEditor()
+            for _ in 0..<400 where state.queryEditorState != nil { try await Task.sleep(for: .milliseconds(25)) }
+            #expect(editor.applyMessage == nil)
+        }
+
+        // (1) CSV + giữ 500 dòng
+        let q1 = try fresh("q1-csv.pbix")
+        let s1 = try open(q1)
+        try await apply(s1, try await load(s1, kind: .csv, file: "sales_2026.csv", item: "sales_2026"), steps: [.keepTopRows(500)])
+        #expect(s1.workspace.rowCount("sales_2026") == 500)
+        try save(s1, q1)
+
+        // (2) Excel Sales + sắp xếp giảm dần Qty + giữ 50 dòng
+        let q2 = try fresh("q2-excel.pbix")
+        let s2 = try open(q2)
+        try await apply(s2, try await load(s2, kind: .excel, file: "sales_2026.xlsx", item: "Sales"),
+                        steps: [.sortRows([SortKey(column: "Qty", descending: true)]), .keepTopRows(50)])
+        try save(s2, q2)
+
+        // (3) q1 → mở lại → giữ 20 dòng → thay bảng → lưu
+        let q3 = try fresh("q3-thay.pbix")
+        try FileManager.default.removeItem(at: q3)
+        try FileManager.default.copyItem(at: q1, to: q3)
+        let s3 = try open(q3)
+        s3.showQueryEditor()
+        let e3 = try #require(s3.queryEditorState)
+        e3.selectQuery(try #require(e3.queries.first { $0.loadedTableName == "sales_2026" }).id)
+        #expect(e3.perform(.keepTopRows(20)) == .applied)
+        s3.applyQueryEditor()
+        for _ in 0..<400 where s3.queryEditorState != nil { try await Task.sleep(for: .milliseconds(25)) }
+        #expect(s3.workspace.rowCount("sales_2026") == 20)
+        try save(s3, q3)
+
+        // (4) q1 → tắt Enable load → xoá bảng → lưu
+        let q4 = try fresh("q4-xoa.pbix")
+        try FileManager.default.removeItem(at: q4)
+        try FileManager.default.copyItem(at: q1, to: q4)
+        let s4 = try open(q4)
+        s4.showQueryEditor()
+        let e4 = try #require(s4.queryEditorState)
+        e4.setEnableLoad(try #require(e4.queries.first { $0.loadedTableName == "sales_2026" }).id, false)
+        s4.applyQueryEditor()
+        for _ in 0..<400 where s4.queryEditorState != nil { try await Task.sleep(for: .milliseconds(25)) }
+        try save(s4, q4)
+        #expect(try !open(q4).workspace.userTables.contains { $0.name == "sales_2026" })
+        print("KEY F6 file gate: \(dir.path)")
     }
 }
