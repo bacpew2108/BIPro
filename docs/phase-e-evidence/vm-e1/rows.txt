@@ -1,0 +1,15 @@
+# Measure E_Test sau lan luu 1 (tao)
+INSERT INTO Measure VALUES(11892,25,'E_Test',NULL,6,'COUNTROWS(Dim_Account)+1','0',0,1,134391324464211478,134391323830927147,0,0,NULL,NULL,0,NULL,0,'a3be4f48-4458-4d81-ae06-af605dea9c77',NULL);
+# sau lan luu 2 (sua bieu thuc, mo ta, thu muc)
+INSERT INTO Measure VALUES(11892,25,'E_Test','mo ta E',6,'COUNTROWS(Dim_Account)+2','0',0,1,134391325201596297,134391323830927147,0,0,NULL,'Thu muc E',0,NULL,0,'a3be4f48-4458-4d81-ae06-af605dea9c77',NULL);
+# Relationship 42 truoc va sau doi CrossFilteringBehavior 1->2
+r2.sql:INSERT INTO Relationship VALUES(42,1,'e9e34b6d-58cb-5217-8b5b-ff4948abafc5',1,1,2,1,0,13,69,2,22,103,1,1,825,0,134391326637837475,134369759873957885,1);
+r1.sql:INSERT INTO Relationship VALUES(42,1,'e9e34b6d-58cb-5217-8b5b-ff4948abafc5',1,1,1,1,0,13,69,2,22,103,1,1,825,0,134360988337878151,134369759873957885,1);
+# Annotation them vao
+> INSERT INTO Annotation VALUES(11896,65,4,'SummarizationSetBy','Automatic',134391326637754390);
+> INSERT INTO Annotation VALUES(11897,66,4,'SummarizationSetBy','Automatic',134391326637754390);
+> INSERT INTO Annotation VALUES(11898,11653,4,'SummarizationSetBy','Automatic',134391326637754390);
+> INSERT INTO Annotation VALUES(11899,11654,4,'SummarizationSetBy','Automatic',134391326637754390);
+> INSERT INTO Annotation VALUES(11900,104,4,'SummarizationSetBy','Automatic',134391326637754390);
+> INSERT INTO Annotation VALUES(11901,108,4,'SummarizationSetBy','Automatic',134391326637754390);
+> INSERT INTO Annotation VALUES(11902,115,4,'SummarizationSetBy','Automatic',134391326637754390);

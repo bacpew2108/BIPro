@@ -176,11 +176,14 @@ Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md).
 - **Xong khi:** sửa trang Nhom6 trong BI Pro, lưu, rồi mở lại được cả trong BI Pro lẫn Power BI Desktop.
 
 ### Phase E: Mô hình hoá + lưu T2 (4–5 tuần) → **M2**
-- [ ] Table View đầy đủ (Column tools, formula bar, sort/filter, Column metadata).
-- [ ] Model View sửa được (kéo card, tạo quan hệ bằng cách kéo cột, Relationship properties).
-- [ ] Measure (tạo/sửa/xoá, format, folder), TMDL View sửa được.
-- [ ] **Lưu tầng T2.** Cột tính toán cần tầng T3 nên sẽ dùng VertiPaqWriter của Phase W.
-- **Xong khi:** thêm measure và quan hệ trong BI Pro, lưu, rồi Power BI Desktop đọc đúng.
+> **Xong phần code và kiểm Desktop (2026-11-14)**: Spec Kit `specs/009-e-mo-hinh-hoa-luu-t2/`; bằng chứng ở `docs/phase-e-evidence/` (VM-E1 đến VM-E5). Cột tính toán và bảng tính toán ngoài Phase E (chỉ xem; tạo mới cần T3, Phase F). Golden nặng bản release (137 qua) và `/code-review` đã xong; VM-E6 (tab bố cục, quan hệ hoạt động, tổng hợp và sắp xếp cột) đạt.
+- [x] **Measure** (Câu chuyện 1): tạo, sửa, xoá ở Table view (thanh công thức `Tên = biểu thức`, kiểm bằng engine, suy kiểu và định dạng như Desktop), thuộc tính (mô tả, thư mục, định dạng, ẩn), xoá/đổi tên bị chặn khi còn nơi dùng; menu ở ngăn Data (cả chế độ Báo cáo) và ngăn Properties ở Model view; hoàn tác chung; lưu T2.
+- [x] **Quan hệ** (Câu chuyện 2): sửa hướng lọc và bật/tắt, tạo bằng kéo cột thả cột (hộp xác nhận, dò bản số, ghi đủ chỉ mục `R$` như Desktop), xoá; engine nạp lại tái dùng cột đã giải mã.
+- [x] **Table View đầy đủ** (Câu chuyện 3): sửa thuộc tính cột (tên, mô tả, thư mục, định dạng, tổng hợp, loại dữ liệu, sắp xếp theo cột, ẩn); lưới có sắp xếp và lọc chỉ để xem.
+- [x] **Model View sửa được** (Câu chuyện 4): kéo thẻ bảng, thu phóng, ẩn/hiện bảng, ghi `DiagramLayout`, thêm/đổi tên/xoá tab bố cục và gỡ bảng khỏi tab (VM-E6, VM-E7, Desktop mở đúng). Đổi thứ tự tab: Desktop không kéo đổi được nên không làm.
+- [x] **TMDL View sửa được** (Câu chuyện 5): áp dụng nguyên khối (measure, thuộc tính cột, bảng ẩn, quan hệ), lỗi theo dòng.
+- [x] **Lưu tầng T2**: `PBIXChanges.modelEdits`, `MetadataWriter.apply`, kiểm đọc lại; lưu Nhom6 khoảng 2,5 s (bản release).
+- **Xong khi:** thêm measure và quan hệ trong BI Pro, lưu, rồi Power BI Desktop đọc đúng. **Đạt** (`vm-e2`, `vm-e3`).
 
 ### Phase F: Get Data, Power Query + lưu T3 (8–10 tuần) → **M3**
 - [ ] Connector DuckDB: Excel, CSV, Parquet, JSON (đợt 1); PostgreSQL, SQLite (đợt 2).
