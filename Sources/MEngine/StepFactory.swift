@@ -194,7 +194,7 @@ public enum StepFactory {
     }
 
     /// Chuỗi M: `"` nhân đôi, xuống dòng/tab dùng `#(lf)`, `#(cr)`, `#(tab)`.
-    static func quote(_ s: String) -> String {
+    public static func quote(_ s: String) -> String {
         var out = "\""
         for c in s.unicodeScalars {
             switch c {

@@ -12,7 +12,7 @@ import ColumnStore
         let t = try table([("Qty", ColumnBuilder.integers([1, 2, 2, nil, 5])),
                            ("Name", ColumnBuilder.strings(["a", "", "a", nil, "b"]))],
                           errors: [0: [2: "DataFormat.Error"]])
-        let stats = ColumnProfile.profile(t)
+        let stats = ColumnProfiler.profile(t)
         #expect(stats.map(\.name) == ["Qty", "Name"])
         let qty = stats[0]
         // Dòng 2 của Qty là ô lỗi: không hợp lệ, không rỗng, không tính vào phân biệt.
@@ -28,31 +28,31 @@ import ColumnStore
 
     @Test func chiLay1000DongDau() throws {
         let values = (0..<1500).map { Int64($0 % 10) }
-        let stats = ColumnProfile.profile(try table([("N", ColumnBuilder.integers(values))]))[0]
+        let stats = ColumnProfiler.profile(try table([("N", ColumnBuilder.integers(values))]))[0]
         #expect(stats.valid == 1000 && stats.distinct == 10 && stats.unique == 0)
         #expect(stats.max == .number(9) && stats.average == 4.5)
-        let all = ColumnProfile.profile(try table([("N", ColumnBuilder.integers(values))]), rowLimit: 1500)[0]
+        let all = ColumnProfiler.profile(try table([("N", ColumnBuilder.integers(values))]), rowLimit: 1500)[0]
         #expect(all.valid == 1500)
     }
 
     @Test func phanBoSapTheoSoLanRoiTheoGiaTri() throws {
         let t = try table([("C", ColumnBuilder.strings(["b", "a", "b", "c", "b", "a"]))])
-        let d = ColumnProfile.profile(t)[0].distribution
+        let d = ColumnProfiler.profile(t)[0].distribution
         #expect(d == [ValueCount(value: .text("b"), count: 3), ValueCount(value: .text("a"), count: 2), ValueCount(value: .text("c"), count: 1)])
     }
 
     @Test func ngayLaMinMaxNhungKhongCoTrungBinh() throws {
         let t = try table([("D", ColumnBuilder.dateTimes([46083, 46090, nil]))])
-        let s = ColumnProfile.profile(t)[0]
+        let s = ColumnProfiler.profile(t)[0]
         #expect(s.min == .dateTime(46083) && s.max == .dateTime(46090) && s.average == nil)
     }
 
     @Test func bangRongVaCotLogic() throws {
         let empty = try table([("A", ColumnBuilder.integers([]))])
-        let s = ColumnProfile.profile(empty)[0]
+        let s = ColumnProfiler.profile(empty)[0]
         #expect((s.valid, s.error, s.empty, s.distinct, s.unique) == (0, 0, 0, 0, 0))
         #expect(s.min == nil)
-        let b = ColumnProfile.profile(try table([("B", ColumnBuilder.booleans([true, false, true]))]))[0]
+        let b = ColumnProfiler.profile(try table([("B", ColumnBuilder.booleans([true, false, true]))]))[0]
         #expect(b.distinct == 2 && b.unique == 1 && b.min == nil)
     }
 }

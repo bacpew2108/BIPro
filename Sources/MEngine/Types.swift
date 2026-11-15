@@ -83,7 +83,7 @@ import ColumnStore
 
 extension MValue {
     /// Tên kiểu dùng trong thông báo lỗi.
-    var kindName: String {
+    public var kindName: String {
         switch self {
         case .null: "null"
         case .logical: "logical"

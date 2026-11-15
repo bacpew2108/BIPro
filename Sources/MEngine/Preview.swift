@@ -15,7 +15,7 @@ public actor MPreviewCache {
     }
 
     /// Giá trị của bước `stepIndex`; bảng thì cắt còn `rowLimit` dòng đầu (`nil` = đủ). Bước lỗi ném `MError`.
-    public func preview(_ query: MQuery, stepIndex: Int, rowLimit: Int? = ColumnProfile.defaultRowLimit) async throws -> MValue {
+    public func preview(_ query: MQuery, stepIndex: Int, rowLimit: Int? = ColumnProfiler.defaultRowLimit) async throws -> MValue {
         guard query.steps.indices.contains(stepIndex) else {
             throw MError.expression("Bước thứ \(stepIndex + 1) không có trong truy vấn")
         }

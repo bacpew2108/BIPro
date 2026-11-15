@@ -4,6 +4,7 @@
 import Foundation
 import ColumnStore
 import Connectors
+import MEngine
 import PBIXKit
 
 /// Bảng đã nạp từ nguồn, đang chờ đưa vào mô hình. `data` giữ trong bộ nhớ đến khi lưu.
@@ -17,13 +18,31 @@ public struct LoadedTable: Identifiable, Sendable {
     public let queryName: String
     public let data: TableData
     public let status: Status
+    /// Mục nguồn đã nạp; `nil` cho bảng không có nguồn ghi lại (test, dữ liệu nhập tay).
+    public let origin: LoadedOrigin?
+    /// Biểu thức M đầy đủ của truy vấn (Query Editor đã sửa); `nil` thì dựng từ `origin`.
+    public let queryText: String?
 
-    public init(id: UUID = UUID(), name: String, queryName: String? = nil, data: TableData, status: Status = .new) {
+    public init(id: UUID = UUID(), name: String, queryName: String? = nil, data: TableData, status: Status = .new,
+                origin: LoadedOrigin? = nil, queryText: String? = nil) {
         self.id = id
         self.name = name
         self.queryName = queryName ?? name
         self.data = data
         self.status = status
+        self.origin = origin
+        self.queryText = queryText
+    }
+
+    /// Các bước M ban đầu của truy vấn nạp bảng này (Desktop sinh: Source, Navigation, Promoted Headers, Changed Type).
+    var initialSteps: [QueryStep] { origin.map { SourceQuery.steps(for: $0, data: data) } ?? [] }
+
+    /// `Partition.QueryDefinition` ghi vào file: văn bản truy vấn đã sửa, hoặc M ban đầu dựng từ nguồn; `nil` khi không có nguồn.
+    var queryDefinition: String? {
+        if let queryText { return queryText }
+        let steps = initialSteps
+        guard let last = steps.last else { return nil }
+        return MQuery(steps: steps.map { MStep(name: $0.name, expression: $0.expression) }, resultName: last.name).source
     }
 }
 
@@ -78,6 +97,7 @@ public enum TableLoader {
     public static func load(
         _ items: [any SourceItem],
         existingNames: Set<String>,
+        source: (kind: SourceKind, location: String)? = nil,
         progress: SourceProgress? = nil
     ) async throws -> [LoadedTable] {
         var taken = existingNames
@@ -92,7 +112,8 @@ public enum TableLoader {
             if Task.isCancelled { throw SourceError.cancelled }
             let name = TableNaming.uniqueName(item.name, taken: taken)
             taken.insert(name)
-            result.append(LoadedTable(name: name, data: data))
+            let origin = source.map { LoadedOrigin(kind: $0.kind, location: $0.location, itemName: item.name, itemKind: item.kind) }
+            result.append(LoadedTable(name: name, data: data, origin: origin))
         }
         progress?(1)
         return result
@@ -104,7 +125,7 @@ extension TableLoader {
     /// các ảnh chụp hoàn tác dùng chung một bản). `queryExpression` là biểu thức M nạp bảng (nil khi chưa có truy vấn).
     static func newTable(from loaded: LoadedTable, queryExpression: String? = nil, enableLoad: Bool = true) -> NewTable {
         let columns = loaded.data.columns.map { NewTableColumn(name: $0.name, dataType: modelType($0.data.type)) }
-        return NewTable(name: loaded.name, columns: columns, queryExpression: queryExpression, enableLoad: enableLoad,
+        return NewTable(name: loaded.name, columns: columns, queryExpression: queryExpression ?? loaded.queryDefinition, enableLoad: enableLoad,
                         attachment: loaded.data)
     }
 
@@ -122,17 +143,21 @@ extension TableLoader {
 }
 
 extension TableLoader {
-    /// Đưa các bảng đã nạp vào mô hình qua `ModelEditor`: `.new` → `addTable`, `.replaced` → `replaceTable`, `.unchanged` bỏ qua.
-    /// Cả lần nạp là một bước ⌘Z; một bảng bị từ chối (tên trùng, cột sai…) thì không bảng nào vào. Trả lý do hoặc nil.
-    @MainActor @discardableResult
-    static func apply(_ tables: [LoadedTable], to editor: ModelEditor) -> String? {
-        let edits: [ModelEdit] = tables.compactMap { loaded in
+    /// Thao tác mô hình cho các bảng đã nạp: `.new` → `addTable`, `.replaced` → `replaceTable`, `.unchanged` bỏ qua.
+    static func edits(for tables: [LoadedTable]) -> [ModelEdit] {
+        tables.compactMap { loaded in
             switch loaded.status {
             case .new: .addTable(newTable(from: loaded))
             case .replaced: .replaceTable(name: loaded.name, newTable(from: loaded))
             case .unchanged: nil
             }
         }
-        return editor.apply(edits)
+    }
+
+    /// Đưa các bảng đã nạp vào mô hình qua `ModelEditor`. Cả lần nạp là một bước ⌘Z; một bảng bị từ chối (tên trùng, cột sai…)
+    /// thì không bảng nào vào. Trả lý do hoặc nil.
+    @MainActor @discardableResult
+    static func apply(_ tables: [LoadedTable], to editor: ModelEditor) -> String? {
+        editor.apply(edits(for: tables))
     }
 }

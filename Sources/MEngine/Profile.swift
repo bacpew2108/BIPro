@@ -26,11 +26,11 @@ public struct ColumnStats: Sendable, Equatable {
     public let max: MValue?
     /// Chỉ cho cột số.
     public let average: Double?
-    /// Tối đa `ColumnProfile.distributionLimit` giá trị hợp lệ thường gặp nhất (giảm theo số lần, rồi theo giá trị).
+    /// Tối đa `ColumnProfiler.distributionLimit` giá trị hợp lệ thường gặp nhất (giảm theo số lần, rồi theo giá trị).
     public let distribution: [ValueCount]
 }
 
-public enum ColumnProfile {
+public enum ColumnProfiler {
     public static let defaultRowLimit = 1000
     public static let distributionLimit = 20
 

@@ -109,11 +109,12 @@ public final class NavigatorState {
     public func load(existingNames: Set<String> = []) async -> [LoadedTable]? {
         guard canLoad else { return nil }
         let chosen = items.filter { checkedItemIDs.contains($0.id) }.compactMap { sourceItems[$0.id] }
+        let origin = sourceKind.map { (kind: $0, location: location) }
         phase = .loading
         progress = 0
         loaded = []
         let task = Task<[LoadedTable], Error> { [weak self] in
-            try await TableLoader.load(chosen, existingNames: existingNames, progress: { fraction in
+            try await TableLoader.load(chosen, existingNames: existingNames, source: origin, progress: { fraction in
                 Task { @MainActor in self?.advance(to: fraction) }
             })
         }

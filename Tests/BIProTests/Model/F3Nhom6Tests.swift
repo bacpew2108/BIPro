@@ -6,6 +6,7 @@ import ColumnStore
 import Connectors
 import DAXEngine
 import Foundation
+import MEngine
 import PBIXKit
 import Testing
 @testable import BIPro
@@ -71,6 +72,26 @@ struct F3Nhom6Tests {
         // Nhom6 gốc nguyên vẹn: một bảng và số dòng của bảng cũ.
         #expect(reopened.workspace.rowCount("Fact_Loan") == 682)
         #expect(try await scalar(reopened, "COUNTROWS(Dim_Account)") == 4_501)
+    }
+
+    /// T061: truy vấn M thật (Source, Promoted Headers, Changed Type) ghi vào `Partition.QueryDefinition` và đọc lại đúng văn bản.
+    @Test func f5TruyVanMGhiVaDocLai() async throws {
+        let url = try output("Nhom6_f5_truy_van_m.pbix")
+        let state = try state(url)
+        try await load(state, .csv, "sales_2026.csv", pick: ["sales_2026"])
+        try await load(state, .excel, "sales_2026.xlsx", pick: ["Sales"])
+        try save(state, to: url)
+        let reopened = try reopen(url)
+        let queries = try #require(reopened.workspace.metadata?.partitionQueries)
+        let csv = try #require(queries["sales_2026"])
+        #expect(csv.contains("Csv.Document(File.Contents(\"\(try #require(FFixtures.sample("sales_2026.csv")).path)\"),[Delimiter=\",\", Columns=8, Encoding=65001, QuoteStyle=QuoteStyle.None])"))
+        #expect(try MQuery.parse(csv).steps.map(\.name) == ["Source", "Promoted Headers", "Changed Type"])
+        let excel = try #require(queries["Sales"])
+        #expect(try MQuery.parse(excel).steps.map(\.name) == ["Source", "Sales_Sheet", "Promoted Headers", "Changed Type"])
+        #expect(excel.contains(#"Source{[Item="Sales",Kind="Sheet"]}[Data]"#))
+        // Bảng cũ của Nhom6 giữ nguyên truy vấn của nó.
+        #expect(queries["Fact_Loan"] == state.workspace.metadata?.partitionQueries["Fact_Loan"])
+        #expect(reopened.workspace.rowCount("Sales") == 500)
     }
 
     @Test func f2BaBangCungLuc() async throws {
