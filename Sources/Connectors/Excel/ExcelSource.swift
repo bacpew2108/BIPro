@@ -116,18 +116,23 @@ public struct ExcelSource: DataSource {
             }
         }
 
-        // [SUY ĐOÁN] Thứ tự trả về: mọi trang tính theo thứ tự trong workbook, rồi mọi bảng đặt tên
+        // Thứ tự của Navigator trong Desktop 2.159 (quan sát 2026-11-15, `docs/phase-f-evidence/vm-f1/QUAN-SAT.md`):
+        // bảng đặt tên trước, rồi các trang tính theo thứ tự chữ cái (không theo thứ tự trong workbook).
         var result: [any SourceItem] = []
-        for sInfo in sheetInfos {
+        for tInfo in tableInfos.sorted(by: { Self.alphabetical($0.displayName.isEmpty ? $0.name : $0.displayName, $1.displayName.isEmpty ? $1.name : $1.displayName) }) {
+            result.append(ExcelTableItem(url: url, info: tInfo, options: options))
+        }
+        for sInfo in sheetInfos.sorted(by: { Self.alphabetical($0.name, $1.name) }) {
             var item = ExcelSheetItem(url: url, info: sInfo, options: options)
             item.rowCountHint = Self.dimensionRowCount(zip: zip, path: sInfo.targetPath, promoteHeaders: options.promoteHeaders)
             result.append(item)
         }
-        for tInfo in tableInfos {
-            result.append(ExcelTableItem(url: url, info: tInfo, options: options))
-        }
 
         return result
+    }
+
+    static func alphabetical(_ a: String, _ b: String) -> Bool {
+        a.compare(b, options: [.caseInsensitive], range: nil, locale: Locale(identifier: "en_US")) == .orderedAscending
     }
 
     /// Số dòng dữ liệu của trang, chỉ là gợi ý cho Navigator (không đọc ô). Ưu tiên `<dimension ref="A1:H501"/>` ở đầu XML;

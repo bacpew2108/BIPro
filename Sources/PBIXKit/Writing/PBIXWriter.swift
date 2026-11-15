@@ -193,14 +193,48 @@ public enum PBIXWriter {
         var metadata = try MetadataWriter(sqlite: try abf.contents(of: metadataFile))
         // Chỉ mục quan hệ mới đọc từ dữ liệu cột của ABF gốc (lược đồ lưu trữ cột không đổi giữa các thao tác).
         let sourceModel = try ModelMetadata(sqlite: try abf.contents(of: metadataFile))
+        // Bảng thêm trong cùng đợt chưa nằm trong ABF: cột của chúng lấy từ dữ liệu mã hoá trong thao tác.
+        let collapsed = edits.collapsingTableEdits()
+        var inMemory: [String: NewTable] = [:]
+        for case .addTable(let table) in collapsed.items where table.enableLoad { inMemory[table.name.lowercased()] = table }
+        func cells(_ table: String, _ column: String) -> [CellValue]? {
+            guard let values = inMemory[table.lowercased()]?.columns.first(where: { $0.name == column })?.values else { return nil }
+            switch values {
+            case .int64(let v): return v.map { $0.map { .int($0) } ?? .null }
+            case .boolean(let v): return v.map { $0.map { .bool($0) } ?? .null }
+            case .double(let v): return v.map { $0.map { .double($0 == 0 ? 0 : $0) } ?? .null }
+            case .dateTime(let v): return v.map { $0.map { .dateTime($0) } ?? .null }
+            case .string(let v): return v.map { $0.map { .string($0) } ?? .null }
+            }
+        }
         metadata.relationshipIndexProvider = { new in
+            let fromCells = cells(new.fromTable, new.fromColumn), toCells = cells(new.toTable, new.toColumn)
+            if fromCells != nil || toCells != nil {
+                // Phía nào nằm trong bộ nhớ thì dùng ô của nó, phía kia đọc từ ABF (phía nhiều theo từ điển của ABF).
+                func abfColumn(_ table: String, _ column: String) throws -> DecodedColumn {
+                    guard let storage = sourceModel.storage(table: table, column: column) else {
+                        throw WriteError.invalid("cột \(table)[\(column)] không có dữ liệu lưu trữ")
+                    }
+                    return try VertiPaq.decodeColumn(storage, abf: abf)
+                }
+                let manyDictionary: [CellValue]
+                if let fromCells { manyDictionary = RelationshipIndex.dictionary(ofCells: fromCells) } else {
+                    guard case .dictionary(_, let dictionary) = try abfColumn(new.fromTable, new.fromColumn).storage else {
+                        throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] không mã hoá bằng từ điển, chưa tạo được chỉ mục quan hệ")
+                    }
+                    manyDictionary = dictionary
+                }
+                let one: [CellValue]
+                if let toCells { one = toCells } else { let c = try abfColumn(new.toTable, new.toColumn); one = (0..<c.count).map { c[$0] } }
+                return (try RelationshipIndex.values(manyDictionary: manyDictionary, oneCells: one, oneName: "\(new.toTable)[\(new.toColumn)]"), one.count)
+            }
             guard let from = sourceModel.storage(table: new.fromTable, column: new.fromColumn),
                   let to = sourceModel.storage(table: new.toTable, column: new.toColumn) else {
                 throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] hoặc \(new.toTable)[\(new.toColumn)] không có dữ liệu lưu trữ")
             }
             return (try RelationshipIndex.values(from: from, to: to, abf: abf), try VertiPaq.rowCount(to, abf: abf))
         }
-        try metadata.apply(edits)
+        try metadata.apply(edits.collapsingTableEdits())
         let newABF = try timed("abfRebuild") { try ABFWriter.rebuild(abf, replacing: [ABFPayload(path: metadataFile.path, data: try metadata.serialize())], adding: metadata.addedFiles, removing: metadata.removedFiles) }
         return try timed("compress") { try DataModelStream.compress(abf: newABF) }
     }
@@ -282,8 +316,17 @@ public enum PBIXWriter {
                 throw WriteError.verificationFailed("relationships read back differ from the edited model")
             }
             // Cột `INDEX` của bảng hệ thống `R$` (chỉ mục quan hệ) không thuộc mô hình hiệu lực.
-            func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] { m.columns.filter { !$0.tableName.hasPrefix("R$") } }
-            guard userColumns(model) == userColumns(expected) else {
+            // Bảng mới (T3): ID do bộ ghi cấp và có thêm cột RowNumber, bảng `H$`; so theo tên, kiểu, ẩn và cách tổng hợp.
+            let sourceTables = Set(oldModel.tables.map(\.name))
+            let newTableNames = Set(expected.tables.map(\.name)).subtracting(sourceTables)
+            func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
+                m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newTableNames.contains($0.tableName) }
+            }
+            func newColumns(_ m: ModelMetadata) -> [String] {
+                m.columns.filter { newTableNames.contains($0.tableName) && $0.kind != .rowNumber }
+                    .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)" }.sorted()
+            }
+            guard userColumns(model) == userColumns(expected), newColumns(model) == newColumns(expected) else {
                 throw WriteError.verificationFailed("columns read back differ from the edited model")
             }
             // Mọi tệp ABF khác metadata.sqlitedb giữ nguyên byte; chỉ có thêm hoặc bớt tệp chỉ mục quan hệ (2 tệp mỗi quan hệ).
@@ -294,8 +337,10 @@ public enum PBIXWriter {
             let addedPaths = newPaths.subtracting(oldPaths), removedPaths = oldPaths.subtracting(newPaths)
             let adds = changes.allModelEdits.items.filter { if case .addRelationship = $0 { true } else { false } }.count
             let deletes = changes.allModelEdits.items.filter { if case .deleteRelationship = $0 { true } else { false } }.count
-            guard addedPaths.allSatisfy(isIndex), removedPaths.allSatisfy(isIndex),
-                  addedPaths.count <= 2 * adds, removedPaths.count <= 2 * deletes else {
+            // Bảng mới: tệp của bảng (`<Tên> (<id>).tbl…`) và của bảng hệ thống `H$<Tên> (<id>)$…`.
+            let isNewTableFile: (String) -> Bool = { path in newTableNames.contains { path.hasPrefix("\($0) (") || path.hasPrefix("H$\($0) (") } }
+            guard addedPaths.allSatisfy({ isIndex($0) || isNewTableFile($0) }), removedPaths.allSatisfy(isIndex),
+                  addedPaths.filter(isIndex).count <= 2 * adds, removedPaths.count <= 2 * deletes else {
                 throw WriteError.verificationFailed("the ABF file list changed unexpectedly")
             }
             let newFiles = Dictionary(uniqueKeysWithValues: abf.files.map { ($0.path, $0) })

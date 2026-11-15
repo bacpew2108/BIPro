@@ -18,6 +18,9 @@ public struct TableMetadataWriter {
 
     private let database: TableMetadataDatabase
 
+    /// Files of the `H$` system tables added by `addTable`. They go into the ABF next to `EncodedTable.files`.
+    public private(set) var systemFiles: [VertiPaqWriter.EncodedFile] = []
+
     /// Opens the database and checks it. Throws `WriteError.invalid` for empty, non-SQLite or
     /// incomplete input, and `WriteError.verificationFailed` when `MAXID` is not the largest ID.
     public init(sqlite: Data) throws {
@@ -31,7 +34,8 @@ public struct TableMetadataWriter {
         }
         let stored = try database.storedMaxID()
         let actual = try database.actualMaxID()
-        guard stored == actual else {
+        // MAXID is a counter: after objects are deleted it can exceed the largest ID left (Desktop does the same).
+        guard stored >= actual else {
             throw WriteError.verificationFailed("DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")
         }
         maxID = stored
@@ -42,7 +46,7 @@ public struct TableMetadataWriter {
     ///
     /// Throws `WriteError.invalid` when the table name exists, an ID is already used, or a
     /// required value is missing. A failed call leaves the database unchanged.
-    public mutating func addTable(_ table: VertiPaqWriter.EncodedTable) throws {
+    public mutating func addTable(_ table: VertiPaqWriter.EncodedTable, queryExpression: String? = nil, lineageTag: String? = nil) throws {
         let db = database
         let callerIDs = [table.tableID, table.partitionID] + table.columns.map(\.id)
         guard callerIDs.allSatisfy({ $0 > maxID }) else {
@@ -79,6 +83,7 @@ public struct TableMetadataWriter {
         let tableID = Int64(table.tableID)
         let partitionID = Int64(table.partitionID)
 
+        let systemFilesBefore = systemFiles.count
         try db.exec("BEGIN IMMEDIATE")
         do {
             try db.run("""
@@ -96,7 +101,7 @@ public struct TableMetadataWriter {
                     ExcludeFromAutomaticAggregations, DirectLakeIndexingBehavior)
                 VALUES (?, ?, ?, NULL, NULL, 0, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0, ?, NULL, 0, 0, 3)
                 """, [.int(tableID), .int(modelID), .text(table.name), .int(tableStorageID), .int(now), .int(now),
-                      .text(UUID().uuidString.lowercased())])
+                      .text(lineageTag ?? UUID().uuidString.lowercased())])
 
             try db.run("""
                 INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 20, ?)
@@ -110,15 +115,15 @@ public struct TableMetadataWriter {
                 INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment)
                 VALUES (?, ?, 3, ?, 1, ?)
                 """, [.int(segmentMapID), .int(partitionStorageID), .int(Int64(table.rowCount)), .int(Int64(table.rowCount))])
-            // SAI (gate F-T3, 2026-11-15): Desktop chạy bộ phân tích M trên mọi phân vùng kiểu 4 và báo "Token Literal expected" với truy vấn rỗng.
-            // Phải ghi M hợp lệ, xem docs/phase-f-evidence/vm-f0/CHECKLIST-KET-QUA.md (sửa ở T015).
+            // The partition needs a valid M query: Desktop reports "Token Literal expected" for an empty one (gate F-T3, 2026-11-15).
             try db.run("""
                 INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type,
                     PartitionStorageID, Mode, DataView, ModifiedTime, RefreshedTime, SystemFlags, ErrorMessage,
                     RetainDataTillForceCalculate, RangeStart, RangeEnd, RangeGranularity, RefreshBookmark,
                     QueryGroupID, ExpressionSourceID, MAttributes, DataCoverageDefinitionID, SchemaName)
-                VALUES (?, ?, ?, NULL, 0, '', 1, 4, ?, 0, 0, ?, ?, 0, NULL, 0, 0.0, 0.0, -1, NULL, 0, 0, NULL, 0, NULL)
-                """, [.int(partitionID), .int(tableID), .text(table.name), .int(partitionStorageID), .int(now), .int(now)])
+                VALUES (?, ?, ?, NULL, 0, ?, 1, 4, ?, 0, 3, ?, ?, 0, NULL, 0, 0.0, 0.0, -1, NULL, 0, 0, NULL, 0, NULL)
+                """, [.int(partitionID), .int(tableID), .text(table.name), .text(queryExpression ?? Self.emptyTableQuery(table)),
+                      .int(partitionStorageID), .int(now), .int(now)])
 
             for column in table.columns {
                 try insertColumn(column, table: table, tableID: tableID, now: now, refreshedNever: refreshedNever,
@@ -130,6 +135,7 @@ public struct TableMetadataWriter {
             try db.exec("COMMIT")
         } catch {
             db.rollbackIfOpen()
+            systemFiles.removeSubrange(systemFilesBefore...)
             throw error
         }
         maxID = next - 1
@@ -142,7 +148,7 @@ public struct TableMetadataWriter {
 
     // MARK: - Column rows
 
-    private func insertColumn(_ column: VertiPaqWriter.EncodedColumn, table: VertiPaqWriter.EncodedTable,
+    private mutating func insertColumn(_ column: VertiPaqWriter.EncodedColumn, table: VertiPaqWriter.EncodedTable,
                               tableID: Int64, now: Int64, refreshedNever: Int64, tableFolderID: Int64,
                               partitionFolderID: Int64, partitionStorageID: Int64,
                               allocate: () -> Int64) throws {
@@ -159,8 +165,9 @@ public struct TableMetadataWriter {
         let isRowNumber = column.kind == .rowNumber
         let columnID = Int64(column.id)
         let dataType = Int64(column.dataType.rawValue)
+        let systemTableID: Int64? = column.hierarchy == nil ? nil : allocate()
 
-        let dbType: Int64 = isRowNumber ? 20 : (column.dataType == .string ? 130 : (column.dataType == .double ? 5 : 20))
+        let dbType: Int64 = isRowNumber ? 20 : (column.dataType == .string ? 130 : (column.dataType == .double ? 5 : (column.dataType == .dateTime ? 7 : (column.dataType == .boolean ? 11 : 20))))
         try db.run("""
             INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags,
                 Collation, OrderByColumn, Locale, BinaryCharacters, Statistics_DistinctStates, Statistics_MinDataID,
@@ -170,24 +177,31 @@ public struct TableMetadataWriter {
                 IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName, DeltaColumnMappingId, FramedSourceColumn,
                 DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID,
                 FullTextIndexStorageID)
-            VALUES (?, ?, ?, ?, ?, 1, ?, '', '', 1033, 0, ?, ?, ?, ?, -1, ?, ?, 0, 0, 3, ?, 0, 0, 0, 0,
-                0, NULL, -1, NULL, 0, 0, 0, 0, 0)
+            VALUES (?, ?, ?, ?, ?, 1, ?, NULL, NULL, 1033, 0, ?, ?, ?, ?, -1, ?, ?, 0, ?, 3, ?, ?, 0, 0, ?,
+                0, NULL, -1, NULL, 0, 0, 0, 0, NULL)
             """, [
                 .int(columnStorageID), .int(columnID), .text(column.storageName), .int(Int64(column.storagePosition)),
                 .int(dictionaryStorageID), .int(isRowNumber ? 31 : 8),
                 .int(Int64(column.distinctCount)), .int(Int64(column.minDataID)), .int(Int64(column.maxDataID)),
-                .int(Int64(column.originalMinDataID)), .int(Int64(column.rowCount)),
-                .int(column.hasNulls ? 1 : 0), .int(dbType),
+                .int(Int64(VertiPaqWriter.nullDataID)), .int(Int64(column.rowCount)),
+                .int(column.hasNulls ? 1 : 0), .int(isRowNumber ? 0 : 1), .int(dbType),
+                .int(column.dataType == .string ? 2 : (column.dataType == .double || column.dataType == .dateTime ? 1 : 0)), .int(isRowNumber ? 1 : 0),
             ])
 
         try db.run("""
             INSERT INTO DictionaryStorage (ID, ColumnStorageID, Type, DataType, DataVersion, BaseId, Magnitude, LastId,
                 IsNullable, IsUnique, IsOperatingOn32, DictionaryFlags, StorageFileID, Size)
-            VALUES (?, ?, ?, ?, 0, ?, ?, ?, 1, 0, 0, 0, ?, ?)
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 0, ?, ?, ?, ?)
             """, [
-                .int(dictionaryStorageID), .int(columnStorageID), .int(Int64(column.dictionaryType)), .int(dataType),
-                .int(Int64(column.dictionaryBaseID)), .double(column.magnitude), .int(Int64(column.maxDataID)),
-                .int(dictionaryFileID ?? 0), .int(Int64(column.dictionaryByteCount)),
+                .int(dictionaryStorageID), .int(columnStorageID), .int(Int64(column.dictionaryType)),
+                // Desktop: the dictionary of a date column holds doubles, so its DataType is 8 (Marketing `Ngày`).
+                .int(column.dataType == .dateTime ? 8 : (column.dataType == .boolean ? 6 : dataType)),
+                .int(Int64(column.dictionaryBaseID)), .double(column.magnitude),
+                // Value-encoded columns have no dictionary file: Desktop writes LastId 2 and Size 144 for all of them.
+                .int(column.dictionary == nil ? 2 : Int64(column.maxDataID)),
+                .int(column.dataType == .string ? (column.hasNulls ? 1 : 0) : 1), .int(column.operatesOn32 ? 1 : 0),
+                .int(column.dataType == .string ? 3 : 0),
+                .int(dictionaryFileID ?? 0), .int(column.dictionary == nil ? 144 : Int64(column.dictionaryByteCount)),
             ])
         if let dictionary = column.dictionary, let dictionaryFileID {
             try insertStorageFile(id: dictionaryFileID, owner: dictionaryStorageID, ownerType: 22,
@@ -206,10 +220,11 @@ public struct TableMetadataWriter {
             INSERT INTO AttributeHierarchyStorage (ID, AttributeHierarchyID, SortOrder, OptimizationLevel,
                 MaterializationType, ColumnPositionToData, ColumnDataToPosition, DistinctDataCount, DataVersion,
                 StorageFileID, SystemTableID, HasStatistics, MinValue, MaxValue, StringValueMaxLength)
-            VALUES (?, ?, 0, 0, ?, ?, ?, ?, 1, 0, 0, 1, ?, ?, ?)
+            VALUES (?, ?, 0, 0, ?, ?, ?, ?, 1, 0, ?, 1, ?, ?, ?)
             """, [
                 .int(attributeStorageID), .int(attributeID), .int(materialization), .int(positionToData),
-                .int(dataToPosition), .int(Int64(column.distinctCount)),
+                .int(dataToPosition), .int(Int64(column.hierarchy?.cardinality ?? column.distinctCount)),
+                .int(systemTableID ?? 0),
                 Self.optionalText(column.minValueText), Self.optionalText(column.maxValueText), .int(maxLength),
             ])
 
@@ -227,6 +242,11 @@ public struct TableMetadataWriter {
         try insertStorageFile(id: idfmetaFileID, owner: segmentStorageID, ownerType: 24, folder: partitionFolderID,
                               fileName: column.idfmeta.fileName)
 
+        if let hierarchy = column.hierarchy, let systemTableID {
+            try insertHierarchyTable(hierarchy, id: systemTableID, tableName: table.name, tableID: table.tableID,
+                                     column: column, now: now, refreshedNever: refreshedNever, allocate: allocate)
+        }
+
         // The Column row last, so it can refer to the storage IDs above.
         let isData = !isRowNumber
         try db.run("""
@@ -237,17 +257,114 @@ public struct TableMetadataWriter {
                 ModifiedTime, StructureModifiedTime, RefreshedTime, SystemFlags, KeepUniqueRows, DisplayOrdinal,
                 ErrorMessage, SourceProviderType, DisplayFolder, EncodingHint, RelatedColumnDetailsID, AlternateOfID,
                 LineageTag, SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior)
-            VALUES (?, ?, ?, NULL, ?, 19, NULL, NULL, ?, 1, ?, ?, ?, ?, -1, 0, 0, ?, ?, ?, ?, 0, NULL, NULL, 1, 0, ?,
+            VALUES (?, ?, ?, NULL, ?, 19, NULL, NULL, ?, 1, ?, ?, ?, 1, -1, 0, 0, ?, ?, ?, ?, 0, NULL, ?, 1, 0, ?,
                 ?, ?, ?, 0, 0, 0, NULL, NULL, NULL, 0, 0, 0, ?, NULL, 1, 1, 0)
             """, [
                 .int(columnID), .int(tableID), .text(column.explicitName), .int(dataType),
                 .int(isRowNumber ? 1 : 0), .int(isRowNumber ? 1 : 0), .int(isRowNumber ? 1 : 0),
-                .int(isRowNumber ? 0 : 1), .int(isRowNumber ? 1 : 0),
-                .int(Self.summarizeBy(column.dataType, isRowNumber: isRowNumber)),
+                .int(isRowNumber ? 0 : 1),
+                .int(Self.summarizeBy(column.dataType, name: column.explicitName, isRowNumber: isRowNumber)),
                 .int(columnStorageID), .int(isRowNumber ? 3 : 1), Self.optionalText(isData ? column.explicitName : nil),
+                Self.optionalText(isData ? Self.formatString(column.dataType) : nil),
                 .int(attributeID), .int(now), .int(now), .int(refreshedNever),
                 .text(UUID().uuidString.lowercased()),
             ])
+    }
+
+    /// The `H$<table> (<id>)$<column> (<id>)` system table of one dictionary column, with the rows Desktop writes for it
+    /// (`f1probe.pbix`, 2026-11-15): Table (hidden, SystemFlags 1), TableStorage, Partition (Type 3, Mode 2), two columns
+    /// `POS_TO_ID` and `ID_TO_POS`, and for each column a ColumnStorage, DictionaryStorage, ColumnPartitionStorage,
+    /// SegmentStorage (two segments) and the `.idf` and `.idfmeta` files.
+    private mutating func insertHierarchyTable(_ hierarchy: VertiPaqWriter.EncodedHierarchy, id tableID: Int64, tableName: String,
+                                      tableID parentTableID: Int, column: VertiPaqWriter.EncodedColumn, now: Int64,
+                                      refreshedNever: Int64, allocate: () -> Int64) throws {
+        let db = database
+        let name = "H$\(tableName) (\(parentTableID))$\(column.explicitName) (\(column.id))"
+        let tableStorageID = allocate(), tableFolderID = allocate()
+        let partitionID = allocate(), partitionStorageID = allocate(), partitionFolderID = allocate(), segmentMapID = allocate()
+        let tableFolder = "\(name)$(\(tableID)).tbl"
+        let partitionFolder = "\(tableFolder)\\\(partitionID).prt"
+
+        try db.run("INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 18, ?)",
+                   [.int(tableFolderID), .int(tableStorageID), .text(tableFolder)])
+        try db.run("""
+            INSERT INTO TableStorage (ID, TableID, Name, Version, Settings, RIViolationCount, StorageFolderID)
+            VALUES (?, ?, ?, 1, 4, 0, ?)
+            """, [.int(tableStorageID), .int(tableID), .text(name), .int(tableFolderID)])
+        try db.run("""
+            INSERT INTO [Table] (ID, ModelID, Name, DataCategory, Description, IsHidden, TableStorageID,
+                ModifiedTime, StructureModifiedTime, SystemFlags, ShowAsVariationsOnly, IsPrivate,
+                DefaultDetailRowsDefinitionID, AlternateSourcePrecedence, RefreshPolicyID, CalculationGroupID,
+                ExcludeFromModelRefresh, LineageTag, SourceLineageTag, SystemManaged,
+                ExcludeFromAutomaticAggregations, DirectLakeIndexingBehavior)
+            VALUES (?, 0, ?, NULL, NULL, 1, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, 0, 3)
+            """, [.int(tableID), .text(name), .int(tableStorageID), .int(now), .int(now)])
+        try db.run("INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 20, ?)",
+                   [.int(partitionFolderID), .int(partitionStorageID), .text(partitionFolder)])
+        try db.run("""
+            INSERT INTO PartitionStorage (ID, PartitionID, Name, StoragePosition, SegmentMapStorageID, DataObjectId,
+                StorageFolderID, DeltaTableMetadataStorageID) VALUES (?, ?, ?, 0, ?, 0, ?, 0)
+            """, [.int(partitionStorageID), .int(partitionID), .text(name), .int(segmentMapID), .int(partitionFolderID)])
+        try db.run("""
+            INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment)
+            VALUES (?, ?, 2, ?, ?, ?)
+            """, [.int(segmentMapID), .int(partitionStorageID), .int(Int64(hierarchy.recordCount)), .int(Int64(hierarchy.segmentCount)),
+                  .int(Int64(hierarchy.cardinality))])
+        try db.run("""
+            INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type,
+                PartitionStorageID, Mode, DataView, ModifiedTime, RefreshedTime, SystemFlags, ErrorMessage,
+                RetainDataTillForceCalculate, RangeStart, RangeEnd, RangeGranularity, RefreshBookmark,
+                QueryGroupID, ExpressionSourceID, MAttributes, DataCoverageDefinitionID, SchemaName)
+            VALUES (?, ?, ?, NULL, 0, NULL, 1, 3, ?, 2, 3, ?, ?, 1, NULL, 0, 0.0, 0.0, -1, NULL, 0, 0, NULL, 0, NULL)
+            """, [.int(partitionID), .int(tableID), .text(name), .int(partitionStorageID), .int(now), .int(refreshedNever)])
+
+        let columns: [(String, Int64, Int64, VertiPaqWriter.Hierarchy.Blob)] = [
+            ("POS_TO_ID", 0, 7, hierarchy.positionToID), ("ID_TO_POS", 1, 5, hierarchy.idToPosition)]
+        for (columnName, position, settings, blob) in columns {
+            let columnID = allocate(), columnStorageID = allocate(), dictionaryID = allocate()
+            let columnPartitionID = allocate(), segmentStorageID = allocate(), idfFileID = allocate(), idfmetaFileID = allocate()
+            try db.run("""
+                INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags,
+                    Collation, OrderByColumn, Locale, BinaryCharacters, Statistics_DistinctStates, Statistics_MinDataID,
+                    Statistics_MaxDataID, Statistics_OriginalMinSegmentDataID, Statistics_RLESortOrder, Statistics_RowCount,
+                    Statistics_HasNulls, Statistics_RLERuns, Statistics_OthersRLERuns, Statistics_Usage, Statistics_DBType,
+                    Statistics_XMType, Statistics_CompressionType, Statistics_CompressionParam, Statistics_EncodingHint,
+                    IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName, DeltaColumnMappingId, FramedSourceColumn,
+                    DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID,
+                    FullTextIndexStorageID)
+                VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, 0, 0, 1, 2, 2, 2, -1, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0,
+                    0, NULL, -1, NULL, 0, 0, 0, 0, 0)
+                """, [.int(columnStorageID), .int(columnID), .text(columnName), .int(position), .int(dictionaryID), .int(settings)])
+            try db.run("""
+                INSERT INTO DictionaryStorage (ID, ColumnStorageID, Type, DataType, DataVersion, BaseId, Magnitude, LastId,
+                    IsNullable, IsUnique, IsOperatingOn32, DictionaryFlags, StorageFileID, Size)
+                VALUES (?, ?, 0, 19, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0)
+                """, [.int(dictionaryID), .int(columnStorageID)])
+            try db.run("""
+                INSERT INTO ColumnPartitionStorage (ID, ColumnStorageID, PartitionStorageID, DataVersion, State,
+                    SegmentStorageID, StorageFileID) VALUES (?, ?, ?, 0, 3, ?, ?)
+                """, [.int(columnPartitionID), .int(columnStorageID), .int(partitionStorageID), .int(segmentStorageID), .int(idfFileID)])
+            try db.run("""
+                INSERT INTO SegmentStorage (ID, ColumnPartitionStorageID, SegmentCount, StorageFileID)
+                VALUES (?, ?, ?, ?)
+                """, [.int(segmentStorageID), .int(columnPartitionID), .int(Int64(hierarchy.segmentCount)), .int(idfmetaFileID)])
+            let idfName = "0.\(name).\(columnName).0.idf", metaName = idfName + "meta"
+            try insertStorageFile(id: idfFileID, owner: columnPartitionID, ownerType: 23, folder: partitionFolderID, fileName: idfName)
+            try insertStorageFile(id: idfmetaFileID, owner: segmentStorageID, ownerType: 24, folder: partitionFolderID, fileName: metaName)
+            systemFiles.append(VertiPaqWriter.EncodedFile(path: partitionFolder + "\\" + idfName, fileName: idfName, folder: .partition, data: blob.idf))
+            systemFiles.append(VertiPaqWriter.EncodedFile(path: partitionFolder + "\\" + metaName, fileName: metaName, folder: .partition, data: blob.idfmeta))
+            try db.run("""
+                INSERT INTO [Column] (ID, TableID, ExplicitName, InferredName, ExplicitDataType, InferredDataType,
+                    DataCategory, Description, IsHidden, State, IsUnique, IsKey, IsNullable, Alignment,
+                    TableDetailPosition, IsDefaultLabel, IsDefaultImage, SummarizeBy, ColumnStorageID, Type, SourceColumn,
+                    ColumnOriginID, Expression, FormatString, IsAvailableInMDX, SortByColumnID, AttributeHierarchyID,
+                    ModifiedTime, StructureModifiedTime, RefreshedTime, SystemFlags, KeepUniqueRows, DisplayOrdinal,
+                    ErrorMessage, SourceProviderType, DisplayFolder, EncodingHint, RelatedColumnDetailsID, AlternateOfID,
+                    LineageTag, SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior)
+                VALUES (?, ?, ?, NULL, 6, 19, NULL, NULL, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, ?, 1, NULL, 0, NULL, NULL, 1, 0, 0,
+                    ?, ?, ?, 1, 0, 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, 1, 1, 0)
+                """, [.int(columnID), .int(tableID), .text(columnName), .int(columnStorageID), .int(now), .int(now), .int(refreshedNever)])
+        }
     }
 
     private func insertStorageFile(id: Int64, owner: Int64, ownerType: Int64, folder: Int64, fileName: String) throws {
@@ -256,10 +373,40 @@ public struct TableMetadataWriter {
             """, [.int(id), .int(owner), .int(ownerType), .int(folder), .text(fileName)])
     }
 
-    /// `Column.SummarizeBy` as observed in `tuan6.2.pbix`: strings 2, numbers 3, RowNumber 1.
-    static func summarizeBy(_ type: ModelMetadata.DataType, isRowNumber: Bool) -> Int64 {
+    /// `Column.SummarizeBy` as observed in Desktop (`f1csvxlsx.pbix`, 2026-11-15): strings 2, numbers 3 (sum), RowNumber 1;
+    /// a number whose name ends in "ID" is 2 (CustomerID 2). `[SUY ĐOÁN]`: Desktop gave OrderID 6 (count), probably because the
+    /// column is unique; not reproduced.
+    static func summarizeBy(_ type: ModelMetadata.DataType, name: String, isRowNumber: Bool) -> Int64 {
         if isRowNumber { return 1 }
-        return type == .string ? 2 : 3
+        if type == .string || type == .dateTime || type == .boolean { return 2 }
+        return name.lowercased().hasSuffix("id") ? 2 : 3
+    }
+
+    /// `let Source = #table(type table [...], {}) in Source`: a valid M query for a table whose data does not come from M.
+    static func emptyTableQuery(_ table: VertiPaqWriter.EncodedTable) -> String {
+        func typeName(_ type: ModelMetadata.DataType) -> String {
+            switch type {
+            case .int64: "Int64.Type"
+            case .double: "number"
+            case .dateTime: "date"
+            case .boolean: "logical"
+            case .string: "text"
+            default: "any"
+            }
+        }
+        let columns = table.columns.filter { $0.kind == .data }
+            .map { "#\"\($0.explicitName.replacingOccurrences(of: "\"", with: "\"\""))\" = \(typeName($0.dataType))" }
+        return "let\n    Source = #table(type table [\(columns.joined(separator: ", "))], {})\nin\n    Source"
+    }
+
+    /// `Column.FormatString` of a new column (observed in `f1csvxlsx.pbix`): whole numbers `0`, dates `Long Date`; others none.
+    static func formatString(_ type: ModelMetadata.DataType) -> String? {
+        switch type {
+        case .int64: "0"
+        case .dateTime: "Long Date"
+        case .boolean: "\"TRUE\";\"TRUE\";\"FALSE\""
+        default: nil
+        }
     }
 
     static func optionalText(_ value: String?) -> TableMetadataDatabase.Value {

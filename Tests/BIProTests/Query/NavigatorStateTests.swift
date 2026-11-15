@@ -24,13 +24,13 @@ import Connectors
         #expect(!state.canLoad)
     }
 
-    @Test func openingExcelListsSheetsThenNamedTablesInOrder() async throws {
+    @Test func openingExcelListsNamedTablesThenSheetsAlphabetically() async throws {
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
         let state = NavigatorState()
         await state.openSource(kind: .excel, location: url.path)
         #expect(state.phase == .ready)
-        #expect(state.items.map(\.name) == ["Sales", "Customers", "Notes", "SalesTable"])
-        #expect(state.items.map(\.kind) == [.sheet, .sheet, .sheet, .namedTable])
+        #expect(state.items.map(\.name) == ["SalesTable", "Customers", "Notes", "Sales"])   // thứ tự Navigator của Desktop 2.159
+        #expect(state.items.map(\.kind) == [.namedTable, .sheet, .sheet, .sheet])
         #expect(Set(state.items.map(\.id)).count == state.items.count)   // id duy nhất để giao diện chọn
     }
 
@@ -129,7 +129,7 @@ import Connectors
         state.toggle(try #require(byName["Customers"]))
         state.toggle(try #require(byName["Sales"]))
         let tables = try #require(await state.load(existingNames: ["Customers"]))
-        #expect(tables.map(\.name) == ["Sales", "Customers (2)", "SalesTable"])
+        #expect(tables.map(\.name) == ["SalesTable", "Customers (2)", "Sales"])
         #expect(tables.map(\.data.rowCount) == [500, 50, 500])
     }
 

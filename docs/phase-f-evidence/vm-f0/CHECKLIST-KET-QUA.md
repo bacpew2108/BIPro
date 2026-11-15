@@ -3,8 +3,8 @@
 Người làm: Claude lái Desktop trong VM theo cho phép của bạn trong phiên này ("có thể dùng VM"), bằng `vm.sh` (cliclick lên cửa sổ Parallels), chụp bằng `screencapture -l`. Ảnh cắt chỉ giữ hộp thoại (không có địa chỉ tài khoản).
 
 ```
-Kết quả: TRƯỢT (lần 1 trên file W4 gốc), nhưng lỗi là lỗi ghi cụ thể, sửa được từng bước; không phải "Desktop từ chối bảng ghi ngoài"
-Phiên bản Desktop: bản Windows hiện có trong VM (hộp thoại tiếng Anh; chưa ghi số phiên bản)
+Kết quả: lần 1 TRƯỢT trên file W4 gốc; sau 6 vòng sửa (xem bảng dưới) ĐẠT ở lần 4 (2026-11-15 cuối chiều): file BI Pro ghi mở được trong Desktop
+Phiên bản Desktop: Power BI Desktop 2.159.1231 (bản Store, x64)
 ```
 
 ## Ba lần mở, ba hộp thoại (nguyên văn)
@@ -15,7 +15,13 @@ Phiên bản Desktop: bản Windows hiện có trong VM (hộp thoại tiếng A
 | 2 | như lần 1 nhưng `QueryDefinition` = M hợp lệ `let Source = #table(type table [#"Số lượng" = Int64.Type, #"Đơn giá" = number, #"Thành phố" = text], {}) in Source` | `The data model cannot be loaded because of an invalid enumeration value '0' for member 'Alignment' in object 'Column' with ID '1028'.` | `w4-lan2-alignment.png` |
 | 3 | như lần 2 và `Column.Alignment = 1`, `FormatString = '0'` cho cột int64 (như cột Marketing cùng kiểu) | `Database consistency checks (DBCC) failed while checking the data dictionary. The following file is corrupted: Physical file: . Logical file . Database consistency checks (DBCC) failed while checking the data segments. Database consistency checks (DBCC) failed while checking the data segments. Database consistency checks (DBCC) failed while checking the data segments. The 'H$BiProTest (1025)$Số lượng (1028)' system table is missing. The 'H$BiProTest (1025)$Đơn giá (1029)' system table is missing. The 'H$BiProTest (1025)$Thành phố (1030)' system table is missing. An error occurred while loading Vertipaq data objects for multiple tables.` | `w4-lan3-dbcc-htable.png` |
 
-Mỗi lần Desktop mở một cửa sổ "Untitled" trống (không nạp được mô hình). Chưa nhấn Refresh, chưa Save As.
+| 4 | `W4_h.pbix`, sau mọi sửa dưới đây | **Mở được.** Bảng `BiProTest` hiện đủ 3 cột, "Table: BiProTest (100 rows)", giá trị đúng, dòng 8 trống, `Marketing` "1,363 rows" | `w4-dat-view-dat-lan4.png`, `w4-sum-so-luong-lan4.png` |
+
+Các vòng sửa giữa lần 3 và lần 4 (mỗi vòng một thông báo khác, mỗi vòng một lỗi ghi): chuỗi "corrupt string store" → `DictionaryStorage.DictionaryFlags` = 3; DBCC "data segments" → bảng 16 run và `.idfmeta` đúng như Desktop; DBCC "data dictionary" → `LastId` 2 và `Size` 144 cho cột RowNumber; "Physical file: . Logical file ." (cột số nguyên) → `IsOperatingOn32` = 1 cho từ điển int 4 byte. Chi tiết trong `docs/phase-f-evidence/vm-f1/QUAN-SAT.md`.
+
+Kiểm bổ sung lần 4: biểu đồ cột "Sum of Số lượng" cao tới khoảng 4K–5K (4950 mong đợi; chưa dùng Card để đọc đúng con số). Chưa nhấn Refresh, chưa lưu lại trong Desktop.
+
+Mỗi lần Desktop mở một cửa sổ "Untitled" trống (lần 1 đến 3) (không nạp được mô hình). Chưa nhấn Refresh, chưa Save As.
 
 ## Điều rút ra (có bằng chứng)
 

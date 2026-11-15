@@ -1,3 +1,4 @@
+import ColumnStore
 import Foundation
 import PBIXKit
 
@@ -93,6 +94,7 @@ enum DocumentSaver {
         }
         try verifyLayout(result.data, editor: editor)
         try verifyModel(result.data, editor: editor)
+        try verifyTables(result.data, editor: editor)
 
         // 4. Ghi tạm, mở lại, sao lưu, thay.
         do {
@@ -110,6 +112,48 @@ enum DocumentSaver {
         // 5. Sau lưu.
         editor.markSaved()
         return SaveOutcome(didWrite: true, newStamp: try? FileStamp.of(destination))
+    }
+
+    /// Bảng nạp từ Get Data (T3): đọc lại từng ô từ file đã dựng, phải bằng `TableData` trong bộ nhớ (FR-050, FR-051). Sai một ô là từ chối lưu.
+    static func verifyTables(_ data: Data, editor: LayoutEditor) throws {
+        let tables: [NewTable] = editor.modelEdits.collapsingTableEdits().items.compactMap {
+            if case .addTable(let table) = $0, table.enableLoad, table.attachment is TableData { return table }
+            return nil
+        }
+        guard !tables.isEmpty else { return }
+        let abf: ABFBackup, metadata: ModelMetadata
+        do {
+            abf = try PBIXFile(data: data).loadDataModel().0
+            metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
+        } catch { throw SaveError.verificationFailed("không đọc lại được mô hình: \(error)") }
+        for table in tables {
+            guard let source = table.attachment as? TableData else { continue }
+            let decoded: [DecodedColumn]
+            do { decoded = try VertiPaq.decodeTable(table.name, metadata: metadata, abf: abf) } catch {
+                throw SaveError.verificationFailed("không đọc lại được bảng «\(table.name)»: \(error)")
+            }
+            let byName = Dictionary(decoded.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+            for (index, column) in source.columns.enumerated() {
+                guard let written = byName[column.name], written.count == source.rowCount else {
+                    throw SaveError.verificationFailed("bảng «\(table.name)» đọc lại thiếu cột «\(column.name)» hoặc sai số dòng")
+                }
+                for row in 0..<source.rowCount {
+                    let expected: CellValue
+                    switch source.value(row: row, column: index) {
+                    case .blank: expected = .null
+                    case .integer(let v): expected = .int(v)
+                    case .double(let v): expected = .double(v == 0 ? 0 : v)
+                    case .dateTime(let v): expected = .dateTime(v)
+                    case .string(let v): expected = .string(v)
+                    case .boolean(let v): expected = .bool(v)
+                    case .currency: throw SaveError.verificationFailed("cột «\(column.name)» có kiểu chưa lưu được")
+                    }
+                    guard written[row] == expected else {
+                        throw SaveError.verificationFailed("bảng «\(table.name)», cột «\(column.name)», dòng \(row + 1) đọc lại khác dữ liệu trong bộ nhớ")
+                    }
+                }
+            }
+        }
     }
 
     /// Mô hình đọc lại từ bytes đã dựng phải bằng mô hình hiệu lực của `editor` (Phase E): measure, quan hệ, cột.
@@ -135,8 +179,18 @@ enum DocumentSaver {
         guard Set(written.relationships) == Set(expected.relationships), written.relationships.count == expected.relationships.count else {
             throw SaveError.verificationFailed("quan hệ đọc lại khác mô hình đang sửa")
         }
-        func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] { m.columns.filter { !$0.tableName.hasPrefix("R$") } }
-        guard userColumns(written) == userColumns(expected) else { throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa") }
+        // Bảng mới (T3): ID do bộ ghi cấp, thêm cột RowNumber và bảng `H$`, nên so theo tên, kiểu, ẩn, cách tổng hợp; ô thì `verifyTables` so.
+        let newNames = Set(expected.tables.map(\.name)).subtracting(base.tables.map(\.name))
+        func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
+            m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newNames.contains($0.tableName) }
+        }
+        func newColumns(_ m: ModelMetadata) -> [String] {
+            m.columns.filter { newNames.contains($0.tableName) && $0.kind != .rowNumber }
+                .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)" }.sorted()
+        }
+        guard userColumns(written) == userColumns(expected), newColumns(written) == newColumns(expected) else {
+            throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa")
+        }
     }
 
     /// Đọc lại bytes đã dựng: bố cục của mọi trang phải khớp với `editor` (cùng tập visual, cùng khung và `z`).

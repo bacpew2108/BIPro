@@ -75,7 +75,7 @@ struct GetDataTests {
         let before = state.layout.undoDepth
         let navigator = try await open(state, kind: .excel, file: "sales_2026.xlsx")
         let loaded = try await load(state, navigator, pick: ["Sales", "Customers"])
-        #expect(loaded.map(\.name) == ["Sales", "Customers"])
+        #expect(loaded.map(\.name) == ["Customers", "Sales"])   // thứ tự Navigator (chữ cái), như Desktop
         #expect(state.loadFromGetData(loaded) == nil)
         #expect(state.layout.undoDepth == before + 1)
         #expect(state.workspace.rowCount("Sales") == 500)
@@ -151,23 +151,63 @@ struct GetDataTests {
         #expect(single.cell.value == .integer(99_742))
     }
 
-    /// Ghi bảng mới vào `.pbix` là T022 (tầng T3). Đến lúc đó lưu phải báo lỗi và giữ nguyên file gốc (FR-051), không ghi nửa chừng.
-    /// Khi T022 xong, test này đổi thành kiểm lưu thành công và mở lại.
-    @Test func luuKhiCoBangMoiBaoLoiVaGiuNguyenFileGoc() async throws {
+    /// T022: lưu bảng nạp từ CSV vào `.pbix` rồi mở lại bằng `Workspace` mới: số dòng, tổng, ngày khớp golden. Hai lần lưu liên tiếp.
+    @Test func luuBangMoiRoiMoLaiKhopGolden() async throws {
         let dir = try EFixtures.outputDirectory("F-getdata")
         let source = dir.appendingPathComponent("Nhom6_f_save.pbix")
         try? FileManager.default.removeItem(at: source)
         try FileManager.default.copyItem(at: try #require(EFixtures.nhom6), to: source)
         defer { try? FileManager.default.removeItem(at: source); try? FileManager.default.removeItem(at: dir.appendingPathComponent("Backups")) }
+        let backups = dir.appendingPathComponent("Backups")
         let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: source)), fileName: source.lastPathComponent, fileURL: source)
         let navigator = try await open(state, kind: .csv, file: "sales_2026.csv")
         #expect(state.loadFromGetData(try await load(state, navigator, pick: ["sales_2026"])) == nil)
+        let outcome = try DocumentSaver.save(editor: state.layout, source: source, to: source, expectedStamp: nil,
+                                             readOnlyRoots: [], backupDirectory: backups)
+        #expect(outcome.didWrite && !state.layout.isDirty)
+
+        let reopened = DocumentState(workspace: try Workspace(data: Data(contentsOf: source)), fileName: source.lastPathComponent, fileURL: source)
+        #expect(reopened.workspace.rowCount("sales_2026") == 10_000)
+        #expect(try await scalar(reopened, "SUM(sales_2026[Qty])") == 99_742)
+        #expect(abs(try await scalar(reopened, "SUM(sales_2026[Amount])") - 3_654_202.84) < 0.005)
+        #expect(try await scalar(reopened, "DISTINCTCOUNT(sales_2026[Region])") == 5)
+        #expect(try await scalar(reopened, "COUNTROWS(FILTER(sales_2026, sales_2026[OrderDate] >= DATE(2026,1,1)))") == 10_000)
+        // Bảng cũ của Nhom6 không đổi.
+        #expect(reopened.workspace.userTables.count == state.workspace.userTables.count)
+
+        // Lần lưu thứ hai: thêm bảng Excel và một measure trên bảng đã lưu.
+        let excel = try await open(reopened, kind: .excel, file: "sales_2026.xlsx")
+        #expect(reopened.loadFromGetData(try await load(reopened, excel, pick: ["Customers"])) == nil)
+        reopened.beginNewMeasure(table: "sales_2026")
+        reopened.measureDraft?.text = "Tong Qty = SUM(sales_2026[Qty])"
+        await reopened.applyMeasureDraft()
+        _ = try DocumentSaver.save(editor: reopened.layout, source: source, to: source, expectedStamp: nil,
+                                   readOnlyRoots: [], backupDirectory: backups)
+        let again = DocumentState(workspace: try Workspace(data: Data(contentsOf: source)), fileName: source.lastPathComponent, fileURL: source)
+        #expect(again.workspace.rowCount("Customers") == 50)
+        #expect(again.workspace.rowCount("sales_2026") == 10_000)
+        #expect(try await scalar(again, "[Tong Qty]") == 99_742)
+    }
+
+    /// Cột kiểu chưa lưu được (tiền tệ): báo lỗi tiếng Việt, file gốc giữ nguyên byte, vẫn chưa lưu (FR-051).
+    @Test func cotKieuChuaLuuDuocBaoLoiVaGiuNguyenFileGoc() async throws {
+        let dir = try EFixtures.outputDirectory("F-getdata")
+        let source = dir.appendingPathComponent("Nhom6_f_save2.pbix")
+        try? FileManager.default.removeItem(at: source)
+        try FileManager.default.copyItem(at: try #require(EFixtures.nhom6), to: source)
+        defer { try? FileManager.default.removeItem(at: source); try? FileManager.default.removeItem(at: dir.appendingPathComponent("Backups")) }
+        let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: source)), fileName: source.lastPathComponent, fileURL: source)
+        let data = try TableData(columns: [TableColumn(name: "Tien", data: ColumnBuilder.currency([10_000, 20_000]))])
+        #expect(state.loadFromGetData([LoadedTable(name: "Logic", data: data)]) == nil)
         let before = try Data(contentsOf: source)
-        #expect(throws: (any Error).self) {
+        do {
             try DocumentSaver.save(editor: state.layout, source: source, to: source, expectedStamp: nil,
                                    readOnlyRoots: [], backupDirectory: dir.appendingPathComponent("Backups"))
+            Issue.record("phải báo lỗi")
+        } catch {
+            #expect("\(error)".contains("tiền tệ"), Comment(rawValue: "\(error)"))
         }
         #expect(try Data(contentsOf: source) == before)
-        #expect(state.layout.isDirty)   // vẫn chưa lưu
+        #expect(state.layout.isDirty)
     }
 }

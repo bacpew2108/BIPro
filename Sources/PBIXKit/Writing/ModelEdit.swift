@@ -142,12 +142,12 @@ public final class NewTable: Hashable, Sendable {
     public let attachment: (any Sendable)?
 
     public init(name: String, columns: [NewTableColumn], queryExpression: String? = nil, enableLoad: Bool = true,
-                attachment: (any Sendable)? = nil) {
+                attachment: (any Sendable)? = nil, lineageTag: String? = nil) {
         self.name = name
         self.columns = columns
         self.queryExpression = queryExpression
         self.enableLoad = enableLoad
-        self.lineageTag = UUID().uuidString.lowercased()
+        self.lineageTag = lineageTag ?? UUID().uuidString.lowercased()
         self.attachment = attachment
     }
 
@@ -197,6 +197,30 @@ public struct ModelEdits: Sendable, Hashable {
     public var isEmpty: Bool { items.isEmpty }
 
     public mutating func append(_ edit: ModelEdit) { items.append(edit) }
+
+    /// Gộp bảng thêm rồi thay hoặc xoá trong cùng đợt: `addTable(A)` rồi `replaceTable(A, A')` thành `addTable(A')`, rồi `dropTable(A)` thì
+    /// bỏ cả hai. Thay hoặc xoá bảng đã có trong file thì giữ nguyên (bộ ghi từ chối, chưa hỗ trợ). Dùng khi ghi, vì file chỉ cần kết quả cuối.
+    public func collapsingTableEdits() -> ModelEdits {
+        var out: [ModelEdit?] = []
+        var added: [String: Int] = [:]   // tên (chữ thường) → vị trí addTable trong `out`
+        for edit in items {
+            switch edit {
+            case .addTable(let table):
+                added[table.name.lowercased()] = out.count
+                out.append(edit)
+            case .replaceTable(let name, let table):
+                if let at = added.removeValue(forKey: name.lowercased()) {
+                    out[at] = .addTable(table)
+                    added[table.name.lowercased()] = at
+                } else { out.append(edit) }
+            case .dropTable(let name):
+                if let at = added.removeValue(forKey: name.lowercased()) { out[at] = nil } else { out.append(edit) }
+            default:
+                out.append(edit)
+            }
+        }
+        return ModelEdits(out.compactMap { $0 })
+    }
 
     /// Tầng lưu tối thiểu: có thao tác nào thì phải ghi `metadata.sqlitedb`.
     public var tier: SaveTier { isEmpty ? .report : (items.contains { $0.needsData } ? .data : .metadata) }

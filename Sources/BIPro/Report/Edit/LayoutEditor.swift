@@ -1262,9 +1262,18 @@ final class LayoutEditor {
     /// Thao tác mô hình cần ghi vào file trên đĩa: lần lưu đầu là cả `modelEdits`; các lần sau là phần đưa mô hình đã lưu
     /// (`savedModelEdits`, đang nằm trong file) tới mô hình hiện tại.
     func modelDelta() throws -> ModelEdits {
-        if savedModelEdits.isEmpty { return modelEdits }
+        if savedModelEdits.isEmpty { return try TableLoader.writable(modelEdits) }
         guard let base = modelBase else { throw ModelEditError("Thiếu mô hình gốc để tính phần đổi của lần lưu này") }
-        return ModelMetadata.edits(from: try base.applying(savedModelEdits), to: try base.applying(modelEdits))
+        // Bảng nạp sau lần lưu trước đi đầu (measure và quan hệ trên chúng đứng sau); phần còn lại do so hai mô hình.
+        let saved = Set(savedModelEdits.items)
+        var delta = ModelEdits(modelEdits.items.filter { edit in
+            switch edit {
+            case .addTable, .replaceTable, .dropTable: !saved.contains(edit)
+            default: false
+            }
+        })
+        for edit in ModelMetadata.edits(from: try base.applying(savedModelEdits), to: try base.applying(modelEdits)).items { delta.append(edit) }
+        return try TableLoader.writable(delta)
     }
 
     func makeChanges(archive: ZipArchive) throws -> PBIXChanges {

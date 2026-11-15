@@ -20,20 +20,34 @@ public enum VertiPaqWriter {
     static let nullDataID = 2
     static let firstDataID = 3
 
+    /// Every Desktop table names its RowNumber column `RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61` (Marketing, sales_2026, probe).
+    public static let rowNumberColumnGUID = UUID(uuidString: "2662979B-1795-4F74-8F37-6A1BA8059B61")!
+
+    /// Số dòng tối đa của một đoạn dữ liệu (2^23, Desktop: `RecordsPerSegment`). Bảng lớn hơn cần nhiều đoạn, chưa làm.
+    public static let maxRowsPerSegment = 8_388_608
+
+    /// Desktop writes 16 runs in every `.idf` run table.
+    static let runTableSize = 16
+
     /// Bit widths that the decoder maps to a compression class.
     static let supportedWidths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32]
 
     /// Column values of one table. Rows are in storage order.
     public enum Values: Sendable, Equatable {
-        case int64([Int64])
-        case double([Double])
+        case int64([Int64?])
+        /// Logic: Desktop lưu 0/1 (`DataType` 11). BI Pro ghi bằng từ điển băm số nguyên, như cột số nguyên.
+        case boolean([Bool?])
+        case double([Double?])
+        /// OLE automation days (`46083` = 2026-03-02), as Desktop stores `date` columns: a dictionary of doubles (`DataType` 9).
+        case dateTime([Double?])
         /// `nil` is NULL.
         case string([String?])
 
         public var count: Int {
             switch self {
             case .int64(let v): v.count
-            case .double(let v): v.count
+            case .boolean(let v): v.count
+            case .double(let v), .dateTime(let v): v.count
             case .string(let v): v.count
             }
         }
@@ -41,7 +55,9 @@ public enum VertiPaqWriter {
         public var dataType: ModelMetadata.DataType {
             switch self {
             case .int64: .int64
+            case .boolean: .boolean
             case .double: .double
+            case .dateTime: .dateTime
             case .string: .string
             }
         }
@@ -91,6 +107,8 @@ public enum VertiPaqWriter {
         public let dataType: ModelMetadata.DataType
         /// `ColumnStorage.StoragePosition`.
         public let storagePosition: Int
+        /// `DictionaryStorage.IsOperatingOn32`.
+        public let operatesOn32: Bool
         /// The `.dictionary` file. `nil` for value-encoded columns.
         public let dictionary: EncodedFile?
         public let dictionaryCount: Int
@@ -109,6 +127,9 @@ public enum VertiPaqWriter {
         public let minValueText: String?
         public let maxValueText: String?
         public let stringValueMaxLength: Int
+        /// The `H$` system table that every dictionary column needs (gate F-T3, 2026-11-15: without it Desktop
+        /// reports "The 'H$…' system table is missing"). `nil` for RowNumber.
+        public let hierarchy: EncodedHierarchy?
 
         /// `DictionaryStorage.Type`: 1 dictionary, 2 value encoded.
         public var dictionaryType: Int { dictionary == nil ? 2 : 1 }
@@ -116,6 +137,25 @@ public enum VertiPaqWriter {
         public var dictionaryBaseID: Int { dictionary == nil ? -3 : VertiPaqWriter.nullDataID }
         /// `DictionaryStorage.Magnitude`: 0 for dictionary columns, 1 for value encoded.
         public var magnitude: Double { dictionary == nil ? 1 : 0 }
+    }
+
+    /// The files of the `H$` system table of one column (`POS_TO_ID` and `ID_TO_POS`).
+    public struct EncodedHierarchy: Sendable {
+        public let positionToID: Hierarchy.Blob
+        public let idToPosition: Hierarchy.Blob
+        /// Dictionary entries including NULL (`AttributeHierarchyStorage.DistinctDataCount`, `RecordsPerSegment`).
+        public let cardinality: Int
+        /// `SegmentMapStorage.RecordCount`: the largest data ID + 1.
+        public let recordCount: Int
+        /// `SegmentMapStorage.SegmentCount`: `recordCount` cut into pieces of `cardinality`.
+        public let segmentCount: Int
+    }
+
+    public enum Hierarchy {
+        public struct Blob: Sendable {
+            public let idf: Data
+            public let idfmeta: Data
+        }
     }
 
     /// The encoded files of one table, with the IDs that the metadata rows refer to.
@@ -143,22 +183,30 @@ public enum VertiPaqWriter {
     /// Throws `WriteError.invalid` when a name is empty or has a NUL, the column counts differ,
     /// IDs repeat, a string contains a NUL, or a bit width above 32 would be needed.
     public static func encodeTable(name: String, tableID: Int, partitionID: Int, rowNumberID: Int,
-                                   rowNumberGUID: UUID = UUID(), columns: [ColumnInput]) throws -> EncodedTable {
-        guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid("table name is empty or has a NUL") }
-        guard let first = columns.first else { throw WriteError.invalid("table \(name) has no columns") }
+                                   rowNumberGUID: UUID = rowNumberColumnGUID, columns: [ColumnInput]) throws -> EncodedTable {
+        guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid("tên bảng rỗng hoặc có ký tự NUL") }
+        guard let first = columns.first else { throw WriteError.invalid("bảng «\(name)» không có cột nào") }
         let rowCount = first.values.count
-        guard rowCount > 0 else { throw WriteError.invalid("table \(name) has no rows") }
+        guard rowCount > 0 else { throw WriteError.invalid("bảng «\(name)» không có dòng nào, chưa lưu được bảng rỗng") }
+        guard rowCount <= maxRowsPerSegment else {
+            throw WriteError.invalid("bảng «\(name)» có \(rowCount) dòng, vượt giới hạn \(maxRowsPerSegment) dòng mỗi đoạn dữ liệu (chưa lưu được bảng lớn hơn)")
+        }
 
         var ids = Set([tableID, partitionID, rowNumberID])
-        guard ids.count == 3 else { throw WriteError.invalid("table, partition and RowNumber IDs must differ") }
+        guard ids.count == 3 else { throw WriteError.invalid("ID của bảng, phân vùng và cột RowNumber phải khác nhau") }
+        var names = Set<String>()
         for column in columns {
             guard !column.name.isEmpty, !column.name.contains("\0") else {
-                throw WriteError.invalid("column name is empty or has a NUL")
+                throw WriteError.invalid("bảng «\(name)» có tên cột rỗng hoặc có ký tự NUL")
+            }
+            // Tên cột trong một bảng không phân biệt hoa thường (như mô hình tabular).
+            guard names.insert(column.name.lowercased()).inserted else {
+                throw WriteError.invalid("bảng «\(name)» có hai cột trùng tên «\(column.name)» (không phân biệt hoa thường)")
             }
             guard column.values.count == rowCount else {
-                throw WriteError.invalid("column \(column.name) has \(column.values.count) rows, expected \(rowCount)")
+                throw WriteError.invalid("cột «\(column.name)» có \(column.values.count) dòng, cần \(rowCount)")
             }
-            guard ids.insert(column.id).inserted else { throw WriteError.invalid("ID \(column.id) is used twice") }
+            guard ids.insert(column.id).inserted else { throw WriteError.invalid("ID \(column.id) bị dùng hai lần") }
         }
 
         let folders = Folders(table: name, tableID: tableID, partitionID: partitionID)
@@ -173,13 +221,13 @@ public enum VertiPaqWriter {
             explicitName: "RowNumber-" + rowNumberGUID.uuidString,
             storageName: "\(rowNumberName) (\(rowNumberID))",
             dataType: .int64, storagePosition: 0,
-            dictionary: nil, dictionaryCount: 0, dictionaryByteCount: 0,
+            operatesOn32: false, dictionary: nil, dictionaryCount: 0, dictionaryByteCount: 0,
             idf: folders.file(.partition, "0.\(name) (\(tableID)).\(rowNumberName) (\(rowNumberID)).0.idf", rowSegment.idf),
             idfmeta: folders.file(.partition, "0.\(name) (\(tableID)).\(rowNumberName) (\(rowNumberID)).0.idfmeta", rowSegment.idfmeta),
             rowCount: rowCount, distinctCount: rowCount,
             minDataID: rowSegment.minDataID, maxDataID: rowSegment.maxDataID,
             originalMinDataID: rowSegment.originalMinDataID, hasNulls: false, bitWidth: rowSegment.bitWidth,
-            minValueText: "0", maxValueText: String(rowCount - 1), stringValueMaxLength: 0))
+            minValueText: "0", maxValueText: String(rowCount - 1), stringValueMaxLength: 0, hierarchy: nil))
 
         for (position, column) in columns.enumerated() {
             let storageName = "\(column.name) (\(column.id))"
@@ -191,7 +239,7 @@ public enum VertiPaqWriter {
             encoded.append(EncodedColumn(
                 kind: .data, id: column.id, explicitName: column.name, storageName: storageName,
                 dataType: column.values.dataType, storagePosition: position + 1,
-                dictionary: folders.file(.table, dictionaryName, dictionary.data),
+                operatesOn32: dictionary.operatesOn32, dictionary: folders.file(.table, dictionaryName, dictionary.data),
                 dictionaryCount: dictionary.count, dictionaryByteCount: dictionary.data.count,
                 idf: folders.file(.partition, segmentBase + ".idf", segment.idf),
                 idfmeta: folders.file(.partition, segmentBase + ".idfmeta", segment.idfmeta),
@@ -199,7 +247,9 @@ public enum VertiPaqWriter {
                 minDataID: segment.minDataID, maxDataID: segment.maxDataID,
                 originalMinDataID: segment.originalMinDataID, hasNulls: dictionary.hasNulls,
                 bitWidth: segment.bitWidth,
-                minValueText: minText, maxValueText: maxText, stringValueMaxLength: maxLength))
+                minValueText: minText, maxValueText: maxText, stringValueMaxLength: maxLength,
+                hierarchy: try encodeHierarchy(sortedIDs: dictionary.sortedIDs, dictionaryCount: dictionary.count,
+                                               hasNulls: dictionary.hasNulls)))
         }
 
         return EncodedTable(name: name, tableID: tableID, partitionID: partitionID, rowCount: rowCount,
@@ -214,20 +264,34 @@ public enum VertiPaqWriter {
         let ids: [Int64]
         let count: Int
         let hasNulls: Bool
+        /// Data IDs in ascending value order, NULL first when present. Feeds the `H$` table.
+        let sortedIDs: [Int64]
+        /// `DictionaryStorage.IsOperatingOn32`: whole numbers stored as 4-byte elements (Desktop: Marketing `Conversion`).
+        var operatesOn32 = false
     }
 
-    /// Builds the dictionary of a column. Entries keep the order of first appearance.
+    /// Builds the dictionary of a column. Entries keep the order of first appearance; NULL is data ID 2 and is not an entry.
     static func encodeDictionary(_ values: Values) throws -> DictionaryResult {
-        switch values {
-        case .int64(let v):
-            var index: [Int64: Int] = [:]
-            var order: [Int64] = []
+        /// IDs per row and the distinct entries in order of appearance, for any hashable value.
+        func assign<T: Hashable>(_ v: [T?]) -> (ids: [Int64], order: [T], hasNulls: Bool) {
+            var index: [T: Int] = [:]
+            var order: [T] = []
+            var hasNulls = false
             let ids: [Int64] = v.map { value in
+                guard let value else { hasNulls = true; return Int64(nullDataID) }
                 if let i = index[value] { return Int64(i + firstDataID) }
                 index[value] = order.count
                 order.append(value)
                 return Int64(order.count - 1 + firstDataID)
             }
+            return (ids, order, hasNulls)
+        }
+
+        if case .boolean(let flags) = values { return try encodeDictionary(.int64(flags.map { $0.map { $0 ? 1 : 0 } })) }
+        switch values {
+        case .boolean: fatalError("đã đổi sang số nguyên ở trên")
+        case .int64(let v):
+            let (ids, order, hasNulls) = assign(v)
             var out = VertiPaqByteWriter()
             out.i32(0)
             out.hashInfo(longs: true)
@@ -238,49 +302,40 @@ public enum VertiPaqWriter {
             for value in order {
                 if fitsInt32 { out.i32(Int32(value)) } else { out.u64(UInt64(bitPattern: value)) }
             }
-            return DictionaryResult(data: out.data, ids: ids, count: order.count, hasNulls: false)
+            return DictionaryResult(data: out.data, ids: ids, count: order.count, hasNulls: hasNulls,
+                                    sortedIDs: sortedIDs(order.indices.sorted { order[$0] < order[$1] }, hasNulls: hasNulls),
+                                    operatesOn32: fitsInt32)
 
-        case .double(let v):
-            var index: [UInt64: Int] = [:]
-            var order: [Double] = []
-            let ids: [Int64] = v.map { value in
-                let key = value.bitPattern
-                if let i = index[key] { return Int64(i + firstDataID) }
-                index[key] = order.count
-                order.append(value)
-                return Int64(order.count - 1 + firstDataID)
-            }
+        case .double(let v), .dateTime(let v):
+            // -0.0 and 0.0 are one value to the model; NaN has no place in a column.
+            guard v.allSatisfy({ $0 == nil || !$0!.isNaN }) else { throw WriteError.invalid("cột số có giá trị NaN (không phải số), chưa lưu được") }
+            let (ids, order, hasNulls) = assign(v.map { $0.map { $0 == 0 ? 0.0 : $0 } })
             var out = VertiPaqByteWriter()
             out.i32(1)
             out.hashInfo(longs: false)
             out.u64(UInt64(order.count))
             out.u32(8)
             for value in order { out.u64(value.bitPattern) }
-            return DictionaryResult(data: out.data, ids: ids, count: order.count, hasNulls: false)
+            return DictionaryResult(data: out.data, ids: ids, count: order.count, hasNulls: hasNulls,
+                                    sortedIDs: sortedIDs(order.indices.sorted { order[$0] < order[$1] }, hasNulls: hasNulls))
 
         case .string(let v):
-            var index: [String: Int] = [:]
-            var order: [String] = []
-            var hasNulls = false
-            var ids: [Int64] = []
-            ids.reserveCapacity(v.count)
-            for value in v {
-                guard let value else {
-                    hasNulls = true
-                    ids.append(Int64(nullDataID))
-                    continue
-                }
-                guard !value.contains("\0") else { throw WriteError.invalid("string value contains a NUL") }
-                if let i = index[value] {
-                    ids.append(Int64(i + firstDataID))
-                } else {
-                    index[value] = order.count
-                    order.append(value)
-                    ids.append(Int64(order.count - 1 + firstDataID))
-                }
-            }
-            return DictionaryResult(data: try stringDictionary(order), ids: ids, count: order.count, hasNulls: hasNulls)
+            guard v.allSatisfy({ $0 == nil || !$0!.contains("\0") }) else { throw WriteError.invalid("cột chuỗi có giá trị chứa ký tự NUL, chưa lưu được") }
+            let (ids, order, hasNulls) = assign(v)
+            return DictionaryResult(data: try stringDictionary(order), ids: ids, count: order.count, hasNulls: hasNulls,
+                                    sortedIDs: sortedIDs(order.indices.sorted { collates(order[$0], order[$1]) }, hasNulls: hasNulls))
         }
+    }
+
+    /// IDs in value order. `sortedIndices` are dictionary indices already sorted by value.
+    static func sortedIDs(_ sortedIndices: [Int], hasNulls: Bool = false) -> [Int64] {
+        (hasNulls ? [Int64(nullDataID)] : []) + sortedIndices.map { Int64($0 + firstDataID) }
+    }
+
+    /// String order of the `H$` table. [SUY ĐOÁN] en-US culture order (lowercase before uppercase on a tie); not yet
+    /// checked against Desktop for accents or mixed case.
+    static func collates(_ a: String, _ b: String) -> Bool {
+        a.compare(b, options: [], range: nil, locale: Locale(identifier: "en_US")) == .orderedAscending
     }
 
     /// String dictionary: one plain page holding every string, each followed by a NUL code unit.
@@ -306,8 +361,9 @@ public enum VertiPaqWriter {
             out.u64(0)
         } else {
             out.u64(1)
-            // Page header: mask, nulls, start, count, compressed flag, then the begin marker.
-            out.u64(0); out.u8(0); out.u64(0); out.u64(UInt64(strings.count)); out.u8(0)
+            // Page header: mask, "has an empty string" flag (Desktop sets it; without it the string store fails DBCC, gate F-T3 2026-11-15),
+            // start, count, compressed flag, then the begin marker.
+            out.u64(0); out.u8(strings.contains("") ? 1 : 0); out.u64(0); out.u64(UInt64(strings.count)); out.u8(0)
             out.bytes([0xDD, 0xCC, 0xBB, 0xAA])
             // Plain page: remaining, used (code units), allocation (bytes), text, end marker.
             out.u64(0)
@@ -340,7 +396,7 @@ public enum VertiPaqWriter {
     static func encodeSegment(ids: [Int64], dictionaryCount: Int) throws -> SegmentResult {
         let records = ids.count
         guard records <= Int(UInt32.max), ids.allSatisfy({ $0 >= 0 && $0 <= Int64(UInt32.max) }) else {
-            throw WriteError.invalid("segment of \(records) rows has data IDs outside the 32-bit range")
+            throw WriteError.invalid("đoạn dữ liệu \(records) dòng có mã vượt quá 32 bit, chưa lưu được")
         }
         let hasNulls = ids.contains(Int64(nullDataID))
         let nonNull = ids.filter { $0 != Int64(nullDataID) }
@@ -353,11 +409,13 @@ public enum VertiPaqWriter {
         let (width, compressionClass) = try bitWidthAndClass(for: packedValues.max() ?? 0)
         let words = pack(packedValues, width: width)
 
-        // .idf: one bit-packed run (marker 0xFFFFFFFF - 0), then the words.
+        // .idf: a table of 16 runs (Desktop always writes 16; unused runs are zero), the first being one bit-packed run
+        // (marker 0xFFFFFFFF - 0), then the words.
         var idf = VertiPaqByteWriter()
-        idf.u64(1)
+        idf.u64(UInt64(runTableSize))
         idf.u32(0xFFFF_FFFF)
         idf.u32(UInt32(records))
+        for _ in 1..<runTableSize { idf.u32(0); idf.u32(0) }
         idf.u64(UInt64(words.count))
         for word in words { idf.u64(word) }
 
@@ -370,17 +428,17 @@ public enum VertiPaqWriter {
         meta.u64(1)                      // base segment id, as observed
         meta.u32(0xABA5A)                // hybrid RLE facet
         meta.u32(UInt32(compressionClass))
-        meta.u64(13); meta.u64(32); meta.u64(4); meta.u8(0) // facet values observed for bit-packed-only segments
+        meta.u64(UInt64(min(records, 13))); meta.u64(32); meta.u64(4); meta.u8(0) // facet values; the first is min(rows, 13) in Desktop's files [SUY ĐOÁN]
         meta.u32(UInt32(base))           // first run value
         meta.tag("<1:SS")
-        meta.u64(UInt64(dictionaryCount))
+        meta.u64(0)                      // distinct states: 0 in Desktop's files
         meta.u32(UInt32(minDataID))
         meta.u32(UInt32(maxDataID))
-        meta.u32(UInt32(originalMin))
+        meta.u32(UInt32(nullDataID))     // original minimum segment data ID: always 2
         meta.u64(UInt64.max)             // RLE sort order: none
         meta.u64(UInt64(records))
         meta.u8(hasNulls ? 1 : 0)
-        meta.u64(0); meta.u64(0)         // RLE runs
+        meta.u64(0); meta.u64(1)         // RLE runs, other RLE runs
         meta.tag("SS:1>")
         meta.u8(1)
         meta.tag("<1:CS")
@@ -393,9 +451,9 @@ public enum VertiPaqWriter {
         // Trailer describing the IDF layout (runs, then words). Ignored by the decoder.
         meta.tag("<1:SDOs")
         meta.tag("<1:CSDOs")
-        meta.u64(0); meta.u64(1)
+        meta.u64(0); meta.u64(UInt64(runTableSize))
         meta.tag("<1:CSDOs")
-        meta.u64(16)                     // runs section: count + one run
+        meta.u64(UInt64(8 + 8 * runTableSize)) // runs section: count + the run table
         meta.u64(UInt64(words.count))
         meta.tag("CSDOs:1>")
         meta.tag("CSDOs:1>")
@@ -409,7 +467,7 @@ public enum VertiPaqWriter {
     static func bitWidthAndClass(for maximum: UInt64) throws -> (width: Int, compressionClass: Int) {
         let needed = max(1, maximum == 0 ? 1 : 64 - maximum.leadingZeroBitCount)
         guard let width = supportedWidths.first(where: { $0 >= needed }) else {
-            throw WriteError.invalid("values need \(needed) bits, which the VertiPaq writer does not support")
+            throw WriteError.invalid("cột có quá nhiều giá trị khác nhau (cần \(needed) bit mỗi ô, tối đa 32), chưa lưu được")
         }
         let compressionClass: Int
         switch width {
@@ -436,19 +494,128 @@ public enum VertiPaqWriter {
         width >= 64 ? .max : (UInt64(1) << UInt64(width)) - 1
     }
 
+    // MARK: - H$ system table (data ID order)
+
+    /// `POS_TO_ID` and `ID_TO_POS` of one dictionary column, from Desktop's files (probe tables in `f1probe.pbix`, `pq.pbix`,
+    /// 2026-11-15; see `docs/phase-f-evidence/vm-f1/QUAN-SAT.md`).
+    ///
+    /// With `card` dictionary entries (NULL counts) and `maxID` the largest data ID (`card + 2`, or `card + 1` with NULL), both
+    /// columns are arrays of `total = maxID + 1` entries:
+    /// - `POS_TO_ID[position]` = data ID of the value at that sorted position (`card` entries), then zeros.
+    /// - `ID_TO_POS`: `A[0] = 0`, `A[1] = card`, `A[2]` = position of NULL (0 when absent), `A[3 + i]` = position of dictionary entry `i`.
+    /// The array is cut into segments of `card` entries (`RecordsPerSegment`; the last one is shorter). Each segment is stored as
+    /// `u64 n` and `n` u64 words, two u32 values per word, `n = records / 2 + 1`, zero padded; the `.idf` is the segments in order.
+    /// The `.idfmeta` repeats one block per segment and a trailer with each segment's byte offset and word count.
+    static func encodeHierarchy(sortedIDs: [Int64], dictionaryCount: Int, hasNulls: Bool) throws -> EncodedHierarchy {
+        let card = sortedIDs.count
+        guard card == dictionaryCount + (hasNulls ? 1 : 0), card > 0 else { throw WriteError.invalid("sorted IDs do not match the dictionary") }
+        let maxID = dictionaryCount + 2
+        guard maxID <= Int(UInt32.max) else { throw WriteError.invalid("từ điển cột quá lớn (hơn 4 tỉ mục), chưa lưu được") }
+        let total = maxID + 1
+        var position = [Int](repeating: 0, count: total)
+        for (pos, id) in sortedIDs.enumerated() { position[Int(id)] = pos }
+        var idToPosition = position
+        idToPosition[0] = 0
+        idToPosition[1] = card
+        if !hasNulls { idToPosition[2] = 0 }
+        var positionToID = sortedIDs.map(Int.init)
+        positionToID += [Int](repeating: 0, count: total - card)
+
+        let sizes = stride(from: 0, to: total, by: card).map { min(card, total - $0) }
+        func file(_ values: [Int]) -> Data {
+            var out = VertiPaqByteWriter()
+            var start = 0
+            for records in sizes {
+                let words = records / 2 + 1
+                out.u64(UInt64(words))
+                for i in 0..<(2 * words) { out.u32(UInt32(i < records ? values[start + i] : 0)) }
+                start += records
+            }
+            return out.data
+        }
+        let meta = hierarchyMeta(segmentRecords: sizes)
+        return EncodedHierarchy(
+            positionToID: Hierarchy.Blob(idf: file(positionToID), idfmeta: meta),
+            idToPosition: Hierarchy.Blob(idf: file(idToPosition), idfmeta: meta),
+            cardinality: card, recordCount: total, segmentCount: sizes.count)
+    }
+
+    /// `.idfmeta` of an `H$` column: `<1:CP` with one `<1:CS` block per segment, then `<1:SDOs` with each segment's byte offset in the `.idf`
+    /// and word count. Byte for byte as Desktop writes it (316 bytes for two segments).
+    static func hierarchyMeta(segmentRecords: [Int]) -> Data {
+        var out = VertiPaqByteWriter()
+        out.tag("<1:CP")
+        out.u64(UInt64(segmentRecords.count))
+        for records in segmentRecords {
+            out.tag("<1:CS")
+            out.u64(UInt64(records)); out.u64(0)
+            out.u32(0x0ABA56)       // 32-bit packed class
+            out.u32(1)
+            out.u32(0)
+            out.tag("<1:SS")
+            out.u64(0)
+            out.u32(2); out.u32(2); out.u32(2)
+            out.u64(UInt64.max)
+            out.bytes([UInt8](repeating: 0, count: 25))
+            out.tag("SS:1>")
+            out.u8(0)
+            out.tag("CS:1>")
+        }
+        out.tag("CP:1>")
+        out.tag("<1:SDOs")
+        var offset = 0
+        for records in segmentRecords {
+            let words = records / 2 + 1
+            out.tag("<1:CSDOs")
+            out.u64(UInt64(offset)); out.u64(UInt64(words))
+            out.tag("CSDOs:1>")
+            offset += 8 + 8 * words
+        }
+        out.tag("SDOs:1>")
+        return out.data
+    }
+
     // MARK: - Statistics
 
     static func textStatistics(_ values: Values) -> (String?, String?, Int) {
         switch values {
         case .int64(let v):
-            return (v.min().map(String.init), v.max().map(String.init), 0)
+            let present = v.compactMap { $0 }
+            return (present.min().map(String.init), present.max().map(String.init), 0)
+        case .boolean(let v):
+            let present = v.compactMap { $0 }
+            return (present.contains(false) ? "FALSE" : present.isEmpty ? nil : "TRUE", present.contains(true) ? "TRUE" : present.isEmpty ? nil : "FALSE", 0)
         case .double(let v):
-            return (v.min().map { String($0) }, v.max().map { String($0) }, 0)
+            let present = v.compactMap { $0 }
+            return (present.min().map(doubleText), present.max().map(doubleText), 0)
+        case .dateTime(let v):
+            let present = v.compactMap { $0 }
+            return (present.min().map(dateText), present.max().map(dateText), 0)
         case .string(let v):
             let present = v.compactMap { $0 }
             let longest = present.map { $0.utf16.count }.max() ?? 0
-            return (present.min(), present.max(), longest)
+            // Quét một lần trên các giá trị khác nhau (sắp cả triệu dòng bằng so sánh văn hoá mất hàng chục giây).
+            let distinct = Array(Set(present))
+            return (distinct.min { collates($0, $1) }, distinct.max { collates($0, $1) }, longest)
         }
+    }
+
+    /// Desktop's `MinValue` text of a double: whole numbers without a fraction, otherwise up to 15 significant digits.
+    static func doubleText(_ value: Double) -> String {
+        if value == value.rounded(), abs(value) < 1e15 { return String(Int64(value)) }
+        var text = String(format: "%.15g", value)
+        if text.contains("e") { text = text.replacingOccurrences(of: "e", with: "E") }
+        return text
+    }
+
+    /// Desktop's `MinValue` text of a date: `M/d/yyyy` (en-US short date), from OLE automation days.
+    static func dateText(_ days: Double) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let epoch = DateComponents(calendar: calendar, year: 1899, month: 12, day: 30).date!
+        let date = calendar.date(byAdding: .day, value: Int(days.rounded(.down)), to: epoch)!
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        return "\(parts.month!)/\(parts.day!)/\(parts.year!)"
     }
 
     // MARK: - Files

@@ -89,7 +89,7 @@ public struct PBIXChanges: Sendable {
 
     public init() {}
 
-    public var tier: SaveTier { measures.isEmpty && modelEdits.isEmpty ? .report : .metadata }
+    public var tier: SaveTier { measures.isEmpty && modelEdits.isEmpty ? .report : max(.metadata, modelEdits.tier) }
 
     /// True when the DataModel member is rebuilt.
     var changesModel: Bool { !measures.isEmpty || !modelEdits.isEmpty }

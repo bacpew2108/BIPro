@@ -7,43 +7,34 @@ import ColumnStore
 
     // MARK: - Sample Fixture Tests
 
+    /// Thứ tự Navigator của Desktop 2.159 (VM-F2, 2026-11-15): bảng đặt tên trước, rồi trang tính theo chữ cái.
     @Test func sales2026ExcelItemsListOrder() async throws {
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
-        let source = ExcelSource(url: url)
-        let items = try await source.items()
-
-        #expect(items.count == 4)
-        #expect(items[0].name == "Sales")
-        #expect(items[0].kind == .sheet)
-
-        #expect(items[1].name == "Customers")
-        #expect(items[1].kind == .sheet)
-
-        #expect(items[2].name == "Notes")
-        #expect(items[2].kind == .sheet)
-
-        #expect(items[3].name == "SalesTable")
-        #expect(items[3].kind == .namedTable)
+        let items = try await ExcelSource(url: url).items()
+        #expect(items.map(\.name) == ["SalesTable", "Customers", "Notes", "Sales"])
+        #expect(items.map(\.kind) == [.namedTable, .sheet, .sheet, .sheet])
     }
 
     /// Navigator hiện số dòng từng trang tính (lấy từ `<dimension>`, không phải đọc hết ô). Sales: 500 dòng dữ liệu, Customers: 50.
     @Test func sheetRowCountHintTuDimension() async throws {
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
         let items = try await ExcelSource(url: url).items()
-        #expect(items[0].rowCountHint == 500)
-        #expect(items[1].rowCountHint == 50)
+        let sales = try #require(items.first { $0.name == "Sales" && $0.kind == .sheet })
+        let customers = try #require(items.first { $0.name == "Customers" })
+        #expect(sales.rowCountHint == 500)
+        #expect(customers.rowCountHint == 50)
         let noHeader = try await ExcelSource(url: url, options: .init(promoteHeaders: false)).items()
-        #expect(noHeader[0].rowCountHint == 501)
+        #expect(noHeader.first { $0.name == "Sales" && $0.kind == .sheet }?.rowCountHint == 501)
         // Gợi ý khớp số dòng thật khi nạp.
-        let loaded = try await items[0].load(progress: nil)
-        #expect(items[0].rowCountHint == loaded.rowCount)
+        let loaded = try await sales.load(progress: nil)
+        #expect(sales.rowCountHint == loaded.rowCount)
     }
 
     @Test func salesSheetLoadAndPreview() async throws {
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
         let source = ExcelSource(url: url)
         let items = try await source.items()
-        let salesItem = items[0]
+        let salesItem = try #require(items.first { $0.name == "Sales" && $0.kind == .sheet })
 
         // Preview limit 5
         let preview = try await salesItem.preview(limit: 5)
@@ -94,7 +85,7 @@ import ColumnStore
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
         let source = ExcelSource(url: url)
         let items = try await source.items()
-        let custItem = items[1]
+        let custItem = try #require(items.first { $0.name == "Customers" })
 
         let table = try await custItem.load(progress: nil)
         #expect(table.rowCount == 50)
@@ -109,7 +100,7 @@ import ColumnStore
         let options = ExcelSource.Options(promoteHeaders: true, detectTypes: true, trimLeadingEmpty: true)
         let source = ExcelSource(url: url, options: options)
         let items = try await source.items()
-        let notesItem = items[2]
+        let notesItem = try #require(items.first { $0.name == "Notes" })
 
         let table = try await notesItem.load(progress: nil)
         #expect(table.rowCount == 3)
@@ -131,7 +122,7 @@ import ColumnStore
         guard let url = FFixtures.sample("sales_2026.xlsx") else { return }
         let source = ExcelSource(url: url)
         let items = try await source.items()
-        let tableItem = items[3]
+        let tableItem = try #require(items.first { $0.kind == .namedTable })
 
         #expect(tableItem.name == "SalesTable")
         #expect(tableItem.kind == .namedTable)

@@ -44,6 +44,31 @@ public enum RelationshipIndex {
         return Array(repeating: 0, count: reservedIDs) + dictionary.map { row[$0] ?? 0 }
     }
 
+    /// Mục từ điển của một cột trong bộ nhớ (bảng mới chưa vào ABF): giá trị khác nhau theo thứ tự xuất hiện, như bộ ghi VertiPaq.
+    public static func dictionary(ofCells cells: [CellValue]) -> [CellValue] {
+        var seen = Set<CellValue>()
+        var out: [CellValue] = []
+        for value in cells {
+            if case .null = value { continue }
+            if seen.insert(value).inserted { out.append(value) }
+        }
+        return out
+    }
+
+    /// Như `values(from:to:abf:)` nhưng khi một hoặc hai phía là cột trong bộ nhớ: `manyDictionary` là các mục từ điển của cột phía nhiều
+    /// (theo thứ tự mã dữ liệu), `one` là các ô của cột phía một theo thứ tự dòng.
+    public static func values(manyDictionary: [CellValue], oneCells one: [CellValue], oneName: String) throws -> [Int] {
+        var row: [CellValue: Int] = [:]
+        row.reserveCapacity(one.count)
+        for (r, value) in one.enumerated() {
+            if case .null = value { continue }
+            guard row.updateValue(r + 1, forKey: value) == nil else {
+                throw WriteError.invalid("cột \(oneName) có giá trị trùng (\(value)), không làm phía một của quan hệ được")
+            }
+        }
+        return Array(repeating: 0, count: reservedIDs) + manyDictionary.map { row[$0] ?? 0 }
+    }
+
     /// Tệp `.idf` và `.idfmeta` cho `values`; `toRowCount` là số dòng bảng phía một (quyết định độ rộng bit như Desktop).
     public static func encode(values: [Int], toRowCount: Int) throws -> (idf: Data, meta: Data) {
         let needed = max(1, Int.bitWidth - toRowCount.leadingZeroBitCount)

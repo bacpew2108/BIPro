@@ -1,7 +1,7 @@
 // Phase F (T016): áp `.addTable`, `.replaceTable`, `.dropTable` lên mô hình hiệu lực (chỉ siêu dữ liệu trong bộ nhớ).
 // Dữ liệu ô nằm ở `TableData` phía ứng dụng (nguồn cột chồng, T020); ghi ra `.pbix` là việc của T015, T017, T022.
-// [SUY ĐOÁN] cột mới: `summarizeBy` 3 (cộng dồn) cho kiểu số, 2 (không) cho chuỗi/ngày/logic (khớp cột của Nhom6); không `formatString`;
-// đến khi quan sát file Desktop nạp CSV/Excel (VM-F1, T012).
+// Cột mới (Desktop 2.159 nạp CSV, 2026-11-15, `docs/phase-f-evidence/vm-f1/QUAN-SAT.md`): `summarizeBy` 3 (cộng dồn) cho số, 2 (không) cho
+// chuỗi/ngày/logic và cho số có tên kết thúc bằng "ID" (CustomerID); số nguyên có `formatString` "0". `[SUY ĐOÁN]` còn lại: Desktop cho OrderID 6 (đếm).
 
 import Foundation
 
@@ -191,7 +191,7 @@ extension ModelMetadata {
     private static func dataColumn(id: Int, tableID: Int, table: String, from column: NewTableColumn, keeping old: Column?) -> Column {
         let name = column.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let sameType = old.map { $0.dataType == column.dataType } ?? false
-        let defaultSummarize = column.dataType.isNumeric ? 3 : 2
+        let defaultSummarize = column.dataType.isNumeric && !column.name.lowercased().hasSuffix("id") ? 3 : 2
         return Column(id: id, tableID: tableID, tableName: table, name: name, kind: .data, dataType: column.dataType,
                       isHidden: old?.isHidden ?? false, expression: nil, formatString: sameType ? old?.formatString : nil,
                       sortByColumnID: old?.sortByColumnID, summarizeBy: sameType ? (old?.summarizeBy ?? defaultSummarize) : defaultSummarize,

@@ -13,3 +13,7 @@
 4. Lặp lại gate này (mở file BI Pro ghi trong Desktop) sau mỗi sửa; chỉ khi mở được, đúng số dòng, đúng Sum mới đánh dấu đạt.
 
 **Cập nhật kế hoạch:** T010 xong (trượt có chẩn đoán); T011 xong (giữ T3); T012 (VM-F1) là bước kế tiếp vì cần `H$`.
+
+## Cập nhật cuối ngày 2026-11-15: gate F-T3 ĐẠT
+
+Cả ba việc ở trên đã làm và file mở được trong Desktop (`CHECKLIST-KET-QUA.md`, lần 4). T010 đạt, nhánh Enter Data (T029 đến T031) giữ làm bổ sung sau, không còn là dự phòng. Còn lại cho T3: nối bộ ghi vào đường lưu (T015 hoàn chỉnh, T017, T022), kiểu `currency`/`dateTime`/`boolean`, nhiều đoạn (> 8 triệu dòng), RLE (không bắt buộc), và gate T026 (5 file) trước khi coi SC-006 xong.

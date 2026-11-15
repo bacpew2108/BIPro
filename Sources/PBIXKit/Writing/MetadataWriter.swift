@@ -27,7 +27,7 @@ public struct MetadataWriter {
     /// Đường dẫn tệp ABF mà các thao tác đã áp muốn xoá (chỉ mục của quan hệ bị xoá).
     public private(set) var removedFiles: [String] = []
 
-    private let database: MetadataDatabase
+    private var database: MetadataDatabase
 
     /// Opens the database and checks that it is readable and has the tables this writer needs.
     /// Throws `WriteError.invalid` for empty, non-SQLite or incomplete input.
@@ -123,6 +123,30 @@ public struct MetadataWriter {
         }
     }
 
+    /// Adds a loaded table (T3): VertiPaq files for every column, `H$` system tables and the metadata rows. Every column needs
+    /// `values`. A table with "Enable load" off adds nothing. Files go to `addedFiles`.
+    public mutating func addTable(_ table: NewTable) throws {
+        guard table.enableLoad else { return }
+        var columns: [(name: String, values: VertiPaqWriter.Values)] = []
+        for column in table.columns {
+            guard let values = column.values else {
+                throw WriteError.invalid("cột «\(column.name)» của bảng «\(table.name)» chưa có dữ liệu mã hoá để ghi")
+            }
+            columns.append((column.name, values))
+        }
+        var writer = try TableMetadataWriter(sqlite: try database.serialize())
+        let base = writer.maxID
+        let encoded = try VertiPaqWriter.encodeTable(name: table.name, tableID: base + 1, partitionID: base + 2, rowNumberID: base + 3,
+                                                     columns: columns.enumerated().map { .init(id: base + 4 + $0.offset, name: $0.element.name, values: $0.element.values) })
+        try writer.addTable(encoded, queryExpression: table.queryExpression, lineageTag: table.lineageTag)
+        database = try MetadataDatabase(bytes: try writer.serialize())
+        addedFiles += (encoded.files + writer.systemFiles).map { ABFPayload(path: $0.path, data: $0.data) }
+        try transaction { db, now in
+            try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+            try Self.bumpProperties(db, now)
+        }
+    }
+
     /// The edited database as a `metadata.sqlitedb` file.
     public func serialize() throws -> Data {
         try database.serialize()
@@ -180,8 +204,14 @@ extension MetadataWriter {
                 payloads = try Self.addRelationship(db, relationship, records: index.values.count, files: files, now: now)
             }
             addedFiles += payloads
-        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable:
-            throw WriteError.invalid("Chưa hỗ trợ ghi bảng và cột tính toán (Phase F, đang cài)")
+        case .addTable(let table):
+            try addTable(table)
+        case .replaceTable(let name, _):
+            throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)» đã có trong file (Phase F, đang cài)")
+        case .dropTable(let name):
+            throw WriteError.invalid("Chưa lưu được việc xoá bảng «\(name)» đã có trong file (Phase F, đang cài)")
+        case .addCalculatedColumn, .addCalculatedTable:
+            throw WriteError.invalid("Chưa hỗ trợ ghi cột tính toán và bảng tính toán (Phase F, đang cài)")
         case .deleteRelationship(let name):
             var removed: [String] = []
             try transaction { db, now in removed = try Self.deleteRelationship(db, name: name, now: now) }
