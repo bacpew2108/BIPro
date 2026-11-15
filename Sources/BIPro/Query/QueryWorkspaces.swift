@@ -213,9 +213,15 @@ struct DAXQueryWorkspace: View {
 
 struct TMDLWorkspace: View {
     @Bindable var state: DocumentState
+    /// Phần đang sửa chưa áp dụng: đường dẫn → văn bản.
+    @State private var drafts: [String: String] = [:]
+    @State private var issues: [TMDLIssue] = []
 
     var body: some View {
         let docs = state.workspace.tmdlDocuments
+        let blocker = state.modelEditingBlocker
+        let path = state.tmdlPath ?? ""
+        let original = docs.first { $0.path == path }?.text ?? ""
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 PaneHeader(title: "Định nghĩa", symbol: "folder")
@@ -225,11 +231,12 @@ struct TMDLWorkspace: View {
                             TreeRow(level: doc.path.contains("/") ? 1 : 0,
                                     symbol: doc.path.hasPrefix("tables/") ? "tablecells" : "doc.text",
                                     tint: doc.path.hasPrefix("tables/") ? DS.Palette.table : DS.Palette.secondaryLabel,
-                                    title: doc.path, isSelected: state.tmdlPath == doc.path) { state.tmdlPath = doc.path }
+                                    title: doc.path + (drafts[doc.path].map { $0 != doc.text } == true ? " •" : ""),
+                                    isSelected: state.tmdlPath == doc.path) { state.tmdlPath = doc.path }
                         }
                     }
                 }
-                PaneFooter(text: "\(docs.count) tệp · chỉ đọc")
+                PaneFooter(text: "\(docs.count) tệp" + (blocker == nil ? " · sửa được" : " · chỉ đọc"))
             }
             .frame(width: 250)
             .background(DS.Palette.chrome)
@@ -237,18 +244,53 @@ struct TMDLWorkspace: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text(state.tmdlPath ?? "").font(DS.Typeface.monoMedium)
-                    Badge(text: "Chỉ đọc · sinh từ metadata")
+                    Text(path).font(DS.Typeface.monoMedium)
+                    if blocker == nil { Badge(text: changed ? "Đã sửa, chưa áp dụng" : "Sửa được") } else { Badge(text: "Chỉ đọc") }
                     Spacer()
+                    if changed {
+                        Button("Bỏ phần sửa") { drafts = [:]; issues = [] }.buttonStyle(SecondaryButtonStyle())
+                    }
+                    Button("Áp dụng") { apply() }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .disabled(!changed || blocker != nil)
+                        .help(blocker ?? "Áp dụng mọi phần đã sửa (⌘↩), nguyên khối: có lỗi thì không đổi gì")
                     Text("TMDL · UTF-8").font(DS.Typeface.mono).foregroundStyle(DS.Palette.tertiaryLabel)
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 38)
                 .hairline(.bottom)
-                CodeEditor(text: .constant(docs.first { $0.path == state.tmdlPath }?.text ?? ""), language: .tmdl, isEditable: false)
-                StatusBar(workspace: state.workspace, detail: "Sửa và áp dụng TMDL: Phase E")
+                CodeEditor(text: Binding(get: { drafts[path] ?? original }, set: { drafts[path] = $0; issues = [] }),
+                           language: .tmdl, isEditable: blocker == nil && !path.isEmpty)
+                if !issues.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.red)
+                                    Text(issue.description).font(DS.Typeface.bodySmall).foregroundStyle(Color.red)
+                                }
+                            }
+                        }
+                        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 110).background(Color(hex: "#FFF5F5")!).hairline(.top)
+                }
+                StatusBar(workspace: state.workspace, detail: "Áp dụng TMDL: measure, thuộc tính cột, bảng ẩn, quan hệ; bảng và cột mới chờ Phase F")
             }
         }
         .background(Color.white)
+        .onChange(of: state.modelVersion) { _, _ in drafts = [:]; issues = [] }
+    }
+
+    private var changed: Bool {
+        let docs = state.workspace.tmdlDocuments
+        return drafts.contains { path, text in docs.first { $0.path == path }.map { $0.text != text } ?? !text.isEmpty }
+    }
+
+    private func apply() {
+        let result = state.applyTMDL(drafts: drafts)
+        issues = result
+        if result.isEmpty { drafts = [:] }
     }
 }

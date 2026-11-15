@@ -45,6 +45,10 @@ struct LayoutSnapshot {
     var primary: String?
     /// Bookmark và bộ lọc người dùng sửa ở lớp tài liệu (D6).
     var edits = ReportEdits()
+    /// Sửa mô hình (Phase E).
+    var model = ModelEdits()
+    /// Vị trí thẻ bảng và thu phóng ở Model view (Phase E).
+    var diagram = DiagramEdits()
 }
 
 /// Bố cục có thể sửa của báo cáo. `Workspace` giữ bản gốc bất biến; mọi thay đổi nằm ở đây
@@ -70,6 +74,26 @@ final class LayoutEditor {
     private(set) var reportEdits = ReportEdits()
     /// `reportEdits` ở lần lưu thành công gần nhất: để hoàn tác sau khi lưu đưa được bookmark và thẻ lọc đã ghi về như cũ (D6).
     var savedEdits = ReportEdits()
+    /// Sửa mô hình chưa lưu (Phase E): thêm, sửa, xoá measure; sửa quan hệ và cột. Chung ngăn xếp hoàn tác với báo cáo.
+    private(set) var modelEdits = ModelEdits()
+    /// `modelEdits` ở lần lưu thành công gần nhất.
+    private(set) var savedModelEdits = ModelEdits()
+    /// Vị trí thẻ bảng và thu phóng Model view chưa lưu (Phase E). Chung ngăn xếp hoàn tác.
+    private(set) var diagramEdits = DiagramEdits()
+    /// `diagramEdits` ở lần lưu thành công gần nhất (giữ cả vị trí gốc, để hoàn tác sau lưu ghi lại được vị trí cũ).
+    private(set) var savedDiagramEdits = DiagramEdits()
+    /// Byte phần `DiagramLayout` của file đã mở (nil nếu file không có).
+    @ObservationIgnored var diagramSource: () -> Data? = { nil }
+    /// `LineageTag` của bảng, dùng khi thêm nút cho thẻ chưa có trong tab.
+    @ObservationIgnored var diagramLineageTag: (String) -> String? = { _ in nil }
+    /// Tab bố cục đang xem ở Model view (ghi vào `selectedDiagram` khi lưu có đổi cấu trúc tab).
+    @ObservationIgnored var diagramSelected: () -> String? = { nil }
+    /// Tên các tab bố cục trong file lúc mở (theo thứ tự): để biết tab nào của lần lưu trước còn là tab đó sau khi đổi tên hoặc xoá.
+    @ObservationIgnored var diagramFileNames: () -> [String] = { [] }
+    /// Mô hình gốc của file lúc mở: để tính phần đổi khi lưu lần thứ hai (file trên đĩa đã chứa phần đã lưu).
+    @ObservationIgnored var modelBase: ModelMetadata?
+    /// Gọi mỗi khi `modelEdits` đổi (sửa, hoàn tác, làm lại) để nơi giữ mô hình hiệu lực và engine cập nhật theo.
+    @ObservationIgnored var modelEditsChanged: (ModelEdits) -> Void = { _ in }
     /// Phần bookmark và bộ lọc bị bỏ qua ở lần dựng gói lưu gần nhất vì chưa lưu được vào file (kèm lý do).
     var saveNotes: [String] = []
     private(set) var selection: Set<String> = []
@@ -967,6 +991,8 @@ final class LayoutEditor {
     /// Gọi sau khi lưu thành công: trạng thái hiện tại là trạng thái sạch.
     func markSaved() {
         savedEdits = reportEdits
+        savedModelEdits = modelEdits
+        if !diagramEdits.isEmpty || !savedDiagramEdits.isEmpty { savedDiagramEdits = mergedDiagramBaseline() }
         cleanMark = undoStack.count
         lastCoalesce = nil
     }
@@ -985,13 +1011,19 @@ final class LayoutEditor {
     }
 
     private func snapshot(of pageID: String) -> LayoutSnapshot {
-        LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary, edits: reportEdits)
+        LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary, edits: reportEdits,
+                       model: modelEdits, diagram: diagramEdits)
     }
 
     private func restore(_ step: LayoutSnapshot) {
         edited = step.edited
         structure = step.structure
         reportEdits = step.edits
+        if modelEdits != step.model {
+            modelEdits = step.model
+            modelEditsChanged(modelEdits)
+        }
+        diagramEdits = step.diagram
         // Trang của bước có thể không còn trong dãy (hoàn tác thêm trang): về trang đầu.
         let target = structure.order.contains(step.pageID) ? step.pageID : structure.order.first
         if currentPageID != target { currentPageID = target }
@@ -1078,6 +1110,121 @@ final class LayoutEditor {
     }
 
     static let reportCoalesceScope = "\u{0}report"
+    static let modelCoalesceScope = "\u{0}model"
+    static let diagramCoalesceScope = "\u{0}diagram"
+
+    /// Một thao tác ở Model view (kéo thẻ, thu phóng): đặt `diagramEdits`, đúng một bước hoàn tác. `coalesceKey`: các lần gọi liên
+    /// tiếp trong 0,5 s với cùng khoá (đang kéo một thẻ, đang trượt thu phóng) gộp thành một bước.
+    @discardableResult
+    func commitDiagram(_ edits: DiagramEdits, coalesceKey: String? = nil) -> Bool {
+        guard edits != diagramEdits else { return false }
+        let time = now()
+        var merged = false
+        if let key = coalesceKey, let last = lastCoalesce, last.pageID == Self.diagramCoalesceScope, last.ids == [key],
+           time.timeIntervalSince(last.at) < Self.coalesceWindow, !undoStack.isEmpty {
+            merged = true
+        }
+        if !merged {
+            if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+            undoStack.append(snapshot(of: currentPageID ?? structure.order.first ?? ""))
+            if undoStack.count > Self.historyLimit {
+                undoStack.removeFirst()
+                cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+            }
+        }
+        redoStack.removeAll()
+        diagramEdits = edits
+        lastCoalesce = coalesceKey.map { (Self.diagramCoalesceScope, [$0], time) }
+        return true
+    }
+
+    /// Vị trí gốc đã biết (hiện tại và của lần lưu trước): cần để ghi lại vị trí cũ khi hoàn tác sau khi đã lưu.
+    private func mergedDiagramBaseline() -> DiagramEdits {
+        var result = diagramEdits
+        for (diagram, tables) in savedDiagramEdits.baseline {
+            for (table, point) in tables where result.baseline[diagram]?[table] == nil { result.baseline[diagram, default: [:]][table] = point }
+        }
+        for (diagram, percent) in savedDiagramEdits.zoomBaseline where result.zoomBaseline[diagram] == nil { result.zoomBaseline[diagram] = percent }
+        return result
+    }
+
+    /// Thao tác ghi vào `DiagramLayout` ở lần lưu này: vị trí hiện tại của mọi thẻ đã kéo, và vị trí gốc của thẻ đã kéo ở lần lưu
+    /// trước nhưng nay đã về chỗ cũ. Rỗng khi không có gì cần ghi.
+    func diagramMoves() -> (moves: [DiagramLayoutPatch.Move], zoom: [String: Double]) {
+        let baselines = mergedDiagramBaseline().baseline
+        var moves: [DiagramLayoutPatch.Move] = []
+        // Mục của lần lưu trước chỉ còn dùng cho tab vẫn là tab đó (cùng tên, cùng tab nguồn trong file): tab đã đổi tên, xoá hoặc
+        // trùng tên một tab mới thì bỏ (patch dựng lại từ file gốc, vị trí gốc đã có sẵn trong đó).
+        let file = diagramFileNames()
+        func sources(_ edits: DiagramEdits) -> [String: Int] {
+            var result: [String: Int] = [:]
+            for tab in edits.entries ?? file.enumerated().map({ DiagramEdits.Tab(name: $0.element, source: $0.offset) }) {
+                if let source = tab.source { result[tab.name] = source }
+            }
+            return result
+        }
+        let currentSources = sources(diagramEdits), savedSources = sources(savedDiagramEdits)
+        let liveTabs = diagramEdits.tabs
+        let liveNow: (String) -> Bool = { diagram in liveTabs.map { $0.contains(diagram) } ?? true }
+        let liveSaved: (String) -> Bool = { diagram in currentSources[diagram] != nil && currentSources[diagram] == savedSources[diagram] }
+        let removed = diagramEdits.removed
+        let currentDiagrams = Set(diagramEdits.positions.keys).filter(liveNow)
+        let savedDiagrams = Set(savedDiagramEdits.positions.keys).filter(liveSaved)
+        for diagram in currentDiagrams.union(savedDiagrams).sorted() {
+            var tables = Set(diagramEdits.positions[diagram]?.keys ?? [:].keys)
+            if savedDiagrams.contains(diagram) { tables.formUnion(savedDiagramEdits.positions[diagram]?.keys ?? [:].keys) }
+            for table in tables.sorted() where removed[diagram]?.contains(table) != true {
+                guard let point = diagramEdits.positions[diagram]?[table] ?? (savedDiagrams.contains(diagram) ? baselines[diagram]?[table] : nil) else { continue }
+                moves.append(.init(diagram: diagram, table: table, x: Double(point.x), y: Double(point.y)))
+            }
+        }
+        // Thu phóng: mọi tab đã sửa (hiện tại hoặc ở lần lưu trước); tab đã về thu phóng gốc thì ghi lại giá trị gốc.
+        var zoom: [String: Double] = [:]
+        let zoomBaselines = savedDiagramEdits.zoomBaseline.merging(diagramEdits.zoomBaseline) { _, current in current }
+        for diagram in Set(diagramEdits.zoom.keys).filter(liveNow).union(Set(savedDiagramEdits.zoom.keys).filter(liveSaved)) {
+            if let percent = diagramEdits.zoom[diagram] ?? zoomBaselines[diagram] { zoom[diagram] = percent }
+        }
+        return (moves, zoom)
+    }
+
+    /// Tab theo thứ tự mong muốn cho `DiagramLayoutPatch` (nil = như trong file).
+    func diagramTabsForPatch() -> [DiagramLayoutPatch.Tab]? {
+        diagramEdits.entries?.map { DiagramLayoutPatch.Tab(name: $0.name, source: $0.source) }
+    }
+
+    /// Nút cần gỡ khỏi tab ở lần lưu này (chỉ nút có trong file; tab đã xoá thì không cần).
+    func diagramRemovals() -> [DiagramLayoutPatch.Removal] {
+        let live = diagramEdits.tabs.map(Set.init)
+        return diagramEdits.removed.filter { live?.contains($0.key) ?? true }
+            .flatMap { diagram, tables in tables.sorted().map { DiagramLayoutPatch.Removal(diagram: diagram, table: $0) } }
+            .sorted { ($0.diagram, $0.table) < ($1.diagram, $1.table) }
+    }
+
+    /// Một thao tác sửa mô hình (Phase E): đặt `modelEdits`, đúng một bước hoàn tác. `coalesceKey`: các lần gọi liên tiếp
+    /// trong 0,5 s với cùng khoá (gõ biểu thức, đổi thuộc tính) gộp thành một bước. Không đổi gì thì không tạo bước.
+    @discardableResult
+    func commitModel(_ edits: ModelEdits, coalesceKey: String? = nil) -> Bool {
+        guard edits != modelEdits else { return false }
+        let time = now()
+        var merged = false
+        if let key = coalesceKey, let last = lastCoalesce, last.pageID == Self.modelCoalesceScope, last.ids == [key],
+           time.timeIntervalSince(last.at) < Self.coalesceWindow, !undoStack.isEmpty {
+            merged = true
+        }
+        if !merged {
+            if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+            undoStack.append(snapshot(of: currentPageID ?? structure.order.first ?? ""))
+            if undoStack.count > Self.historyLimit {
+                undoStack.removeFirst()
+                cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+            }
+        }
+        redoStack.removeAll()
+        modelEdits = edits
+        lastCoalesce = coalesceKey.map { (Self.modelCoalesceScope, [$0], time) }
+        modelEditsChanged(edits)
+        return true
+    }
 
     /// Chuyển trang đang mở không tạo bước hoàn tác; trang phải có trong dãy.
     func openPage(_ pageID: String) {
@@ -1112,8 +1259,25 @@ final class LayoutEditor {
     /// byte cho visual đổi vị trí, phần mới cho bản sao, bỏ phần của visual đã xoá, dọn tham chiếu tới visual đã xoá trong
     /// bookmark và `page.json`; và (D5) trang mới, tên trang, thứ tự trang, trang bị xoá cùng bookmark trỏ tới chúng.
     /// Mọi thay đổi trang so với file trên đĩa nên lưu lần hai không ghi lại gì.
+    /// Thao tác mô hình cần ghi vào file trên đĩa: lần lưu đầu là cả `modelEdits`; các lần sau là phần đưa mô hình đã lưu
+    /// (`savedModelEdits`, đang nằm trong file) tới mô hình hiện tại.
+    func modelDelta() throws -> ModelEdits {
+        if savedModelEdits.isEmpty { return modelEdits }
+        guard let base = modelBase else { throw ModelEditError("Thiếu mô hình gốc để tính phần đổi của lần lưu này") }
+        return ModelMetadata.edits(from: try base.applying(savedModelEdits), to: try base.applying(modelEdits))
+    }
+
     func makeChanges(archive: ZipArchive) throws -> PBIXChanges {
-        if isLegacy { return try makeLegacyChanges(archive: archive) }
+        if isLegacy {
+            var legacy = try makeLegacyChanges(archive: archive)
+            legacy.modelEdits = try modelDelta()
+            if diagramEdits != savedDiagramEdits, let source = diagramSource() {
+                let (moves, zoom) = diagramMoves()
+                legacy.diagramLayout = try DiagramLayoutPatch.applying(tabs: diagramTabsForPatch(), selected: diagramSelected(), removals: diagramRemovals(), moves: moves, zoom: zoom,
+                                                                       to: source, lineageTag: diagramLineageTag)
+            }
+            return legacy
+        }
         var changes = PBIXChanges()
         var removedIDs = Set<String>()
         let diskPages = Self.pageParts(in: archive)
@@ -1286,6 +1450,12 @@ final class LayoutEditor {
             }
         }
         saveNotes = try addReportChanges(to: &changes, archive: archive)
+        changes.modelEdits = try modelDelta()
+        if diagramEdits != savedDiagramEdits, let source = diagramSource() {
+            let (moves, zoom) = diagramMoves()
+            changes.diagramLayout = try DiagramLayoutPatch.applying(tabs: diagramTabsForPatch(), selected: diagramSelected(), removals: diagramRemovals(), moves: moves, zoom: zoom,
+                                                                    to: source, lineageTag: diagramLineageTag)
+        }
         return changes
     }
 

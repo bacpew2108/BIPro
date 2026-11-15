@@ -157,9 +157,10 @@ public enum LeftMenuBuilder {
         onTop100: @escaping () -> Void,
         onDefineNewMeasure: @escaping () -> Void = {},
         onCollapseAll: @escaping () -> Void = {},
-        onExpandAll: @escaping () -> Void = {}
+        onExpandAll: @escaping () -> Void = {},
+        onNewMeasure: (() -> Void)? = nil
     ) -> [LeftMenuItem] {
-        [
+        (onNewMeasure.map { [LeftMenuItem.action("Measure mới", isEnabled: true, $0), .separator] } ?? []) + [
             .submenu("Truy vấn nhanh", [
                 .action("Hiện 100 dòng đầu", isEnabled: true, onTop100),
                 .separator,
@@ -182,9 +183,13 @@ public enum LeftMenuBuilder {
         onDefineAllMeasures: @escaping () -> Void = {},
         onCollapseAll: @escaping () -> Void = {},
         onExpandAll: @escaping () -> Void = {},
-        onCopyFormula: @escaping () -> Void
+        onCopyFormula: @escaping () -> Void,
+        onEdit: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil,
+        onToggleHidden: (() -> Void)? = nil,
+        hiddenTitle: String = "Ẩn trong chế độ báo cáo"
     ) -> [LeftMenuItem] {
-        [
+        (onEdit.map { [LeftMenuItem.action("Sửa công thức", isEnabled: true, $0), .separator] } ?? []) + [
             .submenu("Truy vấn nhanh", [
                 .action("Đánh giá", isEnabled: true, onEvaluate),
                 .action("Định nghĩa và đánh giá", isEnabled: true, onDefineAndEvaluate),
@@ -193,9 +198,9 @@ public enum LeftMenuBuilder {
                 .action("Định nghĩa measure mới", isEnabled: true, onDefineNewMeasure),
                 .action("Định nghĩa mọi measure trong mô hình", isEnabled: true, onDefineAllMeasures)
             ]),
-            .action("Đổi tên", isEnabled: false, {}),
-            .action("Xoá khỏi mô hình", isEnabled: false, {}),
-            .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
+            .action("Đổi tên", isEnabled: onEdit != nil, onEdit ?? {}),
+            .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
+            .action(hiddenTitle, isEnabled: onToggleHidden != nil, onToggleHidden ?? {}),
             .separator,
             .action("Hiện tất cả", isEnabled: false, {}),
             .separator,

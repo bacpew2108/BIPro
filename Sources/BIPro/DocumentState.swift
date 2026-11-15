@@ -108,10 +108,22 @@ final class DocumentState {
     // Table / model
     var table: String?
     var column: String?
+    /// Measure đang chọn ở Table/Model view (Phase E); `column` là nil khi chọn measure.
+    var measure: String?
+    /// Bản nháp công thức measure đang sửa ở thanh công thức (Phase E).
+    var measureDraft: MeasureDraft?
+    /// Đề xuất quan hệ mới đang chờ xác nhận (kéo cột thả lên cột ở Model view, Phase E).
+    var relationshipDraft: RelationshipDraft?
+    /// Thông báo gần nhất về việc tạo hoặc xoá quan hệ (lý do bị từ chối), nil khi không có.
+    var relationshipNotice: String?
     var relationship: String?
     var diagramName: String?
     var modelZoom: Double = 0.85
     var layoutRevision = 0
+    /// Tăng mỗi khi mô hình hiệu lực đổi (sửa, hoàn tác, làm lại); view và visual đọc nó để vẽ lại (Phase E).
+    private(set) var modelVersion = 0
+    /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
+    @ObservationIgnored private(set) var modelEditor: ModelEditor!
 
     // DAX query
     var daxQueries: [DAXQueryTab] = [DAXQueryTab(title: "Truy vấn 1", text: DAXQueryTab.starter)]
@@ -150,6 +162,26 @@ final class DocumentState {
         self.interaction.removedBookmarksProvider = { layout.structure.removedBookmarks }
         self.interaction.pageJSONProvider = { layout.structure.created[$0]?.pageJSON }
         wireReportEditing()
+        let runtime = workspace.runtime
+        layout.modelBase = runtime?.base
+        modelEditor = ModelEditor(layout: layout) { edits in
+            guard let runtime else { throw ModelEditError("File không có mô hình dữ liệu để sửa") }
+            try runtime.validate(edits)
+        }
+        layout.diagramSource = { [weak workspace] in
+            guard let archive = workspace?.pbix.archive, let entry = archive.entry("DiagramLayout") else { return nil }
+            return try? archive.read(entry)
+        }
+        layout.diagramSelected = { [weak self] in self?.currentDiagram }
+        layout.diagramFileNames = { [weak self] in self?.workspace.diagramLayout?.diagrams.map(\.name) ?? [] }
+        layout.diagramLineageTag = { [weak workspace] table in workspace?.userTables.first { $0.name == table }?.lineageTag }
+        layout.modelEditsChanged = { [weak self] edits in
+            do { try runtime?.setEdits(edits) } catch {
+                self?.layout.noteFieldRefusal("Không áp lại được thay đổi mô hình: \(error)")
+            }
+            self?.modelVersion += 1
+            self?.interaction.modelDidChange()
+        }
         pageID = workspace.activePageID.flatMap { id in workspace.report.pages.contains { $0.id == id } ? id : nil }
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
         layout.showPage(pageID)
@@ -258,6 +290,8 @@ final class DocumentState {
     func select(table: String, column: String? = nil) {
         self.table = table
         self.column = column
+        measure = nil
+        measureDraft = nil
         if mode == .table { ribbonTab = column == nil ? .tableTools : .columnTools }
     }
 

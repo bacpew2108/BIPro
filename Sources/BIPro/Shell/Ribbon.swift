@@ -83,9 +83,12 @@ private struct DataSourceCommands: View {
 }
 
 private struct CalculationCommands: View {
+    let state: DocumentState
     var body: some View {
         RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure, phase: "Phase E")
+            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+                if let table = state.table ?? state.workspace.userTables.first?.name { state.newMeasureInTableView(table: table) }
+            }
             RibbonButton(title: "Measure nhanh", symbol: "bolt", tint: DS.Palette.measure, phase: "Phase E")
         }
     }
@@ -114,7 +117,7 @@ private struct ReportHomeCommands: View {
         RibbonDivider()
         ArrangeCommands(state: state)
         RibbonDivider()
-        CalculationCommands()
+        CalculationCommands(state: state)
     }
 }
 
@@ -181,9 +184,11 @@ private struct ModelingCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure, phase: "Phase E")
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase E")
-            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", phase: "Phase E")
+            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+                if let table = state.table { state.beginNewMeasure(table: table) }
+            }
+            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase F")
+            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", phase: "Phase F")
         }
         RibbonDivider()
         RibbonGroup(title: "Bảo mật") {
@@ -295,8 +300,10 @@ private struct TableToolsCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure, phase: "Phase E")
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase E")
+            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+                if let table = state.table { state.beginNewMeasure(table: table) }
+            }
+            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase F")
             RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", phase: "Phase E")
         }
     }
@@ -339,8 +346,10 @@ private struct ColumnToolsCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure, phase: "Phase E")
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase E")
+            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+                if let table = state.table { state.beginNewMeasure(table: table) }
+            }
+            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase F")
         }
     }
 
@@ -401,7 +410,7 @@ private struct ModelViewCommands: View {
     @Bindable var state: DocumentState
     var body: some View {
         RibbonGroup(title: "Bố cục") {
-            RibbonButton(title: "Sắp xếp lại", symbol: "wand.and.stars") { state.layoutRevision += 1 }
+            RibbonButton(title: "Sắp xếp lại", symbol: "wand.and.stars") { state.resetDiagramPositions() }
             RibbonButton(title: "Vừa màn hình", symbol: "arrow.up.left.and.arrow.down.right") { state.modelZoom = 0.6 }
         }
         RibbonDivider()

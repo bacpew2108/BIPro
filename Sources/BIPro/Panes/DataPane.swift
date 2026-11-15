@@ -17,6 +17,7 @@ struct DataPane: View {
     @State private var expanded: Set<String> = ["model:root"]
 
     var body: some View {
+        let _ = state.modelVersion   // vẽ lại khi mô hình đổi (Phase E)
         VStack(spacing: 0) {
             headerView
             if purpose == .query {
@@ -203,7 +204,9 @@ struct DataPane: View {
                         openNewQueryTab(title: "Measure mới", text: QuickQueries.defineNewMeasure(tableName: table.name), run: false)
                     },
                     onCollapseAll: { collapseAll() },
-                    onExpandAll: { expandAll() }
+                    onExpandAll: { expandAll() },
+                    onNewMeasure: purpose != .query && state.modelEditingBlocker == nil
+                        ? { purpose == .table ? state.beginNewMeasure(table: table.name) : state.newMeasureInTableView(table: table.name) } : nil
                 )
             }
             if isOpen {
@@ -229,12 +232,14 @@ struct DataPane: View {
         case .measure(let m):
             return AnyView(TreeRow(level: level, symbol: "function", tint: DS.Palette.measure, title: m.name,
                                    isHidden: m.isHidden, checkbox: checkbox(table, m.name),
+                                   isSelected: purpose == .table && state.measure == m.name && state.table == table,
                                    help: m.expression.trimmingCharacters(in: .whitespacesAndNewlines),
                                    dragField: purpose == .report && !m.isHidden ? FieldRef(measure: m) : nil,
                                    onCheck: purpose == .report ? { toggleUsage(FieldRef(measure: m)) } : nil) {
                 if purpose == .query {
                     state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
                 }
+                if purpose == .table { state.selectMeasure(table: table, name: m.name) }
             }
             .leftContextMenu {
                 LeftMenuBuilder.measureMenuItems(
@@ -277,7 +282,13 @@ struct DataPane: View {
                     onCopyFormula: {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(m.expression, forType: .string)
-                    }
+                    },
+                    onEdit: purpose != .query && state.modelEditingBlocker == nil
+                        ? { purpose == .table ? state.selectMeasure(table: table, name: m.name) : state.editMeasureInTableView(table: table, name: m.name) } : nil,
+                    onDelete: purpose != .query && state.modelEditingBlocker == nil ? { state.deleteMeasure(table: table, name: m.name) } : nil,
+                    onToggleHidden: purpose != .query && state.modelEditingBlocker == nil
+                        ? { state.updateMeasure(table: table, name: m.name, patch: MeasurePatch(isHidden: !m.isHidden)) } : nil,
+                    hiddenTitle: m.isHidden ? "Hiện trong chế độ báo cáo" : "Ẩn trong chế độ báo cáo"
                 )
             })
         case .column(let c):

@@ -92,6 +92,7 @@ enum DocumentSaver {
             throw SaveError.verificationFailed("\(error)")
         }
         try verifyLayout(result.data, editor: editor)
+        try verifyModel(result.data, editor: editor)
 
         // 4. Ghi tạm, mở lại, sao lưu, thay.
         do {
@@ -109,6 +110,33 @@ enum DocumentSaver {
         // 5. Sau lưu.
         editor.markSaved()
         return SaveOutcome(didWrite: true, newStamp: try? FileStamp.of(destination))
+    }
+
+    /// Mô hình đọc lại từ bytes đã dựng phải bằng mô hình hiệu lực của `editor` (Phase E): measure, quan hệ, cột.
+    static func verifyModel(_ data: Data, editor: LayoutEditor) throws {
+        guard let base = editor.modelBase, !editor.modelEdits.isEmpty || !editor.savedModelEdits.isEmpty else { return }
+        let written: ModelMetadata
+        let expected: ModelMetadata
+        do {
+            let (abf, _) = try PBIXFile(data: data).loadDataModel()
+            written = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
+            expected = try base.applying(editor.modelEdits)
+        } catch {
+            throw SaveError.verificationFailed("không đọc lại được mô hình: \(error)")
+        }
+        func measures(_ m: ModelMetadata) -> [String] {
+            m.measures.map { "\($0.tableName)|\($0.name)|\($0.expression)|\($0.formatString ?? "-")|\($0.displayFolder ?? "-")|\($0.description ?? "-")|\($0.isHidden)|\($0.dataType.rawValue)" }.sorted()
+        }
+        guard measures(written) == measures(expected) else { throw SaveError.verificationFailed("measure đọc lại khác mô hình đang sửa") }
+        guard written.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) == expected.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) else {
+            throw SaveError.verificationFailed("bảng đọc lại khác mô hình đang sửa")
+        }
+        // Thứ tự dòng Relationship theo ID trong file, còn mô hình đang sửa thêm vào cuối: so sánh theo tập.
+        guard Set(written.relationships) == Set(expected.relationships), written.relationships.count == expected.relationships.count else {
+            throw SaveError.verificationFailed("quan hệ đọc lại khác mô hình đang sửa")
+        }
+        func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] { m.columns.filter { !$0.tableName.hasPrefix("R$") } }
+        guard userColumns(written) == userColumns(expected) else { throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa") }
     }
 
     /// Đọc lại bytes đã dựng: bố cục của mọi trang phải khớp với `editor` (cùng tập visual, cùng khung và `z`).

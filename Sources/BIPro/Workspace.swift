@@ -10,7 +10,10 @@ final class Workspace: @unchecked Sendable {
     let report: ReportDefinition
     let theme: ReportTheme
     let abf: ABFBackup?
-    let metadata: ModelMetadata?
+    /// Mô hình hiệu lực (gốc cộng `ModelEdits` của phiên); nil khi file không có mô hình.
+    var metadata: ModelMetadata? { runtime?.metadata }
+    /// Giữ mô hình hiệu lực và engine (Phase E). nil khi file không có mô hình đọc được.
+    let runtime: ModelRuntime?
     let modelError: String?
     let reportFilters: [ReportFilter]
     let pageFilters: [String: [ReportFilter]]
@@ -24,8 +27,6 @@ final class Workspace: @unchecked Sendable {
     private var tableCache: [String: [DecodedColumn]] = [:]
     private var imageCache: [String: NSImage] = [:]
     private var rowCountCache: [String: Int] = [:]
-    private lazy var tmdlCache: [TMDLWriter.Document] = metadata.map(TMDLWriter.documents(for:)) ?? []
-    private var engineCache: DAXEngine?
 
     init(data: Data) throws {
         pbix = try PBIXFile(data: data)
@@ -39,12 +40,12 @@ final class Workspace: @unchecked Sendable {
             do {
                 let (abf, _) = try pbix.loadDataModel()
                 let metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
-                (self.abf, self.metadata, modelError) = (abf, metadata, nil)
+                (self.abf, runtime, modelError) = (abf, ModelRuntime(metadata: metadata, abf: abf), nil)
             } catch {
-                (abf, metadata, modelError) = (nil, nil, String(describing: error))
+                (abf, runtime, modelError) = (nil, nil, String(describing: error))
             }
         } else {
-            (abf, metadata, modelError) = (nil, nil, "File không có data model nhúng (có thể là báo cáo live connection).")
+            (abf, runtime, modelError) = (nil, nil, "File không có data model nhúng (có thể là báo cáo live connection).")
         }
     }
 
@@ -92,28 +93,33 @@ final class Workspace: @unchecked Sendable {
         metadata?.columns.first { $0.tableName == table && $0.name == name }
     }
 
-    var tmdlDocuments: [TMDLWriter.Document] { lock.withLock { tmdlCache } }
+    var tmdlDocuments: [TMDLWriter.Document] { runtime?.tmdlDocuments ?? [] }
 
     /// Engine DAX của mô hình này, tạo lần đầu khi cần rồi dùng chung cho mọi tab truy vấn.
     /// Chỉ đọc lược đồ và metadata; cột được nạp lười khi truy vấn cần. Gọi ngoài main thread.
     func daxEngine() throws -> DAXEngine {
-        if let cached = lock.withLock({ engineCache }) { return cached }
-        guard let metadata, let abf else {
+        guard let runtime else {
             throw DAXError(.runtime, modelError ?? "File không có mô hình dữ liệu để chạy truy vấn")
         }
-        let store = ColumnStore(source: try PBIXColumnSource(abf: abf, metadata: metadata))
-        let engine = DAXEngine(store: store, catalog: Catalog(metadata: metadata))
-        return lock.withLock {
-            if let cached = engineCache { return cached }
-            engineCache = engine
-            return engine
+        return try runtime.engine()
+    }
+
+    /// Tên hiệu lực (sau khi đổi tên cột trong phiên) của các cột lưu trữ `baseNames` của bảng `table`, cùng thứ tự. Cột vẫn là cột
+    /// cũ (cùng ID); tên chưa đổi thì giữ nguyên.
+    func displayNames(table: String, baseNames: [String]) -> [String] {
+        guard let runtime else { return baseNames }
+        let base = runtime.base.columns, effective = runtime.metadata.columns
+        let byID = Dictionary(effective.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        return baseNames.map { name in
+            guard let id = base.first(where: { $0.tableName == table && $0.name == name })?.id else { return name }
+            return byID[id] ?? name
         }
     }
 
     /// Row count from segment metadata only (no column decoding).
     func rowCount(_ table: String) -> Int {
         if let cached = lock.withLock({ rowCountCache[table] }) { return cached }
-        guard let metadata, let abf, let storage = metadata.storage(table: table).first else { return 0 }
+        guard let metadata = runtime?.base, let abf, let storage = metadata.storage(table: table).first else { return 0 }
         let count = (try? VertiPaq.rowCount(storage, abf: abf)) ?? 0
         lock.withLock { rowCountCache[table] = count }
         return count
@@ -124,7 +130,7 @@ final class Workspace: @unchecked Sendable {
     /// Decodes a table (cached). Columns follow the model's column order.
     func table(_ name: String) throws -> [DecodedColumn] {
         if let cached = lock.withLock({ tableCache[name] }) { return cached }
-        guard let metadata, let abf else { throw CocoaError(.fileReadUnknown) }
+        guard let metadata = runtime?.base, let abf else { throw CocoaError(.fileReadUnknown) }
         let decoded = try VertiPaq.decodeTable(name, metadata: metadata, abf: abf)
         let order = metadata.columns.filter { $0.tableName == name }.map(\.name)
         let sorted = decoded.sorted { (order.firstIndex(of: $0.name) ?? .max) < (order.firstIndex(of: $1.name) ?? .max) }

@@ -1,4 +1,5 @@
 import AppKit
+import DAXEngine
 import PBIXKit
 import SwiftUI
 
@@ -6,6 +7,7 @@ struct TableWorkspace: View {
     @Bindable var state: DocumentState
 
     var body: some View {
+        let _ = state.modelVersion   // vẽ lại khi mô hình đổi (Phase E)
         VStack(spacing: 0) {
             FormulaBar(state: state)
             HStack(spacing: 0) {
@@ -16,7 +18,11 @@ struct TableWorkspace: View {
                 }
                 VStack(spacing: 0) {
                     DataPane(state: state, purpose: .table)
-                    ColumnMetadataPanel(state: state)
+                    if let table = state.table, let name = state.measure, let measure = state.workspace.measure(table: table, name: name) {
+                        MeasurePropertiesPanel(state: state, measure: measure).id("\(table)/\(name)/\(state.modelVersion)")
+                    } else {
+                        ColumnMetadataPanel(state: state)
+                    }
                 }
                 .frame(width: 270)
                 .hairline(.leading)
@@ -36,13 +42,21 @@ struct TableWorkspace: View {
     }
 }
 
-/// `fx` bar: the DAX expression of the selected calculated column, or its definition.
+/// `fx` bar: the DAX expression of the selected calculated column, or — Phase E — the editable formula of a measure.
 struct FormulaBar: View {
     let state: DocumentState
 
     var body: some View {
+        if let draft = state.measureDraft {
+            MeasureFormulaBar(state: state, draft: draft)
+        } else {
+            columnBar
+        }
+    }
+
+    private var columnBar: some View {
         let column = state.table.flatMap { t in state.column.flatMap { state.workspace.column(table: t, name: $0) } }
-        HStack(spacing: 8) {
+        return HStack(spacing: 8) {
             Text("fx").font(.system(size: 12, weight: .semibold, design: .serif)).italic()
                 .foregroundStyle(DS.Palette.accent)
                 .frame(width: 26, height: 22)
@@ -63,7 +77,7 @@ struct FormulaBar: View {
         .padding(.horizontal, 10)
         .frame(height: 36)
         .hairline(.bottom)
-        .help(column?.kind == .calculated ? "Sửa công thức: Phase E" : "Cột dữ liệu nạp từ nguồn")
+        .help(column?.kind == .calculated ? "Cột tính toán: chỉ xem (tạo và sửa cột tính toán thuộc Phase F)" : "Cột dữ liệu nạp từ nguồn")
     }
 
     private func formula(_ column: ModelMetadata.Column?) -> String {
@@ -75,6 +89,85 @@ struct FormulaBar: View {
     }
 }
 
+/// Thanh công thức sửa được của measure (Phase E): `Tên = biểu thức`, ✓ áp dụng (⌘↩), ✗ bỏ phần sửa.
+struct MeasureFormulaBar: View {
+    let state: DocumentState
+    @Bindable var draft: MeasureDraft
+    @State private var completionModel: CompletionModel?
+
+    var body: some View {
+        let blocker = state.modelEditingBlocker
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                Text("fx").font(.system(size: 12, weight: .semibold, design: .serif)).italic()
+                    .foregroundStyle(DS.Palette.accent)
+                    .frame(width: 26, height: 22)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(DS.Palette.selectionSoft))
+                Button { state.cancelMeasureDraft() } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(canCancel ? DS.Palette.label : DS.Palette.tertiaryLabel)
+                    .frame(height: 22)
+                    .help("Bỏ phần đang sửa")
+                Button { Task { await state.applyMeasureDraft() } } label: { Image(systemName: "checkmark") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(blocker == nil && !draft.isApplying ? DS.Palette.accent : DS.Palette.tertiaryLabel)
+                    .frame(height: 22)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(blocker != nil || draft.isApplying)
+                    .help(blocker ?? "Áp dụng công thức (⌘↩)")
+                CodeEditor(text: $draft.text, language: .dax, isEditable: blocker == nil, completionModel: completionModel)
+                    .frame(height: 60)
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
+            }
+            if let line = statusLine {
+                HStack(spacing: 6) {
+                    Image(systemName: statusSymbol).foregroundStyle(draft.message == nil ? DS.Palette.secondaryLabel : Color.red)
+                    Text(line).font(DS.Typeface.bodySmall)
+                        .foregroundStyle(draft.message == nil ? DS.Palette.secondaryLabel : Color.red)
+                        .lineLimit(2)
+                    Spacer()
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .hairline(.bottom)
+        .task(id: state.modelVersion) { completionModel = makeCompletionModel() }
+    }
+
+    private var canCancel: Bool {
+        if case .new = draft.mode { return true }
+        return draft.isChanged
+    }
+
+    private var statusLine: String? {
+        if let message = draft.message { return message }
+        if draft.isApplying { return "Đang kiểm biểu thức…" }
+        if let blocker = state.modelEditingBlocker { return blocker }
+        if let preview = draft.preview { return "Đã áp dụng. Giá trị: \(preview)" }
+        if case .new = draft.mode { return "Gõ biểu thức rồi bấm ✓ (⌘↩) để thêm vào mô hình." }
+        return nil
+    }
+
+    private var statusSymbol: String {
+        draft.message != nil ? "exclamationmark.triangle.fill" : (draft.isApplying ? "hourglass" : "info.circle")
+    }
+
+    private func makeCompletionModel() -> CompletionModel? {
+        guard let meta = state.workspace.metadata else { return nil }
+        let tables = meta.userTables.map(\.name)
+        var columnsByTable: [String: [String]] = [:]
+        var measuresByTable: [String: [ModelMetadata.Measure]] = [:]
+        for t in tables {
+            columnsByTable[t] = state.workspace.columns(of: t).map(\.name)
+            measuresByTable[t] = state.workspace.measures(of: t)
+        }
+        return CompletionModel(functions: Array(Set(FunctionRegistry.all.map(\.name) + DAXCompletion.queryForms)).sorted(),
+                               tables: tables, columnsByTable: columnsByTable, measuresByTable: measuresByTable)
+    }
+}
+
 struct TableGridView: View {
     let state: DocumentState
     let table: String
@@ -82,6 +175,9 @@ struct TableGridView: View {
     @State private var columns: [DecodedColumn]?
     @State private var error: String?
     @State private var elapsed: Duration?
+    /// Lọc lưới theo cột đang chọn (chỉ để xem, không đụng mô hình).
+    @State private var filterText = ""
+    @State private var visibleRows: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,6 +186,15 @@ struct TableGridView: View {
                 Text(table).font(DS.Typeface.headlineSmall)
                 Text("\(state.workspace.rowCount(table).formatted()) dòng").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                 Spacer()
+                if columns != nil {
+                    if let visibleRows, !filterText.isEmpty {
+                        Text("\(visibleRows.formatted()) dòng khớp").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
+                    }
+                    TextField(state.column.map { "Lọc cột \($0)…" } ?? "Chọn cột để lọc", text: $filterText)
+                        .textFieldStyle(.roundedBorder).font(DS.Typeface.bodySmall).frame(width: 190)
+                        .disabled(state.column == nil)
+                        .help("Lọc và sắp xếp lưới chỉ để xem, không đổi mô hình và không cần lưu")
+                }
                 if let elapsed {
                     Text("giải mã \(elapsed.formatted(.units(allowed: [.seconds, .milliseconds], width: .narrow)))")
                         .font(DS.Typeface.label).foregroundStyle(DS.Palette.tertiaryLabel)
@@ -100,14 +205,18 @@ struct TableGridView: View {
             .hairline(.bottom)
 
             if let columns {
-                DataGrid(columns: columns, metadata: state.workspace.metadata, table: table,
-                         selectedColumn: state.column) { name in state.select(table: table, column: name) }
+                let titles = state.workspace.displayNames(table: table, baseNames: columns.map(\.name))
+                DataGrid(columns: columns, titles: titles, metadata: state.workspace.metadata, table: table,
+                         selectedColumn: state.column, filterText: filterText,
+                         onRowsChanged: { visibleRows = $0 }) { name in state.select(table: table, column: name) }
+                    .id(titles)   // đổi tên cột thì dựng lại lưới (giữ nguyên dữ liệu đã giải mã)
             } else if let error {
                 ContentUnavailableView("Không giải mã được bảng", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
                 ProgressView("Đang giải mã \(table)…").frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .onChange(of: state.column) { _, _ in filterText = "" }   // bộ lọc thuộc về một cột: đổi cột thì xoá
         .task {
             let start = ContinuousClock.now
             let workspace = state.workspace, table = table
@@ -128,12 +237,16 @@ struct TableGridView: View {
 /// NSTableView grid: SwiftUI's Table is too slow for a million rows.
 struct DataGrid: NSViewRepresentable {
     let columns: [DecodedColumn]
+    /// Tên hiển thị của từng cột (tên hiệu lực trong mô hình, có thể đã đổi tên so với tên lưu trữ), cùng thứ tự `columns`.
+    let titles: [String]
     let metadata: ModelMetadata?
     let table: String
     var selectedColumn: String?
+    var filterText = ""
+    var onRowsChanged: (Int?) -> Void = { _ in }
     var onSelectColumn: (String) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(columns: columns, onSelect: onSelectColumn) }
+    func makeCoordinator() -> Coordinator { Coordinator(columns: columns, titles: titles, onSelect: onSelectColumn, onRowsChanged: onRowsChanged) }
 
     func makeNSView(context: Context) -> NSScrollView {
         let tableView = NSTableView()
@@ -154,9 +267,10 @@ struct DataGrid: NSViewRepresentable {
         tableView.addTableColumn(rowNumber)
 
         for (index, column) in columns.enumerated() {
-            let info = metadata?.columns.first { $0.tableName == table && $0.name == column.name }
+            let info = metadata?.columns.first { $0.tableName == table && $0.name == titles[index] }
             let tableColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(String(index)))
-            tableColumn.title = column.name
+            tableColumn.title = titles[index]
+            tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: String(index), ascending: true)
             let minimum: CGFloat = column.dataType == .dateTime ? 165 : 96
             tableColumn.width = max(minimum, min(260, CGFloat(column.name.count) * 8 + 32))
             tableColumn.headerToolTip = "\(column.name) · \(dataTypeName(column.dataType))" + (info?.kind == .calculated ? " · cột tính toán" : "")
@@ -181,6 +295,7 @@ struct DataGrid: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.highlight(selectedColumn)
+        context.coordinator.setFilter(text: filterText, columnTitle: selectedColumn)
     }
 
     private static func cell(alignment: NSTextAlignment, color: NSColor) -> NSTextFieldCell {
@@ -194,32 +309,74 @@ struct DataGrid: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
         let columns: [DecodedColumn]
+        let titles: [String]
         let onSelect: (String) -> Void
+        let onRowsChanged: (Int?) -> Void
         weak var tableView: NSTableView?
+        /// Dòng gốc theo thứ tự hiển thị khi đang sắp xếp hoặc lọc; nil = nguyên bảng.
+        private var rows: [Int]?
+        private var sort: GridRows.Sort?
+        private var filter: GridRows.Filter?
+        private var generation = 0
 
-        init(columns: [DecodedColumn], onSelect: @escaping (String) -> Void) {
+        init(columns: [DecodedColumn], titles: [String], onSelect: @escaping (String) -> Void, onRowsChanged: @escaping (Int?) -> Void) {
             self.columns = columns
+            self.titles = titles
             self.onSelect = onSelect
+            self.onRowsChanged = onRowsChanged
         }
 
-        func numberOfRows(in tableView: NSTableView) -> Int { columns.first?.count ?? 0 }
+        func numberOfRows(in tableView: NSTableView) -> Int { rows?.count ?? columns.first?.count ?? 0 }
 
         func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
             guard let identifier = tableColumn?.identifier.rawValue else { return nil }
-            if identifier == "#" { return String(row + 1) }
+            let source = rows.map { $0[row] } ?? row
+            if identifier == "#" { return String(source + 1) }
             guard let index = Int(identifier) else { return nil }
-            let value = columns[index][row]
+            let value = columns[index][source]
             return value == .null ? "" : value.description
         }
 
         func tableView(_ tableView: NSTableView, didClick tableColumn: NSTableColumn) {
             guard let index = Int(tableColumn.identifier.rawValue) else { return }
-            onSelect(columns[index].name)
+            onSelect(titles[index])
+        }
+
+        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            if let first = tableView.sortDescriptors.first, let key = first.key, let index = Int(key) {
+                sort = GridRows.Sort(column: index, ascending: first.ascending)
+            } else {
+                sort = nil
+            }
+            refresh()
+        }
+
+        func setFilter(text: String, columnTitle: String?) {
+            let index = columnTitle.flatMap { titles.firstIndex(of: $0) }
+            let new = index.map { GridRows.Filter(column: $0, text: text) }
+            guard new != filter else { return }
+            filter = new
+            refresh()
+        }
+
+        /// Tính lại tập và thứ tự dòng ngoài luồng chính (bảng một triệu dòng); kết quả cũ bị bỏ nếu có yêu cầu mới hơn.
+        private func refresh() {
+            generation += 1
+            let ticket = generation, columns = columns, sort = sort, filter = filter
+            Task.detached(priority: .userInitiated) { [weak self] in
+                let result = GridRows.compute(columns: columns, sort: sort, filter: filter)
+                await MainActor.run {
+                    guard let self, ticket == self.generation else { return }
+                    self.rows = result
+                    self.tableView?.reloadData()
+                    self.onRowsChanged(result?.count)
+                }
+            }
         }
 
         func highlight(_ name: String?) {
             guard let tableView else { return }
-            let column = name.flatMap { n in columns.firstIndex { $0.name == n } }
+            let column = name.flatMap { n in titles.firstIndex { $0 == n } }
                 .flatMap { tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(String($0))) }
             if tableView.highlightedTableColumn !== column { tableView.highlightedTableColumn = column }
         }
@@ -231,6 +388,7 @@ struct ColumnMetadataPanel: View {
     let state: DocumentState
 
     var body: some View {
+        let _ = state.modelVersion
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text("THÔNG TIN CỘT").font(DS.Typeface.labelSmall).tracking(0.5).foregroundStyle(DS.Palette.tertiaryLabel)
@@ -248,6 +406,9 @@ struct ColumnMetadataPanel: View {
                 PropertyRow(label: "Tóm tắt", value: summarizeName(column))
                 if let format = column.formatString { PropertyRow(label: "Định dạng", value: format, mono: true) }
                 if column.isHidden { PropertyRow(label: "Hiển thị", value: "Ẩn trong báo cáo") }
+                Divider().padding(.vertical, 4)
+                ColumnPropertiesEditor(state: state, column: column)
+                    .id("\(table)/\(name)/\(state.modelVersion)")
             } else {
                 Text("Chọn một cột (bấm tiêu đề cột hoặc chọn trong Data pane).")
                     .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)

@@ -81,7 +81,7 @@ struct EditCommands: Commands {
     @MainActor private func perform(text selector: Selector, layout: (DocumentState) -> Void) {
         if NSApp.keyWindow?.firstResponder is NSText {
             NSApp.sendAction(selector, to: nil, from: nil)
-        } else if let state, state.mode == .report {
+        } else if let state {
             layout(state)
         }
     }

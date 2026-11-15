@@ -26,12 +26,12 @@ struct LiveVisualView: View {
     @State private var hover: MenuTarget?
 
     private struct MenuTarget: Equatable { var point: DataPointID?; var location: CGPoint }
-    private struct LoadKey: Hashable { var visualType: String; var query: JSONValue?; var state: FilterState; var depth: Int; var expansion: [Value]; var matrixExpansion: [[Value]]; var userFilters: [UserFilterKey: UserFilter]; var removed: Set<UserFilterKey> }
+    private struct LoadKey: Hashable { var visualType: String; var query: JSONValue?; var state: FilterState; var depth: Int; var expansion: [Value]; var matrixExpansion: [[Value]]; var userFilters: [UserFilterKey: UserFilter]; var removed: Set<UserFilterKey>; var modelVersion: Int }
 
     var body: some View {
         let state = interaction.state(for: page)
         let key = LoadKey(visualType: visual.type, query: visual.raw["visual"]?["query"], state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.effectiveUserFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
-                         removed: interaction.effectiveRemovedFilters.filter { ["", page.id, visual.id].contains($0.scope) })
+                         removed: interaction.effectiveRemovedFilters.filter { ["", page.id, visual.id].contains($0.scope) }, modelVersion: interaction.modelVersion)
         ZStack {
             content(state: state)
         }

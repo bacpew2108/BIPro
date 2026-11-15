@@ -31,6 +31,16 @@ final class ReportInteraction {
     var visiblePages: [ReportPage] { pages.filter { !$0.isHidden } }
     /// Trạng thái lọc theo trang (khoá = id trang).
     var states: [String: FilterState] = [:]
+    /// Phiên bản mô hình hiệu lực (Phase E): đổi thì mọi visual nạp lại vì measure, quan hệ hoặc cột có thể đã đổi.
+    var modelVersion = 0
+
+    /// Mô hình hiệu lực đổi (Phase E): bỏ bộ đọc spec và bộ nạp đã dựng trên mô hình cũ (kèm bộ nhớ đệm kết quả) và báo visual nạp lại.
+    func modelDidChange() {
+        servicesTask?.cancel()
+        servicesTask = nil
+        servicesGeneration += 1
+        modelVersion += 1
+    }
 
     /// Cấp drill hiện tại của từng visual (0 = cấp gốc), khoá = id visual.
     var drillDepth: [String: Int] = [:]
@@ -62,6 +72,8 @@ final class ReportInteraction {
     var effectiveRemovedFilters: Set<UserFilterKey> { ReportEdits.effectiveRemovals(edits: documentEdits, session: removedFilters) }
 
     @ObservationIgnored private var servicesTask: Task<(VisualQuerySpecReader, VisualDataLoader), Error>?
+    /// Tăng khi mô hình đổi: kết quả dựng bộ nạp của phiên bản cũ bị bỏ và dựng lại.
+    @ObservationIgnored private var servicesGeneration = 0
     @ObservationIgnored private var topoMap: TopoMap?
 
     init(workspace: Workspace) {
@@ -466,7 +478,13 @@ final class ReportInteraction {
 
     /// Bộ đọc spec và bộ nạp dữ liệu, dựng một lần ngoài main thread (nạp lược đồ, tạo engine) rồi dùng chung.
     private func services() async throws -> (VisualQuerySpecReader, VisualDataLoader) {
-        if let servicesTask { return try await servicesTask.value }
+        if let servicesTask {
+            let generation = servicesGeneration
+            let result = try await servicesTask.value
+            if generation == servicesGeneration { return result }
+            return try await services()
+        }
+        let generation = servicesGeneration
         let workspace = workspace
         let task = Task.detached { () throws -> (VisualQuerySpecReader, VisualDataLoader) in
             guard let metadata = workspace.metadata else {
@@ -475,7 +493,9 @@ final class ReportInteraction {
             return (VisualQuerySpecReader(metadata: metadata), VisualDataLoader(engine: try workspace.daxEngine()))
         }
         servicesTask = task
-        return try await task.value
+        let result = try await task.value
+        if generation != servicesGeneration { return try await services() }
+        return result
     }
 }
 
