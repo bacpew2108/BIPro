@@ -75,7 +75,7 @@ struct QueryEditorFlowTests {
         #expect(state.queryEditorBlocker == nil)
     }
 
-    /// Lưu rồi mở lại: truy vấn M đọc lại từ file (bước khoá), sửa tiếp và Apply lần hai thay bảng trong phiên; lưu thay bảng đã có trong file chưa cài nên bị từ chối.
+    /// Lưu rồi mở lại: truy vấn M đọc lại từ file (bước khoá), sửa tiếp và Apply lần hai thay bảng; lưu rồi mở lại 20 dòng; tắt Enable load xoá bảng khỏi file.
     @Test func luuMoLaiSuaTiepApDungLanHai() async throws {
         let dir = try EFixtures.outputDirectory("F-queryeditor")
         let source = dir.appendingPathComponent("Nhom6_f_qe.pbix")
@@ -112,11 +112,57 @@ struct QueryEditorFlowTests {
         second.applyQueryEditor()
         try await waitUntilClosed(second)
         #expect(second.workspace.rowCount(name) == 20)
-        // Ghi lại dữ liệu thay thế cho bảng đã có trong file chưa cài (T063b): lưu bị từ chối, file giữ nguyên 100 dòng.
-        #expect(throws: (any Error).self) {
-            try DocumentSaver.save(editor: second.layout, source: source, to: source, expectedStamp: nil,
-                                   readOnlyRoots: [], backupDirectory: backups)
-        }
-        #expect(try open().workspace.rowCount(name) == 100)
+        // Thay dữ liệu bảng đã có trong file (T063b): lưu được, mở lại đúng 20 dòng, truy vấn M mới, mô hình còn nguyên.
+        #expect(try DocumentSaver.save(editor: second.layout, source: source, to: source, expectedStamp: nil,
+                                       readOnlyRoots: [], backupDirectory: backups).didWrite)
+        let third = try open()
+        #expect(third.workspace.rowCount(name) == 20)
+        #expect(third.workspace.metadata?.partitionQueries[name]?.contains("Table.FirstN(#\"Kept First Rows\",20)") == true
+                || third.workspace.metadata?.partitionQueries[name]?.contains("20") == true)
+        #expect(third.workspace.userTables.count == second.workspace.userTables.count)
+        #expect(third.workspace.metadata?.columns.filter { $0.tableName == name && $0.kind == .data }.map(\.name)
+                == second.workspace.metadata?.columns.filter { $0.tableName == name && $0.kind == .data }.map(\.name))
+        // Xoá bảng (tắt Enable load) rồi lưu: bảng biến mất khỏi file.
+        third.showQueryEditor()
+        let editor3 = try #require(third.queryEditorState)
+        let query3 = try #require(editor3.queries.first { $0.loadedTableName == name })
+        editor3.setEnableLoad(query3.id, false)
+        third.applyQueryEditor()
+        try await waitUntilClosed(third)
+        #expect(!third.workspace.userTables.contains { $0.name == name })
+        #expect(try DocumentSaver.save(editor: third.layout, source: source, to: source, expectedStamp: nil,
+                                       readOnlyRoots: [], backupDirectory: backups).didWrite)
+        #expect(try !open().workspace.userTables.contains { $0.name == name })
+        #expect(try open().workspace.userTables.count == first.workspace.userTables.count - 1)
+    }
+
+    /// Bảng của Nhom6 đang tham gia quan hệ: Apply trong phiên được (quan hệ giữ), nhưng lưu bị từ chối rõ ràng và file giữ nguyên byte.
+    @Test func bangCoQuanHeApDungDuocNhungLuuBiTuChoi() async throws {
+        let dir = try EFixtures.outputDirectory("F-queryeditor")
+        let source = dir.appendingPathComponent("Nhom6_f_qe_rel.pbix")
+        try? FileManager.default.removeItem(at: source)
+        try FileManager.default.copyItem(at: try #require(EFixtures.nhom6), to: source)
+        defer { try? FileManager.default.removeItem(at: source); try? FileManager.default.removeItem(at: dir.appendingPathComponent("Backups")) }
+        let original = try Data(contentsOf: source)
+        let state = DocumentState(workspace: try Workspace(data: original), fileName: source.lastPathComponent, fileURL: source)
+        let relationship = try #require(state.workspace.metadata?.relationships.first)
+        let name = relationship.toTable
+        state.showQueryEditor()
+        let editor = try #require(state.queryEditorState)
+        let query = try #require(editor.queries.first { $0.loadedTableName == name })
+        editor.selectQuery(query.id)
+        #expect(editor.perform(.keepTopRows(3)) == .applied)
+        state.applyQueryEditor()
+        try await waitUntilClosed(state)
+        #expect(editor.applyMessage == nil)
+        #expect(state.workspace.rowCount(name) == 3)
+        #expect(state.workspace.metadata?.relationships.contains(relationship) == true)
+        var message = ""
+        do {
+            _ = try DocumentSaver.save(editor: state.layout, source: source, to: source, expectedStamp: nil,
+                                       readOnlyRoots: [], backupDirectory: dir.appendingPathComponent("Backups"))
+        } catch { message = "\(error)" }
+        #expect(message.contains("quan hệ"))
+        #expect(try Data(contentsOf: source) == original)
     }
 }

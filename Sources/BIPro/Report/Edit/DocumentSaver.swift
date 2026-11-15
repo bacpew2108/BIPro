@@ -117,8 +117,11 @@ enum DocumentSaver {
     /// Bảng nạp từ Get Data (T3): đọc lại từng ô từ file đã dựng, phải bằng `TableData` trong bộ nhớ (FR-050, FR-051). Sai một ô là từ chối lưu.
     static func verifyTables(_ data: Data, editor: LayoutEditor) throws {
         let tables: [NewTable] = editor.modelEdits.collapsingTableEdits().items.compactMap {
-            if case .addTable(let table) = $0, table.enableLoad, table.attachment is TableData { return table }
-            return nil
+            switch $0 {
+            case .addTable(let table), .replaceTable(_, let table):
+                return table.enableLoad && table.attachment is TableData ? table : nil
+            default: return nil
+            }
         }
         guard !tables.isEmpty else { return }
         let abf: ABFBackup, metadata: ModelMetadata
@@ -180,7 +183,10 @@ enum DocumentSaver {
             throw SaveError.verificationFailed("quan hệ đọc lại khác mô hình đang sửa")
         }
         // Bảng mới (T3): ID do bộ ghi cấp, thêm cột RowNumber và bảng `H$`, nên so theo tên, kiểu, ẩn, cách tổng hợp; ô thì `verifyTables` so.
-        let newNames = Set(expected.tables.map(\.name)).subtracting(base.tables.map(\.name))
+        // Bảng thay dữ liệu (T063b) cũng vậy: cột mới được cấp ID mới, cột cũ giữ ID và thuộc tính (so theo tên, kiểu, ẩn, tổng hợp).
+        var replacedNames = Set<String>()
+        for case .replaceTable(_, let table) in editor.modelEdits.items { replacedNames.insert(table.name) }
+        let newNames = Set(expected.tables.map(\.name)).subtracting(base.tables.map(\.name)).union(replacedNames)
         func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
             m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newNames.contains($0.tableName) }
         }

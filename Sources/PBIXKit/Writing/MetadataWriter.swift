@@ -26,6 +26,8 @@ public struct MetadataWriter {
     public private(set) var addedFiles: [ABFPayload] = []
     /// Đường dẫn tệp ABF mà các thao tác đã áp muốn xoá (chỉ mục của quan hệ bị xoá).
     public private(set) var removedFiles: [String] = []
+    /// Tệp ABF đã có mà thao tác thay bảng ghi lại cùng đường dẫn (nội dung mới): `PBIXWriter` đưa vào `replacing`.
+    public private(set) var replacedFiles: [ABFPayload] = []
 
     private var database: MetadataDatabase
 
@@ -126,6 +128,19 @@ public struct MetadataWriter {
     /// Adds a loaded table (T3): VertiPaq files for every column, `H$` system tables and the metadata rows. Every column needs
     /// `values`. A table with "Enable load" off adds nothing. Files go to `addedFiles`.
     public mutating func addTable(_ table: NewTable) throws {
+        try addTable(table, reusing: nil)
+    }
+
+    /// ID của bảng cũ dùng lại khi thay bảng: giữ ID bảng, phân vùng, cột RowNumber và cột cùng tên (quan hệ, measure, annotation
+    /// trỏ vào ID nên không đứt).
+    struct ReusedIDs {
+        var tableID: Int
+        var partitionID: Int
+        var rowNumberID: Int?
+        var columnIDs: [String: Int]
+    }
+
+    private mutating func addTable(_ table: NewTable, reusing old: ReusedIDs?) throws {
         guard table.enableLoad else { return }
         var columns: [(name: String, values: VertiPaqWriter.Values)] = []
         for column in table.columns {
@@ -136,15 +151,185 @@ public struct MetadataWriter {
         }
         var writer = try TableMetadataWriter(sqlite: try database.serialize())
         let base = writer.maxID
-        let encoded = try VertiPaqWriter.encodeTable(name: table.name, tableID: base + 1, partitionID: base + 2, rowNumberID: base + 3,
-                                                     columns: columns.enumerated().map { .init(id: base + 4 + $0.offset, name: $0.element.name, values: $0.element.values) })
-        try writer.addTable(encoded, queryExpression: table.queryExpression, lineageTag: table.lineageTag)
+        var fresh = base + 4
+        let ids = columns.map { column -> Int in
+            if let id = old?.columnIDs[column.name] { return id }
+            defer { fresh += 1 }
+            return fresh
+        }
+        let encoded = try VertiPaqWriter.encodeTable(name: table.name, tableID: old?.tableID ?? base + 1, partitionID: old?.partitionID ?? base + 2,
+                                                     rowNumberID: old?.rowNumberID ?? base + 3,
+                                                     columns: columns.enumerated().map { .init(id: ids[$0.offset], name: $0.element.name, values: $0.element.values) })
+        try writer.addTable(encoded, queryExpression: table.queryExpression, lineageTag: table.lineageTag, reusingIDs: old != nil)
         database = try MetadataDatabase(bytes: try writer.serialize())
         addedFiles += (encoded.files + writer.systemFiles).map { ABFPayload(path: $0.path, data: $0.data) }
         try transaction { db, now in
             try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
             try Self.bumpProperties(db, now)
         }
+    }
+
+    // MARK: Thay và xoá bảng đã có trong file (Phase F, T063b)
+
+    /// Xoá bảng người dùng khỏi file: dòng siêu dữ liệu, bảng hệ thống `H$` của cột và tệp ABF. Chỉ làm được khi bảng không dính quan hệ
+    /// (chỉ mục quan hệ `R$` phải dựng lại theo dữ liệu mới, chưa cài), không có phân cấp, cột tính toán hay measure (xoá).
+    public mutating func dropTable(_ name: String) throws {
+        let snapshot = try database.serialize()
+        let (addedBefore, removedBefore) = (addedFiles, removedFiles)
+        do {
+            var removed: [String] = []
+            try transaction { db, now in
+                let id = try db.userTableID(named: name)
+                try Self.requireReplaceable(db, tableID: id, name: name, action: "xoá")
+                if (try db.int("SELECT COUNT(*) FROM Measure WHERE TableID = ?", [.int(Int64(id))]) ?? 0) > 0 {
+                    throw WriteError.invalid("Không thể xoá bảng «\(name)»: còn chứa measure")
+                }
+                try Self.deleteAnnotations(db, tableID: id, keeping: [])
+                removed = try Self.removeUserTable(db, tableID: Int64(id))
+                try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+                try Self.bumpProperties(db, now)
+            }
+            removedFiles += removed
+        } catch {
+            database = try MetadataDatabase(bytes: snapshot)
+            (addedFiles, removedFiles) = (addedBefore, removedBefore)
+            throw error
+        }
+    }
+
+    /// Thay dữ liệu và truy vấn của bảng đã có, giữ ID bảng, phân vùng, cột cùng tên và thuộc tính của chúng (ẩn, định dạng, thư mục
+    /// hiển thị…), measure của bảng. Cùng điều kiện với `dropTable` (trừ measure). Lỗi thì cơ sở dữ liệu và danh sách tệp như trước.
+    public mutating func replaceTable(_ name: String, with table: NewTable) throws {
+        guard table.enableLoad else { return try dropTable(name) }
+        let snapshot = try database.serialize()
+        let (addedBefore, removedBefore, replacedBefore) = (addedFiles, removedFiles, replacedFiles)
+        do {
+            var reused = ReusedIDs(tableID: 0, partitionID: 0, rowNumberID: nil, columnIDs: [:])
+            var removed: [String] = []
+            var oldColumns: [OldColumn] = []
+            var tableProperties: (hidden: Int64, description: String?, category: String?, lineage: String?) = (0, nil, nil, nil)
+            try transaction { db, now in
+                let id = try db.userTableID(named: name)
+                try Self.requireReplaceable(db, tableID: id, name: name, action: "thay dữ liệu")
+                let partitions = try db.strings("SELECT ID FROM Partition WHERE TableID = ?", [.int(Int64(id))])
+                guard partitions.count == 1, let partitionID = Int(partitions[0]) else {
+                    throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)»: bảng có nhiều phân vùng")
+                }
+                reused = ReusedIDs(tableID: id, partitionID: partitionID,
+                                   rowNumberID: try db.strings("SELECT ID FROM [Column] WHERE TableID = ? AND Type = 3", [.int(Int64(id))]).first.flatMap(Int.init),
+                                   columnIDs: [:])
+                for column in table.columns where reused.columnIDs[column.name] == nil {
+                    let ids = try db.strings("""
+                        SELECT ID FROM [Column] WHERE TableID = ? AND Type = 1 AND COALESCE(ExplicitName, InferredName) = ?
+                        """, [.int(Int64(id)), .text(column.name)])
+                    if ids.count == 1, let columnID = Int(ids[0]) { reused.columnIDs[column.name] = columnID }
+                }
+                tableProperties = (try db.int("SELECT IsHidden FROM [Table] WHERE ID = ?", [.int(Int64(id))]) ?? 0,
+                                   try db.strings("SELECT Description FROM [Table] WHERE ID = ?", [.int(Int64(id))]).first,
+                                   try db.strings("SELECT DataCategory FROM [Table] WHERE ID = ?", [.int(Int64(id))]).first,
+                                   try db.strings("SELECT LineageTag FROM [Table] WHERE ID = ?", [.int(Int64(id))]).first)
+                oldColumns = try Self.captureColumns(db, tableID: id)
+                try Self.deleteAnnotations(db, tableID: id, keeping: Set(reused.columnIDs.values))
+                removed = try Self.removeUserTable(db, tableID: Int64(id))
+            }
+            let added = addedFiles.count
+            try addTable(table, reusing: reused)
+            try transaction { db, now in
+                try Self.restoreProperties(db, tableID: reused.tableID, old: oldColumns, table: tableProperties, now: now)
+            }
+            // Đường dẫn cũ trùng đường dẫn mới (cùng ID bảng, cột): ABF ghi đè tệp thay vì xoá rồi thêm.
+            let newPaths = Dictionary(addedFiles[added...].enumerated().map { ($1.path, added + $0) }, uniquingKeysWith: { a, _ in a })
+            var overwritten = Set<Int>()
+            for path in removed {
+                if let index = newPaths[path] {
+                    replacedFiles.append(addedFiles[index])
+                    overwritten.insert(index)
+                } else {
+                    removedFiles.append(path)
+                }
+            }
+            addedFiles = addedFiles.enumerated().filter { !overwritten.contains($0.offset) }.map(\.element)
+        } catch {
+            database = try MetadataDatabase(bytes: snapshot)
+            (addedFiles, removedFiles, replacedFiles) = (addedBefore, removedBefore, replacedBefore)
+            throw error
+        }
+    }
+
+    private static func requireReplaceable(_ db: MetadataDatabase, tableID: Int, name: String, action: String) throws {
+        let columns = "SELECT ID FROM [Column] WHERE TableID = \(tableID)"
+        if (try db.int("SELECT COUNT(*) FROM Relationship WHERE FromColumnID IN (\(columns)) OR ToColumnID IN (\(columns))") ?? 0) > 0 {
+            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng đang tham gia quan hệ (chỉ mục quan hệ chưa dựng lại được, T063b)")
+        }
+        if db.tableExists("Hierarchy"), (try db.int("SELECT COUNT(*) FROM Hierarchy WHERE TableID = ?", [.int(Int64(tableID))]) ?? 0) > 0 {
+            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có phân cấp")
+        }
+        if (try db.int("SELECT COUNT(*) FROM [Column] WHERE TableID = ? AND Type NOT IN (1, 3)", [.int(Int64(tableID))]) ?? 0) > 0 {
+            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có cột tính toán")
+        }
+        if (try db.int("SELECT COUNT(*) FROM [Column] WHERE TableID <> ? AND SortByColumnID IN (\(columns))", [.int(Int64(tableID))]) ?? 0) > 0 {
+            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: cột của bảng khác sắp xếp theo cột của bảng này")
+        }
+    }
+
+    /// Xoá `Annotation` và `ExtendedProperty` của bảng và của các cột không nằm trong `keeping`.
+    private static func deleteAnnotations(_ db: MetadataDatabase, tableID: Int, keeping: Set<Int>) throws {
+        let ids = try db.strings("SELECT ID FROM [Column] WHERE TableID = ?", [.int(Int64(tableID))]).compactMap(Int.init)
+        for id in ids where !keeping.contains(id) { try deleteDependents(db, objectID: id) }
+        try deleteDependents(db, objectID: tableID)
+    }
+
+    private static func deleteDependents(_ db: MetadataDatabase, objectID: Int) throws {
+        for dependent in ["Annotation", "ExtendedProperty"] where db.tableExists(dependent) {
+            try db.run("DELETE FROM [\(dependent)] WHERE ObjectID = ?", [.int(Int64(objectID))])
+        }
+    }
+
+    /// Xoá bảng người dùng cùng bảng `H$` của cột (`removeSystemTable` lo từ điển, phân cấp thuộc tính và tệp); trả đường dẫn ABF.
+    private static func removeUserTable(_ db: MetadataDatabase, tableID: Int64) throws -> [String] {
+        try removeSystemTable(db, tableID: tableID)
+    }
+
+    private struct OldColumn {
+        var id: Int64, name: String, dataType: Int64, isHidden: Int64, isKey: Int64, summarizeBy: Int64, sortBy: Int64
+        var description: String?, displayFolder: String?, dataCategory: String?, lineageTag: String?, formatString: String?
+    }
+
+    private static func captureColumns(_ db: MetadataDatabase, tableID: Int) throws -> [OldColumn] {
+        try db.strings("SELECT ID FROM [Column] WHERE TableID = ? AND Type = 1", [.int(Int64(tableID))]).compactMap(Int64.init).map { id in
+            func text(_ field: String) throws -> String? { try db.strings("SELECT \(field) FROM [Column] WHERE ID = ?", [.int(id)]).first }
+            func number(_ field: String) throws -> Int64 { try db.int("SELECT \(field) FROM [Column] WHERE ID = ?", [.int(id)]) ?? 0 }
+            return OldColumn(id: id, name: try text("COALESCE(ExplicitName, InferredName)") ?? "", dataType: try number("ExplicitDataType"),
+                             isHidden: try number("IsHidden"), isKey: try number("IsKey"), summarizeBy: try number("SummarizeBy"),
+                             sortBy: try number("SortByColumnID"), description: try text("Description"),
+                             displayFolder: try text("DisplayFolder"), dataCategory: try text("DataCategory"),
+                             lineageTag: try text("LineageTag"), formatString: try text("FormatString"))
+        }
+    }
+
+    /// Đưa thuộc tính của cột cùng tên (và của bảng) từ bản cũ sang bản mới: ẩn, mô tả, thư mục hiển thị, nhóm dữ liệu, khoá,
+    /// cột sắp xếp (nếu còn), nhãn dòng gốc; định dạng và cách tổng hợp chỉ khi kiểu dữ liệu không đổi (như bản trong bộ nhớ).
+    /// Cột cùng tên giữ nguyên ID nên `SortByColumnID` cũ còn đúng khi cột sắp xếp còn.
+    private static func restoreProperties(_ db: MetadataDatabase, tableID: Int, old: [OldColumn],
+                                          table: (hidden: Int64, description: String?, category: String?, lineage: String?),
+                                          now: Int64) throws {
+        let current = try db.strings("SELECT ID FROM [Column] WHERE TableID = ? AND Type = 1", [.int(Int64(tableID))]).compactMap(Int64.init)
+        for column in old where current.contains(column.id) {
+            let sameType = (try db.int("SELECT ExplicitDataType FROM [Column] WHERE ID = ?", [.int(column.id)])) == column.dataType
+            var sets = ["IsHidden = ?", "IsKey = ?", "Description = ?", "DisplayFolder = ?", "DataCategory = ?", "LineageTag = COALESCE(?, LineageTag)", "ModifiedTime = ?"]
+            var values: [MetadataDatabase.Value] = [.int(column.isHidden), .int(column.isKey), optionalText(column.description),
+                                                    optionalText(column.displayFolder), optionalText(column.dataCategory),
+                                                    optionalText(column.lineageTag), .int(now)]
+            if sameType {
+                sets += ["FormatString = ?", "SummarizeBy = ?"]
+                values += [optionalText(column.formatString), .int(column.summarizeBy)]
+            }
+            if column.sortBy != 0, current.contains(column.sortBy) { sets.append("SortByColumnID = ?"); values.append(.int(column.sortBy)) }
+            values.append(.int(column.id))
+            try db.run("UPDATE [Column] SET \(sets.joined(separator: ", ")) WHERE ID = ?", values)
+        }
+        try db.run("UPDATE [Table] SET IsHidden = ?, Description = ?, DataCategory = ?, LineageTag = COALESCE(?, LineageTag) WHERE ID = ?",
+                   [.int(table.hidden), optionalText(table.description), optionalText(table.category), optionalText(table.lineage), .int(Int64(tableID))])
     }
 
     /// The edited database as a `metadata.sqlitedb` file.
@@ -206,10 +391,10 @@ extension MetadataWriter {
             addedFiles += payloads
         case .addTable(let table):
             try addTable(table)
-        case .replaceTable(let name, _):
-            throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)» đã có trong file (Phase F, đang cài)")
+        case .replaceTable(let name, let table):
+            try replaceTable(name, with: table)
         case .dropTable(let name):
-            throw WriteError.invalid("Chưa lưu được việc xoá bảng «\(name)» đã có trong file (Phase F, đang cài)")
+            try dropTable(name)
         case .addCalculatedColumn, .addCalculatedTable:
             throw WriteError.invalid("Chưa hỗ trợ ghi cột tính toán và bảng tính toán (Phase F, đang cài)")
         case .deleteRelationship(let name):
@@ -474,6 +659,18 @@ extension MetadataWriter {
         let partitionIDs = try db.strings("SELECT ID FROM Partition WHERE TableID = ?", [.int(tableID)]).compactMap(Int64.init)
         let columnIDs = try db.strings("SELECT ID FROM [Column] WHERE TableID = ?", [.int(tableID)]).compactMap(Int64.init)
         for columnID in columnIDs {
+            // Phân cấp thuộc tính của cột dữ liệu: bảng `H$` đi kèm (đệ quy), rồi dòng AttributeHierarchy(Storage).
+            if db.tableExists("AttributeHierarchy"), db.tableExists("AttributeHierarchyStorage") {
+                for ah in try db.strings("SELECT ID FROM AttributeHierarchy WHERE ColumnID = ?", [.int(columnID)]).compactMap(Int64.init) {
+                    for ahs in try db.strings("SELECT ID FROM AttributeHierarchyStorage WHERE AttributeHierarchyID = ?", [.int(ah)]).compactMap(Int64.init) {
+                        if let system = try db.int("SELECT SystemTableID FROM AttributeHierarchyStorage WHERE ID = ?", [.int(ahs)]), system != 0 {
+                            files += try removeSystemTable(db, tableID: system)
+                        }
+                        try db.run("DELETE FROM AttributeHierarchyStorage WHERE ID = ?", [.int(ahs)])
+                    }
+                    try db.run("DELETE FROM AttributeHierarchy WHERE ID = ?", [.int(ah)])
+                }
+            }
             for cs in try db.strings("SELECT ID FROM ColumnStorage WHERE ColumnID = ?", [.int(columnID)]).compactMap(Int64.init) {
                 for cp in try db.strings("SELECT ID FROM ColumnPartitionStorage WHERE ColumnStorageID = ?", [.int(cs)]).compactMap(Int64.init) {
                     for segment in try db.strings("SELECT ID FROM SegmentStorage WHERE ColumnPartitionStorageID = ?", [.int(cp)]).compactMap(Int64.init) {
@@ -484,6 +681,10 @@ extension MetadataWriter {
                     files += try storageFilePaths(db, owner: cp, type: 23)
                     try db.run("DELETE FROM StorageFile WHERE OwnerID = ? AND OwnerType = 23", [.int(cp)])
                     try db.run("DELETE FROM ColumnPartitionStorage WHERE ID = ?", [.int(cp)])
+                }
+                for ds in try db.strings("SELECT ID FROM DictionaryStorage WHERE ColumnStorageID = ?", [.int(cs)]).compactMap(Int64.init) {
+                    files += try storageFilePaths(db, owner: ds, type: 22)
+                    try db.run("DELETE FROM StorageFile WHERE OwnerID = ? AND OwnerType = 22", [.int(ds)])
                 }
                 try db.run("DELETE FROM DictionaryStorage WHERE ColumnStorageID = ?", [.int(cs)])
                 try db.run("DELETE FROM ColumnStorage WHERE ID = ?", [.int(cs)])

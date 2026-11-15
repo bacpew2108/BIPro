@@ -46,10 +46,14 @@ public struct TableMetadataWriter {
     ///
     /// Throws `WriteError.invalid` when the table name exists, an ID is already used, or a
     /// required value is missing. A failed call leaves the database unchanged.
-    public mutating func addTable(_ table: VertiPaqWriter.EncodedTable, queryExpression: String? = nil, lineageTag: String? = nil) throws {
+    ///
+    /// `reusingIDs` (thay bảng đã có, T063b): ID bảng, phân vùng và cột lấy lại của bảng cũ vừa xoá nên có thể không lớn hơn `maxID`;
+    /// vẫn phải chưa dùng trong `Table`, `Partition`, `Column`.
+    public mutating func addTable(_ table: VertiPaqWriter.EncodedTable, queryExpression: String? = nil, lineageTag: String? = nil,
+                                  reusingIDs: Bool = false) throws {
         let db = database
         let callerIDs = [table.tableID, table.partitionID] + table.columns.map(\.id)
-        guard callerIDs.allSatisfy({ $0 > maxID }) else {
+        guard reusingIDs || callerIDs.allSatisfy({ $0 > maxID }) else {
             throw WriteError.invalid("table, partition and column IDs must be above MAXID \(maxID)")
         }
         guard Set(callerIDs).count == callerIDs.count else { throw WriteError.invalid("object IDs repeat") }
