@@ -161,7 +161,9 @@ public enum StepCommand: Sendable, Equatable {
 
 public enum StepFactory {
     /// Bước (một hoặc hai) cho lệnh `command` áp lên bước `previous`. `existingNames` để tên không trùng ("Changed Type1").
-    public static func steps(for command: StepCommand, after previous: String, existingNames: Set<String>) -> [MStep] {
+    /// `currentQuery`: tên truy vấn đang sửa; Append chọn chính nó thì dùng bước liền trước (Desktop ghi `Table.Combine({prev, prev})`).
+    public static func steps(for command: StepCommand, after previous: String, existingNames: Set<String>,
+                             currentQuery: String? = nil) -> [MStep] {
         let p = MQuery.reference(to: previous)
         func make(_ base: String, _ expression: String, taken: Set<String> = []) -> MStep {
             MStep(name: uniqueName(base, existing: existingNames.union(taken)), expression: expression)
@@ -231,7 +233,7 @@ public enum StepFactory {
             let renamed = prefixed ? list(names.map { "\(column).\($0)" }) : list(names)
             return [make("Expanded \(column)", "Table.ExpandTableColumn(\(p), \(quote(column)), \(list(names)), \(renamed))")]
         case .append(let queries):
-            let items = ([p] + queries.map(MQuery.reference(to:))).joined(separator: ", ")
+            let items = ([p] + queries.map { $0 == currentQuery ? p : MQuery.reference(to: $0) }).joined(separator: ", ")
             return [make("Appended Query", "Table.Combine({\(items)})")]
         case .groupBy(let keys, let aggregates):
             return [make("Grouped Rows", "Table.Group(\(p), \(list(keys)), {\(aggregates.map(\.m).joined(separator: ", "))})")]

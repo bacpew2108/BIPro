@@ -403,7 +403,8 @@ public struct AppendDialog: View {
         self.onCommit = onCommit
         self.onCancel = onCancel
 
-        let candidateNames = state.mergeCandidates.map(\.name)
+        // Append cho chọn cả truy vấn hiện tại (Desktop liệt kê nó đầu tiên): nối với bước liền trước của chính nó.
+        let candidateNames = [state.selectedQuery?.name].compactMap { $0 } + state.mergeCandidates.map(\.name)
         self._model = State(initialValue: AppendDialogModel(
             primaryQueryName: state.selectedQuery?.name ?? "Bảng chính",
             candidates: candidateNames
@@ -418,7 +419,7 @@ public struct AppendDialog: View {
         AppendDialogContent(
             model: $model,
             primaryColumns: primaryColumns,
-            secondaryColumnsMap: secondaryColumnsMap,
+            secondaryColumnsMap: secondaryColumnsMap.merging([model.primaryQueryName: primaryColumns]) { _, own in own },
             rejectionError: rejectionError,
             scrollable: scrollable,
             onCommit: {

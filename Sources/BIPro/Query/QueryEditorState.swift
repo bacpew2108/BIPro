@@ -237,7 +237,8 @@ public final class QueryEditorState {
         }
         if index < query.steps.count - 1, !confirmInsert { return .needsInsertConfirmation }
         var mquery = query.mquery
-        let new = StepFactory.steps(for: command, after: query.steps[index].name, existingNames: Set(query.steps.map(\.name)))
+        let new = StepFactory.steps(for: command, after: query.steps[index].name, existingNames: Set(query.steps.map(\.name)),
+                                      currentQuery: query.name)
         mquery.insert(new, afterStepAt: index)
         let kinds = Dictionary(new.map { ($0.name, StepKind.custom) }, uniquingKeysWith: { a, _ in a })
         query = reshaped(query, from: mquery, newKinds: kinds)

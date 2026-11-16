@@ -71,6 +71,18 @@ struct AdvancedQueryTests {
         #expect(editor.preview?.value(row: 3, column: 1) == .string("Zed"))
     }
 
+    /// Desktop: Append chọn chính truy vấn hiện tại → `Table.Combine({prev, prev})` (nối với bước liền trước, không tạo vòng).
+    @Test func appendCurrentQueryUsesPreviousStep() async throws {
+        let editor = makeEditor()
+        select(editor, "Customers")
+        #expect(editor.perform(.append(queries: ["Customers"])) == .applied)
+        #expect(editor.selectedQuery?.steps.last?.expression == "Table.Combine({Source, Source})")
+        await settle(editor)
+        #expect(editor.errorMessage == nil)
+        #expect(editor.preview?.rowCount == 6)
+        #expect(editor.dependencyGraph.cycle == nil)
+    }
+
     @Test func groupByWithSeveralAggregates() async throws {
         let editor = makeEditor()
         select(editor, "Orders")

@@ -94,6 +94,8 @@ struct PreviewGridView: View {
                 // Không để bề rộng của 11+ cột (dựng lười) đẩy rộng cả cửa sổ: lưới cuộn trong phần được cấp.
                 .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 .clipped()
+                // Đổi truy vấn hoặc bước thì lưới về góc trên trái (như Desktop), không giữ vị trí cuộn của bảng khác.
+                .id("\(state.selectedQueryID?.uuidString ?? "")#\(state.selectedStepIndex ?? -1)")
             } else {
                 gridContent(table: table, rowLimit: min(table.rowCount, 16))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
