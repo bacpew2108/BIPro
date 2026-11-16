@@ -132,6 +132,49 @@ struct AdvancedQueryTests {
         #expect(editor.errorMessage?.contains("Table.FuzzyJoin") == true)
     }
 
+    @Test func nestedColumnsAndCandidatesForDialogs() async throws {
+        let editor = makeEditor()
+        select(editor, "Customers")
+        #expect(editor.mergeCandidates.map(\.name) == ["Orders"])
+        let ordersID = try #require(editor.queries.first { $0.name == "Orders" }?.id)
+        let columns = try #require(await editor.resultColumns(ofQuery: ordersID))
+        #expect(columns.map(\.name) == ["Cust", "Amt", "Region"])
+        #expect(columns.map(\.type) == [.double, .double, .string])
+
+        editor.perform(.merge(otherQuery: "Orders", leftKeys: ["ID"], rightKeys: ["Cust"], kind: .leftOuter, newColumn: "O"))
+        await settle(editor)
+        #expect(editor.nestedColumnNames == ["O"])
+        #expect(editor.nestedColumns(of: "O")?.map(\.name) == ["Cust", "Amt", "Region"])
+        #expect(editor.nestedColumns(of: "Name") == nil)
+
+        // Orders giờ bị Customers dùng, nên khi chọn Orders thì Customers không còn là ứng viên (sẽ tạo vòng).
+        select(editor, "Orders")
+        #expect(editor.mergeCandidates.isEmpty)
+    }
+
+    @Test func dependencyGraphModelHasSourcesQueriesAndEdges() async throws {
+        let editor = QueryEditorState()
+        editor.addQuery(query("Raw", #"Excel.Workbook(File.Contents("C:\\d\\a.xlsx"), null, true)"#), base: nil)
+        editor.addQuery(query("Clean", "Raw"), base: nil)
+        let graph = editor.dependencyGraph
+        #expect(graph.nodes.map(\.id) == ["source:C:\\\\d\\\\a.xlsx", "query:Raw", "query:Clean"])
+        #expect(Set(graph.edges) == [DependencyEdge(from: "source:C:\\\\d\\\\a.xlsx", to: "query:Raw"), DependencyEdge(from: "query:Raw", to: "query:Clean")])
+        #expect(graph.cycle == nil)
+    }
+
+    @Test func renamingAQueryUpdatesReferencesInOthers() async throws {
+        let editor = makeEditor()
+        select(editor, "Customers")
+        editor.perform(.merge(otherQuery: "Orders", leftKeys: ["ID"], rightKeys: ["Cust"], kind: .inner, newColumn: "O"))
+        let ordersID = try #require(editor.queries.first { $0.name == "Orders" }?.id)
+        #expect(editor.renameQuery(ordersID, to: "Sales Lines") == nil)
+        #expect(editor.queries.first { $0.name == "Customers" }?.steps.last?.expression.contains(#"#"Sales Lines""#) == true)
+        select(editor, "Customers")
+        await settle(editor)
+        #expect(editor.errorMessage == nil)
+        #expect(editor.preview?.rowCount == 2) // Inner NestedJoin: An và Chi
+    }
+
     @Test func applyEvaluatesDependenciesInFullQuery() async throws {
         let editor = makeEditor()
         select(editor, "Customers")

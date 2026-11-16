@@ -79,8 +79,9 @@ public struct TableData: Sendable {
             let kept = cells.filter { $0.key < n }
             return kept.isEmpty ? nil : kept
         }
+        let keptNested = nested.mapValues { Array($0.prefix(n)) }
         // Bất biến giữ nguyên (cùng cột, dòng ngắn đi), nên không thể ném.
-        return try! TableData(columns: taken, errorMask: mask)
+        return try! TableData(columns: taken, errorMask: mask, nested: keptNested)
     }
 }
 

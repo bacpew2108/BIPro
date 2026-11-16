@@ -348,8 +348,21 @@ public final class QueryEditorState {
         if others.contains(name.lowercased()) || existingTableNames.contains(where: { $0.lowercased() == name.lowercased() }) {
             return "Đã có truy vấn hoặc bảng tên \"\(name)\"."
         }
+        let oldName = query.name
         query.name = name
+        // Truy vấn khác đang tham chiếu tên cũ (Merge, Append, tham chiếu) được đổi theo; cùng một bước hoàn tác.
+        var renamedOthers: [(Int, QueryModel)] = []
+        for (index, other) in queries.enumerated() where index != queryIndex {
+            let ownSteps = Set(other.steps.map(\.name))
+            guard !ownSteps.contains(oldName) else { continue }
+            var updated = other
+            for k in updated.steps.indices {
+                updated.steps[k].expression = MQuery.renameReference(in: updated.steps[k].expression, from: oldName, to: name)
+            }
+            if updated.steps.map(\.expression) != other.steps.map(\.expression) { renamedOthers.append((index, updated)) }
+        }
         commit(query, at: queryIndex, select: selectedStepIndex)
+        for (index, updated) in renamedOthers { queries[index] = updated }
         return nil
     }
 
@@ -420,9 +433,9 @@ public final class QueryEditorState {
     }
 
     /// Đánh giá đủ (không cắt dòng) kết quả của truy vấn, cho Close & Apply.
-    func evaluateFull(_ query: QueryModel) async throws -> TableData {
+    func evaluateFull(_ query: QueryModel, rowLimit: Int? = nil) async throws -> TableData {
         guard !query.steps.isEmpty else { throw MError.expression("Truy vấn không có bước nào.") }
-        let value = try await preparedCache(for: query).preview(effectiveQuery(query), stepIndex: query.steps.count - 1, rowLimit: nil)
+        let value = try await preparedCache(for: query).preview(effectiveQuery(query), stepIndex: query.steps.count - 1, rowLimit: rowLimit)
         guard case .table(let table) = value else { throw MError.expression("Kết quả không phải bảng (\(value.kindName)).") }
         return table
     }

@@ -132,6 +132,11 @@ public struct MQuery: Sendable, Equatable {
         if resultName == old { resultName = newName }
     }
 
+    /// Đổi mọi tham chiếu tới truy vấn `old` thành `new` trong biểu thức (đổi tên truy vấn mà truy vấn khác đang dùng).
+    public static func renameReference(in expression: String, from old: String, to new: String) -> String {
+        rewrite(expression, from: old, to: new)
+    }
+
     /// Thay tham chiếu định danh `old` bằng `new` trong một biểu thức. Tên trường sau `[` không bị đổi.
     static func rewrite(_ expression: String, from old: String, to new: String) -> String {
         guard let tokens = try? MLexer.tokenize(expression) else { return expression }
