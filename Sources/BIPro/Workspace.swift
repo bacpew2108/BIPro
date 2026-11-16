@@ -117,8 +117,51 @@ final class Workspace: @unchecked Sendable {
         }
     }
 
+    /// Bảng có cột hoặc là bảng tính toán thêm trong phiên (T083): dữ liệu đọc từ kho cột của engine, nơi giá trị đã được tính.
+    func hasSessionCalculation(_ table: String) -> Bool {
+        guard let runtime, runtime.edits.hasCalculatedEdits else { return false }
+        return runtime.edits.items.contains {
+            switch $0 {
+            case .addCalculatedTable(let name, _, _): name == table
+            case .addCalculatedColumn(let owner, _, _, _): owner == table
+            default: false
+            }
+        }
+    }
+
+    /// Cột của bảng `name` lấy từ kho cột của engine (mô hình hiệu lực), theo thứ tự cột của mô hình.
+    private func computedTable(_ name: String) throws -> [DecodedColumn] {
+        guard let runtime else { throw CocoaError(.fileReadUnknown) }
+        let version = runtime.version
+        if let cached = lock.withLock({ overlayTableCache[name] }), cached.version == version { return cached.columns }
+        let engine = try runtime.engine()
+        let columns = runtime.metadata.columns.filter { $0.tableName == name && $0.kind != .rowNumber }
+        var tableColumns: [TableColumn] = []
+        for column in columns {
+            guard let id = engine.store.schema.column(table: name, name: column.name)?.id else { continue }
+            tableColumns.append(TableColumn(name: column.name, data: try engine.store.column(id)))
+        }
+        let data = try TableData(columns: tableColumns)
+        let decoded = TableDataDecoding.decode(data, names: tableColumns.map(\.name),
+                                               types: tableColumns.map { n in columns.first { $0.name == n.name }?.dataType ?? .string })
+        lock.withLock { overlayTableCache[name] = (version, decoded) }
+        return decoded
+    }
+
+    /// Khoá nạp lại dữ liệu của bảng ở lưới Table view: đổi khi tập cột đổi, hoặc khi bảng có dữ liệu trong bộ nhớ (nạp hay tính trong
+    /// phiên) và mô hình đổi. Bảng của file không đổi khi chỉ thêm measure.
+    func dataKey(_ table: String) -> String {
+        let names = columns(of: table).map(\.name).joined(separator: "|")
+        let live = hasSessionCalculation(table) || runtime?.overlay(named: table) != nil
+        return "\(table)#\(names)#\(live ? runtime?.version ?? 0 : 0)"
+    }
+
     /// Row count from segment metadata only (no column decoding).
     func rowCount(_ table: String) -> Int {
+        if hasSessionCalculation(table), let runtime, let engine = try? runtime.engine(),
+           let id = engine.store.schema.table(named: table)?.id, let count = try? engine.store.rowCount(id) {
+            return count
+        }
         if let loaded = runtime?.overlay(named: table) { return loaded.rowCount }
         if let cached = lock.withLock({ rowCountCache[table] }) { return cached }
         guard let metadata = runtime?.base, let abf, let storage = metadata.storage(table: table).first else { return 0 }
@@ -131,6 +174,7 @@ final class Workspace: @unchecked Sendable {
 
     /// Decodes a table (cached). Columns follow the model's column order.
     func table(_ name: String) throws -> [DecodedColumn] {
+        if hasSessionCalculation(name) { return try computedTable(name) }
         if let loaded = runtime?.overlay(named: name), let runtime {
             // Bảng nạp trong bộ nhớ (Phase F): cache theo phiên bản mô hình, vì thay bảng đổi dữ liệu cùng tên.
             let version = runtime.version

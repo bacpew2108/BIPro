@@ -5,7 +5,8 @@ extension ModelMetadata {
     init(copying other: ModelMetadata, columns: [Column]? = nil, measures: [Measure]? = nil,
          relationships: [Relationship]? = nil, tables: [Table]? = nil, hierarchies: [Hierarchy]? = nil,
          storage: [ColumnStorage]? = nil, partitionQueries: [String: String]? = nil,
-         expressions: [String]? = nil, expressionBodies: [String: String]? = nil) {
+         expressions: [String]? = nil, expressionBodies: [String: String]? = nil,
+         calculatedTableExpressions: [String: String]? = nil) {
         self.tables = tables ?? other.tables
         self.columns = columns ?? other.columns
         self.measures = measures ?? other.measures
@@ -13,6 +14,7 @@ extension ModelMetadata {
         self.relationships = relationships ?? other.relationships
         self.storage = storage ?? other.storage
         self.partitionQueries = partitionQueries ?? other.partitionQueries
+        self.calculatedTableExpressions = calculatedTableExpressions ?? other.calculatedTableExpressions
         roles = other.roles
         perspectives = other.perspectives
         cultures = other.cultures
@@ -113,7 +115,8 @@ extension ModelMetadata {
             let old = tables[index]
             var copy = tables
             copy[index] = Table(id: old.id, name: old.name, isHidden: patch.isHidden ?? old.isHidden, systemFlags: old.systemFlags,
-                                description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory)
+                                description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory,
+                                isCalculatedUserTable: old.isCalculatedUserTable)
             return ModelMetadata(copying: self, tables: copy)
 
         case .addRelationship(let new):
@@ -142,8 +145,10 @@ extension ModelMetadata {
             bodies[key] = nil
             return ModelMetadata(copying: self, expressions: expressions.filter { $0 != key }, expressionBodies: bodies)
 
-        case .addCalculatedColumn, .addCalculatedTable:
-            throw ModelEditError("Chưa hỗ trợ (Phase F, đang cài)")
+        case .addCalculatedColumn(let table, let name, let expression, let dataType):
+            return try addingCalculatedColumn(table: table, name: name, expression: expression, dataType: dataType)
+        case .addCalculatedTable(let name, let expression, let columns):
+            return try addingCalculatedTable(name: name, expression: expression, columns: columns)
 
         case .deleteRelationship(let name):
             guard relationships.contains(where: { $0.name == name }) else { throw ModelEditError("Không có quan hệ \(name)") }

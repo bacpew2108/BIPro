@@ -21,6 +21,7 @@ final class ModelRuntime: @unchecked Sendable {
     private var versionValue = 0
     private var overlayCache: [TableID: TableData] = [:]
     private var overlayVersion = -1
+    private var calculationErrorsValue: [String: String] = [:]
 
     init(metadata: ModelMetadata, abf: ABFBackup) {
         base = metadata
@@ -77,17 +78,24 @@ final class ModelRuntime: @unchecked Sendable {
         }
     }
 
+    /// Lỗi tính của cột/bảng tính toán thêm trong phiên, theo `Bảng[Cột]` hoặc tên bảng (sau lần dựng engine gần nhất). Cột lỗi có giá
+    /// trị trống, như Desktop giữ mô hình dùng được khi một cột tính toán lỗi.
+    var calculationErrors: [String: String] { lock.withLock { calculationErrorsValue } }
+
     /// Engine cho mô hình hiệu lực. Tạo lười; gọi ngoài luồng chính. Nếu mô hình đổi trong lúc dựng thì bỏ engine cũ và dựng lại,
     /// để không bao giờ cất engine của phiên bản đã lỗi thời.
     func engine() throws -> DAXEngine {
         while true {
             let (cached, metadata, edits, builtVersion) = lock.withLock { (cachedEngine, effective, currentEdits, versionValue) }
             if let cached { return cached }
-            let store: ColumnStore
+            var store: ColumnStore
             if edits.hasTableEdits {
                 // Bảng nạp mới/thay thế chồng lên kho gốc; bảng còn lại dùng lại cột đã giải mã.
                 let overlays = edits.tableData(in: metadata)
                 store = ColumnStore(source: OverlayColumnSource(base: try rootStore(), schema: ModelSchema(metadata: metadata), tables: overlays))
+            } else if edits.hasCalculatedEdits {
+                // Cột và bảng tính toán: đọc mọi cột khác từ kho gốc (lớp `ComputedColumnSource` mang lược đồ hiệu lực).
+                store = try rootStore()
             } else if edits.touchesSchema {
                 // Lược đồ mới (quan hệ, cột) nhưng cột đã giải mã dùng lại từ kho gốc; không được thì dựng từ file.
                 let root = try rootStore()
@@ -99,15 +107,74 @@ final class ModelRuntime: @unchecked Sendable {
             } else {
                 store = try rootStore()
             }
-            let engine = DAXEngine(store: store, catalog: Catalog(metadata: metadata))
+            var errors: [String: String] = [:]
+            let engine: DAXEngine
+            if edits.hasCalculatedEdits {
+                let computed = ComputedColumnSource(base: store, schema: ModelSchema(metadata: metadata))
+                store = ColumnStore(source: computed)
+                engine = DAXEngine(store: store, catalog: Catalog(metadata: metadata))
+                errors = Self.compute(edits, metadata: metadata, engine: engine, into: computed)
+            } else {
+                engine = DAXEngine(store: store, catalog: Catalog(metadata: metadata))
+            }
             let stored: DAXEngine? = lock.withLock {
                 if let cached = cachedEngine, versionValue == builtVersion { return cached }
                 guard versionValue == builtVersion else { return nil }
                 cachedEngine = engine
+                calculationErrorsValue = errors
                 return engine
             }
             if let stored { return stored }
         }
+    }
+
+    /// Tính cột và bảng tính toán của phiên theo thứ tự thao tác (thứ tự tạo cũng là thứ tự phụ thuộc: biểu thức chỉ tham chiếu được
+    /// cột đã có lúc tạo). Lỗi của một mục không chặn mục khác: cột lỗi để trống, bảng lỗi không có dòng.
+    private static func compute(_ edits: ModelEdits, metadata: ModelMetadata, engine: DAXEngine, into source: ComputedColumnSource) -> [String: String] {
+        var errors: [String: String] = [:]
+        let schema = source.schema
+        for edit in edits.items {
+            switch edit {
+            case .addCalculatedTable(let name, let expression, _):
+                guard let table = schema.table(named: name) else { continue }
+                // Chỉ các cột kết quả của biểu thức (`Type = 4`); cột tính toán thêm trên bảng này tính sau, ở thao tác riêng.
+                let resultNames = Set(metadata.columns.filter { $0.tableName == name && $0.kind == .calculatedTableColumn }.map(\.name))
+                let resultColumns = table.columns.filter { resultNames.contains($0.name) }
+                var columns: [String: ColumnData] = [:], rowCount = 0
+                do {
+                    let result = try engine.calculatedTable(expression: expression)
+                    rowCount = result.rows.count
+                    for column in resultColumns {
+                        guard let index = result.columns.firstIndex(where: { $0.caseInsensitiveCompare(column.name) == .orderedSame }) else {
+                            throw DAXError(.runtime, "kết quả không có cột \(column.name)")
+                        }
+                        columns[column.name] = try CalculatedData.columnData(result.rows.map { $0[index] }, type: column.type)
+                    }
+                } catch {
+                    errors[name] = (error as? DAXError)?.message ?? "\(error)"
+                    rowCount = 0
+                    columns = Dictionary(uniqueKeysWithValues: resultColumns.map { ($0.name, Self.blankColumn(type: $0.type, count: 0)) })
+                }
+                source.setTable(table.id, rowCount: rowCount, columns: columns)
+            case .addCalculatedColumn(let tableName, let name, let expression, _):
+                guard let column = schema.column(table: tableName, name: name.trimmingCharacters(in: .whitespacesAndNewlines)) else { continue }
+                let count = (try? engine.store.rowCount(column.id.table)) ?? 0
+                do {
+                    let values = try engine.calculatedColumn(table: tableName, expression: expression)
+                    source.setColumn(column.id, try CalculatedData.columnData(values, type: column.type))
+                } catch {
+                    errors["\(tableName)[\(column.name)]"] = (error as? DAXError)?.message ?? "\(error)"
+                    source.setColumn(column.id, Self.blankColumn(type: column.type, count: count))
+                }
+            default:
+                continue
+            }
+        }
+        return errors
+    }
+
+    private static func blankColumn(type: DAXType, count: Int) -> ColumnData {
+        (try? CalculatedData.columnData(Array(repeating: .blank, count: count), type: type)) ?? ColumnBuilder.strings(Array(repeating: nil, count: count))
     }
 
     /// Kho cột gốc (lược đồ của file), dựng một lần; mọi engine dùng lại cột đã giải mã của nó.
@@ -136,6 +203,16 @@ extension ModelEdits {
 }
 
 extension ModelEdits {
+    /// Có cột hoặc bảng tính toán thêm trong phiên (engine phải tính giá trị).
+    var hasCalculatedEdits: Bool {
+        items.contains {
+            switch $0 {
+            case .addCalculatedColumn, .addCalculatedTable: true
+            default: false
+            }
+        }
+    }
+
     /// Có thao tác thêm, thay hoặc xoá bảng (nguồn cột phải chồng dữ liệu trong bộ nhớ).
     var hasTableEdits: Bool {
         items.contains {

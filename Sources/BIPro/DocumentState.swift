@@ -174,6 +174,10 @@ final class DocumentState {
             guard let archive = workspace?.pbix.archive, let entry = archive.entry("DiagramLayout") else { return nil }
             return try? archive.read(entry)
         }
+        layout.calculatedValues = { edits in
+            guard let runtime else { return [:] }
+            return try runtime.calculatedValues(for: edits)
+        }
         layout.diagramSelected = { [weak self] in self?.currentDiagram }
         layout.diagramFileNames = { [weak self] in self?.workspace.diagramLayout?.diagrams.map(\.name) ?? [] }
         layout.diagramLineageTag = { [weak workspace] table in workspace?.userTables.first { $0.name == table }?.lineageTag }

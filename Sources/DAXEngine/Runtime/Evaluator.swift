@@ -427,6 +427,30 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         throw DAXError(.multipleValues, "không xác định được một giá trị của cột \(id) (có \(values.count) giá trị)")
     }
 
+    /// EARLIER/EARLIEST: giá trị của cột ở một khung row bao ngoài. Các khung chứa cột xếp từ trong ra ngoài; EARLIER bỏ `skipping`
+    /// khung đầu, EARLIEST lấy khung ngoài cùng (cần ít nhất hai khung).
+    func outerRowValue(_ id: ColumnID, skipping: Int, outermost: Bool) throws(DAXError) -> Value {
+        var matches: [Value] = []
+        for frame in rowStack.reversed() {
+            switch frame {
+            case .base(let table, let row) where table == id.table:
+                matches.append(Value(stored: try columnData(id).value(at: row)))
+            case .virtual(let value, let row):
+                if let index = value.lineageIndex(of: id) { matches.append(value.rows[row][index]) }
+            default:
+                continue
+            }
+        }
+        if outermost {
+            guard matches.count >= 2, let last = matches.last else {
+                throw DAXError(.runtime, "EARLIEST/EARLIER tham chiếu tới row context không có")
+            }
+            return last
+        }
+        guard skipping < matches.count else { throw DAXError(.runtime, "EARLIER/EARLIEST tham chiếu tới row context không có") }
+        return matches[skipping]
+    }
+
     private func virtualColumnValue(_ name: String, _ ctx: EvalContext) throws(DAXError) -> Value {
         // So tên không phân biệt hoa thường và bỏ ngoặc vuông: bảng hằng {…} đặt tên cột là "[Value]".
         func bare(_ s: String) -> String {

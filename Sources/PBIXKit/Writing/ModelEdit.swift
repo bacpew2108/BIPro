@@ -127,6 +127,13 @@ public struct NewTableColumn: Sendable, Equatable {
     }
 }
 
+/// Tên và kiểu một cột kết quả (bảng tính toán, T082).
+public struct ColumnSignature: Sendable, Hashable {
+    public var name: String
+    public var dataType: ModelMetadata.DataType
+    public init(name: String, dataType: ModelMetadata.DataType) { self.name = name; self.dataType = dataType }
+}
+
 /// Bảng nạp từ truy vấn (Phase F, T3). Là lớp tham chiếu: dữ liệu có thể hàng triệu dòng nên `ModelEdit` so sánh và băm
 /// theo định danh, không theo nội dung, và các ảnh chụp hoàn tác dùng chung một bản dữ liệu.
 public final class NewTable: Hashable, Sendable {
@@ -172,8 +179,11 @@ public enum ModelEdit: Sendable, Hashable {
     /// Truy vấn không nạp (Enable load tắt, VM-F8): dòng `Expression` có M nguyên văn. `setQuery` thêm hoặc sửa, `dropQuery` bỏ.
     case setQuery(name: String, expression: String)
     case dropQuery(name: String)
-    case addCalculatedColumn(table: String, name: String, expression: String)
-    case addCalculatedTable(name: String, expression: String)
+    /// Cột tính toán (T082): `dataType` do ứng dụng suy ra khi tạo (đánh giá biểu thức). Giá trị không nằm trong thao tác: engine của phiên
+    /// tính lại theo thứ tự thao tác, và khi lưu ứng dụng đưa giá trị đã tính qua `PBIXChanges.calculatedData`.
+    case addCalculatedColumn(table: String, name: String, expression: String, dataType: ModelMetadata.DataType)
+    /// Bảng tính toán (T082): `columns` là tên và kiểu các cột kết quả.
+    case addCalculatedTable(name: String, expression: String, columns: [ColumnSignature])
 
     /// Thao tác thuộc Phase F cần tầng T3.
     var needsData: Bool {

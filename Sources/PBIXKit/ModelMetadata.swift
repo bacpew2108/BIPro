@@ -42,7 +42,10 @@ public struct ModelMetadata: Sendable {
         public let lineageTag: String?
         /// `Table.DataCategory`, e.g. `Time` for a marked date table.
         public let dataCategory: String?
-        public var isUserTable: Bool { systemFlags == 0 }
+        /// Bảng tính toán do người dùng tạo (phân vùng DAX). Desktop ghi `SystemFlags = 2` cho cả bảng này lẫn bảng ngày tự động
+        /// (`LocalDateTable_…`, `DateTableTemplate_…`), nên phải phân biệt riêng (w8.3, `docs/phase-f-evidence/vm-f6/QUAN-SAT.md`).
+        public var isCalculatedUserTable: Bool = false
+        public var isUserTable: Bool { systemFlags == 0 || isCalculatedUserTable }
     }
 
     public struct Column: Sendable, Hashable {
@@ -151,6 +154,8 @@ public struct ModelMetadata: Sendable {
     public let storage: [ColumnStorage]
     /// Power Query (M) partition sources per table.
     public let partitionQueries: [String: String]
+    /// Biểu thức DAX của bảng tính toán (phân vùng kiểu 2) theo tên bảng, kể cả bảng ngày tự động của Desktop.
+    public let calculatedTableExpressions: [String: String]
     public let roles: [String]
     public let perspectives: [String]
     public let cultures: [String]
@@ -176,13 +181,23 @@ public struct ModelMetadata: Sendable {
             db.hasColumn(table, name) ? "\(alias).\(name)" : "NULL"
         }
 
+        // Bảng tính toán của người dùng: phân vùng kiểu 2 (Calculated), không riêng tư, không chỉ hiện như biến thể, không mang chú thích
+        // bảng ngày tự động của Desktop.
+        let calculatedUserTables = Set(((try? db.rows("""
+            SELECT t.ID FROM [Table] t JOIN Partition p ON p.TableID = t.ID
+            WHERE p.Type = 2 AND COALESCE(\(col("Table", "t", "IsPrivate")), 0) = 0
+              AND COALESCE(\(col("Table", "t", "ShowAsVariationsOnly")), 0) = 0
+              AND NOT EXISTS (SELECT 1 FROM Annotation a WHERE a.ObjectType = 3 AND a.ObjectID = t.ID
+                              AND a.Name IN ('__PBI_LocalDateTable', '__PBI_TemplateDateTable'))
+            """)) ?? []).map { $0.int(0) })
         tables = try db.rows("""
             SELECT t.ID, t.Name, t.IsHidden, t.SystemFlags, t.Description, \(col("Table", "t", "LineageTag")),
                    \(col("Table", "t", "DataCategory"))
             FROM [Table] t ORDER BY t.ID
             """).map {
             Table(id: $0.int(0), name: $0.string(1) ?? "", isHidden: $0.int(2) != 0, systemFlags: $0.int(3),
-                  description: $0.string(4), lineageTag: $0.string(5), dataCategory: $0.nonEmpty(6))
+                  description: $0.string(4), lineageTag: $0.string(5), dataCategory: $0.nonEmpty(6),
+                  isCalculatedUserTable: calculatedUserTables.contains($0.int(0)))
         }
 
         columns = try db.rows("""
@@ -298,6 +313,10 @@ public struct ModelMetadata: Sendable {
 
         partitionQueries = Dictionary(
             try db.rows("SELECT t.Name, p.QueryDefinition FROM Partition p JOIN [Table] t ON t.ID = p.TableID WHERE p.Type = 4")
+                .map { ($0.string(0) ?? "", $0.string(1) ?? "") },
+            uniquingKeysWith: { first, _ in first })
+        calculatedTableExpressions = Dictionary(
+            try db.rows("SELECT t.Name, p.QueryDefinition FROM Partition p JOIN [Table] t ON t.ID = p.TableID WHERE p.Type = 2")
                 .map { ($0.string(0) ?? "", $0.string(1) ?? "") },
             uniquingKeysWith: { first, _ in first })
 

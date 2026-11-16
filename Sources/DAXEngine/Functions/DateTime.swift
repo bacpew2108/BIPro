@@ -20,7 +20,21 @@ public enum DateTimeFunctions: FunctionFamily {
                      params: [.scalar("start_date"), .scalar("end_date"),
                               .keyword("interval", ["SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR"])],
                      impl: .scalar(DateTimeFunctions.dateDiffBody)),
+        FunctionSpec(name: "CALENDAR", params: [.scalar("start_date"), .scalar("end_date")],
+                     impl: .table(DateTimeFunctions.calendarBody)),
     ]
+
+    /// CALENDAR(đầu, cuối): bảng một cột `[Date]`, mỗi ngày một dòng từ ngày đầu tới ngày cuối (cắt phần giờ), tăng dần
+    /// (golden: bảng `Ngày` của w8.3 do Desktop tính, Phase F T081). [DOC calendar-function-dax] đầu sau cuối là lỗi.
+    static let calendarBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        let start = try frame.scalar(0), end = try frame.scalar(1)
+        if start == .blank || end == .blank { throw DAXError(.runtime, "CALENDAR: ngày đầu và ngày cuối không được để trống") }
+        let first = (try start.asDouble()).rounded(.down), last = (try end.asDouble()).rounded(.down)
+        guard first <= last else { throw DAXError(.runtime, "CALENDAR: ngày đầu sau ngày cuối") }
+        guard last - first < 10_000_000 else { throw DAXError(.runtime, "CALENDAR: khoảng ngày quá lớn") }
+        let rows = stride(from: first, through: last, by: 1).map { [Value.dateTime($0)] }
+        return TableValue(columns: ["[Date]"], rows: rows)
+    }
 
     // MARK: - Thân hàm
 

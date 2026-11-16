@@ -10,7 +10,7 @@ import Testing
     @Test func tableEditsNeedTierThree() {
         #expect(ModelEdits([.addTable(table())]).tier == .data)
         #expect(ModelEdits([.dropTable(name: "Sales")]).tier == .data)
-        #expect(ModelEdits([.addCalculatedColumn(table: "Sales", name: "Dt", expression: "1")]).tier == .data)
+        #expect(ModelEdits([.addCalculatedColumn(table: "Sales", name: "Dt", expression: "1", dataType: .int64)]).tier == .data)
         #expect(ModelEdits([.updateTable(name: "Sales", patch: TablePatch(isHidden: true))]).tier == .metadata)
         #expect(ModelEdits().tier == .report)
     }

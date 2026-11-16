@@ -26,6 +26,56 @@ extension ModelMetadata {
         return ModelMetadata(copying: self, columns: columns + added, tables: tables + [table], partitionQueries: queries)
     }
 
+    // MARK: Cột và bảng tính toán (T082)
+
+    /// Thêm cột tính toán (`Column.Type = 2`) vào bảng người dùng. Tên không trùng cột hay measure của bảng; biểu thức không trống.
+    /// Cột chưa có dữ liệu lưu trữ (`storage`): engine của phiên tính giá trị.
+    func addingCalculatedColumn(table: String, name rawName: String, expression: String, dataType: DataType) throws -> ModelMetadata {
+        guard let owner = tables.first(where: { $0.name == table && $0.isUserTable }) else { throw ModelEditError("Không có bảng \(table)") }
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw ModelEditError("Tên cột không được để trống") }
+        guard !name.contains("\0"), !expression.contains("\0") else { throw ModelEditError("Tên hoặc biểu thức chứa ký tự NUL") }
+        let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { throw ModelEditError("Biểu thức của cột \(name) không được để trống") }
+        let key = name.lowercased()
+        if columns.contains(where: { $0.tableID == owner.id && $0.kind != .rowNumber && $0.name.lowercased() == key }) {
+            throw ModelEditError("Bảng \(table) đã có cột \(name)")
+        }
+        if measures.contains(where: { $0.name.lowercased() == key }) { throw ModelEditError("Tên cột \(name) trùng tên một measure") }
+        guard [.int64, .double, .decimal, .string, .dateTime, .boolean].contains(dataType) else {
+            throw ModelEditError("Cột tính toán \(name) không có kiểu dữ liệu xác định")
+        }
+        let id = (columns.map(\.id).max() ?? 0) + 1
+        let added = Column(id: id, tableID: owner.id, tableName: owner.name, name: name, kind: .calculated, dataType: dataType,
+                           isHidden: false, expression: body, formatString: nil, sortByColumnID: nil,
+                           summarizeBy: Int(TableMetadataWriter.summarizeBy(dataType, name: name, isRowNumber: false)),
+                           dataCategory: nil, displayFolder: nil, isKey: false, sourceColumn: nil, description: nil, lineageTag: nil)
+        return ModelMetadata(copying: self, columns: columns + [added])
+    }
+
+    /// Thêm bảng tính toán (phân vùng DAX, cột `Type = 4`), như bảng `Ngày` của w8.3 (`SystemFlags = 2`).
+    func addingCalculatedTable(name rawName: String, expression: String, columns list: [ColumnSignature]) throws -> ModelMetadata {
+        let name = try validatedTableName(rawName, ignoring: nil)
+        try validateNewColumns(list.map { NewTableColumn(name: $0.name, dataType: $0.dataType) }, table: name)
+        let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty, !body.contains("\0") else { throw ModelEditError("Biểu thức của bảng \(name) trống hoặc chứa NUL") }
+        let tableID = (tables.map(\.id).max() ?? 0) + 1
+        let table = Table(id: tableID, name: name, isHidden: false, systemFlags: 2, description: nil, lineageTag: UUID().uuidString.lowercased(),
+                          dataCategory: nil, isCalculatedUserTable: true)
+        var nextID = (columns.map(\.id).max() ?? 0) + 1
+        let added = list.map { column -> Column in
+            defer { nextID += 1 }
+            let columnName = column.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return Column(id: nextID, tableID: tableID, tableName: name, name: columnName, kind: .calculatedTableColumn,
+                          dataType: column.dataType, isHidden: false, expression: nil, formatString: nil, sortByColumnID: nil,
+                          summarizeBy: Int(TableMetadataWriter.summarizeBy(column.dataType, name: columnName, isRowNumber: false)),
+                          dataCategory: nil, displayFolder: nil, isKey: false, sourceColumn: "[\(columnName)]", description: nil, lineageTag: nil)
+        }
+        var expressions = calculatedTableExpressions
+        expressions[name] = body
+        return ModelMetadata(copying: self, columns: columns + added, tables: tables + [table], calculatedTableExpressions: expressions)
+    }
+
     // MARK: replaceTable
 
     func replacingTable(_ oldName: String, with new: NewTable) throws -> ModelMetadata {
@@ -75,7 +125,8 @@ extension ModelMetadata {
 
         var newTables = tables
         newTables[tableIndex] = Table(id: old.id, name: name, isHidden: old.isHidden, systemFlags: old.systemFlags,
-                                      description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory)
+                                      description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory,
+                                isCalculatedUserTable: old.isCalculatedUserTable)
         let renamed = name != oldName
         let newRelationships = !renamed ? relationships : relationships.map {
             Relationship(name: $0.name, fromTable: $0.fromTable == oldName ? name : $0.fromTable, fromColumn: $0.fromColumn,

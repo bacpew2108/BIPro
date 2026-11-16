@@ -145,6 +145,116 @@ public struct TableMetadataWriter {
         maxID = next - 1
     }
 
+    // MARK: - Cột tính toán (Phase F, T084)
+
+    /// Thêm cột tính toán `columnName` (ID `columnID`, phải bằng `MAXID + 1`) vào bảng đã có `table`: mã hoá `values` thành một cột của
+    /// phân vùng hiện có (vị trí lưu kế tiếp, cùng thư mục bảng/phân vùng), kèm bảng `H$`, rồi ghi dòng `Column` như Desktop
+    /// (`Type = 2`, `Expression`, `SourceColumn` rỗng; Nhom6, `docs/phase-f-evidence/vm-f6/QUAN-SAT.md`). Chỉ bảng một phân vùng, một đoạn
+    /// dữ liệu. Trả các tệp cần thêm vào ABF (kể cả `systemFiles` mới).
+    public mutating func addCalculatedColumn(table: String, columnID: Int, columnName: String, expression: String,
+                                             values: VertiPaqWriter.Values) throws -> [VertiPaqWriter.EncodedFile] {
+        let db = database
+        guard columnID == maxID + 1 else { throw WriteError.invalid("ID cột tính toán phải là MAXID + 1 (\(maxID + 1))") }
+        guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
+            throw WriteError.invalid("không có bảng «\(table)» để thêm cột tính toán")
+        }
+        guard try db.int("SELECT COUNT(*) FROM [Column] WHERE TableID = ? AND COALESCE(ExplicitName, InferredName) = ? COLLATE NOCASE",
+                         [.int(tableID), .text(columnName)]) == 0 else {
+            throw WriteError.invalid("bảng «\(table)» đã có cột «\(columnName)»")
+        }
+        let partitions = try db.strings("SELECT ID FROM Partition WHERE TableID = ?", [.int(tableID)])
+        guard partitions.count == 1, let partitionID = Int64(partitions[0]),
+              let partitionStorageID = try db.int("SELECT PartitionStorageID FROM Partition WHERE ID = ?", [.int(partitionID)]),
+              let tableStorageID = try db.int("SELECT TableStorageID FROM [Table] WHERE ID = ?", [.int(tableID)]),
+              let tableStorageName = try db.strings("SELECT Name FROM TableStorage WHERE ID = ?", [.int(tableStorageID)]).first,
+              let tableFolderID = try db.int("SELECT ID FROM StorageFolder WHERE OwnerType = 18 AND OwnerID = ?", [.int(tableStorageID)]),
+              let tableFolder = try db.strings("SELECT Path FROM StorageFolder WHERE ID = ?", [.int(tableFolderID)]).first,
+              let partitionFolderID = try db.int("SELECT ID FROM StorageFolder WHERE OwnerType = 20 AND OwnerID = ?", [.int(partitionStorageID)]),
+              let partitionFolder = try db.strings("SELECT Path FROM StorageFolder WHERE ID = ?", [.int(partitionFolderID)]).first,
+              let segmentMapID = try db.int("SELECT SegmentMapStorageID FROM PartitionStorage WHERE ID = ?", [.int(partitionStorageID)]),
+              let segments = try db.int("SELECT SegmentCount FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]),
+              let records = try db.int("SELECT RecordCount FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) else {
+            throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có nhiều phân vùng hoặc thiếu dữ liệu lưu trữ")
+        }
+        guard segments == 1 else {
+            throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có \(segments) đoạn dữ liệu (mới lưu được bảng một đoạn)")
+        }
+        guard Int64(values.count) == records else {
+            throw WriteError.invalid("cột tính toán «\(columnName)» có \(values.count) dòng, bảng «\(table)» có \(records)")
+        }
+        let position = (try db.int("""
+            SELECT MAX(cs.StoragePosition) FROM ColumnStorage cs JOIN [Column] c ON c.ColumnStorageID = cs.ID WHERE c.TableID = ?
+            """, [.int(tableID)]) ?? 0) + 1
+
+        // Tên bảng trong tên tệp như Desktop (`TableStorage.Name` bỏ đuôi " (ID)").
+        let suffix = " (\(tableID))"
+        let storageBase = tableStorageName.hasSuffix(suffix) ? String(tableStorageName.dropLast(suffix.count)) : tableStorageName
+        let encodedTable = try VertiPaqWriter.encodeTable(name: storageBase, tableID: Int(tableID), partitionID: Int(partitionID),
+                                                          rowNumberID: columnID + 1_000_000, columns: [.init(id: columnID, name: columnName, values: values)])
+        let raw = encodedTable.columns[1]
+        func moved(_ file: VertiPaqWriter.EncodedFile, to folder: String) -> VertiPaqWriter.EncodedFile {
+            VertiPaqWriter.EncodedFile(path: folder + "\\" + file.fileName, fileName: file.fileName, folder: file.folder, data: file.data)
+        }
+        let column = VertiPaqWriter.EncodedColumn(
+            kind: .data, id: raw.id, explicitName: raw.explicitName, storageName: raw.storageName, dataType: raw.dataType,
+            storagePosition: Int(position), operatesOn32: raw.operatesOn32, dictionary: raw.dictionary.map { moved($0, to: tableFolder) },
+            dictionaryCount: raw.dictionaryCount, dictionaryByteCount: raw.dictionaryByteCount,
+            idf: moved(raw.idf, to: partitionFolder), idfmeta: moved(raw.idfmeta, to: partitionFolder),
+            rowCount: raw.rowCount, distinctCount: raw.distinctCount, minDataID: raw.minDataID, maxDataID: raw.maxDataID,
+            originalMinDataID: raw.originalMinDataID, hasNulls: raw.hasNulls, bitWidth: raw.bitWidth,
+            minValueText: raw.minValueText, maxValueText: raw.maxValueText, stringValueMaxLength: raw.stringValueMaxLength,
+            hierarchy: raw.hierarchy)
+
+        var next = columnID + 1
+        func allocate() -> Int64 {
+            defer { next += 1 }
+            return Int64(next)
+        }
+        let now = Self.fileTimeNow()
+        let systemFilesBefore = systemFiles.count
+        try db.exec("BEGIN IMMEDIATE")
+        do {
+            try insertColumn(column, table: encodedTable, tableID: tableID, now: now, refreshedNever: 31_240_512_000_000_000,
+                             tableFolderID: tableFolderID, partitionFolderID: partitionFolderID,
+                             partitionStorageID: partitionStorageID, allocate: allocate)
+            try db.run("""
+                UPDATE [Column] SET Type = 2, Expression = ?, SourceColumn = NULL, InferredDataType = ExplicitDataType, ExpressionContext = 1
+                WHERE ID = ?
+                """, [.text(expression), .int(Int64(columnID))])
+            try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(Int64(next - 1))])
+            try db.exec("COMMIT")
+        } catch {
+            db.rollbackIfOpen()
+            systemFiles.removeSubrange(systemFilesBefore...)
+            throw error
+        }
+        maxID = next - 1
+        return (column.dictionary.map { [$0] } ?? []) + [column.idf, column.idfmeta] + systemFiles[systemFilesBefore...]
+    }
+
+    /// Đổi bảng vừa thêm (`addTable`) thành bảng tính toán như Desktop (w8.3): `SystemFlags = 2`, phân vùng `Type = 2` với biểu thức DAX,
+    /// cột dữ liệu thành cột của bảng tính toán (`Type = 4`, tên ở `InferredName`, `SourceColumn = [tên]`, kiểu tự động).
+    public mutating func markCalculatedTable(_ table: String, expression: String) throws {
+        let db = database
+        guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
+            throw WriteError.invalid("không có bảng «\(table)»")
+        }
+        try db.exec("BEGIN IMMEDIATE")
+        do {
+            try db.run("UPDATE [Table] SET SystemFlags = 2 WHERE ID = ?", [.int(tableID)])
+            try db.run("UPDATE Partition SET Type = 2, QueryDefinition = ? WHERE TableID = ?", [.text(expression), .int(tableID)])
+            try db.run("""
+                UPDATE [Column] SET Type = 4, InferredName = ExplicitName, ExplicitName = NULL, SourceColumn = '[' || ExplicitName || ']',
+                    InferredDataType = ExplicitDataType, ExplicitDataType = 1
+                WHERE TableID = ? AND Type = 1
+                """, [.int(tableID)])
+            try db.exec("COMMIT")
+        } catch {
+            db.rollbackIfOpen()
+            throw error
+        }
+    }
+
     /// The edited database as a `metadata.sqlitedb` file.
     public func serialize() throws -> Data {
         try database.serialize()

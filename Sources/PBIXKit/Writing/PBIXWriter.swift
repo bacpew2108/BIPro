@@ -50,7 +50,9 @@ public enum PBIXWriter {
             throw WriteError.invalid("cannot replace \(Self.diagramLayoutPath): not a member of \(source.lastPathComponent)")
         }
         let needsModel = rebuildModel || changes.changesModel
-        let model = needsModel ? try timed("rebuiltDataModel") { try rebuiltDataModel(archive: archive, edits: changes.allModelEdits) } : nil
+        let model = needsModel ? try timed("rebuiltDataModel") {
+            try rebuiltDataModel(archive: archive, edits: changes.allModelEdits, calculated: changes.calculatedData)
+        } : nil
 
         let dropsBinding = changes.changesReport && archive.entry(Self.securityBindingsPath) != nil
         var members: [(path: String, source: ZipWriter.Source)] = []
@@ -182,7 +184,7 @@ public enum PBIXWriter {
     }
 
     /// T2: applies model edits to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel.
-    static func rebuiltDataModel(archive: ZipArchive, edits: ModelEdits) throws -> Data {
+    static func rebuiltDataModel(archive: ZipArchive, edits: ModelEdits, calculated: [String: VertiPaqWriter.Values] = [:]) throws -> Data {
         guard let entry = archive.entry("DataModel") else { throw ZipArchive.Error.missingEntry("DataModel") }
         let stream = try archive.storedSlice(entry) ?? archive.read(entry)
         let (abfBytes, _) = try timed("decompress") { try DataModelStream.decompress(stream) }
@@ -191,6 +193,7 @@ public enum PBIXWriter {
             throw WriteError.invalid("the data model has no \(metadataPath)")
         }
         var metadata = try MetadataWriter(sqlite: try abf.contents(of: metadataFile))
+        metadata.calculatedValues = calculated
         // Chỉ mục quan hệ mới đọc từ dữ liệu cột của ABF gốc (lược đồ lưu trữ cột không đổi giữa các thao tác).
         let sourceModel = try ModelMetadata(sqlite: try abf.contents(of: metadataFile))
         // Bảng thêm trong cùng đợt chưa nằm trong ABF: cột của chúng lấy từ dữ liệu mã hoá trong thao tác.
@@ -342,8 +345,19 @@ public enum PBIXWriter {
             for case .replaceTable(let old, let new) in changes.allModelEdits.items { replacedNames.insert(new.name); goneNames.insert(old) }
             for case .dropTable(let dropped) in changes.allModelEdits.items { goneNames.insert(dropped) }
             let newTableNames = Set(expected.tables.map(\.name)).subtracting(sourceTables).union(replacedNames)
+            // Cột tính toán thêm vào bảng đã có (T084): ID do bộ ghi cấp; so theo tên, kiểu, ẩn, cách tổng hợp và biểu thức.
+            var calculatedKeys = Set<String>()
+            for case .addCalculatedColumn(let table, let name, _, _) in changes.allModelEdits.items { calculatedKeys.insert("\(table)|\(name)") }
             func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
-                m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newTableNames.contains($0.tableName) }
+                m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newTableNames.contains($0.tableName)
+                    && !calculatedKeys.contains("\($0.tableName)|\($0.name)") }
+            }
+            func calculatedColumns(_ m: ModelMetadata) -> [String] {
+                m.columns.filter { calculatedKeys.contains("\($0.tableName)|\($0.name)") }
+                    .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)|\($0.kind)|\($0.expression ?? "")" }.sorted()
+            }
+            guard calculatedColumns(model) == calculatedColumns(expected) else {
+                throw WriteError.verificationFailed("calculated columns read back differ from the edited model")
             }
             func newColumns(_ m: ModelMetadata) -> [String] {
                 m.columns.filter { newTableNames.contains($0.tableName) && $0.kind != .rowNumber }
@@ -370,7 +384,16 @@ public enum PBIXWriter {
             func flat(_ text: String) -> String { String(text.map { $0.isLetter || $0.isNumber || $0 == "(" || $0 == "$" || $0 == "." || $0 == "\\" ? $0 : " " }) }
             let newPrefixes = newTableNames.flatMap { [flat("\($0) ("), flat("H$\($0) (")] }
             let gonePrefixes = goneNames.flatMap { [flat("\($0) ("), flat("H$\($0) (")] }
-            let isNewTableFile: (String) -> Bool = { path in let f = flat(path); return newPrefixes.contains { f.hasPrefix($0) } }
+            // Cột tính toán thêm vào bảng đã có (T084): tệp mới của cột trong thư mục bảng, phân vùng và bảng `H$` của cột.
+            let calculatedFiles: [(table: [String], column: String)] = changes.allModelEdits.items.compactMap { edit in
+                guard case .addCalculatedColumn(let table, let name, _, _) = edit else { return nil }
+                return ([flat("\(table) ("), flat("H$\(table) (")], flat("\(name) ("))
+            }
+            let isCalculatedFile: (String) -> Bool = { path in
+                let f = flat(path)
+                return calculatedFiles.contains { item in item.table.contains { f.hasPrefix($0) } && f.contains(item.column) }
+            }
+            let isNewTableFile: (String) -> Bool = { path in let f = flat(path); return newPrefixes.contains { f.hasPrefix($0) } || isCalculatedFile(path) }
             let isGoneTableFile: (String) -> Bool = { path in let f = flat(path); return gonePrefixes.contains { f.hasPrefix($0) } }
             let isTouchedTableFile: (String) -> Bool = { isNewTableFile($0) || isGoneTableFile($0) }
             guard addedPaths.allSatisfy({ isIndex($0) || isNewTableFile($0) }), removedPaths.allSatisfy({ isIndex($0) || isGoneTableFile($0) }),

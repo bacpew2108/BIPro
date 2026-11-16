@@ -311,7 +311,28 @@ public enum TableFunctions: FunctionFamily {
                      impl: .table(topNBody)),
         FunctionSpec(name: "RELATED", params: [.column("columnName")], impl: .scalar(relatedBody)),
         FunctionSpec(name: "RELATEDTABLE", params: [.table("tableName")], impl: .table(relatedTableBody)),
+        FunctionSpec(name: "EARLIER", params: [.column("column"), .scalar("number", optional: true)], impl: .scalar(earlierBody)),
+        FunctionSpec(name: "EARLIEST", params: [.column("column")], impl: .scalar(earliestBody)),
     ]
+
+    // MARK: EARLIER, EARLIEST (Phase F, T081)
+
+    /// EARLIER(cột, n = 1): giá trị của cột ở khung row bao ngoài thứ n có chứa cột đó (bỏ qua n khung gần nhất).
+    /// [DOC earlier-function-dax] Không có khung đó thì lỗi.
+    private static let earlierBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        let column = try frame.column(0)
+        var depth = 1
+        if frame.args.count > 1, frame.args[1] != nil {
+            depth = Int(try frame.scalar(1).asDouble())
+            guard depth >= 1 else { throw DAXError(.runtime, "EARLIER: số cấp phải từ 1 trở lên") }
+        }
+        return try fkEvaluator(frame).outerRowValue(column, skipping: depth, outermost: false)
+    }
+
+    /// EARLIEST(cột): giá trị của cột ở khung row ngoài cùng có chứa cột đó.
+    private static let earliestBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        try fkEvaluator(frame).outerRowValue(try frame.column(0), skipping: 1, outermost: true)
+    }
 
     // MARK: FILTER
 

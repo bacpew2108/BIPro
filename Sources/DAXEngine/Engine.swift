@@ -41,6 +41,37 @@ public final class DAXEngine: Sendable {
         return try evaluator.scalar(.measure(found.id), in: base)
     }
 
+    /// Giá trị của cột tính toán `expression` trên bảng `table`, theo thứ tự dòng của bảng (Phase F, T081). Mỗi dòng đánh giá trong
+    /// row context của chính dòng đó, bộ lọc rỗng (như Desktop tính cột khi làm mới), nên `RELATED`, `EARLIER`, `CALCULATE`
+    /// (chuyển ngữ cảnh) dùng được.
+    public func calculatedColumn(table: String, expression: String) throws(DAXError) -> [Value] {
+        guard let schemaTable = store.schema.table(named: table) else {
+            throw DAXError(.unknownName, "không tìm thấy bảng \"\(table)\"")
+        }
+        let bound = try Binder.bind(try parseExpression(expression), catalog: catalog)
+        let evaluator = Evaluator(store: store, catalog: catalog)
+        let rows: RowSet
+        do { rows = try store.allRows(schemaTable.id) } catch { throw DAXError(.runtime, "không đọc được bảng \"\(table)\": \(error)") }
+        var values: [Value] = []
+        values.reserveCapacity(rows.count)
+        try evaluator.iteratePhysical(schemaTable.id, rows, EvalContext()) { (ctx: EvalContext) throws(DAXError) in
+            values.append(try evaluator.scalar(bound, in: ctx))
+        }
+        return values
+    }
+
+    /// Bảng tính toán: kết quả đầy đủ của biểu thức bảng `expression`, bộ lọc rỗng (Phase F, T081). Tên cột bỏ phần bảng
+    /// (`'T'[Date]` → `Date`) như cột của bảng tính toán Desktop.
+    public func calculatedTable(expression: String) throws(DAXError) -> ResultTable {
+        let bound = try Binder.bind(try parseExpression(expression), catalog: catalog)
+        let table = try Evaluator(store: store, catalog: catalog).table(bound, in: EvalContext())
+        let names = table.columns.map { name -> String in
+            guard name.hasSuffix("]"), let open = name.lastIndex(of: "[") else { return name }
+            return String(name[name.index(after: open)..<name.index(before: name.endIndex)])
+        }
+        return ResultTable(columns: names, rows: table.rows)
+    }
+
     /// Lỗi của một truy vấn cho editor (gạch chân): cú pháp, rồi lỗi tên và bind (cột, bảng, measure, hàm,
     /// số đối số). Không đánh giá gì nên nhanh và không chạm dữ liệu. Lỗi chỉ lộ ra khi chạy (kiểu, giá trị) không có ở đây.
     public func validate(_ expression: String) -> [DAXError] {

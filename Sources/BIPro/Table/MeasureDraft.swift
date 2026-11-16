@@ -8,11 +8,21 @@ final class MeasureDraft {
     enum Mode: Equatable {
         case new(table: String)
         case edit(table: String, name: String)
+        /// Phase F (T083): "Cột mới" (cột tính toán của `table`) và "Bảng mới" (bảng tính toán).
+        case newColumn(table: String)
+        case newTable
 
         var table: String {
             switch self {
-            case .new(let table), .edit(let table, _): table
+            case .new(let table), .edit(let table, _), .newColumn(let table): table
+            case .newTable: ""
             }
+        }
+
+        /// Bản nháp chưa có trong mô hình (✗ đóng hẳn).
+        var isNew: Bool {
+            if case .edit = self { return false }
+            return true
         }
     }
 

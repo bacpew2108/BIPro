@@ -86,6 +86,8 @@ public struct PBIXChanges: Sendable {
     public var modelEdits = ModelEdits()
     /// Replaces the `DiagramLayout` member (UTF-16LE JSON). The member must exist. Does not touch the DataModel.
     public var diagramLayout: Data?
+    /// T084: giá trị đã tính của cột tính toán và cột của bảng tính toán trong `modelEdits`, khoá `Bảng[Cột]`.
+    public var calculatedData: [String: VertiPaqWriter.Values] = [:]
 
     public init() {}
 

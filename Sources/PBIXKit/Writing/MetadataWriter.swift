@@ -174,6 +174,41 @@ public struct MetadataWriter {
         }
     }
 
+    // MARK: Cột và bảng tính toán (Phase F, T084)
+
+    /// Giá trị đã tính của cột tính toán và cột của bảng tính toán, khoá `Bảng[Cột]` (ứng dụng tính bằng engine rồi đưa qua
+    /// `PBIXChanges.calculatedData`). Desktop lưu sẵn dữ liệu VertiPaq của chúng nên file mở không cần làm mới (VM-F6).
+    public var calculatedValues: [String: VertiPaqWriter.Values] = [:]
+
+    private func calculated(_ table: String, _ column: String) throws -> VertiPaqWriter.Values {
+        guard let values = calculatedValues["\(table)[\(column)]"] else {
+            throw WriteError.invalid("chưa có giá trị đã tính của cột «\(table)[\(column)]» để ghi")
+        }
+        return values
+    }
+
+    mutating func addCalculatedColumn(table: String, name: String, expression: String) throws {
+        let values = try calculated(table, name)
+        var writer = try TableMetadataWriter(sqlite: try database.serialize())
+        let files = try writer.addCalculatedColumn(table: table, columnID: writer.maxID + 1, columnName: name, expression: expression, values: values)
+        database = try MetadataDatabase(bytes: try writer.serialize())
+        addedFiles += files.map { ABFPayload(path: $0.path, data: $0.data) }
+        try transaction { db, now in
+            try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+            try Self.bumpProperties(db, now)
+        }
+    }
+
+    mutating func addCalculatedTable(name: String, expression: String, columns: [ColumnSignature]) throws {
+        var data: [NewTableColumn] = []
+        for column in columns { data.append(NewTableColumn(name: column.name, values: try calculated(name, column.name))) }
+        // Như bảng nạp (không vào `PBI_QueryOrder`: bảng tính toán không phải truy vấn), rồi đổi các dòng thành dạng bảng tính toán.
+        try addTable(NewTable(name: name, columns: data, queryExpression: expression), reusing: nil)
+        var writer = try TableMetadataWriter(sqlite: try database.serialize())
+        try writer.markCalculatedTable(name, expression: expression)
+        database = try MetadataDatabase(bytes: try writer.serialize())
+    }
+
     // MARK: Thay và xoá bảng đã có trong file (Phase F, T063b)
 
     /// Xoá bảng người dùng khỏi file: dòng siêu dữ liệu, bảng hệ thống `H$` của cột và tệp ABF. Chỉ làm được khi bảng không dính quan hệ
@@ -520,8 +555,10 @@ extension MetadataWriter {
             try setQuery(name: name, expression: expression)
         case .dropQuery(let name):
             try dropQuery(name: name)
-        case .addCalculatedColumn, .addCalculatedTable:
-            throw WriteError.invalid("Chưa hỗ trợ ghi cột tính toán và bảng tính toán (Phase F, đang cài)")
+        case .addCalculatedColumn(let table, let name, let expression, _):
+            try addCalculatedColumn(table: table, name: name, expression: expression)
+        case .addCalculatedTable(let name, let expression, let columns):
+            try addCalculatedTable(name: name, expression: expression, columns: columns)
         case .deleteRelationship(let name):
             var removed: [String] = []
             try transaction { db, now in removed = try Self.deleteRelationship(db, name: name, now: now) }

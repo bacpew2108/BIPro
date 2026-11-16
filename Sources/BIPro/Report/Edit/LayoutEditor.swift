@@ -92,6 +92,8 @@ final class LayoutEditor {
     @ObservationIgnored var diagramFileNames: () -> [String] = { [] }
     /// Mô hình gốc của file lúc mở: để tính phần đổi khi lưu lần thứ hai (file trên đĩa đã chứa phần đã lưu).
     @ObservationIgnored var modelBase: ModelMetadata?
+    /// Giá trị đã tính của cột/bảng tính toán trong các thao tác sắp lưu, khoá `Bảng[Cột]` (T084). `DocumentState` gắn vào engine của phiên.
+    @ObservationIgnored var calculatedValues: (ModelEdits) throws -> [String: VertiPaqWriter.Values] = { _ in [:] }
     /// Gọi mỗi khi `modelEdits` đổi (sửa, hoàn tác, làm lại) để nơi giữ mô hình hiệu lực và engine cập nhật theo.
     @ObservationIgnored var modelEditsChanged: (ModelEdits) -> Void = { _ in }
     /// Phần bookmark và bộ lọc bị bỏ qua ở lần dựng gói lưu gần nhất vì chưa lưu được vào file (kèm lý do).
@@ -1268,7 +1270,7 @@ final class LayoutEditor {
         let saved = Set(savedModelEdits.items)
         var delta = ModelEdits(modelEdits.items.filter { edit in
             switch edit {
-            case .addTable, .replaceTable, .dropTable: !saved.contains(edit)
+            case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: !saved.contains(edit)
             default: false
             }
         })
@@ -1280,6 +1282,7 @@ final class LayoutEditor {
         if isLegacy {
             var legacy = try makeLegacyChanges(archive: archive)
             legacy.modelEdits = try modelDelta()
+            if legacy.modelEdits.hasCalculatedEdits { legacy.calculatedData = try calculatedValues(legacy.modelEdits) }
             if diagramEdits != savedDiagramEdits, let source = diagramSource() {
                 let (moves, zoom) = diagramMoves()
                 legacy.diagramLayout = try DiagramLayoutPatch.applying(tabs: diagramTabsForPatch(), selected: diagramSelected(), removals: diagramRemovals(), moves: moves, zoom: zoom,
@@ -1460,6 +1463,7 @@ final class LayoutEditor {
         }
         saveNotes = try addReportChanges(to: &changes, archive: archive)
         changes.modelEdits = try modelDelta()
+        if changes.modelEdits.hasCalculatedEdits { changes.calculatedData = try calculatedValues(changes.modelEdits) }
         if diagramEdits != savedDiagramEdits, let source = diagramSource() {
             let (moves, zoom) = diagramMoves()
             changes.diagramLayout = try DiagramLayoutPatch.applying(tabs: diagramTabsForPatch(), selected: diagramSelected(), removals: diagramRemovals(), moves: moves, zoom: zoom,

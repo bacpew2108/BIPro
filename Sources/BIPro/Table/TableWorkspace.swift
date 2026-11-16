@@ -77,11 +77,18 @@ struct FormulaBar: View {
         .padding(.horizontal, 10)
         .frame(height: 36)
         .hairline(.bottom)
-        .help(column?.kind == .calculated ? "Cột tính toán: chỉ xem (tạo và sửa cột tính toán thuộc Phase F)" : "Cột dữ liệu nạp từ nguồn")
+        .help(column?.kind == .calculated ? "Cột tính toán: chỉ xem (thêm cột mới bằng nút Cột mới; sửa cột đã có chưa làm)" : "Cột dữ liệu nạp từ nguồn")
     }
 
     private func formula(_ column: ModelMetadata.Column?) -> String {
-        guard let column else { return state.table.map { "Bảng \($0)" } ?? "" }
+        guard let column else {
+            guard let table = state.table else { return "" }
+            if let expression = state.workspace.metadata?.calculatedTableExpressions[table],
+               state.workspace.userTables.contains(where: { $0.name == table && $0.isCalculatedUserTable }) {
+                return "\(table) = " + expression.replacingOccurrences(of: "\n", with: " ")
+            }
+            return "Bảng \(table)"
+        }
         if column.kind == .calculated, let expression = column.expression {
             return "\(column.name) = " + expression.replacingOccurrences(of: "\n", with: " ")
         }
@@ -137,8 +144,7 @@ struct MeasureFormulaBar: View {
     }
 
     private var canCancel: Bool {
-        if case .new = draft.mode { return true }
-        return draft.isChanged
+        draft.mode.isNew || draft.isChanged
     }
 
     private var statusLine: String? {
@@ -146,7 +152,12 @@ struct MeasureFormulaBar: View {
         if draft.isApplying { return "Đang kiểm biểu thức…" }
         if let blocker = state.modelEditingBlocker { return blocker }
         if let preview = draft.preview { return "Đã áp dụng. Giá trị: \(preview)" }
-        if case .new = draft.mode { return "Gõ biểu thức rồi bấm ✓ (⌘↩) để thêm vào mô hình." }
+        switch draft.mode {
+        case .new: return "Gõ biểu thức rồi bấm ✓ (⌘↩) để thêm vào mô hình."
+        case .newColumn(let table): return "Cột tính toán mới của bảng \(table): gõ Tên = biểu thức DAX (tính theo từng dòng) rồi bấm ✓ (⌘↩)."
+        case .newTable: return "Bảng tính toán mới: gõ Tên = biểu thức bảng DAX (ví dụ CALENDAR, DISTINCT) rồi bấm ✓ (⌘↩)."
+        case .edit: break
+        }
         return nil
     }
 
@@ -178,6 +189,12 @@ struct TableGridView: View {
     /// Lọc lưới theo cột đang chọn (chỉ để xem, không đụng mô hình).
     @State private var filterText = ""
     @State private var visibleRows: Int?
+
+    /// Khoá nạp lại lưới: đọc `modelVersion` để SwiftUI tính lại khi mô hình đổi (cột/bảng tính toán thêm, bảng nạp lại).
+    private var gridKey: String {
+        _ = state.modelVersion
+        return state.workspace.dataKey(table)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -217,7 +234,7 @@ struct TableGridView: View {
             }
         }
         .onChange(of: state.column) { _, _ in filterText = "" }   // bộ lọc thuộc về một cột: đổi cột thì xoá
-        .task {
+        .task(id: gridKey) {
             let start = ContinuousClock.now
             let workspace = state.workspace, table = table
             let result = await Task.detached(priority: .userInitiated) { () -> Result<[DecodedColumn], Error> in
@@ -334,6 +351,8 @@ struct DataGrid: NSViewRepresentable {
             if identifier == "#" { return String(source + 1) }
             guard let index = Int(identifier) else { return nil }
             let value = columns[index][source]
+            // Số thực: tối đa 15 chữ số có nghĩa như Desktop (18 × 39,9 hiện 718.2, không phải 718.1999999999999).
+            if case .double(let v) = value, v != v.rounded() { return String(format: "%.15g", v) }
             return value == .null ? "" : value.description
         }
 

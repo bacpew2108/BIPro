@@ -183,7 +183,7 @@ struct DataPane: View {
                 level: baseLevel,
                 isExpanded: isOpen,
                 hasChildren: true,
-                symbol: table.name.lowercased().hasPrefix("fact") ? "tablecells.fill" : "tablecells",
+                symbol: table.isCalculatedUserTable ? "tablecells.badge.ellipsis" : (table.name.lowercased().hasPrefix("fact") ? "tablecells.fill" : "tablecells"),
                 tint: DS.Palette.table,
                 title: table.name,
                 isHidden: table.isHidden,

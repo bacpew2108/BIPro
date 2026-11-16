@@ -192,8 +192,10 @@ private struct ModelingCommands: View {
             RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table { state.beginNewMeasure(table: table) }
             }
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase F")
-            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", phase: "Phase F")
+            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
+                if let table = state.table { state.beginNewColumn(table: table) }
+            }
+            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", disabledReason: state.modelEditingBlocker) { state.beginNewTable() }
         }
         RibbonDivider()
         RibbonGroup(title: "Bảo mật") {
@@ -308,8 +310,10 @@ private struct TableToolsCommands: View {
             RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table { state.beginNewMeasure(table: table) }
             }
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase F")
-            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", phase: "Phase E")
+            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
+                if let table = state.table { state.beginNewColumn(table: table) }
+            }
+            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", disabledReason: state.modelEditingBlocker) { state.beginNewTable() }
         }
     }
 }
@@ -354,7 +358,9 @@ private struct ColumnToolsCommands: View {
             RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table { state.beginNewMeasure(table: table) }
             }
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", phase: "Phase F")
+            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
+                if let table = state.table { state.beginNewColumn(table: table) }
+            }
         }
     }
 

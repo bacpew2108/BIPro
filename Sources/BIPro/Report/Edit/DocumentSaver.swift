@@ -207,12 +207,16 @@ enum DocumentSaver {
         var replacedNames = Set<String>()
         for case .replaceTable(_, let table) in editor.modelEdits.items { replacedNames.insert(table.name) }
         let newNames = Set(expected.tables.map(\.name)).subtracting(base.tables.map(\.name)).union(replacedNames)
+        // Cột tính toán thêm vào bảng đã có (T084): ID do bộ ghi cấp, so theo tên, kiểu, loại và biểu thức.
+        var calculatedKeys = Set<String>()
+        for case .addCalculatedColumn(let table, let name, _, _) in editor.modelEdits.items { calculatedKeys.insert("\(table)|\(name)") }
         func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
-            m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newNames.contains($0.tableName) }
+            m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newNames.contains($0.tableName)
+                && !calculatedKeys.contains("\($0.tableName)|\($0.name)") }
         }
         func newColumns(_ m: ModelMetadata) -> [String] {
-            m.columns.filter { newNames.contains($0.tableName) && $0.kind != .rowNumber }
-                .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)" }.sorted()
+            m.columns.filter { (newNames.contains($0.tableName) || calculatedKeys.contains("\($0.tableName)|\($0.name)")) && $0.kind != .rowNumber }
+                .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)|\($0.kind)|\($0.expression ?? "")" }.sorted()
         }
         guard userColumns(written) == userColumns(expected), newColumns(written) == newColumns(expected) else {
             throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa")

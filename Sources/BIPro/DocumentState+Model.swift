@@ -57,16 +57,63 @@ extension DocumentState {
     /// Bỏ bản nháp (nút ✗): về văn bản của measure đang chọn, hoặc đóng bản nháp mới.
     func cancelMeasureDraft() {
         guard let draft = measureDraft else { return }
+        if draft.mode.isNew { measureDraft = nil } else { draft.revert() }
+    }
+
+    /// Lý do nút "Cột mới" chưa dùng được (chưa chọn bảng, không sửa được mô hình), nil khi dùng được.
+    var newColumnBlocker: String? {
+        if let blocker = modelEditingBlocker { return blocker }
+        return table == nil ? "Chọn một bảng ở pane Dữ liệu trước" : nil
+    }
+
+    /// "Cột mới" (T083): bản nháp `Cột = ` cho cột tính toán của `table` ở thanh công thức.
+    func beginNewColumn(table: String) {
+        if let blocker = modelEditingBlocker { layout.noteFieldRefusal(blocker); return }
+        mode = .table
+        self.table = table
+        column = nil
+        measure = nil
+        let taken = Set(workspace.measures(of: table).map { $0.name.lowercased() } + workspace.columns(of: table).map { $0.name.lowercased() })
+        var name = "Cột", number = 2
+        while taken.contains(name.lowercased()) { name = "Cột \(number)"; number += 1 }
+        measureDraft = MeasureDraft(mode: .newColumn(table: table), text: "\(name) = ")
+    }
+
+    /// "Bảng mới" (T083): bản nháp `Bảng = ` cho bảng tính toán.
+    func beginNewTable() {
+        if let blocker = modelEditingBlocker { layout.noteFieldRefusal(blocker); return }
+        mode = .table
+        let taken = Set((workspace.metadata?.tables ?? []).map { $0.name.lowercased() })
+        var name = "Bảng", number = 2
+        while taken.contains(name.lowercased()) { name = "Bảng \(number)"; number += 1 }
+        measureDraft = MeasureDraft(mode: .newTable, text: "\(name) = ")
+    }
+
+    /// Áp dụng bản nháp cột/bảng tính toán. Thành công thì đóng bản nháp và chọn cột/bảng mới.
+    private func applyCalculatedDraft(_ draft: MeasureDraft) async {
+        draft.isApplying = true
+        draft.message = nil
+        defer { draft.isApplying = false }
+        let name = CalculatedEditor.split(draft.text)?.name
+        let reason: String?
         switch draft.mode {
-        case .new: measureDraft = nil
-        case .edit: draft.revert()
+        case .newColumn(let table): reason = await addCalculatedColumn(table: table, formula: draft.text)
+        case .newTable: reason = await addCalculatedTable(formula: draft.text)
+        default: return
         }
+        if let reason { draft.message = reason; return }
+        measureDraft = nil
+        if case .newTable = draft.mode, let name { table = name; column = nil } else { column = name }
     }
 
     /// Áp dụng công thức đang gõ (nút ✓): kiểm bằng engine, suy kiểu, rồi thêm hoặc sửa measure qua `ModelEditor`.
     func applyMeasureDraft() async {
         guard let draft = measureDraft, !draft.isApplying else { return }
         if let blocker = modelEditingBlocker { draft.message = blocker; return }
+        switch draft.mode {
+        case .newColumn, .newTable: return await applyCalculatedDraft(draft)
+        default: break
+        }
         guard let parts = MeasureFormula.parse(draft.text), !parts.name.isEmpty else {
             draft.message = "Nhập công thức theo dạng Tên = biểu thức."
             return
@@ -100,7 +147,7 @@ extension DocumentState {
         let table = draft.mode.table
         let edit: ModelEdit
         switch draft.mode {
-        case .new:
+        case .new, .newColumn, .newTable:
             edit = .addMeasure(NewMeasure(table: table, name: parts.name, expression: parts.expression,
                                           formatString: info.formatString, dataType: info.dataType.rawValue))
         case .edit(_, let old):
