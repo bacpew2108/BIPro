@@ -10,6 +10,7 @@ struct PreviewGridView: View {
     var showColumnDistribution: Bool = true
     var scrollable: Bool = true
     var onFilterColumn: ((String) -> Void)? = nil
+    var onExpandColumn: ((String) -> Void)? = nil
 
     @State private var renamingColumn: String? = nil
     @State private var renameText: String = ""
@@ -171,8 +172,9 @@ struct PreviewGridView: View {
                         let error = table.error(row: rowIdx, column: colIdx)
                         let isSelected = selectedColumns.contains(col.name)
                         let isNumeric = isNumericType(col.data.type)
+                        let isNested = state.nestedColumnNames.contains(col.name)
 
-                        dataCell(value: val, error: error, isNumeric: isNumeric, isSelected: isSelected, isOdd: isOdd)
+                        dataCell(value: val, error: error, isNumeric: isNumeric, isSelected: isSelected, isOdd: isOdd, isNested: isNested)
                             .frame(width: 140, height: 26)
                             .hairline(.trailing)
                             .contentShape(Rectangle())
@@ -231,6 +233,16 @@ struct PreviewGridView: View {
                 }
 
                 Spacer(minLength: 0)
+
+                if state.nestedColumnNames.contains(name) {
+                    Image(systemName: "arrow.left.and.right.square")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Palette.accent)
+                        .onTapGesture {
+                            onExpandColumn?(name)
+                        }
+                        .help("Mở rộng cột bảng lồng")
+                }
 
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9))
@@ -312,7 +324,7 @@ struct PreviewGridView: View {
     // MARK: - Data Cell
 
     @ViewBuilder
-    private func dataCell(value: StoredValue, error: String?, isNumeric: Bool, isSelected: Bool, isOdd: Bool) -> some View {
+    private func dataCell(value: StoredValue, error: String?, isNumeric: Bool, isSelected: Bool, isOdd: Bool, isNested: Bool = false) -> some View {
         let bg: Color = {
             if error != nil {
                 return DS.Palette.danger.opacity(0.12)
@@ -333,6 +345,12 @@ struct PreviewGridView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
                     .background(Capsule().fill(DS.Palette.danger))
+                Spacer()
+            } else if isNested {
+                Text("Bảng")
+                    .font(DS.Typeface.bodySmall)
+                    .italic()
+                    .foregroundStyle(DS.Palette.accent)
                 Spacer()
             } else if case .blank = value {
                 Text("null")

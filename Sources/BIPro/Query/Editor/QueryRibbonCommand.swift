@@ -147,12 +147,7 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
     }
 
     public var isAvailable: Bool {
-        switch self {
-        case .groupByCount, .unpivotOtherColumns, .pivot:
-            return false
-        default:
-            return true
-        }
+        return true
     }
 
     public var symbol: String {
@@ -188,7 +183,7 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
 
     public var needsParameters: Bool {
         switch self {
-        case .keepTopRows, .removeTopRows, .replaceValue, .filterEquals, .splitByDelimiter, .addCustomColumn:
+        case .keepTopRows, .removeTopRows, .replaceValue, .filterEquals, .splitByDelimiter, .addCustomColumn, .groupByCount:
             return true
         default:
             return false
@@ -337,7 +332,7 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
         guard isAvailable else { return false }
         if needsParameters {
             switch self {
-            case .keepTopRows, .removeTopRows, .addCustomColumn:
+            case .keepTopRows, .removeTopRows, .addCustomColumn, .groupByCount:
                 return true
             case .replaceValue:
                 return !context.selectedColumns.isEmpty

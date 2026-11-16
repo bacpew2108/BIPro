@@ -6,6 +6,10 @@ struct QueryRibbonView: View {
     let context: QueryRibbonContext
     let onCommand: (QueryRibbonCommand) -> Void
     let onOpenAdvancedEditor: () -> Void
+    var onOpenMerge: () -> Void = {}
+    var onOpenAppend: () -> Void = {}
+    var onOpenDependencies: () -> Void = {}
+    var hasMergeCandidates: Bool = false
     let onApply: () -> Void
     let onApplyAndClose: () -> Void
     let onCloseAttempt: () -> Void
@@ -163,6 +167,28 @@ struct QueryRibbonView: View {
 
             RibbonDivider()
 
+            // Combine Group
+            RibbonGroup(title: "Kết hợp") {
+                RibbonButton(
+                    title: "Gộp truy vấn",
+                    symbol: "arrow.triangle.merge",
+                    size: .large,
+                    tint: DS.Palette.accent,
+                    disabledReason: hasMergeCandidates ? nil : "Cần có truy vấn khác để gộp",
+                    action: onOpenMerge
+                )
+                RibbonButton(
+                    title: "Nối truy vấn",
+                    symbol: "arrow.triangle.pull",
+                    size: .large,
+                    tint: DS.Palette.accent,
+                    disabledReason: hasMergeCandidates ? nil : "Cần có truy vấn khác để nối",
+                    action: onOpenAppend
+                )
+            }
+
+            RibbonDivider()
+
             // Query / Advanced Editor Group
             RibbonGroup(title: "Nâng cao") {
                 RibbonButton(
@@ -259,6 +285,19 @@ struct QueryRibbonView: View {
 
             RibbonDivider()
 
+            // Dependencies Group
+            RibbonGroup(title: "Quan hệ") {
+                RibbonButton(
+                    title: "Phụ thuộc\ntruy vấn",
+                    symbol: "point.3.connected.trianglepath.dotted",
+                    size: .large,
+                    tint: DS.Palette.accent,
+                    action: onOpenDependencies
+                )
+            }
+
+            RibbonDivider()
+
             // Advanced Editor Group
             RibbonGroup(title: "Nâng cao") {
                 RibbonButton(
@@ -291,11 +330,21 @@ struct QueryRibbonView: View {
     @ViewBuilder
     private func button(for cmd: QueryRibbonCommand, size: RibbonButton.Size) -> some View {
         let enabled = cmd.isEnabled(context: context)
+        let reason: String? = {
+            if !cmd.isAvailable { return "Sắp có" }
+            if !enabled {
+                if cmd == .pivot {
+                    return "Xoay cột: chọn cột thuộc tính trước, cột giá trị sau"
+                }
+                return "Chưa đủ điều kiện"
+            }
+            return nil
+        }()
         RibbonButton(
             title: cmd.title,
             symbol: cmd.symbol,
             size: size,
-            disabledReason: !cmd.isAvailable ? "Sắp có" : (!enabled ? "Chưa đủ điều kiện" : nil),
+            disabledReason: reason,
             action: { onCommand(cmd) }
         )
     }

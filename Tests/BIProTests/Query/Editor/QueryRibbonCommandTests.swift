@@ -259,14 +259,14 @@ import MEngine
         let unpivot = QueryRibbonCommand.unpivotOtherColumns
         let pivot = QueryRibbonCommand.pivot
 
-        #expect(!groupBy.isAvailable)
-        #expect(!unpivot.isAvailable)
-        #expect(!pivot.isAvailable)
+        #expect(groupBy.isAvailable)
+        #expect(unpivot.isAvailable)
+        #expect(pivot.isAvailable)
 
         let ctx = QueryRibbonContext(selectedColumns: ["Product", "Value"])
-        #expect(!groupBy.isEnabled(context: ctx))
-        #expect(!unpivot.isEnabled(context: ctx))
-        #expect(!pivot.isEnabled(context: ctx))
+        #expect(groupBy.isEnabled(context: ctx))
+        #expect(unpivot.isEnabled(context: ctx))
+        #expect(pivot.isEnabled(context: ctx))
     }
 
     @Test func testAddIndexColumn() {
