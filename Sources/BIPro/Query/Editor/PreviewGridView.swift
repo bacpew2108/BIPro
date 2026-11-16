@@ -38,6 +38,12 @@ struct PreviewGridView: View {
 
     // MARK: - Top Context Bar
 
+    /// Cột chứa bảng lồng (kết quả Merge chưa mở): tra thẳng `TableData.nested`, không sắp xếp tên cột cho từng ô.
+    private func isNestedColumn(_ name: String) -> Bool {
+        guard let table = previewTable, let index = table.index(ofColumn: name) else { return false }
+        return table.nested[index] != nil
+    }
+
     private var topContextBar: some View {
         HStack(spacing: 8) {
             Text(state.selectedQuery?.name ?? "")
@@ -172,7 +178,7 @@ struct PreviewGridView: View {
                         let error = table.error(row: rowIdx, column: colIdx)
                         let isSelected = selectedColumns.contains(col.name)
                         let isNumeric = isNumericType(col.data.type)
-                        let isNested = state.nestedColumnNames.contains(col.name)
+                        let isNested = table.nested[colIdx] != nil
 
                         dataCell(value: val, error: error, isNumeric: isNumeric, isSelected: isSelected, isOdd: isOdd, isNested: isNested)
                             .frame(width: 140, height: 26)
@@ -234,7 +240,7 @@ struct PreviewGridView: View {
 
                 Spacer(minLength: 0)
 
-                if state.nestedColumnNames.contains(name) {
+                if isNestedColumn(name) {
                     Image(systemName: "arrow.left.and.right.square")
                         .font(.system(size: 11))
                         .foregroundStyle(DS.Palette.accent)
