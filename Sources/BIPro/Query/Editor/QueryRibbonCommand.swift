@@ -103,7 +103,7 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
         case .keepTopRows: return "Giữ N dòng đầu"
         case .removeTopRows: return "Xoá N dòng đầu"
         case .removeDuplicates: return "Xoá dòng trùng"
-        case .promoteHeaders: return "Dùng dòng đầu làm tiêu đề"
+        case .promoteHeaders: return "Dùng dòng đầu\nlàm tiêu đề"
         case .changeTypeWholeNumber: return "Số nguyên"
         case .changeTypeDecimal: return "Số thập phân"
         case .changeTypeText: return "Văn bản"
