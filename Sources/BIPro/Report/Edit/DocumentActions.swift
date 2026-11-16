@@ -25,6 +25,8 @@ extension DocumentState {
     /// Lưu thành. Trả `true` khi không còn thay đổi chưa lưu (đã lưu, hoặc không có gì để lưu).
     @discardableResult
     func save() -> Bool {
+        // Tài liệu mới (T077): lần lưu đầu luôn hỏi nơi lưu, kể cả khi chưa sửa gì; không ghi vào bản tạm.
+        if isUntitled { return saveAs() }
         guard layout.isDirty else { return true }
         guard let url = fileURL else { return saveAs() }
         if DocumentSaver.isReadOnlyOriginal(url, roots: DocumentSaver.defaultReadOnlyRoots()) {
@@ -48,11 +50,28 @@ extension DocumentState {
         panel.canCreateDirectories = true
         panel.nameFieldStringValue = source.lastPathComponent
         let readOnly = DocumentSaver.isReadOnlyOriginal(source, roots: DocumentSaver.defaultReadOnlyRoots())
-        panel.directoryURL = readOnly
+        panel.directoryURL = readOnly || isUntitled
             ? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
             : source.deletingLastPathComponent()
-        panel.message = "Lưu bản sao đã sửa của báo cáo"
+        panel.message = isUntitled ? "Lưu báo cáo mới" : "Lưu bản sao đã sửa của báo cáo"
         guard panel.runModal() == .OK, let destination = panel.url else { return false }
+        if isUntitled {
+            // Hộp thoại hệ thống đã hỏi khi trùng tên file có sẵn; không bao giờ ghi vào chính bản tạm.
+            guard !UntitledDocuments.isUntitled(destination) else {
+                _ = Alerts.ask("Không lưu được", "Hãy chọn một thư mục khác thư mục tạm của tài liệu mới.", buttons: ["Đóng"], style: .critical)
+                return false
+            }
+            do {
+                try DocumentSaver.saveUntitled(editor: layout, source: source, to: destination)
+            } catch {
+                _ = Alerts.ask("Không lưu được", "\(error)", buttons: ["Đóng"], style: .critical)
+                return false
+            }
+            NSDocumentController.shared.openDocument(withContentsOf: destination, display: true) { _, _, _ in }
+            window?.close()
+            UntitledDocuments.discard(source)
+            return true
+        }
         let sameFile = destination.standardizedFileURL == source.standardizedFileURL
         guard write(to: destination, expectedStamp: openedStamp) else { return false }
         if !sameFile {
@@ -61,6 +80,9 @@ extension DocumentState {
         }
         return true
     }
+
+    /// Tài liệu tạo bằng "File → Mới" chưa lưu lần nào.
+    var isUntitled: Bool { UntitledDocuments.isUntitled(fileURL) }
 
     private func write(to destination: URL, expectedStamp: FileStamp?) -> Bool {
         guard let source = fileURL else { return false }
@@ -205,6 +227,13 @@ struct SaveCommands: Commands {
         // Thay nhóm `.saveItem` làm mất mục "Mở gần đây" của hệ thống, nên dựng lại bằng danh sách riêng.
         // Không được chạm `NSDocumentController.shared` ở đây: nó chạy trước khi SwiftUI dựng bộ điều khiển tài liệu
         // của nó và làm app sập lúc khởi động.
+        // Nhóm "New/Open" mặc định của DocumentGroup chỉ xem có mục "New" không dùng được: thay bằng "Mới" (tài liệu trống, T077) và "Mở…".
+        CommandGroup(replacing: .newItem) {
+            Button("Mới") { UntitledDocuments.openNew() }
+                .keyboardShortcut("n", modifiers: .command)
+            Button("Mở…") { NSDocumentController.shared.openDocument(nil) }
+                .keyboardShortcut("o", modifiers: .command)
+        }
         CommandGroup(after: .newItem) {
             Menu("Mở gần đây") {
                 ForEach(RecentFiles.urls, id: \.self) { url in

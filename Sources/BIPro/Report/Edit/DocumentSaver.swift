@@ -115,6 +115,25 @@ enum DocumentSaver {
         return SaveOutcome(didWrite: true, newStamp: try? FileStamp.of(destination))
     }
 
+    /// Lần lưu đầu của tài liệu mới (`UntitledDocuments`, T077): ghi ra `destination` cả khi chưa sửa gì (tài liệu trống vẫn lưu
+    /// được, FR-053). Có thay đổi thì đi đúng đường `save`; bản tạm `source` không bị ghi.
+    @discardableResult
+    static func saveUntitled(editor: LayoutEditor, source: URL, to destination: URL,
+                             readOnlyRoots: [URL] = defaultReadOnlyRoots(),
+                             backupDirectory: URL = defaultBackupDirectory()) throws -> SaveOutcome {
+        if editor.isDirty {
+            return try save(editor: editor, source: source, to: destination, expectedStamp: nil,
+                            readOnlyRoots: readOnlyRoots, backupDirectory: backupDirectory)
+        }
+        if isReadOnlyOriginal(destination, roots: readOnlyRoots) { throw SaveError.readOnlyOriginal(destination) }
+        do {
+            try PBIXWriter.write(try Data(contentsOf: source), to: destination, backup: .directory(backupDirectory))
+        } catch {
+            throw SaveError.writeFailed("\(error)")
+        }
+        return SaveOutcome(didWrite: true, newStamp: try? FileStamp.of(destination))
+    }
+
     /// Bảng nạp từ Get Data (T3): đọc lại từng ô từ file đã dựng, phải bằng `TableData` trong bộ nhớ (FR-050, FR-051). Sai một ô là từ chối lưu.
     static func verifyTables(_ data: Data, editor: LayoutEditor) throws {
         let tables: [NewTable] = editor.modelEdits.collapsingTableEdits().items.compactMap {

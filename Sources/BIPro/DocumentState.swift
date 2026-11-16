@@ -189,7 +189,7 @@ final class DocumentState {
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
         layout.showPage(pageID)
         DocumentRegistry.shared.add(self)
-        if let fileURL { RecentFiles.record(fileURL) }
+        if let fileURL, !UntitledDocuments.isUntitled(fileURL) { RecentFiles.record(fileURL) }
         table = workspace.userTables.first?.name
         diagramName = workspace.diagramLayout?.defaultDiagram ?? workspace.diagramLayout?.diagrams.first?.name
         tmdlPath = workspace.tmdlDocuments.first?.path

@@ -21,6 +21,7 @@ extension ModelMetadata {
         calculationGroups = other.calculationGroups
         functions = other.functions
         culture = other.culture
+        modelAnnotations = other.modelAnnotations
     }
 
     /// Mô hình hiệu lực sau khi áp `edits` lên mô hình này. Không đụng ABF. Ném `ModelEditError` khi một thao tác không hợp lệ.

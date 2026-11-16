@@ -179,10 +179,9 @@ public struct TableMetadataWriter {
                 Statistics_HasNulls, Statistics_RLERuns, Statistics_OthersRLERuns, Statistics_Usage, Statistics_DBType,
                 Statistics_XMType, Statistics_CompressionType, Statistics_CompressionParam, Statistics_EncodingHint,
                 IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName, DeltaColumnMappingId, FramedSourceColumn,
-                DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID,
-                FullTextIndexStorageID)
+                DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID\(db.fullTextColumn))
             VALUES (?, ?, ?, ?, ?, 1, ?, NULL, NULL, 1033, 0, ?, ?, ?, ?, -1, ?, ?, 0, ?, 3, ?, ?, 0, 0, ?,
-                0, NULL, -1, NULL, 0, 0, 0, 0, NULL)
+                0, NULL, -1, NULL, 0, 0, 0, 0\(db.fullTextValue("NULL")))
             """, [
                 .int(columnStorageID), .int(columnID), .text(column.storageName), .int(Int64(column.storagePosition)),
                 .int(dictionaryStorageID), .int(isRowNumber ? 31 : 8),
@@ -334,10 +333,9 @@ public struct TableMetadataWriter {
                     Statistics_HasNulls, Statistics_RLERuns, Statistics_OthersRLERuns, Statistics_Usage, Statistics_DBType,
                     Statistics_XMType, Statistics_CompressionType, Statistics_CompressionParam, Statistics_EncodingHint,
                     IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName, DeltaColumnMappingId, FramedSourceColumn,
-                    DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID,
-                    FullTextIndexStorageID)
+                    DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID\(db.fullTextColumn))
                 VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, 0, 0, 1, 2, 2, 2, -1, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0,
-                    0, NULL, -1, NULL, 0, 0, 0, 0, 0)
+                    0, NULL, -1, NULL, 0, 0, 0, 0\(db.fullTextValue("0")))
                 """, [.int(columnStorageID), .int(columnID), .text(columnName), .int(position), .int(dictionaryID), .int(settings)])
             try db.run("""
                 INSERT INTO DictionaryStorage (ID, ColumnStorageID, Type, DataType, DataVersion, BaseId, Magnitude, LastId,
@@ -522,6 +520,15 @@ final class TableMetadataDatabase {
     func tableExists(_ name: String) -> Bool {
         ((try? int("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [.text(name)])) ?? 0) == 1
     }
+
+    func hasColumn(_ table: String, _ column: String) -> Bool {
+        ((try? strings("SELECT name FROM pragma_table_info('\(table)')")) ?? []).contains(column)
+    }
+
+    /// `ColumnStorage.FullTextIndexStorageID` có ở lược đồ Nhom6 nhưng không có ở file trống Desktop 2.159 tạo (cùng SCHEMAVERSION 126, VM-F5):
+    /// chỉ ghi cột này khi bảng có.
+    var fullTextColumn: String { hasColumn("ColumnStorage", "FullTextIndexStorageID") ? ", FullTextIndexStorageID" : "" }
+    func fullTextValue(_ value: String) -> String { fullTextColumn.isEmpty ? "" : ", \(value)" }
 
     func objectIDExists(_ id: Int, inTable table: String) throws -> Bool {
         try (int("SELECT COUNT(*) FROM [\(table)] WHERE ID = ?", [.int(Int64(id))]) ?? 0) > 0

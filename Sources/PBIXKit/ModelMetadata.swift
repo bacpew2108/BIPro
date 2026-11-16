@@ -164,6 +164,8 @@ public struct ModelMetadata: Sendable {
     public let functions: [String]
     /// `Model.Culture`, e.g. `en-US`. Nil when the metadata has no model row.
     public let culture: String?
+    /// Chú thích của mô hình (`Annotation`, ObjectType 1), ví dụ `__PBI_TimeIntelligenceEnabled`, `PBI_QueryOrder`.
+    public let modelAnnotations: [String: String]
 
     public var userTables: [Table] { tables.filter(\.isUserTable) }
 
@@ -314,6 +316,9 @@ public struct ModelMetadata: Sendable {
             "SELECT t.Name FROM CalculationGroup c JOIN [Table] t ON t.ID = c.TableID ORDER BY c.ID")) ?? [])
             .compactMap { $0.string(0) }
         culture = (try? db.rows("SELECT Culture FROM Model ORDER BY ID LIMIT 1"))?.first?.nonEmpty(0)
+        modelAnnotations = Dictionary(
+            ((try? db.rows("SELECT Name, Value FROM Annotation WHERE ObjectType = 1 ORDER BY ID")) ?? []).map { ($0.string(0) ?? "", $0.string(1) ?? "") },
+            uniquingKeysWith: { first, _ in first })
     }
 
     public func storage(table: String) -> [ColumnStorage] {

@@ -127,8 +127,13 @@ public struct MetadataWriter {
 
     /// Adds a loaded table (T3): VertiPaq files for every column, `H$` system tables and the metadata rows. Every column needs
     /// `values`. A table with "Enable load" off adds nothing. Files go to `addedFiles`.
+    /// Tên bảng nối vào cuối `PBI_QueryOrder` như Desktop (VM-F8 mục 3), khi file có chú thích này.
     public mutating func addTable(_ table: NewTable) throws {
         try addTable(table, reusing: nil)
+        guard table.enableLoad else { return }
+        try transaction { db, now in
+            try Self.editQueryOrder(db, now: now) { order in if !order.contains(table.name) { order.append(table.name) } }
+        }
     }
 
     /// ID của bảng cũ dùng lại khi thay bảng: giữ ID bảng, phân vùng, cột RowNumber và cột cùng tên (quan hệ, measure, annotation
@@ -186,6 +191,7 @@ public struct MetadataWriter {
                 }
                 try Self.deleteAnnotations(db, tableID: id, keeping: [])
                 removed = try Self.removeUserTable(db, tableID: Int64(id))
+                try Self.editQueryOrder(db, now: now) { order in order.removeAll { $0.caseInsensitiveCompare(name) == .orderedSame } }
                 try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
                 try Self.bumpProperties(db, now)
             }
@@ -236,6 +242,11 @@ public struct MetadataWriter {
             try addTable(table, reusing: reused)
             try transaction { db, now in
                 try Self.restoreProperties(db, tableID: reused.tableID, old: oldColumns, table: tableProperties, now: now)
+                if table.name != name {
+                    try Self.editQueryOrder(db, now: now) { order in
+                        if let i = order.firstIndex(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) { order[i] = table.name }
+                    }
+                }
             }
             // Đường dẫn cũ trùng đường dẫn mới (cùng ID bảng, cột): ABF ghi đè tệp thay vì xoá rồi thêm.
             let newPaths = Dictionary(addedFiles[added...].enumerated().map { ($1.path, added + $0) }, uniquingKeysWith: { a, _ in a })
@@ -309,6 +320,25 @@ public struct MetadataWriter {
             try db.run("DELETE FROM Expression WHERE ID = ?", [.int(id)])
             try Self.editQueryOrder(db, now: now) { order in order.removeAll { $0.caseInsensitiveCompare(name) == .orderedSame } }
             try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+            try Self.bumpProperties(db, now)
+        }
+    }
+
+    /// Đặt chú thích của mô hình (`Annotation`, ObjectType 1, ObjectID 1): sửa giá trị nếu đã có, không thì thêm dòng mới với ID `MAXID + 1`.
+    /// Dùng cho tài liệu mới (`NewDocument`): tắt Auto date/time, thêm `PBI_QueryOrder` rỗng.
+    public mutating func setModelAnnotation(name: String, value: String) throws {
+        try transaction { db, now in
+            if (try db.int("SELECT COUNT(*) FROM Annotation WHERE ObjectType = 1 AND ObjectID = 1 AND Name = ?", [.text(name)]) ?? 0) > 0 {
+                try db.run("UPDATE Annotation SET Value = ?, ModifiedTime = ? WHERE ObjectType = 1 AND ObjectID = 1 AND Name = ?",
+                           [.text(value), .int(now), .text(name)])
+            } else {
+                let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+                guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)") }
+                let id = Int64(stored + 1)
+                try db.run("INSERT INTO Annotation (ID, ObjectID, ObjectType, Name, Value, ModifiedTime) VALUES (?, 1, 1, ?, ?, ?)",
+                           [.int(id), .text(name), .text(value), .int(now)])
+                try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(id)])
+            }
             try Self.bumpProperties(db, now)
         }
     }

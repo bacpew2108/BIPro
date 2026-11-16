@@ -92,7 +92,7 @@ enum WellRules {
     // MARK: Từ chối
 
     static let unverifiedReason = "Ô này chưa kiểm với Power BI Desktop (buổi VM-D2), nên chưa thêm trường được."
-    static let aggregationReason = "Ô này cần measure. Mô hình đặt \"discourage implicit measures\" (như Nhom6) nên Power BI Desktop cũng không cho cột số vào ô giá trị (VM-D2b); phép gộp ngầm cho mô hình khác chưa làm."
+    static let aggregationReason = "Ô này cần measure: BI Pro chưa có phép gộp ngầm (cột số tự thành Tổng, Trung bình…). Hãy tạo measure, ví dụ SUM(Bảng[Cột]). Với mô hình đặt \"discourage implicit measures\" như Nhom6, Power BI Desktop cũng chặn cột số ở ô này (VM-D2b)."
 
     /// Lý do không thêm được `field` vào ô `role` của `visual`, hoặc nil nếu thêm được.
     static func refusal(adding field: FieldRef, to role: String, in visual: ReportVisual) -> String? {
