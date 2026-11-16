@@ -56,6 +56,22 @@ extension QueryEditorState {
         return table.columns.map { QueryColumnInfo(name: $0.name, type: $0.data.type) }
     }
 
+    /// Bảng kết quả của truy vấn `id` ở bước cuối, cắt còn `limit` dòng đầu (xem trước trong hộp Merge/Append). `nil` khi lỗi.
+    public func resultPreview(ofQuery id: UUID, limit: Int = 20) async -> TableData? {
+        guard let query = queries.first(where: { $0.id == id }), !query.steps.isEmpty else { return nil }
+        return try? await evaluateFull(query, rowLimit: limit)
+    }
+
+    /// Kiểm cú pháp công thức của Custom Column (phần sau `each`). Trả lý do tiếng Việt kèm dòng/cột, `nil` khi hợp lệ.
+    public func formulaError(_ formula: String) -> String? {
+        let text = formula.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { return "Công thức không được để trống." }
+        do { _ = try MParser.parse("each \(text)") } catch let error as MSyntaxError {
+            return "Dòng \(error.line), cột \(max(error.column - 5, 1)): \(error.message)"
+        } catch { return "\(error)" }
+        return nil
+    }
+
     /// Cột của bảng lồng trong cột `column` của bước đang xem (sau Merge): lấy từ xem trước. `nil` khi không phải cột bảng lồng.
     public func nestedColumns(of column: String) -> [QueryColumnInfo]? {
         guard let preview, let index = preview.index(ofColumn: column), let first = preview.nested[index]?.first else { return nil }

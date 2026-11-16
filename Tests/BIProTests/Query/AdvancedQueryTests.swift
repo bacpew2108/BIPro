@@ -89,6 +89,35 @@ struct AdvancedQueryTests {
         #expect(table.value(row: 0, column: 3) == .double(5))
     }
 
+    @Test func groupByCountUnpivotAndPivotCommandsRun() async throws {
+        let editor = makeEditor()
+        select(editor, "Orders")
+        #expect(editor.perform(.groupByCount(keys: ["Region"], newColumn: "Count")) == .applied)
+        await settle(editor)
+        #expect(editor.errorMessage == nil)
+        #expect(editor.preview?.rowCount == 2)
+        #expect(editor.preview?.value(row: 0, column: 1) == .integer(3))
+
+        select(editor, "Customers")
+        #expect(editor.perform(.unpivotOtherColumns(keep: ["ID"])) == .applied)
+        await settle(editor)
+        #expect(editor.errorMessage == nil)
+        #expect(editor.preview?.columns.map(\.name) == ["ID", "Attribute", "Value"])
+        #expect(editor.preview?.rowCount == 3)
+
+        #expect(editor.perform(.pivot(attributeColumn: "Attribute", valueColumn: "Value")) == .applied)
+        await settle(editor)
+        #expect(editor.errorMessage == nil)
+        #expect(editor.preview?.columns.map(\.name) == ["ID", "Name"])
+    }
+
+    @Test func formulaSyntaxCheck() {
+        let editor = QueryEditorState()
+        #expect(editor.formulaError("[Qty] * 2") == nil)
+        #expect(editor.formulaError("  ") != nil)
+        #expect(editor.formulaError("[Qty] *")?.contains("Dòng 1") == true)
+    }
+
     @Test func customColumnFormula() async throws {
         let editor = makeEditor()
         select(editor, "Orders")
