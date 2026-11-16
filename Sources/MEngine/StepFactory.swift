@@ -90,6 +90,40 @@ public enum TextFormat: Sendable, Equatable {
     }
 }
 
+/// Kiểu join của hộp Merge Queries. Tên hằng M theo tài liệu (`JoinKind.*`).
+public enum JoinChoice: String, Sendable, Equatable, CaseIterable {
+    case leftOuter = "JoinKind.LeftOuter", rightOuter = "JoinKind.RightOuter", fullOuter = "JoinKind.FullOuter"
+    case inner = "JoinKind.Inner", leftAnti = "JoinKind.LeftAnti", rightAnti = "JoinKind.RightAnti"
+}
+
+/// Phép tổng hợp của Group By.
+public enum GroupOperation: Sendable, Equatable {
+    case sum, average, median, min, max, countRows, countDistinctRows
+}
+
+public struct GroupAggregate: Sendable, Equatable {
+    public var name: String
+    public var operation: GroupOperation
+    /// Cột tính; `nil` cho phép đếm dòng.
+    public var column: String?
+    public init(name: String, operation: GroupOperation, column: String? = nil) {
+        self.name = name; self.operation = operation; self.column = column
+    }
+
+    var m: String {
+        let source = column.map { "[\($0)]" } ?? "_"
+        switch operation {
+        case .sum: return "{\(StepFactory.quote(name)), each List.Sum(\(source)), type nullable number}"
+        case .average: return "{\(StepFactory.quote(name)), each List.Average(\(source)), type nullable number}"
+        case .median: return "{\(StepFactory.quote(name)), each List.Median(\(source)), type nullable number}"
+        case .min: return "{\(StepFactory.quote(name)), each List.Min(\(source))}"
+        case .max: return "{\(StepFactory.quote(name)), each List.Max(\(source))}"
+        case .countRows: return "{\(StepFactory.quote(name)), each Table.RowCount(_), Int64.Type}"
+        case .countDistinctRows: return "{\(StepFactory.quote(name)), each Table.RowCount(Table.Distinct(_)), Int64.Type}"
+        }
+    }
+}
+
 public enum StepCommand: Sendable, Equatable {
     case promoteHeaders
     case changeType([ColumnTypeChange])
@@ -115,6 +149,14 @@ public enum StepCommand: Sendable, Equatable {
     case keepTopRows(Int)
     case removeTopRows(Int)
     case replaceErrors([ErrorReplacement])
+    /// Merge Queries [SUY ĐOÁN, chờ T067]: `Table.NestedJoin` với truy vấn khác, cột lồng tên `newColumn`.
+    case merge(otherQuery: String, leftKeys: [String], rightKeys: [String], kind: JoinChoice, newColumn: String)
+    /// Mở cột bảng lồng sau Merge [SUY ĐOÁN]; `prefixed` đặt tên mới `Cột.tên` như mặc định của Desktop.
+    case expandColumn(column: String, names: [String], prefixed: Bool)
+    /// Append Queries [SUY ĐOÁN]: nối bảng đang chọn với các truy vấn khác.
+    case append(queries: [String])
+    /// Group By nâng cao [SUY ĐOÁN]: nhiều khoá, nhiều phép tổng hợp.
+    case groupBy(keys: [String], aggregates: [GroupAggregate])
 }
 
 public enum StepFactory {
@@ -182,6 +224,17 @@ public enum StepFactory {
         case .replaceErrors(let replacements):
             let pairs = replacements.map { "{\(quote($0.column)), \($0.value.m)}" }
             return [make("Replaced Errors", "Table.ReplaceErrorValues(\(p), {\(pairs.joined(separator: ", "))})")]
+        case .merge(let other, let leftKeys, let rightKeys, let kind, let newColumn):
+            return [make("Merged Queries",
+                         "Table.NestedJoin(\(p), \(list(leftKeys)), \(MQuery.reference(to: other)), \(list(rightKeys)), \(quote(newColumn)), \(kind.rawValue))")]
+        case .expandColumn(let column, let names, let prefixed):
+            let renamed = prefixed ? list(names.map { "\(column).\($0)" }) : list(names)
+            return [make("Expanded \(column)", "Table.ExpandTableColumn(\(p), \(quote(column)), \(list(names)), \(renamed))")]
+        case .append(let queries):
+            let items = ([p] + queries.map(MQuery.reference(to:))).joined(separator: ", ")
+            return [make("Appended Query", "Table.Combine({\(items)})")]
+        case .groupBy(let keys, let aggregates):
+            return [make("Grouped Rows", "Table.Group(\(p), \(list(keys)), {\(aggregates.map(\.m).joined(separator: ", "))})")]
         }
     }
 

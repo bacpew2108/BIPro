@@ -26,10 +26,13 @@ public struct TableData: Sendable {
     public let rowCount: Int
     /// cột → dòng → thông điệp lỗi. Chỉ chứa ô lỗi.
     public let errorMask: [Int: [Int: String]]
+    /// cột → dòng → bảng lồng (kết quả `Table.NestedJoin`). Cột đó giữ chỗ bằng cột chuỗi trống. Chỉ do `Table.NestedJoin` tạo; mọi phép
+    /// biến đổi khác dựng bảng mới nên bỏ phần này (`Table.ExpandTableColumn` sau đó báo cột không phải bảng lồng).
+    public let nested: [Int: [TableData]]
 
     /// Bất biến: mọi cột cùng `rowCount`; tên cột không rỗng và duy nhất (phân biệt hoa thường, như M);
     /// mọi ô trong `errorMask` nằm trong bảng.
-    public init(columns: [TableColumn], errorMask: [Int: [Int: String]] = [:]) throws {
+    public init(columns: [TableColumn], errorMask: [Int: [Int: String]] = [:], nested: [Int: [TableData]] = [:]) throws {
         var seen = Set<String>()
         let rows = columns.first?.data.rowCount ?? 0
         for column in columns {
@@ -46,7 +49,11 @@ public struct TableData: Sendable {
         }
         self.columns = columns
         self.rowCount = rows
+        for (column, tables) in nested where column < 0 || column >= columns.count || tables.count != rows {
+            throw TableDataError.errorOutOfRange(column: column, row: tables.count)
+        }
         self.errorMask = errorMask
+        self.nested = nested
     }
 
     public func index(ofColumn name: String) -> Int? {

@@ -15,6 +15,14 @@ enum MBuiltins {
         // Hằng số của thư viện chuẩn (tài liệu M): Order.Ascending 0 / Descending 1; QuoteStyle.None 0 / Csv 1.
         case "Order.Ascending", "QuoteStyle.None": return .number(0)
         case "Order.Descending", "QuoteStyle.Csv": return .number(1)
+        // JoinKind (Inner 0, LeftOuter 1, RightOuter 2, FullOuter 3, LeftAnti 4, RightAnti 5) và GroupKind (Local 0, Global 1): tài liệu M.
+        case "JoinKind.Inner": return .number(0)
+        case "JoinKind.LeftOuter", "GroupKind.Global": return .number(1)
+        case "JoinKind.RightOuter": return .number(2)
+        case "JoinKind.FullOuter": return .number(3)
+        case "JoinKind.LeftAnti": return .number(4)
+        case "JoinKind.RightAnti": return .number(5)
+        case "GroupKind.Local": return .number(0)
         default: return nil
         }
     }

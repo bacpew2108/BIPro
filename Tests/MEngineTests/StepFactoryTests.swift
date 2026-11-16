@@ -233,3 +233,32 @@ import ColumnStore
         #expect(result == expected)
     }
 }
+
+/// Lệnh nâng cao (T069). Biểu thức theo cú pháp M chuẩn; tên bước và dạng chưa đối chiếu Desktop (T067): [SUY ĐOÁN].
+@Suite struct AdvancedStepFactoryTests {
+    @Test func mergeSinhNestedJoin() {
+        let steps = StepFactory.steps(for: .merge(otherQuery: "Order Lines", leftKeys: ["ID"], rightKeys: ["Cust"], kind: .fullOuter, newColumn: "Order Lines"),
+                                      after: "Source", existingNames: ["Source"])
+        #expect(steps.map(\.name) == ["Merged Queries"])
+        #expect(steps[0].expression == #"Table.NestedJoin(Source, {"ID"}, #"Order Lines", {"Cust"}, "Order Lines", JoinKind.FullOuter)"#)
+    }
+
+    @Test func expandCoTienTo() {
+        let steps = StepFactory.steps(for: .expandColumn(column: "Orders", names: ["Amt", "Qty"], prefixed: true),
+                                      after: "Merged Queries", existingNames: [])
+        #expect(steps[0].name == "Expanded Orders")
+        #expect(steps[0].expression == #"Table.ExpandTableColumn(#"Merged Queries", "Orders", {"Amt", "Qty"}, {"Orders.Amt", "Orders.Qty"})"#)
+    }
+
+    @Test func appendNoiNhieuTruyVan() {
+        let steps = StepFactory.steps(for: .append(queries: ["B", "C d"]), after: "Source", existingNames: [])
+        #expect(steps[0].expression == #"Table.Combine({Source, B, #"C d"})"#)
+    }
+
+    @Test func groupByNhieuPhep() {
+        let steps = StepFactory.steps(for: .groupBy(keys: ["Region", "Prod"], aggregates: [
+            GroupAggregate(name: "Total", operation: .sum, column: "Amt"), GroupAggregate(name: "N", operation: .countRows),
+            GroupAggregate(name: "D", operation: .countDistinctRows)]), after: "Source", existingNames: [])
+        #expect(steps[0].expression == #"Table.Group(Source, {"Region", "Prod"}, {{"Total", each List.Sum([Amt]), type nullable number}, {"N", each Table.RowCount(_), Int64.Type}, {"D", each Table.RowCount(Table.Distinct(_)), Int64.Type}})"#)
+    }
+}

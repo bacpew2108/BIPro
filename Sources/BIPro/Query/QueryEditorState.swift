@@ -138,6 +138,8 @@ public final class QueryEditorState {
     /// Lần dựng đang chạy: xem trước và Close & Apply cùng chờ một lần, không dựng hai lần và không chạy khi chưa có nền.
     @ObservationIgnored private var baseTasks: [UUID: Task<TableData?, Never>] = [:]
     @ObservationIgnored private var caches: [UUID: MPreviewCache] = [:]
+    @ObservationIgnored private var cacheSignatures: [UUID: String] = [:]
+    @ObservationIgnored private var dependencyResults: [UUID: (signature: String, table: TableData)] = [:]
     @ObservationIgnored private var undoStack: [Snapshot] = []
     @ObservationIgnored private var redoStack: [Snapshot] = []
     @ObservationIgnored private var generation = 0
@@ -391,10 +393,11 @@ public final class QueryEditorState {
         }
         let name = query.steps[index].name
         let effective = effectiveQuery(query)
-        await ensureBase(query)
-        guard mine == generation else { return }
-        let cache = cacheFor(query)
         do {
+            await ensureBase(query)
+            guard mine == generation else { return }
+            let cache = try await preparedCache(for: query)
+            guard mine == generation else { return }
             let value = try await cache.preview(effective, stepIndex: index, rowLimit: ColumnProfiler.defaultRowLimit)
             guard mine == generation else { return }
             guard case .table(let table) = value else {
@@ -419,8 +422,7 @@ public final class QueryEditorState {
     /// Đánh giá đủ (không cắt dòng) kết quả của truy vấn, cho Close & Apply.
     func evaluateFull(_ query: QueryModel) async throws -> TableData {
         guard !query.steps.isEmpty else { throw MError.expression("Truy vấn không có bước nào.") }
-        await ensureBase(query)
-        let value = try await cacheFor(query).preview(effectiveQuery(query), stepIndex: query.steps.count - 1, rowLimit: nil)
+        let value = try await preparedCache(for: query).preview(effectiveQuery(query), stepIndex: query.steps.count - 1, rowLimit: nil)
         guard case .table(let table) = value else { throw MError.expression("Kết quả không phải bảng (\(value.kindName)).") }
         return table
     }
@@ -505,12 +507,41 @@ public final class QueryEditorState {
         }, resultName: query.steps.last?.name ?? "")
     }
 
-    private func cacheFor(_ query: QueryModel) -> MPreviewCache {
-        if let cache = caches[query.id] { return cache }
-        var environment = MEnvironment()
+    /// Bộ nhớ đệm xem trước của truy vấn, môi trường có bảng nền và kết quả của các truy vấn khác mà nó tham chiếu (Merge, Append, tham chiếu).
+    /// Truy vấn phụ thuộc đổi thì dựng lại bộ nhớ đệm. Vòng tham chiếu ném lỗi nêu đường vòng.
+    private func preparedCache(for query: QueryModel) async throws -> MPreviewCache {
+        await ensureBase(query)
+        var byName: [String: MQuery] = [:]
+        for other in queries where byName[other.name] == nil { byName[other.name] = effectiveQuery(other) }
+        let graph = QueryDependencies.graph(byName)
+        let order = try QueryDependencies.evaluationOrder(for: query.name, in: graph)
+        var bindings: [String: MValue] = [:]
+        var signature = ""
+        for name in order {
+            guard let dependency = queries.first(where: { $0.name == name }) else { continue }
+            await ensureBase(dependency)
+            let key = dependency.steps.map { "\($0.name)\u{2}\($0.expression)" }.joined(separator: "\u{1}")
+            signature += "\(name)\u{3}\(key)\u{4}"
+            if let cached = dependencyResults[dependency.id], cached.signature == signature {
+                bindings[name] = .table(cached.table)
+                continue
+            }
+            var environment = MEnvironment(bindings: bindings)
+            if let base = bases[dependency.id] { environment.bindings[Self.baseBinding] = .table(base) }
+            let value = try await MPreviewCache(environment: environment)
+                .preview(effectiveQuery(dependency), stepIndex: dependency.steps.count - 1, rowLimit: nil)
+            guard case .table(let table) = value else {
+                throw MError.expression("Truy vấn \"\(name)\" không trả về bảng (\(value.kindName)).")
+            }
+            dependencyResults[dependency.id] = (signature, table)
+            bindings[name] = .table(table)
+        }
+        if let cache = caches[query.id], cacheSignatures[query.id] == signature { return cache }
+        var environment = MEnvironment(bindings: bindings)
         if let base = bases[query.id] { environment.bindings[Self.baseBinding] = .table(base) }
         let cache = MPreviewCache(environment: environment)
         caches[query.id] = cache
+        cacheSignatures[query.id] = signature
         return cache
     }
 
