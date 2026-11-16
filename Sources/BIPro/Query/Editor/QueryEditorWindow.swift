@@ -23,10 +23,30 @@ public struct QueryEditorWindow: View {
 
     // Popover / Sheet / Modal states
     @State private var activePopover: PopoverInfo? = nil
+    @State private var activeSheet: ActiveSheet? = nil
+    @State private var activeExpandColumn: String? = nil
     @State private var isAdvancedEditorPresented: Bool = false
     @State private var pendingInsertConfirmation: StepCommand? = nil
     @State private var showUnappliedChangesDialog: Bool = false
     @State private var ribbonErrorMessage: String? = nil
+
+    private enum ActiveSheet: Identifiable {
+        case merge
+        case append
+        case groupBy
+        case customColumn
+        case dependencies
+
+        var id: Int {
+            switch self {
+            case .merge: return 1
+            case .append: return 2
+            case .groupBy: return 3
+            case .customColumn: return 4
+            case .dependencies: return 5
+            }
+        }
+    }
 
     private struct PopoverInfo: Identifiable {
         let id = UUID()
@@ -65,6 +85,10 @@ public struct QueryEditorWindow: View {
                     context: ribbonContext,
                     onCommand: handleRibbonCommand,
                     onOpenAdvancedEditor: { isAdvancedEditorPresented = true },
+                    onOpenMerge: { activeSheet = .merge },
+                    onOpenAppend: { activeSheet = .append },
+                    onOpenDependencies: { activeSheet = .dependencies },
+                    hasMergeCandidates: !state.mergeCandidates.isEmpty,
                     onApply: onApply,
                     onApplyAndClose: handleApplyAndClose,
                     onCloseAttempt: handleCloseAttempt,
@@ -133,6 +157,9 @@ public struct QueryEditorWindow: View {
                             scrollable: scrollable,
                             onFilterColumn: { col in
                                 openFilterPopover(for: col)
+                            },
+                            onExpandColumn: { col in
+                                activeExpandColumn = col
                             }
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -198,6 +225,27 @@ public struct QueryEditorWindow: View {
                 )
             }
 
+            if let colName = activeExpandColumn, let nestedCols = state.nestedColumns(of: colName) {
+                Color.black.opacity(0.2)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        activeExpandColumn = nil
+                    }
+
+                ExpandColumnPopover(
+                    sourceColumn: colName,
+                    columns: nestedCols,
+                    scrollable: scrollable,
+                    onCommit: { cmd in
+                        activeExpandColumn = nil
+                        executeCommand(cmd)
+                    },
+                    onCancel: {
+                        activeExpandColumn = nil
+                    }
+                )
+            }
+
             if let pending = pendingInsertConfirmation {
                 Color.black.opacity(0.3)
                     .ignoresSafeArea()
@@ -215,6 +263,65 @@ public struct QueryEditorWindow: View {
         .sheet(isPresented: $isAdvancedEditorPresented) {
             AdvancedEditorSheet(state: state, scrollable: scrollable) {
                 isAdvancedEditorPresented = false
+            }
+        }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .merge:
+                MergeDialog(
+                    state: state,
+                    scrollable: scrollable,
+                    onCommit: { cmd in
+                        let outcome = executeCommand(cmd)
+                        if case .applied = outcome { activeSheet = nil }
+                        if case .needsInsertConfirmation = outcome { activeSheet = nil }
+                        return outcome
+                    },
+                    onCancel: { activeSheet = nil }
+                )
+            case .append:
+                AppendDialog(
+                    state: state,
+                    scrollable: scrollable,
+                    onCommit: { cmd in
+                        let outcome = executeCommand(cmd)
+                        if case .applied = outcome { activeSheet = nil }
+                        if case .needsInsertConfirmation = outcome { activeSheet = nil }
+                        return outcome
+                    },
+                    onCancel: { activeSheet = nil }
+                )
+            case .groupBy:
+                GroupByDialog(
+                    state: state,
+                    initialSelectedColumns: selectedColumns,
+                    scrollable: scrollable,
+                    onCommit: { cmd in
+                        let outcome = executeCommand(cmd)
+                        if case .applied = outcome { activeSheet = nil }
+                        if case .needsInsertConfirmation = outcome { activeSheet = nil }
+                        return outcome
+                    },
+                    onCancel: { activeSheet = nil }
+                )
+            case .customColumn:
+                CustomColumnDialog(
+                    state: state,
+                    scrollable: scrollable,
+                    onCommit: { cmd in
+                        let outcome = executeCommand(cmd)
+                        if case .applied = outcome { activeSheet = nil }
+                        if case .needsInsertConfirmation = outcome { activeSheet = nil }
+                        return outcome
+                    },
+                    onCancel: { activeSheet = nil }
+                )
+            case .dependencies:
+                QueryDependenciesView(
+                    state: state,
+                    scrollable: scrollable,
+                    onClose: { activeSheet = nil }
+                )
             }
         }
         .onAppear {
@@ -473,7 +580,9 @@ public struct QueryEditorWindow: View {
             case .splitByDelimiter:
                 activePopover = PopoverInfo(command: command, type: .splitByDelimiter)
             case .addCustomColumn:
-                activePopover = PopoverInfo(command: command, type: .addCustomColumn)
+                activeSheet = .customColumn
+            case .groupByCount:
+                activeSheet = .groupBy
             case .filterEquals:
                 if let name = selectedColumns.first,
                    let profile = state.profiles.first(where: { $0.columnName == name }),
@@ -498,7 +607,8 @@ public struct QueryEditorWindow: View {
         }
     }
 
-    private func executeCommand(_ command: StepCommand, confirmInsert: Bool = false) {
+    @discardableResult
+    private func executeCommand(_ command: StepCommand, confirmInsert: Bool = false) -> StepCommandOutcome {
         let outcome = state.perform(command, confirmInsert: confirmInsert)
         switch outcome {
         case .applied:
@@ -508,6 +618,7 @@ public struct QueryEditorWindow: View {
         case .rejected(let reason):
             ribbonErrorMessage = reason
         }
+        return outcome
     }
 
     private func handleApplyAndClose() {

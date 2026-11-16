@@ -9,7 +9,6 @@ enum PopoverCommandType {
     case removeTopRows
     case replaceValue
     case splitByDelimiter
-    case addCustomColumn
     case filterEquals(distribution: [ProfileBucket], columnType: DAXType)
 }
 
@@ -28,8 +27,6 @@ struct QueryCommandPopoverView: View {
     @State private var replaceNewText: String = ""
     @State private var delimiterText: String = " "
     @State private var splitCountText: String = "2"
-    @State private var customNameText: String = "Custom"
-    @State private var customFormulaText: String = ""
     @State private var selectedFilterLabels: Set<String> = []
 
     init(
@@ -69,9 +66,6 @@ struct QueryCommandPopoverView: View {
         case .splitByDelimiter:
             ctx.delimiter = delimiterText
             ctx.splitColumnCount = Int(splitCountText)
-        case .addCustomColumn:
-            ctx.customColumnName = customNameText
-            ctx.customColumnFormula = customFormulaText
         case .filterEquals(_, let colType):
             let literals = buildFilterLiterals(colType: colType)
             ctx.filterValues = literals.isEmpty ? nil : literals
@@ -133,7 +127,6 @@ struct QueryCommandPopoverView: View {
     private var popoverWidth: CGFloat {
         switch type {
         case .filterEquals: return 280
-        case .addCustomColumn: return 320
         default: return 240
         }
     }
@@ -188,27 +181,6 @@ struct QueryCommandPopoverView: View {
                     TextField("2", text: $splitCountText)
                         .textFieldStyle(.roundedBorder)
                         .font(DS.Typeface.body)
-                }
-            }
-
-        case .addCustomColumn:
-            VStack(alignment: .leading, spacing: 6) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Tên cột mới:")
-                        .font(DS.Typeface.labelSmall)
-                        .foregroundStyle(DS.Palette.secondaryLabel)
-                    TextField("Custom", text: $customNameText)
-                        .textFieldStyle(.roundedBorder)
-                        .font(DS.Typeface.body)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Công thức cột tuỳ chỉnh (M):")
-                        .font(DS.Typeface.labelSmall)
-                        .foregroundStyle(DS.Palette.secondaryLabel)
-                    TextEditor(text: $customFormulaText)
-                        .font(DS.Typeface.mono)
-                        .frame(height: 70)
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(DS.Palette.separator))
                 }
             }
 
