@@ -169,6 +169,9 @@ public enum ModelEdit: Sendable, Hashable {
     case addTable(NewTable)
     case replaceTable(name: String, NewTable)
     case dropTable(name: String)
+    /// Truy vấn không nạp (Enable load tắt, VM-F8): dòng `Expression` có M nguyên văn. `setQuery` thêm hoặc sửa, `dropQuery` bỏ.
+    case setQuery(name: String, expression: String)
+    case dropQuery(name: String)
     case addCalculatedColumn(table: String, name: String, expression: String)
     case addCalculatedTable(name: String, expression: String)
 

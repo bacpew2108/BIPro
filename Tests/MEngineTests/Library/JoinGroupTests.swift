@@ -137,9 +137,12 @@ import ColumnStore
         Table.Combine({#table({"A","B"}, {{1,"x"}}), #table({"A","B"}, {{2,"y"}})}, {"B"})
         """#)
         #expect(only.columns.map(\.name) == ["B"])
-        await #expect(throws: MError.self) {
-            try await eval(#"Table.Combine({#table({"A"},{{1}}), #table({"A"},{{"x"}})})"#)
-        }
+        // Cột lẫn số và chữ: Desktop nạp thành `string` ("1", "x"); BI Pro chuyển thành text ngay ở Combine.
+        let mixed = try await table(#"Table.Combine({#table({"A"},{{1}}), #table({"A"},{{"x"}}), #table({"A"},{{null}})})"#)
+        #expect(mixed.columns[0].data.type == .string)
+        #expect(mixed.value(row: 0, column: 0) == .string("1"))
+        #expect(mixed.value(row: 1, column: 0) == .string("x"))
+        #expect(mixed.value(row: 2, column: 0) == .blank)
     }
 
     private let sales = #"#table({"Region","Prod","Qty"}, {{"N","a",1},{"S","a",2},{"N","b",3},{"N","a",4},{"S","b",null}})"#

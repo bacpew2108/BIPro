@@ -5,7 +5,7 @@
 // hoa thường và khác kiểu thì không khớp, kiểu mặc định của `NestedJoin` là LeftOuter, `Table.Group` Global theo thứ tự xuất hiện đầu tiên,
 // `Table.Pivot` sắp nhóm theo cột khoá tăng dần (null trước), trùng ô không có hàm tổng hợp là lỗi Ở Ô (không ném cả hàm),
 // Unpivot bỏ ô null, `Table.Combine` hợp cột theo thứ tự thấy đầu tiên. Thứ tự dòng khớp của join do Desktop tự quyết (băm), BI Pro giữ thứ tự
-// dòng trái; dòng không khớp xếp cuối (phải trước trái) như Desktop. Cột `any` lẫn kiểu của `Table.Combine` chưa hỗ trợ.
+// dòng trái; dòng không khớp xếp cuối (phải trước trái) như Desktop. Cột lẫn kiểu của `Table.Combine` chuyển thành text (Desktop nạp `any` thành `string`).
 
 import ColumnStore
 import Foundation
@@ -134,11 +134,18 @@ public enum JoinGroupLibrary {
                 }
             }
         }
-        // Cột cùng tên khác kiểu: M cho kiểu `any`; BI Pro chưa hỗ trợ cột lẫn kiểu, nên báo rõ thay vì đoán.
-        if let name = names.first(where: { conflicting.contains($0) }) {
-            throw MError.unsupported("Table.Combine: cột '\(name)' khác kiểu giữa các bảng")
+        // Cột cùng tên khác kiểu: M cho kiểu `any` (xem trước Desktop giữ nguyên số/chữ lẫn nhau) nhưng Close & Apply nạp thành `string`
+        // (VM-F8: giá trị 1 và "x" thành "1", "x"). TableData chưa có cột lẫn kiểu, nên BI Pro chuyển cột thành text ngay ở bước này
+        // bằng `Text.From`; khác Desktop ở các bước sau Combine còn thao tác trên số thật (sắp xếp, so sánh).
+        var finalTypes = names.map { types[$0] }
+        for (slot, name) in names.enumerated() where conflicting.contains(name) {
+            columns[slot] = try columns[slot].map { value in
+                if case .error = value { return value }
+                return try ValueText.textFrom(value)
+            }
+            finalTypes[slot] = MType(.text, isNullable: true)
         }
-        return .table(try assemble(names: names, types: names.map { types[$0] }, columns: columns))
+        return .table(try assemble(names: names, types: finalTypes, columns: columns))
     }
 
     // MARK: - Table.Join, Table.NestedJoin

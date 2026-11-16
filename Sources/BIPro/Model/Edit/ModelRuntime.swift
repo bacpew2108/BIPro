@@ -129,7 +129,7 @@ extension ModelEdits {
             switch $0 {
             case .updateRelationship, .updateColumn, .addRelationship, .deleteRelationship, .updateTable,
                  .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: true
-            case .addMeasure, .updateMeasure, .deleteMeasure: false
+            case .addMeasure, .updateMeasure, .deleteMeasure, .setQuery, .dropQuery: false
             }
         }
     }

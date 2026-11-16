@@ -39,6 +39,10 @@ public struct QueryModel: Identifiable, Sendable, Equatable {
     public var loadedTableName: String?
     /// Văn bản M ở lần Close & Apply gần nhất (để biết truy vấn đã sửa chưa).
     public var appliedSource: String?
+    /// Dữ liệu nguồn đã đổi so với lúc nạp (sau "Làm mới nguồn" đọc ra dữ liệu khác): Close & Apply thay bảng dù M không đổi.
+    public var dataChanged = false
+    /// Tên mà truy vấn đang được lưu trong file dưới dạng truy vấn không nạp (dòng `Expression`, Enable load tắt); `nil` khi không có dòng nào.
+    public var savedQueryName: String?
 
     public init(id: UUID = UUID(), name: String, steps: [QueryStep] = [], enableLoad: Bool = true, lockedStepCount: Int = 0,
                 loadedTableName: String? = nil, appliedSource: String? = nil) {
@@ -60,7 +64,7 @@ public struct QueryModel: Identifiable, Sendable, Equatable {
     public var source: String { mquery.source }
 
     /// Chưa nạp, hoặc đã sửa sau lần Close & Apply gần nhất.
-    public var isModified: Bool { appliedSource != source }
+    public var isModified: Bool { appliedSource != source || dataChanged }
 }
 
 /// Một cột của biểu đồ phân bố trong column profile.
@@ -433,6 +437,34 @@ public final class QueryEditorState {
         }
     }
 
+    /// "Làm mới nguồn": chạy M thật của các bước khoá (đọc lại tệp nguồn) thay cho bảng đã lưu trong file. Đọc được thì bảng nền đổi theo
+    /// (khác dữ liệu cũ thì truy vấn thành "chưa áp dụng", Close & Apply sẽ thay bảng). Không đọc được (tệp mất, đổi chỗ, nằm trên máy khác)
+    /// thì giữ nguyên dữ liệu đã lưu và trả lý do tiếng Việt. Truy vấn không có bước khoá luôn đọc từ nguồn nên không cần làm mới.
+    public func refreshSource(of id: UUID) async -> String? {
+        guard let index = queries.firstIndex(where: { $0.id == id }) else { return "Chưa có truy vấn nào được chọn." }
+        let query = queries[index]
+        guard query.lockedStepCount > 0 else { return nil }
+        let locked = MQuery(steps: query.steps.prefix(query.lockedStepCount).map { MStep(name: $0.name, expression: $0.expression) },
+                            resultName: query.steps[query.lockedStepCount - 1].name)
+        let value: MValue
+        do {
+            value = try await MEvaluator(environment: MEnvironment(bindings: SourceFunctions.bindings)).evaluate(source: locked.source)
+        } catch {
+            return "Không làm mới được nguồn của \"\(query.name)\": \(Self.message(error, hasBase: true, locked: true)) Dữ liệu đã lưu trong file được giữ nguyên."
+        }
+        guard case .table(let fresh) = value else { return "Nguồn của \"\(query.name)\" không trả về bảng (\(value.kindName))." }
+        await ensureBase(query)
+        let unchanged = bases[id].map { MTables.identical($0, fresh) } ?? false
+        bases[id] = fresh
+        caches.removeAll(); cacheSignatures.removeAll(); dependencyResults.removeAll()
+        if !unchanged {
+            queries[index].dataChanged = true
+            hasPendingChanges = true
+        }
+        scheduleRefresh()
+        return nil
+    }
+
     /// Đánh giá đủ (không cắt dòng) kết quả của truy vấn, cho Close & Apply.
     func evaluateFull(_ query: QueryModel, rowLimit: Int? = nil) async throws -> TableData {
         guard !query.steps.isEmpty else { throw MError.expression("Truy vấn không có bước nào.") }
@@ -497,11 +529,13 @@ public final class QueryEditorState {
     }
 
     /// Gọi sau khi Close & Apply thành công: đánh dấu các truy vấn đã áp dụng.
-    func markApplied(_ updates: [UUID: (tableName: String?, source: String)]) {
+    func markApplied(_ updates: [UUID: (tableName: String?, source: String, savedQueryName: String?)]) {
         for index in queries.indices {
             guard let update = updates[queries[index].id] else { continue }
             queries[index].loadedTableName = update.tableName
             queries[index].appliedSource = update.source
+            queries[index].savedQueryName = update.savedQueryName
+            queries[index].dataChanged = false
         }
         hasPendingChanges = false
     }
@@ -540,7 +574,7 @@ public final class QueryEditorState {
                 bindings[name] = .table(cached.table)
                 continue
             }
-            var environment = MEnvironment(bindings: bindings)
+            var environment = MEnvironment(bindings: bindings.merging(SourceFunctions.bindings) { own, _ in own })
             if let base = bases[dependency.id] { environment.bindings[Self.baseBinding] = .table(base) }
             let value = try await MPreviewCache(environment: environment)
                 .preview(effectiveQuery(dependency), stepIndex: dependency.steps.count - 1, rowLimit: nil)
@@ -551,7 +585,7 @@ public final class QueryEditorState {
             bindings[name] = .table(table)
         }
         if let cache = caches[query.id], cacheSignatures[query.id] == signature { return cache }
-        var environment = MEnvironment(bindings: bindings)
+        var environment = MEnvironment(bindings: bindings.merging(SourceFunctions.bindings) { own, _ in own })
         if let base = bases[query.id] { environment.bindings[Self.baseBinding] = .table(base) }
         let cache = MPreviewCache(environment: environment)
         caches[query.id] = cache
@@ -599,5 +633,19 @@ extension QueryEditorState {
             let name = table.name
             addQuery(query, baseLoader: { tableData(name) })
         }
+        // Truy vấn không nạp (Enable load tắt) nằm ở bảng `Expression`; tham số (`IsParameterQuery`) giữ nguyên trong file, không đưa vào danh sách.
+        for name in metadata.expressions {
+            guard let text = metadata.expressionBodies[name], !text.isEmpty, !Self.isParameter(text),
+                  !metadata.userTables.contains(where: { $0.name == name }) else { continue }
+            var query = Self.model(name: name, source: text, tableName: nil, locked: false)
+            query.enableLoad = false
+            query.savedQueryName = name
+            addQuery(query, base: nil)
+        }
+    }
+
+    /// Biểu thức tham số của Desktop: `"giá trị" meta [IsParameterQuery = true, …]`.
+    static func isParameter(_ expression: String) -> Bool {
+        expression.replacingOccurrences(of: " ", with: "").contains("IsParameterQuery=true")
     }
 }

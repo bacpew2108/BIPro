@@ -156,6 +156,8 @@ public struct ModelMetadata: Sendable {
     public let cultures: [String]
     /// Shared Power Query expressions (`Expression`), e.g. parameters and shared queries.
     public let expressions: [String]
+    /// Biểu thức M của các mục trong `expressions` (tên → văn bản): truy vấn không nạp (Enable load tắt) và tham số. Rỗng nếu bảng `Expression` không có.
+    public let expressionBodies: [String: String]
     /// Tables that are calculation groups (`CalculationGroup` → `Table`).
     public let calculationGroups: [String]
     /// User-defined DAX functions (`Function`); empty when the file predates them.
@@ -304,6 +306,9 @@ public struct ModelMetadata: Sendable {
         perspectives = names("Perspective")
         cultures = names("Culture")
         expressions = names("Expression")
+        expressionBodies = Dictionary(
+            ((try? db.rows("SELECT Name, Expression FROM [Expression] ORDER BY ID")) ?? []).map { ($0.string(0) ?? "", $0.string(1) ?? "") },
+            uniquingKeysWith: { first, _ in first })
         functions = names("Function")
         calculationGroups = ((try? db.rows(
             "SELECT t.Name FROM CalculationGroup c JOIN [Table] t ON t.ID = c.TableID ORDER BY c.ID")) ?? [])

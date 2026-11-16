@@ -12,7 +12,7 @@ extension QueryEditorState {
     /// Có truy vấn nào cần đưa vào mô hình không (nút "Close & Apply" sáng, hộp "Pending changes").
     var hasUnappliedQueries: Bool {
         queries.contains { query in
-            query.enableLoad ? query.isModified : query.loadedTableName != nil
+            query.enableLoad ? (query.isModified || query.savedQueryName != nil) : (query.loadedTableName != nil || query.isModified)
         }
     }
 
@@ -23,17 +23,21 @@ extension QueryEditorState {
         for query in queries { if let name = query.loadedTableName { taken.remove(name) } }
         var loadedTables: [LoadedTable] = []
         var drops: [ModelEdit] = []
-        var updates: [UUID: (tableName: String?, source: String)] = [:]
+        var queryEdits: [ModelEdit] = []
+        var updates: [UUID: (tableName: String?, source: String, savedQueryName: String?)] = [:]
 
         for query in queries {
+            // Truy vấn từng lưu không nạp (dòng `Expression`): bỏ dòng cũ khi bật nạp lại hoặc đổi tên (tắt nạp thì ghi lại bên dưới).
+            if let saved = query.savedQueryName, query.enableLoad || saved != query.name { drops.append(.dropQuery(name: saved)) }
             if !query.enableLoad {
-                if let name = query.loadedTableName {
-                    drops.append(.dropTable(name: name))
-                    updates[query.id] = (nil, query.source)
+                if let name = query.loadedTableName { drops.append(.dropTable(name: name)) }
+                if query.loadedTableName != nil || query.isModified || query.savedQueryName != query.name {
+                    queryEdits.append(.setQuery(name: query.name, expression: query.source))
+                    updates[query.id] = (nil, query.source, query.name)
                 }
                 continue
             }
-            guard query.isModified else { continue }
+            guard query.isModified || query.savedQueryName != nil else { continue }
             let data: TableData
             do { data = try await evaluateFull(query) } catch {
                 return "Truy vấn \"\(query.name)\" lỗi: \(message(for: error, in: query))"
@@ -42,9 +46,9 @@ extension QueryEditorState {
             taken.insert(name)
             loadedTables.append(LoadedTable(name: name, queryName: query.name, data: data,
                                             status: query.loadedTableName == nil ? .new : .replaced, queryText: query.source))
-            updates[query.id] = (name, query.source)
+            updates[query.id] = (name, query.source, nil)
         }
-        let edits = drops + TableLoader.edits(for: loadedTables)
+        let edits = drops + TableLoader.edits(for: loadedTables) + queryEdits
         if let reason = editor.apply(edits) { return reason }
         markApplied(updates)
         return nil

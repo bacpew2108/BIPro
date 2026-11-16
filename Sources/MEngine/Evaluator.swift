@@ -237,6 +237,32 @@ final class Interpreter: @unchecked Sendable {
     }
 
     private func itemAccess(_ target: MValue, _ index: MValue, optional: Bool) throws -> MValue {
+        // `Table{[Item="Sales", Kind="Sheet"]}`: dòng duy nhất có các trường khớp bản ghi (điều hướng nguồn của Desktop).
+        if case .record(let criteria) = index {
+            guard case .table(let table) = target else {
+                if case .null = target, optional { return .null }
+                throw MError.expression("Không thể truy cập phần tử của giá trị \(target.kindName)")
+            }
+            var columns: [(index: Int, value: MValue)] = []
+            for field in criteria {
+                guard let column = table.index(ofColumn: field.name) else {
+                    throw MError.expression("Không có cột '\(field.name)' để tìm dòng")
+                }
+                columns.append((column, field.value))
+            }
+            var found: [Int] = []
+            for row in 0..<table.rowCount where columns.allSatisfy({ MOperators.equals(MTables.cell(table, row: row, column: $0.index), $0.value) }) {
+                found.append(row)
+                if found.count > 1 { break }
+            }
+            switch found.count {
+            case 1: return MTables.row(table, found[0])
+            case 0:
+                if optional { return .null }
+                throw MError(reason: "Expression.Error", message: "Không tìm thấy dòng khớp với bản ghi chỉ định")
+            default: throw MError.expression("Có nhiều dòng khớp với bản ghi chỉ định")
+            }
+        }
         guard case .number(let d) = index, d == d.rounded(), d >= 0 else { throw MError.expression("Chỉ mục phải là số nguyên không âm") }
         let i = Int(d)
         switch target {

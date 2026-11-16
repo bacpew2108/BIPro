@@ -9,6 +9,7 @@ struct QueryRibbonView: View {
     var onOpenMerge: () -> Void = {}
     var onOpenAppend: () -> Void = {}
     var onOpenDependencies: () -> Void = {}
+    var onRefreshSource: () -> Void = {}
     var hasMergeCandidates: Bool = false
     let onApply: () -> Void
     let onApplyAndClose: () -> Void
@@ -184,6 +185,19 @@ struct QueryRibbonView: View {
                     tint: DS.Palette.accent,
                     disabledReason: hasMergeCandidates ? nil : "Cần có truy vấn khác để nối",
                     action: onOpenAppend
+                )
+            }
+
+            RibbonDivider()
+
+            // Query Group: đọc lại tệp nguồn
+            RibbonGroup(title: "Truy vấn") {
+                RibbonButton(
+                    title: "Làm mới\nnguồn",
+                    symbol: "arrow.clockwise",
+                    size: .large,
+                    tint: DS.Palette.accent,
+                    action: onRefreshSource
                 )
             }
 

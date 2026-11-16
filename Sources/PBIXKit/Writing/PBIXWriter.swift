@@ -196,7 +196,13 @@ public enum PBIXWriter {
         // Bảng thêm trong cùng đợt chưa nằm trong ABF: cột của chúng lấy từ dữ liệu mã hoá trong thao tác.
         let collapsed = edits.collapsingTableEdits()
         var inMemory: [String: NewTable] = [:]
-        for case .addTable(let table) in collapsed.items where table.enableLoad { inMemory[table.name.lowercased()] = table }
+        for item in collapsed.items {
+            switch item {
+            case .addTable(let table) where table.enableLoad: inMemory[table.name.lowercased()] = table
+            case .replaceTable(_, let table) where table.enableLoad: inMemory[table.name.lowercased()] = table
+            default: break
+            }
+        }
         func cells(_ table: String, _ column: String) -> [CellValue]? {
             guard let values = inMemory[table.lowercased()]?.columns.first(where: { $0.name == column })?.values else { return nil }
             switch values {
@@ -234,7 +240,19 @@ public enum PBIXWriter {
             }
             return (try RelationshipIndex.values(from: from, to: to, abf: abf), try VertiPaq.rowCount(to, abf: abf))
         }
-        try metadata.apply(edits.collapsingTableEdits())
+        // Thay dữ liệu bảng đang dính quan hệ: xoá quan hệ (kèm bảng `R$` và tệp chỉ mục), thay bảng, thêm lại quan hệ cùng tên với chỉ mục dựng từ
+        // dữ liệu mới. Bảng xoá khỏi file mà còn quan hệ thì `dropTable` từ chối như trước.
+        for edit in collapsed.items {
+            guard case .replaceTable(let old, let new) = edit, new.enableLoad else { try metadata.apply(edit); continue }
+            let relationships = try metadata.relationshipsToRebuild(touching: old)
+            for relationship in relationships { try metadata.apply(.deleteRelationship(name: relationship.name)) }
+            try metadata.apply(edit)
+            for var relationship in relationships {
+                if relationship.fromTable == old { relationship.fromTable = new.name }
+                if relationship.toTable == old { relationship.toTable = new.name }
+                try metadata.apply(.addRelationship(relationship))
+            }
+        }
         let newABF = try timed("abfRebuild") { try ABFWriter.rebuild(abf, replacing: [ABFPayload(path: metadataFile.path, data: try metadata.serialize())] + metadata.replacedFiles, adding: metadata.addedFiles, removing: metadata.removedFiles) }
         return try timed("compress") { try DataModelStream.compress(abf: newABF) }
     }
@@ -312,7 +330,8 @@ public enum PBIXWriter {
             guard model.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) == expected.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) else {
                 throw WriteError.verificationFailed("tables read back differ from the edited model")
             }
-            guard model.relationships == expected.relationships else {
+            // Quan hệ dựng lại quanh thay bảng có ID mới nên đứng cuối danh sách: so theo tên, không theo thứ tự.
+            guard model.relationships.sorted(by: { $0.name < $1.name }) == expected.relationships.sorted(by: { $0.name < $1.name }) else {
                 throw WriteError.verificationFailed("relationships read back differ from the edited model")
             }
             // Cột `INDEX` của bảng hệ thống `R$` (chỉ mục quan hệ) không thuộc mô hình hiệu lực.
@@ -339,15 +358,27 @@ public enum PBIXWriter {
             let oldPaths = Set(oldABF.files.map { $0.path }), newPaths = Set(abf.files.map { $0.path })
             let isIndex: (String) -> Bool = { $0.hasSuffix("INDEX.0.idf") || $0.hasSuffix("INDEX.0.idfmeta") }
             let addedPaths = newPaths.subtracting(oldPaths), removedPaths = oldPaths.subtracting(newPaths)
-            let adds = changes.allModelEdits.items.filter { if case .addRelationship = $0 { true } else { false } }.count
-            let deletes = changes.allModelEdits.items.filter { if case .deleteRelationship = $0 { true } else { false } }.count
+            // Quan hệ nối với bảng thay dữ liệu được xoá rồi thêm lại (chỉ mục `R$` dựng theo dữ liệu mới): thêm vào số tệp chỉ mục được phép đổi.
+            let replacedOldNames = Set(changes.allModelEdits.items.compactMap { edit -> String? in
+                if case .replaceTable(let old, let new) = edit, new.enableLoad { old } else { nil }
+            })
+            let rebuilt = oldModel.relationships.filter { replacedOldNames.contains($0.fromTable) || replacedOldNames.contains($0.toTable) }.count
+            let adds = changes.allModelEdits.items.filter { if case .addRelationship = $0 { true } else { false } }.count + rebuilt
+            let deletes = changes.allModelEdits.items.filter { if case .deleteRelationship = $0 { true } else { false } }.count + rebuilt
             // Bảng mới: tệp của bảng (`<Tên> (<id>).tbl…`) và của bảng hệ thống `H$<Tên> (<id>)$…`.
-            let isNewTableFile: (String) -> Bool = { path in newTableNames.contains { path.hasPrefix("\($0) (") || path.hasPrefix("H$\($0) (") } }
-            let isGoneTableFile: (String) -> Bool = { path in goneNames.contains { path.hasPrefix("\($0) (") || path.hasPrefix("H$\($0) (") } }
+            // Tên tệp của bảng do Desktop ghi thay ký tự không phải chữ số bằng khoảng trắng ("Dim_Loan_Profile" thành "Dim Loan Profile (31).tbl").
+            func flat(_ text: String) -> String { String(text.map { $0.isLetter || $0.isNumber || $0 == "(" || $0 == "$" || $0 == "." || $0 == "\\" ? $0 : " " }) }
+            let newPrefixes = newTableNames.flatMap { [flat("\($0) ("), flat("H$\($0) (")] }
+            let gonePrefixes = goneNames.flatMap { [flat("\($0) ("), flat("H$\($0) (")] }
+            let isNewTableFile: (String) -> Bool = { path in let f = flat(path); return newPrefixes.contains { f.hasPrefix($0) } }
+            let isGoneTableFile: (String) -> Bool = { path in let f = flat(path); return gonePrefixes.contains { f.hasPrefix($0) } }
             let isTouchedTableFile: (String) -> Bool = { isNewTableFile($0) || isGoneTableFile($0) }
             guard addedPaths.allSatisfy({ isIndex($0) || isNewTableFile($0) }), removedPaths.allSatisfy({ isIndex($0) || isGoneTableFile($0) }),
                   addedPaths.filter(isIndex).count <= 2 * adds, removedPaths.filter(isIndex).count <= 2 * deletes else {
-                throw WriteError.verificationFailed("the ABF file list changed unexpectedly")
+                let strayAdded: [String] = addedPaths.filter { !(isIndex($0) || isNewTableFile($0)) }
+                let strayRemoved: [String] = removedPaths.filter { !(isIndex($0) || isGoneTableFile($0)) }
+                let strays = strayAdded + strayRemoved
+                throw WriteError.verificationFailed("the ABF file list changed unexpectedly (\(strays.prefix(3).joined(separator: "; ")); index +\(addedPaths.filter(isIndex).count)/-\(removedPaths.filter(isIndex).count), allowed \(2 * adds)/\(2 * deletes))")
             }
             let newFiles = Dictionary(uniqueKeysWithValues: abf.files.map { ($0.path, $0) })
             let metadataFilePath = abf.file(named: metadataPath)?.path

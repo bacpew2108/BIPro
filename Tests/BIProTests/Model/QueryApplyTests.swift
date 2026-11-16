@@ -101,13 +101,19 @@ import Testing
         #expect(state.selectedQuery?.loadedTableName == nil)
     }
 
+    /// Truy vấn chưa từng nạp mà tắt Enable load không tạo bảng; nó được lưu thành truy vấn không nạp (dòng `Expression`, VM-F8), một lần duy nhất.
     @Test func truyVanTatEnableLoadChuaNapKhongTaoBang() async throws {
         let env = try Env(); defer { env.cleanUp() }
         let state = try stateWithQuery()
-        state.setEnableLoad(try #require(state.selectedQueryID), false)
-        #expect(!state.hasUnappliedQueries)
+        let query = try #require(state.selectedQuery)
+        state.setEnableLoad(query.id, false)
+        #expect(state.hasUnappliedQueries)
         #expect(await state.closeAndApply(to: modelEditor(env), existingTableNames: []) == nil)
         #expect(tableEdits(env).isEmpty)
+        let saved = env.editor.modelEdits.items.compactMap { edit -> String? in if case .setQuery(let name, _) = edit { name } else { nil } }
+        #expect(saved == [query.name])
+        #expect(!state.hasUnappliedQueries)
+        #expect(state.selectedQuery?.savedQueryName == query.name)
     }
 
     @Test func buocLoiTraLyDoVaKhongDoiGi() async throws {

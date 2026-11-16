@@ -22,8 +22,12 @@ public enum MTables {
     }
 
     /// Một hàng thành bản ghi `[Cột = giá trị, ...]`.
+    /// Cột bảng lồng (sau NestedJoin hoặc `Excel.Workbook`) cho giá trị `.table` của dòng đó.
     public static func row(_ table: TableData, _ row: Int) -> MValue {
-        .record(table.columns.indices.map { MField(name: table.columns[$0].name, value: cell(table, row: row, column: $0)) })
+        .record(table.columns.indices.map { column in
+            if let nested = table.nested[column], nested.indices.contains(row) { return MField(name: table.columns[column].name, value: .table(nested[row])) }
+            return MField(name: table.columns[column].name, value: cell(table, row: row, column: column))
+        })
     }
 
     public static func column(_ table: TableData, _ column: Int) -> MValue {

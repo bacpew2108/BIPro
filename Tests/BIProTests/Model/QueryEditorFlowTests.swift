@@ -137,7 +137,9 @@ struct QueryEditorFlowTests {
     }
 
     /// Bảng của Nhom6 đang tham gia quan hệ: Apply trong phiên được (quan hệ giữ), nhưng lưu bị từ chối rõ ràng và file giữ nguyên byte.
-    @Test func bangCoQuanHeApDungDuocNhungLuuBiTuChoi() async throws {
+    /// Thay bảng đang trong quan hệ nay lưu được (chỉ mục `R$` dựng lại, `HiddenQueryTests`); còn bị từ chối khi bảng có phân cấp
+    /// (bảng đầu tiên của quan hệ đầu tiên trong Nhom6 là Dim_Date: có phân cấp và cột tính toán): áp dụng trong phiên vẫn được, file giữ nguyên.
+    @Test func bangCoPhanCapApDungDuocNhungLuuBiTuChoi() async throws {
         let dir = try EFixtures.outputDirectory("F-queryeditor")
         let source = dir.appendingPathComponent("Nhom6_f_qe_rel.pbix")
         try? FileManager.default.removeItem(at: source)
@@ -162,7 +164,7 @@ struct QueryEditorFlowTests {
             _ = try DocumentSaver.save(editor: state.layout, source: source, to: source, expectedStamp: nil,
                                        readOnlyRoots: [], backupDirectory: dir.appendingPathComponent("Backups"))
         } catch { message = "\(error)" }
-        #expect(message.contains("quan hệ"))
+        #expect(message.contains("phân cấp"))
         #expect(try Data(contentsOf: source) == original)
     }
 }

@@ -256,6 +256,97 @@ public struct MetadataWriter {
         }
     }
 
+    // MARK: Truy vấn không nạp (Enable load tắt, VM-F8)
+
+    /// Ghi hoặc cập nhật truy vấn không nạp thành dòng `Expression` (M nguyên văn, `Kind` 0) như Desktop 2.159: chú thích `PBI_NavigationStepName`
+    /// và `PBI_ResultType` (ObjectType 41) và tên truy vấn ở cuối `PBI_QueryOrder`. Tên không được trùng bảng đang nạp.
+    public mutating func setQuery(name: String, expression: String) throws {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw WriteError.invalid("tên truy vấn trống") }
+        guard !expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !expression.contains("\0") else {
+            throw WriteError.invalid("biểu thức M của truy vấn «\(name)» trống hoặc chứa NUL")
+        }
+        try transaction { db, now in
+            guard db.tableExists("Expression"), db.tableExists("Annotation") else {
+                throw WriteError.invalid("file không có bảng Expression, chưa lưu được truy vấn tắt Enable load")
+            }
+            if (try db.int("SELECT COUNT(*) FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(name)]) ?? 0) > 0 {
+                throw WriteError.invalid("không thể lưu truy vấn «\(name)» không nạp: trùng tên một bảng trong mô hình")
+            }
+            if let existing = try db.int("SELECT ID FROM Expression WHERE Name = ? COLLATE NOCASE", [.text(name)]) {
+                try db.run("UPDATE Expression SET Expression = ?, ModifiedTime = ? WHERE ID = ?", [.text(expression), .int(now), .int(existing)])
+            } else {
+                let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+                guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)") }
+                let id = Int64(stored + 1)
+                try db.run("""
+                    INSERT INTO Expression (ID, ModelID, Name, Description, Kind, Expression, ModifiedTime, QueryGroupID, ParameterValuesColumnID,
+                        MAttributes, LineageTag, SourceLineageTag, RemoteParameterName, ExpressionSourceID)
+                    VALUES (?, 1, ?, NULL, 0, ?, ?, 0, 0, NULL, ?, NULL, NULL, 0)
+                    """, [.int(id), .text(name), .text(expression), .int(now), .text(UUID().uuidString.lowercased())])
+                var next = id + 1
+                for (key, value) in [("PBI_NavigationStepName", "Navigation"), ("PBI_ResultType", "Table")] {
+                    try db.run("INSERT INTO Annotation (ID, ObjectID, ObjectType, Name, Value, ModifiedTime) VALUES (?, ?, 41, ?, ?, ?)",
+                               [.int(next), .int(id), .text(key), .text(value), .int(now)])
+                    next += 1
+                }
+                try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(next - 1)])
+            }
+            try Self.editQueryOrder(db, now: now) { order in if !order.contains(name) { order.append(name) } }
+            try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+            try Self.bumpProperties(db, now)
+        }
+    }
+
+    /// Bỏ truy vấn không nạp (bật lại Enable load hoặc xoá truy vấn): xoá dòng `Expression`, chú thích và tên trong `PBI_QueryOrder`
+    /// (truy vấn sắp nạp lại thành bảng sẽ được `addTable` thêm tên lại). Không có thì không làm gì.
+    public mutating func dropQuery(name: String) throws {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        try transaction { db, now in
+            guard db.tableExists("Expression"),
+                  let id = try db.int("SELECT ID FROM Expression WHERE Name = ? COLLATE NOCASE", [.text(name)]) else { return }
+            try Self.deleteDependents(db, objectID: Int(id))
+            try db.run("DELETE FROM Expression WHERE ID = ?", [.int(id)])
+            try Self.editQueryOrder(db, now: now) { order in order.removeAll { $0.caseInsensitiveCompare(name) == .orderedSame } }
+            try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+            try Self.bumpProperties(db, now)
+        }
+    }
+
+    /// Sửa mảng JSON `PBI_QueryOrder` (chú thích của mô hình). Không có chú thích thì không tạo.
+    private static func editQueryOrder(_ db: MetadataDatabase, now: Int64, _ change: (inout [String]) -> Void) throws {
+        guard let current = try db.strings("SELECT Value FROM Annotation WHERE ObjectType = 1 AND ObjectID = 1 AND Name = 'PBI_QueryOrder'").first,
+              let data = current.data(using: .utf8), var order = (try? JSONSerialization.jsonObject(with: data)) as? [String] else { return }
+        change(&order)
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: order, options: [.withoutEscapingSlashes]), as: UTF8.self)
+        try db.run("UPDATE Annotation SET Value = ?, ModifiedTime = ? WHERE ObjectType = 1 AND ObjectID = 1 AND Name = 'PBI_QueryOrder'", [.text(text), .int(now)])
+    }
+
+    /// Các quan hệ đang nối với bảng `name` (phía nào cũng được) để xoá rồi thêm lại quanh `replaceTable`: chỉ mục quan hệ `R$` phụ thuộc dữ liệu
+    /// hai cột nên phải dựng lại theo bảng mới. Chỉ dựng lại được quan hệ nhiều-một mặc định (đúng loại `addRelationship` ghi); quan hệ có thuộc tính
+    /// khác (tuỳ chỉnh ngày, tin cậy toàn vẹn tham chiếu, bảo mật dòng…) thì ném lỗi, không đoán.
+    public func relationshipsToRebuild(touching name: String) throws -> [NewRelationship] {
+        let db = database
+        guard let tableID = try? db.userTableID(named: name) else { return [] }
+        let ids = try db.strings("SELECT ID FROM Relationship WHERE FromTableID = ? OR ToTableID = ? ORDER BY ID", [.int(Int64(tableID)), .int(Int64(tableID))])
+        return try ids.compactMap(Int64.init).map { id in
+            func text(_ sql: String) throws -> String { try db.strings(sql, [.int(id)]).first ?? "" }
+            func number(_ field: String) throws -> Int64 { try db.int("SELECT \(field) FROM Relationship WHERE ID = ?", [.int(id)]) ?? 0 }
+            let relName = try text("SELECT Name FROM Relationship WHERE ID = ?")
+            guard try number("Type") == 1, try number("FromCardinality") == 2, try number("ToCardinality") == 1, try number("JoinOnDateBehavior") == 1,
+                  try number("RelyOnReferentialIntegrity") == 0, try number("SecurityFilteringBehavior") == 1, try number("State") == 1 else {
+                throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)»: quan hệ \(relName) có thuộc tính khác mặc định, chỉ mục quan hệ chưa dựng lại được")
+            }
+            func column(_ side: String) throws -> (table: String, column: String) {
+                (try text("SELECT t.Name FROM Relationship r JOIN [Table] t ON t.ID = r.\(side)TableID WHERE r.ID = ?"),
+                 try text("SELECT COALESCE(c.ExplicitName, c.InferredName) FROM Relationship r JOIN [Column] c ON c.ID = r.\(side)ColumnID WHERE r.ID = ?"))
+            }
+            let (fromTable, fromColumn) = try column("From"), (toTable, toColumn) = try column("To")
+            return NewRelationship(name: relName, fromTable: fromTable, fromColumn: fromColumn, toTable: toTable, toColumn: toColumn,
+                                   isActive: try number("IsActive") == 1, crossFilteringBehavior: Int(try number("CrossFilteringBehavior")))
+        }
+    }
+
     private static func requireReplaceable(_ db: MetadataDatabase, tableID: Int, name: String, action: String) throws {
         let columns = "SELECT ID FROM [Column] WHERE TableID = \(tableID)"
         if (try db.int("SELECT COUNT(*) FROM Relationship WHERE FromColumnID IN (\(columns)) OR ToColumnID IN (\(columns))") ?? 0) > 0 {
@@ -395,6 +486,10 @@ extension MetadataWriter {
             try replaceTable(name, with: table)
         case .dropTable(let name):
             try dropTable(name)
+        case .setQuery(let name, let expression):
+            try setQuery(name: name, expression: expression)
+        case .dropQuery(let name):
+            try dropQuery(name: name)
         case .addCalculatedColumn, .addCalculatedTable:
             throw WriteError.invalid("Chưa hỗ trợ ghi cột tính toán và bảng tính toán (Phase F, đang cài)")
         case .deleteRelationship(let name):

@@ -3,6 +3,54 @@ import Foundation
 import ColumnStore
 
 enum ValueText {
+    /// Giá trị M thành text như `Text.From` (dùng cả khi `Table.Combine` gặp cột lẫn kiểu: Desktop nạp cột `any` thành chuỗi).
+    static func textFrom(_ value: MValue) throws -> MValue {
+        switch value {
+        case .null:
+            return .null
+        case .text(let s):
+            return .text(s)
+        case .number(let n):
+            if n.isNaN { return .text("NaN") }
+            if n.isInfinite { return .text(n > 0 ? "Infinity" : "-Infinity") }
+            if n == n.rounded() && abs(n) < 9e18 {
+                return .text(String(Int64(n)))
+            } else {
+                let formatted = String(format: "%g", n)
+                return .text(formatted)
+            }
+        case .currency(let c):
+            let d = Double(c) / 10_000
+            if d == d.rounded() && abs(d) < 9e18 {
+                return .text(String(Int64(d)))
+            } else {
+                return .text(String(format: "%g", d))
+            }
+        case .logical(let b):
+            return .text(b ? "true" : "false")
+        case .date(let d):
+            let civil = ValueDateHelper.civilFromSerial(d)
+            return .text(String(format: "%04d-%02d-%02d", civil.year, civil.month, civil.day))
+        case .dateTime(let d):
+            let datePart = floor(d)
+            let timePart = (d - datePart) * 86_400
+            let civil = ValueDateHelper.civilFromSerial(datePart)
+            let secs = Int(timePart.rounded())
+            let h = (secs / 3600) % 24
+            let m = (secs / 60) % 60
+            let s = secs % 60
+            return .text(String(format: "%04d-%02d-%02d %02d:%02d:%02d", civil.year, civil.month, civil.day, h, m, s))
+        case .time(let t):
+            let secs = Int((t * 86_400).rounded())
+            let h = (secs / 3600) % 24
+            let m = (secs / 60) % 60
+            let s = secs % 60
+            return .text(String(format: "%02d:%02d:%02d", h, m, s))
+        default:
+            throw MError.expression("Text.From: chưa hỗ trợ chuyển đổi từ kiểu \(value.kindName)")
+        }
+    }
+
     static let functions: [MFunction] = [
         MFunction(
             name: "Text.Upper",
@@ -164,50 +212,7 @@ enum ValueText {
             parameters: [MParameter(name: "value"), MParameter(name: "culture", isOptional: true)],
             observed: false
         ) { args in
-            switch args[0] {
-            case .null:
-                return .null
-            case .text(let s):
-                return .text(s)
-            case .number(let n):
-                if n.isNaN { return .text("NaN") }
-                if n.isInfinite { return .text(n > 0 ? "Infinity" : "-Infinity") }
-                if n == n.rounded() && abs(n) < 9e18 {
-                    return .text(String(Int64(n)))
-                } else {
-                    let formatted = String(format: "%g", n)
-                    return .text(formatted)
-                }
-            case .currency(let c):
-                let d = Double(c) / 10_000
-                if d == d.rounded() && abs(d) < 9e18 {
-                    return .text(String(Int64(d)))
-                } else {
-                    return .text(String(format: "%g", d))
-                }
-            case .logical(let b):
-                return .text(b ? "true" : "false")
-            case .date(let d):
-                let civil = ValueDateHelper.civilFromSerial(d)
-                return .text(String(format: "%04d-%02d-%02d", civil.year, civil.month, civil.day))
-            case .dateTime(let d):
-                let datePart = floor(d)
-                let timePart = (d - datePart) * 86_400
-                let civil = ValueDateHelper.civilFromSerial(datePart)
-                let secs = Int(timePart.rounded())
-                let h = (secs / 3600) % 24
-                let m = (secs / 60) % 60
-                let s = secs % 60
-                return .text(String(format: "%04d-%02d-%02d %02d:%02d:%02d", civil.year, civil.month, civil.day, h, m, s))
-            case .time(let t):
-                let secs = Int((t * 86_400).rounded())
-                let h = (secs / 3600) % 24
-                let m = (secs / 60) % 60
-                let s = secs % 60
-                return .text(String(format: "%02d:%02d:%02d", h, m, s))
-            default:
-                throw MError.expression("Text.From: chưa hỗ trợ chuyển đổi từ kiểu \(args[0].kindName)")
-            }
+            return try textFrom(args[0])
         },
 
         // [SUY ĐOÁN]

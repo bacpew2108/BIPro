@@ -88,6 +88,7 @@ public struct QueryEditorWindow: View {
                     onOpenMerge: { activeSheet = .merge },
                     onOpenAppend: { activeSheet = .append },
                     onOpenDependencies: { activeSheet = .dependencies },
+                    onRefreshSource: handleRefreshSource,
                     hasMergeCandidates: !state.mergeCandidates.isEmpty,
                     onApply: onApply,
                     onApplyAndClose: handleApplyAndClose,
@@ -623,6 +624,12 @@ public struct QueryEditorWindow: View {
 
     private func handleApplyAndClose() {
         onApply()
+    }
+
+    /// "Làm mới nguồn": đọc lại tệp nguồn của truy vấn đang chọn; không đọc được thì hiện lý do ở dải lỗi, dữ liệu đã lưu giữ nguyên.
+    private func handleRefreshSource() {
+        guard let id = state.selectedQueryID else { return }
+        Task { @MainActor in ribbonErrorMessage = await state.refreshSource(of: id) }
     }
 
     private func handleCloseAttempt() {

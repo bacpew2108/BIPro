@@ -51,8 +51,8 @@ import ColumnStore
         expect(got, "nestedDef", ["n=2 cols=ID|Name|OID", "1,An,10", "2,Bi,~"])
         expect(got, "combine", ["n=2 cols=A|B|C", "1,x,~", "~,y,true"])
         #expect(got["expandDup"]?.first?.hasPrefix("ERR ") == true)
-        // Desktop cho cột `any` lẫn số và chữ ("n=2 cols=A", "1", "x"); BI Pro chưa có cột lẫn kiểu nên báo rõ.
-        #expect(got["combMixed"]?.first?.hasPrefix("ERR Chưa hỗ trợ") == true)
+        // Desktop cho cột `any` lẫn số và chữ ("n=2 cols=A", "1", "x"); BI Pro chuyển cột lẫn kiểu thành text (VM-F8: Close & Apply cũng nạp `string`).
+        expect(got, "combMixed", ["n=2 cols=A", "1", "x"])
     }
 
     @Test func p3PivotUnpivot() async throws {

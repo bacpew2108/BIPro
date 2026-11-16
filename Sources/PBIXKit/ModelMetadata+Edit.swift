@@ -4,7 +4,8 @@ extension ModelMetadata {
     /// Bản sao với các danh sách đã sửa; mọi trường khác giữ nguyên.
     init(copying other: ModelMetadata, columns: [Column]? = nil, measures: [Measure]? = nil,
          relationships: [Relationship]? = nil, tables: [Table]? = nil, hierarchies: [Hierarchy]? = nil,
-         storage: [ColumnStorage]? = nil, partitionQueries: [String: String]? = nil) {
+         storage: [ColumnStorage]? = nil, partitionQueries: [String: String]? = nil,
+         expressions: [String]? = nil, expressionBodies: [String: String]? = nil) {
         self.tables = tables ?? other.tables
         self.columns = columns ?? other.columns
         self.measures = measures ?? other.measures
@@ -15,7 +16,8 @@ extension ModelMetadata {
         roles = other.roles
         perspectives = other.perspectives
         cultures = other.cultures
-        expressions = other.expressions
+        self.expressions = expressions ?? other.expressions
+        self.expressionBodies = expressionBodies ?? other.expressionBodies
         calculationGroups = other.calculationGroups
         functions = other.functions
         culture = other.culture
@@ -124,6 +126,20 @@ extension ModelMetadata {
         case .addTable(let new): return try addingTable(new)
         case .replaceTable(let name, let new): return try replacingTable(name, with: new)
         case .dropTable(let name): return try droppingTable(name)
+        case .setQuery(let name, let expression):
+            let key = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, !expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ModelEditError("Truy vấn không nạp cần tên và biểu thức M") }
+            if tables.contains(where: { $0.isUserTable && $0.name.caseInsensitiveCompare(key) == .orderedSame }) {
+                throw ModelEditError("Truy vấn không nạp «\(key)» trùng tên một bảng trong mô hình")
+            }
+            var bodies = expressionBodies
+            bodies[key] = expression
+            return ModelMetadata(copying: self, expressions: expressions.contains(key) ? expressions : expressions + [key], expressionBodies: bodies)
+        case .dropQuery(let name):
+            let key = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            var bodies = expressionBodies
+            bodies[key] = nil
+            return ModelMetadata(copying: self, expressions: expressions.filter { $0 != key }, expressionBodies: bodies)
 
         case .addCalculatedColumn, .addCalculatedTable:
             throw ModelEditError("Chưa hỗ trợ (Phase F, đang cài)")
