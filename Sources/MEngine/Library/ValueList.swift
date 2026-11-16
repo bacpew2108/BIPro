@@ -4,6 +4,36 @@ import ColumnStore
 
 enum ValueList {
     static let functions: [MFunction] = [
+        // Desktop 2.159 (VM-F4, probe p1..p5): nối các danh sách theo thứ tự.
+        MFunction(name: "List.Combine", parameters: [MParameter(name: "lists")], observed: true) { args in
+            var out: [MValue] = []
+            for item in try args.list(0, "List.Combine") {
+                switch item {
+                case .list(let inner): out.append(contentsOf: inner)
+                case .error(let error): throw error
+                default: throw MError.expression("List.Combine: phần tử phải là danh sách, nhận \(item.kindName)")
+                }
+            }
+            return .list(out)
+        },
+
+        // Group By "Median" của hộp thoại; Desktop (p3 grpMedian): trung vị {3,1} = 2, {2,5,...} chẵn thì trung bình hai số giữa (3,5 cho {2,5}).
+        MFunction(name: "List.Median", parameters: [MParameter(name: "list"), MParameter(name: "comparisonCriteria", isOptional: true)], observed: true) { args in
+            var numbers: [Double] = []
+            for item in try args.list(0, "List.Median") {
+                switch item {
+                case .null: continue
+                case .number(let n): numbers.append(n)
+                case .currency(let c): numbers.append(Double(c) / 10_000)
+                default: throw MError.expression("List.Median: phần tử danh sách không phải số, nhận \(item.kindName)")
+                }
+            }
+            guard !numbers.isEmpty else { return .null }
+            numbers.sort()
+            let mid = numbers.count / 2
+            return .number(numbers.count % 2 == 1 ? numbers[mid] : (numbers[mid - 1] + numbers[mid]) / 2)
+        },
+
         MFunction(
             name: "List.Sum",
             parameters: [MParameter(name: "list"), MParameter(name: "precision", isOptional: true)],
@@ -165,7 +195,8 @@ enum ValueList {
             var transformed: [MValue] = []
             transformed.reserveCapacity(list.count)
             for item in list {
-                transformed.append(try f.call([item]))
+                // M tính phần tử của danh sách lười: lỗi của một phần tử nằm lại trong danh sách, chỉ ném khi truy cập (Desktop, probe p3).
+                do { transformed.append(try f.call([item])) } catch let error as MError { transformed.append(.error(error)) }
             }
             return .list(transformed)
         },

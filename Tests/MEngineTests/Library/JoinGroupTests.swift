@@ -37,9 +37,9 @@ import ColumnStore
 
     @Test func leftOuterKeepsUnmatchedLeftRows() async throws {
         let t = try await join("JoinKind.LeftOuter")
-        #expect(t.rowCount == 5) // thêm Binh không khớp
-        #expect(t.value(row: 2, column: 1) == .string("Binh"))
-        #expect(t.value(row: 2, column: 2) == .blank)
+        #expect(t.rowCount == 5) // thêm Binh không khớp, xếp cuối như Desktop
+        #expect(t.value(row: 4, column: 1) == .string("Binh"))
+        #expect(t.value(row: 4, column: 2) == .blank)
     }
 
     @Test func rightOuterAddsUnmatchedRightRows() async throws {
@@ -177,10 +177,6 @@ import ColumnStore
         #expect(t.value(row: 0, column: 1) == .double(5))
         #expect(t.value(row: 0, column: 2) == .double(3))
         #expect(t.value(row: 1, column: 1) == .double(2))
-    }
-
-    @Test func pivotWithoutAggregationRejectsDuplicates() async throws {
-        await #expect(throws: MError.self) { try await eval("Table.Pivot(\(sales), {\"a\",\"b\"}, \"Prod\", \"Qty\")") }
     }
 
     @Test func unpivotOtherColumnsDropsNulls() async throws {

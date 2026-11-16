@@ -44,12 +44,17 @@ public enum MTables {
     public static func build(names: [String], types: [MType?], rows: [[MValue]]) throws -> TableData {
         guard names.count == types.count else { throw MError.expression("Số tên cột và số kiểu không khớp") }
         var columns: [TableColumn] = []
+        var mask: [Int: [Int: String]] = [:]
         for (index, name) in names.enumerated() {
-            let values = rows.map { $0[index] }
+            var values = rows.map { $0[index] }
+            // Ô có giá trị lỗi (phần tử danh sách lỗi): ô trống kèm thông điệp trong `errorMask` (Desktop: lỗi ở ô, bảng vẫn có).
+            for (row, value) in values.enumerated() {
+                if case .error(let error) = value { mask[index, default: [:]][row] = error.message; values[row] = .null }
+            }
             columns.append(TableColumn(name: name, data: try column(values, type: types[index], name: name)))
         }
         do {
-            return try TableData(columns: columns)
+            return try TableData(columns: columns, errorMask: mask)
         } catch TableDataError.duplicateColumn(let name) {
             throw MError.expression("Tên cột trùng: \(name)")
         } catch TableDataError.emptyColumnName {

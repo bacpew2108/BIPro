@@ -1,15 +1,18 @@
 // Phase F: thư viện hàm M, nhóm Join, Group, Pivot (lead). Mỗi hàm: tên đầy đủ, tham số (tuỳ chọn đánh dấu isOptional), `observed`
 // (true khi ngữ nghĩa đã đối chiếu golden Desktop, false = [SUY ĐOÁN]). Dùng trợ giúp ở Support.swift.
 //
-// Tất cả hàm ở đây chưa đối chiếu golden Desktop (T067 chưa chạy): thứ tự dòng của Right/Full Outer, thứ tự nhóm của `Table.Group`,
-// khoá `null` khớp nhau đều theo tài liệu M và hành vi Merge đã biết, đánh dấu `observed: false`.
+// Đối chiếu Desktop 2.159 (VM-F4, `docs/phase-f-evidence/vm-f4/QUAN-SAT.md`, probe M trên bảng nhỏ): khoá `null` khớp `null`, so khoá phân biệt
+// hoa thường và khác kiểu thì không khớp, kiểu mặc định của `NestedJoin` là LeftOuter, `Table.Group` Global theo thứ tự xuất hiện đầu tiên,
+// `Table.Pivot` sắp nhóm theo cột khoá tăng dần (null trước), trùng ô không có hàm tổng hợp là lỗi Ở Ô (không ném cả hàm),
+// Unpivot bỏ ô null, `Table.Combine` hợp cột theo thứ tự thấy đầu tiên. Thứ tự dòng khớp của join do Desktop tự quyết (băm), BI Pro giữ thứ tự
+// dòng trái; dòng không khớp xếp cuối (phải trước trái) như Desktop. Cột `any` lẫn kiểu của `Table.Combine` chưa hỗ trợ.
 
 import ColumnStore
 import Foundation
 
 public enum JoinGroupLibrary {
     public static let functions: [MFunction] = [
-        combine, join, nestedJoin, expandTableColumn, group, pivot, unpivot, unpivotOtherColumns,
+        combine, join, nestedJoin, expandTableColumn, group, pivot, unpivot, unpivotOtherColumns, toRows,
     ]
 
     // MARK: - Trợ giúp
@@ -85,11 +88,17 @@ public enum JoinGroupLibrary {
         return Int(n)
     }
 
+    /// `Table.ToRows(table)`: danh sách các hàng, mỗi hàng là danh sách giá trị (dùng trong probe Desktop).
+    private static let toRows = MFunction(name: "Table.ToRows", parameters: [MParameter(name: "table")], observed: true) { args in
+        let table = try args.table(0, "Table.ToRows")
+        return .list((0..<table.rowCount).map { row in .list(table.columns.indices.map { MTables.cell(table, row: row, column: $0) }) })
+    }
+
     // MARK: - Table.Combine
 
     /// `Table.Combine(tables, columns?)`: nối các bảng, cột hợp theo thứ tự xuất hiện đầu tiên, ô thiếu là `null`.
     private static let combine = MFunction(
-        name: "Table.Combine", parameters: [MParameter(name: "tables"), MParameter(name: "columns", isOptional: true)], observed: false
+        name: "Table.Combine", parameters: [MParameter(name: "tables"), MParameter(name: "columns", isOptional: true)], observed: true
     ) { args in
         let items = try args.list(0, "Table.Combine")
         var tables: [TableData] = []
@@ -135,7 +144,9 @@ public enum JoinGroupLibrary {
     // MARK: - Table.Join, Table.NestedJoin
 
     /// Kết quả khớp: cặp (dòng trái, dòng phải) theo thứ tự dòng trái rồi dòng phải; dòng không khớp có `nil` ở phía kia.
-    private static func matches(left: TableData, leftKey: [Int], right: TableData, rightKey: [Int], kind: Int, function: String) throws -> [(Int?, Int?)] {
+    /// `leftInPlace`: dòng trái không khớp đứng đúng vị trí của nó (NestedJoin, mỗi dòng trái một dòng kết quả); sai thì xếp cuối (Table.Join).
+    private static func matches(left: TableData, leftKey: [Int], right: TableData, rightKey: [Int], kind: Int, function: String,
+                                leftInPlace: Bool = false) throws -> [(Int?, Int?)] {
         guard leftKey.count == rightKey.count, !leftKey.isEmpty else {
             throw MError.expression("\(function): hai bên phải có cùng số cột khoá")
         }
@@ -144,6 +155,7 @@ public enum JoinGroupLibrary {
         var index: [[Key]: [Int]] = [:]
         for (row, key) in rightKeys.enumerated() { index[key, default: []].append(row) }
         var pairs: [(Int?, Int?)] = []
+        var unmatchedLeft: [Int] = []
         var matchedRight = Set<Int>()
         for (row, key) in leftKeys.enumerated() {
             if let found = index[key] {
@@ -151,12 +163,13 @@ public enum JoinGroupLibrary {
                 for r in found { matchedRight.insert(r) }
                 if kind != 5 { for r in found { pairs.append((row, r)) } }
             } else if kind == 1 || kind == 3 || kind == 4 {
-                pairs.append((row, nil))
+                if leftInPlace { pairs.append((row, nil)) } else { unmatchedLeft.append(row) }
             }
         }
         if kind == 2 || kind == 3 || kind == 5 {
             for r in 0..<right.rowCount where !matchedRight.contains(r) { pairs.append((nil, r)) }
         }
+        pairs.append(contentsOf: unmatchedLeft.map { ($0, nil) })
         return pairs
     }
 
@@ -170,7 +183,7 @@ public enum JoinGroupLibrary {
         parameters: [MParameter(name: "table1"), MParameter(name: "key1"), MParameter(name: "table2"), MParameter(name: "key2"),
                      MParameter(name: "joinKind", isOptional: true), MParameter(name: "joinAlgorithm", isOptional: true),
                      MParameter(name: "keyEqualityComparers", isOptional: true)],
-        observed: false
+        observed: true
     ) { args in
         let left = try args.table(0, "Table.Join"), right = try args.table(2, "Table.Join")
         let leftKey = try columnIndices(left, args[1], function: "Table.Join")
@@ -195,7 +208,7 @@ public enum JoinGroupLibrary {
         parameters: [MParameter(name: "table1"), MParameter(name: "key1"), MParameter(name: "table2"), MParameter(name: "key2"),
                      MParameter(name: "newColumnName"), MParameter(name: "joinKind", isOptional: true),
                      MParameter(name: "keyEqualityComparers", isOptional: true)],
-        observed: false
+        observed: true
     ) { args in
         let left = try args.table(0, "Table.NestedJoin"), right = try args.table(2, "Table.NestedJoin")
         let leftKey = try columnIndices(left, args[1], function: "Table.NestedJoin")
@@ -203,7 +216,7 @@ public enum JoinGroupLibrary {
         let newName = try args.text(4, "Table.NestedJoin")
         if left.index(ofColumn: newName) != nil { throw MError.expression("Table.NestedJoin: cột '\(newName)' đã có") }
         let kind = try joinKind(args.optional(5), function: "Table.NestedJoin", default: 1)
-        let pairs = try matches(left: left, leftKey: leftKey, right: right, rightKey: rightKey, kind: kind, function: "Table.NestedJoin")
+        let pairs = try matches(left: left, leftKey: leftKey, right: right, rightKey: rightKey, kind: kind, function: "Table.NestedJoin", leftInPlace: true)
 
         // Một dòng kết quả cho mỗi dòng trái (kèm các dòng phải khớp); dòng phải không khớp (Right/Full/RightAnti) thành dòng riêng với phía trái trống.
         var leftRows: [Int?] = [], groups: [[Int]] = []
@@ -230,7 +243,7 @@ public enum JoinGroupLibrary {
         name: "Table.ExpandTableColumn",
         parameters: [MParameter(name: "table"), MParameter(name: "column"), MParameter(name: "columnNames"),
                      MParameter(name: "newColumnNames", isOptional: true)],
-        observed: false
+        observed: true
     ) { args in
         let table = try args.table(0, "Table.ExpandTableColumn")
         let name = try args.text(1, "Table.ExpandTableColumn")
@@ -279,7 +292,7 @@ public enum JoinGroupLibrary {
         name: "Table.Group",
         parameters: [MParameter(name: "table"), MParameter(name: "key"), MParameter(name: "aggregatedColumns"),
                      MParameter(name: "groupKind", isOptional: true), MParameter(name: "comparer", isOptional: true)],
-        observed: false
+        observed: true
     ) { args in
         let table = try args.table(0, "Table.Group")
         let keyColumns = try columnIndices(table, args[1], function: "Table.Group")
@@ -329,7 +342,7 @@ public enum JoinGroupLibrary {
         name: "Table.Pivot",
         parameters: [MParameter(name: "table"), MParameter(name: "pivotValues"), MParameter(name: "attributeColumn"),
                      MParameter(name: "valueColumn"), MParameter(name: "aggregationFunction", isOptional: true)],
-        observed: false
+        observed: true
     ) { args in
         let table = try args.table(0, "Table.Pivot")
         var pivotValues: [String] = []
@@ -351,6 +364,16 @@ public enum JoinGroupLibrary {
         for (row, key) in rowKeys.enumerated() {
             if let p = positions[key] { rows[p].append(row) } else { positions[key] = rows.count; rows.append([row]) }
         }
+        // Desktop 2.159: nhóm sắp theo cột khoá tăng dần, null trước (probe p4, p5).
+        rows.sort { a, b in
+            for c in keyColumns {
+                let x = MTables.cell(table, row: a[0], column: c), y = MTables.cell(table, row: b[0], column: c)
+                if case .null = x { if case .null = y { continue } else { return true } }
+                if case .null = y { return false }
+                if let order = MOperators.compare(x, y), order != 0 { return order < 0 }
+            }
+            return false
+        }
         var names: [String] = [], types: [MType?] = [], columns: [[MValue]] = []
         for c in keyColumns {
             names.append(table.columns[c].name); types.append(mType(of: table.columns[c]))
@@ -370,7 +393,8 @@ public enum JoinGroupLibrary {
                 } else if hits.count == 1 {
                     cellsOut.append(values[0])
                 } else {
-                    throw MError.expression("Table.Pivot: có nhiều giá trị cho '\(pivotValue)' mà không có hàm tổng hợp")
+                    // Desktop: lỗi nằm ở ô, phần còn lại của bảng vẫn có.
+                    cellsOut.append(.error(MError.expression("There were too many elements in the enumeration to complete the operation.")))
                 }
             }
             // Có hàm tổng hợp thì kiểu cột theo kết quả (suy từ giá trị); không thì theo cột giá trị.
@@ -410,7 +434,7 @@ public enum JoinGroupLibrary {
     private static let unpivot = MFunction(
         name: "Table.Unpivot",
         parameters: [MParameter(name: "table"), MParameter(name: "pivotColumns"), MParameter(name: "attributeColumn"), MParameter(name: "valueColumn")],
-        observed: false
+        observed: true
     ) { args in
         let table = try args.table(0, "Table.Unpivot")
         let pivots = try columnIndices(table, args[1], function: "Table.Unpivot")
@@ -422,7 +446,7 @@ public enum JoinGroupLibrary {
     private static let unpivotOtherColumns = MFunction(
         name: "Table.UnpivotOtherColumns",
         parameters: [MParameter(name: "table"), MParameter(name: "pivotColumns"), MParameter(name: "attributeColumn"), MParameter(name: "valueColumn")],
-        observed: false
+        observed: true
     ) { args in
         let table = try args.table(0, "Table.UnpivotOtherColumns")
         let keep = try columnIndices(table, args[1], function: "Table.UnpivotOtherColumns")
