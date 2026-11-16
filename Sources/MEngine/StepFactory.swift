@@ -149,13 +149,13 @@ public enum StepCommand: Sendable, Equatable {
     case keepTopRows(Int)
     case removeTopRows(Int)
     case replaceErrors([ErrorReplacement])
-    /// Merge Queries [SUY ĐOÁN, chờ T067]: `Table.NestedJoin` với truy vấn khác, cột lồng tên `newColumn`.
+    /// Merge Queries (Desktop 2.159, VM-F4): `Table.NestedJoin` với truy vấn khác, cột lồng tên `newColumn`; bước `Merged Queries`.
     case merge(otherQuery: String, leftKeys: [String], rightKeys: [String], kind: JoinChoice, newColumn: String)
     /// Mở cột bảng lồng sau Merge [SUY ĐOÁN]; `prefixed` đặt tên mới `Cột.tên` như mặc định của Desktop.
     case expandColumn(column: String, names: [String], prefixed: Bool)
-    /// Append Queries [SUY ĐOÁN]: nối bảng đang chọn với các truy vấn khác.
+    /// Append Queries (Desktop, VM-F4: bước `Appended Query`, `Table.Combine({prev, Q})`).
     case append(queries: [String])
-    /// Group By nâng cao [SUY ĐOÁN]: nhiều khoá, nhiều phép tổng hợp.
+    /// Group By nhiều khoá, nhiều phép tổng hợp (Desktop, VM-F4: bước `Grouped Rows`; Count Rows quan sát nguyên văn, Sum/Average/... theo dạng đã biết [SUY ĐOÁN]).
     case groupBy(keys: [String], aggregates: [GroupAggregate])
 }
 
