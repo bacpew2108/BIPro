@@ -182,4 +182,21 @@ struct FGateTests {
         #expect(try !open(q4).workspace.userTables.contains { $0.name == "sales_2026" })
         print("KEY F6 file gate: \(dir.path)")
     }
+
+    /// Gate F-Query (T066, phần b): file `q1-desktop.pbix` do Desktop 2.159 lưu lại sau khi thêm bước "Reordered Columns" (Close & Apply, Refresh
+    /// bảng, lưu) mở được trong BI Pro: truy vấn `sales_2026` đủ 5 bước đúng tên và M, bảng còn 500 dòng, 11 bảng cũ còn đủ.
+    @Test func moFileDoDesktopLuuLai() async throws {
+        let url = try EFixtures.outputDirectory("../f-out/f6").appendingPathComponent("q1-desktop.pbix")
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: url)), fileName: url.lastPathComponent, fileURL: url)
+        #expect(state.workspace.rowCount("sales_2026") == 500)
+        #expect(state.workspace.userTables.count == 12)
+        state.showQueryEditor()
+        let editor = try #require(state.queryEditorState)
+        let query = try #require(editor.queries.first { $0.name == "sales_2026" })
+        #expect(query.steps.map(\.name) == ["Source", "Promoted Headers", "Changed Type", "Kept First Rows", "Reordered Columns"])
+        #expect(query.steps[3].expression == #"Table.FirstN(#"Changed Type",500)"#)
+        #expect(query.steps[4].expression.hasPrefix(#"Table.ReorderColumns(#"Kept First Rows",{"OrderID", "OrderDate", "Region", "Price""#))
+        print("KEY Desktop step: \(query.steps[4].expression)")
+    }
 }
