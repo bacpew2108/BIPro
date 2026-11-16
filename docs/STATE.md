@@ -170,7 +170,7 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - Test: `swift test` 2131 qua (thêm 11); heavy golden 114, một ca thời gian D6 `< 1 s` đo 1,18 s khi chạy cả bộ, qua khi chạy riêng.
 - **Tồn đọng US5:** phép gộp ngầm (Sum/Average… của cột số trong ô giá trị, cần quan sát queryState `Aggregation` và truy vấn DAX của Desktop); Auto date/time cho file mới (bảng ngày cục bộ); visual chèn bằng API cùng vùng nhìn nằm chồng nhau; khung trống chưa có màn "Thêm dữ liệu vào báo cáo" như Desktop. **Việc kế:** US6 (cột và bảng tính toán, T080+).
 
-## Phase F, US6 (cột và bảng tính toán) xong phần lead, chờ gate T085 (2026-11-16; đã commit, chưa push)
+## Phase F, US6 (cột và bảng tính toán) xong, gate T085 ĐẠT (2026-11-16; đã commit, chưa push)
 
 - **T080:** đọc cách Desktop lưu từ file có sẵn (Nhom6: 7 cột tính toán; `~/Downloads/DWH&BI/w8.3.pbix`: bảng `Ngày` = CALENDAR). Desktop lưu sẵn dữ liệu VertiPaq; bảng tính toán có `SystemFlags = 2` nên trước đây BI Pro bỏ mất (đã sửa `ModelMetadata.Table.isCalculatedUserTable`). `docs/phase-f-evidence/vm-f6/QUAN-SAT.md`.
 - **T081:** `DAXEngine.calculatedColumn/calculatedTable`, hàm `CALENDAR`, `EARLIER`, `EARLIEST`. Golden: 7 cột Nhom6 (kể cả `HOUR` 1 056 320 dòng, `RELATED`/`VAR`, cột phụ thuộc cột) và bảng w8.3 khớp từng dòng giá trị Desktop đã lưu.
@@ -178,7 +178,7 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - **T083:** Ribbon "Cột mới"/"Bảng mới" (cả Báo cáo khi bật Sửa, Mô hình hoá, Table view) mở bản nháp ở thanh công thức Table view; lưới nạp lại theo `Workspace.dataKey`; số thực ở lưới hiện 15 chữ số có nghĩa. Bấm thử trong app: cột `Doanh thu` và bảng `Vung` hiện đúng.
 - **T084:** `TableMetadataWriter.addCalculatedColumn` (thêm cột vào phân vùng có sẵn, kèm `H$`), `markCalculatedTable`; giá trị do app tính đưa qua `PBIXChanges.calculatedData`. Giới hạn: bảng nhiều đoạn dữ liệu (> 1 048 576 dòng, ví dụ `Fact_Transaction`) chưa lưu được cột tính toán; chưa sửa/xoá/đổi tên cột tính toán; bảng của file đã có cột tính toán trong phiên mà nạp lại bằng Query Editor thì lưu có thể bị từ chối.
 - Test: `swift test` 2148 qua; heavy 131 qua (gồm `F6Nhom6CalcTests`, `CalculatedColumnTests`).
-- **Việc kế:** T085 gate Desktop với `build/f-out/f6/Nhom6_f4.pbix` (cột `Dim_District[Nhãn đầy đủ]`, `Fact_Loan[Tuổi năm sau]`, bảng `Lịch 2026`), cần VM. Tồn đọng: hàm văn bản còn ít (chưa có LEN, UPPER, MID…), phép gộp ngầm (US5).
+- **T085 ĐẠT** (Claude lái VM): Desktop mở `Nhom6_f4.pbix` không cần Refresh, nhận `Lịch 2026` là bảng tính toán (365 dòng) và hai cột tính toán với công thức, kiểu, giá trị đúng (`docs/phase-f-evidence/vm-f6/CHECKLIST-KET-QUA.md`). **Việc kế:** US7 (JSON, Parquet, T086+). Tồn đọng: hàm văn bản còn ít (chưa có LEN, UPPER, MID…), phép gộp ngầm (US5), cột tính toán trên bảng nhiều đoạn dữ liệu, sửa/xoá cột tính toán.
 
 ## Việc tiếp theo
 
