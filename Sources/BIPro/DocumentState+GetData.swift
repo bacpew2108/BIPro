@@ -18,10 +18,14 @@ extension DocumentState {
     }
 
     /// Mở hộp thoại Get Data. Có `kind` (nút "Excel" ở Ribbon) thì chọn tệp ngay và vào thẳng Navigator; huỷ chọn tệp thì không mở gì.
-    func showGetData(kind: SourceKind? = nil, pickFile: (SourceKind) -> String? = GetDataFilePicker.pick) {
+    func showGetData(kind: SourceKind? = nil, pickFile: (SourceKind) -> String? = GetDataFilePicker.pick,
+                     credentials: CredentialVault = .shared) {
         guard getDataBlocker == nil, getDataState == nil else { return }
-        let navigator = NavigatorState()
-        if let kind {
+        let navigator = NavigatorState(credentials: credentials)
+        if kind == .postgres {
+            navigator.beginDatabase(.postgres)   // hộp kết nối máy chủ, không chọn tệp
+            getDataState = navigator
+        } else if let kind {
             guard let location = pickFile(kind) else { return }
             getDataState = navigator
             Task { await navigator.openSource(kind: kind, location: location) }

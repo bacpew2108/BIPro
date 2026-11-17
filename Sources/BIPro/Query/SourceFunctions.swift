@@ -6,7 +6,7 @@
 // - `Csv.Document(path, [Delimiter, Encoding, …])`: mọi cột là text tên `Column1…` (Desktop; bước "Promoted Headers" và "Changed Type" lo phần còn lại).
 // - `Excel.Workbook(path, useHeaders, _)`: bảng `Name, Data, Item, Kind, Hidden`; `Data` là bảng lồng của từng trang tính/bảng đặt tên, đọc đủ
 //   mọi mục một lần ([SUY ĐOÁN] ô lẫn kiểu thành text vì `TableData` chưa có cột `any`).
-// - `Json.Document(path)` (T088): đọc tệp JSON, giữ thứ tự khoá. `Parquet.Document(path, options)` (T089). SQLite chưa nối (báo "Chưa hỗ trợ").
+// - `Json.Document(path)` (T088): đọc tệp JSON, giữ thứ tự khoá. `Parquet.Document(path, options)` (T089). SQLite qua `Odbc.DataSource`, PostgreSQL (T092, T093).
 
 import ColumnStore
 import Connectors
@@ -15,9 +15,133 @@ import MEngine
 
 enum SourceFunctions {
     /// Hàm nguồn dạng giá trị M, để gộp vào `MEnvironment.bindings`.
-    static var bindings: [String: MValue] {
-        [fileContents.name: .function(fileContents), csvDocument.name: .function(csvDocument), excelWorkbook.name: .function(excelWorkbook),
-         jsonDocument.name: .function(jsonDocument), parquetDocument.name: .function(parquetDocument)]
+    static var bindings: [String: MValue] { bindings(credentials: .shared) }
+
+    /// Như `bindings`, với kho thông tin đăng nhập riêng cho nguồn cơ sở dữ liệu (test dùng kho tạm).
+    static func bindings(credentials: CredentialVault) -> [String: MValue] {
+        let postgres = postgresDatabase(credentials)
+        return [fileContents.name: .function(fileContents), csvDocument.name: .function(csvDocument), excelWorkbook.name: .function(excelWorkbook),
+                jsonDocument.name: .function(jsonDocument), parquetDocument.name: .function(parquetDocument),
+                postgres.name: .function(postgres), nativeQuery.name: .function(nativeQuery), odbcDataSource.name: .function(odbcDataSource)]
+    }
+
+    // MARK: Odbc.DataSource (SQLite)
+
+    /// `Odbc.DataSource("Driver={…SQLite…};Database=đường_dẫn", [HierarchicalNavigation=true])` (VM-F7b): BI Pro không có ODBC; với driver
+    /// SQLite thì đọc thẳng tệp bằng `SQLiteSource`. Có HierarchicalNavigation: một dòng `main` (Kind "Database") chứa bảng điều hướng
+    /// `Name, Data, Kind` ("Table"/"View"); không có thì trả thẳng bảng điều hướng đó [SUY ĐOÁN]. `Data` chỉ đọc khi truy cập. Driver khác báo chưa hỗ trợ.
+    static let odbcDataSource = MFunction(
+        name: "Odbc.DataSource", parameters: [MParameter(name: "connectionString"), MParameter(name: "options", isOptional: true)], observed: true
+    ) { args in
+        guard case .text(let connection) = args[0] else { throw MError.expression("Odbc.DataSource: chuỗi kết nối phải là text") }
+        let properties = SQLiteODBC.properties(connection)
+        let driver = properties["driver"] ?? (properties["dsn"].map { "DSN \($0)" } ?? "không rõ")
+        guard driver.lowercased().contains("sqlite"), let path = properties["database"] ?? properties["data source"] else {
+            throw MError(reason: "DataSource.Error", message: "Chưa hỗ trợ ODBC driver \(driver): BI Pro chỉ đọc được SQLite qua chuỗi kết nối có Database=đường_dẫn.")
+        }
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw MError(reason: "DataSource.Error",
+                         message: "Không tìm thấy tệp SQLite \"\(path)\". Tệp có thể đã bị xoá, đổi tên hoặc nằm trên máy khác.", detail: path)
+        }
+        var hierarchical = false
+        if case .record(let fields) = args[1], case .logical(let flag)? = fields.first(where: { $0.name == "HierarchicalNavigation" })?.value {
+            hierarchical = flag
+        }
+        let items = try blocking { try await SQLiteSource(url: URL(fileURLWithPath: path)).items() }
+        var cells: [Int: any Sendable] = [:]
+        for (row, item) in items.enumerated() {
+            cells[row] = MDeferred(tag: nil) { .table(try blocking { try await item.load(progress: nil) }) }
+        }
+        let tables = try TableData(columns: [
+            TableColumn(name: "Name", data: ColumnBuilder.strings(items.map(\.name))),
+            TableColumn(name: "Data", data: ColumnBuilder.strings(Array(repeating: "Table", count: items.count))),
+            TableColumn(name: "Kind", data: ColumnBuilder.strings(items.map { $0.kind == .view ? "View" : "Table" })),
+        ], structured: [1: cells])
+        guard hierarchical else { return .table(tables) }
+        return .table(try TableData(columns: [
+            TableColumn(name: "Name", data: ColumnBuilder.strings(["main"])),
+            TableColumn(name: "Data", data: ColumnBuilder.strings(["Table"])),
+            TableColumn(name: "Kind", data: ColumnBuilder.strings(["Database"])),
+        ], structured: [1: [0: MValue.table(tables)]]))
+    }
+
+    // MARK: PostgreSQL.Database, Value.NativeQuery
+
+    /// Mục đích của ô `Data` trễ trong bảng điều hướng PostgreSQL: địa chỉ và thông tin để `Value.NativeQuery` chạy câu SQL trên cùng máy chủ.
+    struct PostgresTarget: Sendable {
+        let address: PostgresAddress
+        let credential: PostgresCredential
+    }
+
+    /// `PostgreSQL.Database("máy:cổng", "csdl", [Query=…])` (VM-F7b): bảng điều hướng `Name, Data, Schema, Item, Kind` (khung nhìn trước,
+    /// như Navigator); `Data` chỉ đọc khi truy cập (`MDeferred`). Có tuỳ chọn `Query` thì trả thẳng kết quả câu SQL. Thông tin đăng nhập
+    /// theo máy chủ từ Keychain/phiên; thiếu thì báo lỗi, không bao giờ đọc mật khẩu từ M.
+    static func postgresDatabase(_ credentials: CredentialVault) -> MFunction {
+        MFunction(name: "PostgreSQL.Database",
+                  parameters: [MParameter(name: "server"), MParameter(name: "database"), MParameter(name: "options", isOptional: true)],
+                  observed: true) { args in
+            guard case .text(let server) = args[0], case .text(let database) = args[1] else {
+                throw MError.expression("PostgreSQL.Database: máy chủ và cơ sở dữ liệu phải là text")
+            }
+            let address = PostgresAddress(server: server, database: database)
+            guard let credential = credentials.credential(for: address.server) else {
+                throw MError(reason: "DataSource.Error",
+                             message: "Cần thông tin đăng nhập để kết nối tới máy chủ PostgreSQL \(address.server). Hãy mở Get Data ▸ PostgreSQL để nhập.")
+            }
+            var query: String?
+            if case .record(let fields) = args[2], case .text(let sql)? = fields.first(where: { $0.name == "Query" })?.value { query = sql }
+            if let query { return try runQuery(PostgresTarget(address: address, credential: credential), sql: query) }
+            let items = try blocking { try await PostgresSource(address: address, credential: credential).items() }
+            let tables = items.compactMap { $0 as? PostgresItem }
+            var schemas: [String] = [], names: [String] = [], kinds: [String] = []
+            var cells: [Int: any Sendable] = [:]
+            for (row, item) in tables.enumerated() {
+                guard case .table(let schema, let name, let isView) = item.target else { continue }
+                schemas.append(schema)
+                names.append(name)
+                kinds.append(isView ? "View" : "Table")
+                cells[row] = MDeferred(tag: PostgresTarget(address: address, credential: credential)) {
+                    .table(try blocking { try await item.load(progress: nil) })
+                }
+            }
+            let columns = [
+                TableColumn(name: "Name", data: ColumnBuilder.strings(names)),
+                TableColumn(name: "Data", data: ColumnBuilder.strings(Array(repeating: "Table", count: names.count))),
+                TableColumn(name: "Schema", data: ColumnBuilder.strings(schemas)),
+                TableColumn(name: "Item", data: ColumnBuilder.strings(names)),
+                TableColumn(name: "Kind", data: ColumnBuilder.strings(kinds)),
+            ]
+            return .table(try TableData(columns: columns, structured: [1: cells]))
+        }
+    }
+
+    /// `Value.NativeQuery(PostgreSQL.Database(…), "sql", null, [EnableFolding=true])`: chạy câu SQL trên máy chủ của bảng điều hướng.
+    /// Tham số câu lệnh chưa hỗ trợ; tuỳ chọn `EnableFolding` nhận nhưng không đổi kết quả.
+    static let nativeQuery = MFunction(
+        name: "Value.NativeQuery",
+        parameters: [MParameter(name: "target"), MParameter(name: "query"), MParameter(name: "parameters", isOptional: true),
+                     MParameter(name: "options", isOptional: true)],
+        observed: true
+    ) { args in
+        guard case .text(let sql) = args[1] else { throw MError.expression("Value.NativeQuery: câu truy vấn phải là text") }
+        if case .null = args[2] {} else if case .record(let fields) = args[2], fields.isEmpty {} else {
+            throw MError(reason: "Expression.Error", message: "Value.NativeQuery: chưa hỗ trợ tham số câu lệnh")
+        }
+        guard case .table(let navigation) = args[0], let dataColumn = navigation.index(ofColumn: "Data"),
+              let target = navigation.structured[dataColumn]?.values.lazy.compactMap({ ($0 as? MDeferred)?.tag as? PostgresTarget }).first
+        else {
+            throw MError(reason: "Expression.Error", message: "Value.NativeQuery: chỉ chạy được trên kết quả của PostgreSQL.Database (có ít nhất một bảng)")
+        }
+        return try runQuery(target, sql: sql)
+    }
+
+    private static func runQuery(_ target: PostgresTarget, sql: String) throws -> MValue {
+        .table(try blocking {
+            guard let item = try await PostgresSource(address: target.address, credential: target.credential, query: sql).items().first else {
+                throw SourceError.empty
+            }
+            return try await item.load(progress: nil)
+        })
     }
 
     // MARK: File.Contents
@@ -155,7 +279,7 @@ enum SourceFunctions {
 
     private static func message(for error: SourceError) -> String {
         switch error {
-        case .unreadable(let text), .encoding(let text), .unsupported(let text): text
+        case .unreadable(let text), .encoding(let text), .unsupported(let text), .authentication(let text), .insecureConnection(let text): text
         case .empty: "Nguồn không có dữ liệu."
         case .cancelled: "Đã huỷ."
         }

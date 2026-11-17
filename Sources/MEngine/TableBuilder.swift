@@ -1,6 +1,7 @@
 // Phase F (T049): cầu nối giữa giá trị M (`MValue`) và `TableData`, dùng cho `#table`, thư viện `Table.*` và nạp nguồn.
 
 import ColumnStore
+import Synchronization
 
 public enum MTables {
     /// Giá trị M của một ô. Ô lỗi trả `.error`.
@@ -21,6 +22,7 @@ public enum MTables {
         if let message = table.error(row: row, column: column) { return .error(MError.expression(message)) }
         if let cells = table.structured[column] {
             if let value = cells[row] as? MValue { return value }
+            if let deferred = cells[row] as? MDeferred { return deferred.value }
             return .null
         }
         return value(table.value(row: row, column: column))
@@ -196,6 +198,32 @@ public enum MTables {
             })
         default:
             throw MError.unsupported("kiểu cột \(type.kind.rawValue)")
+        }
+    }
+}
+
+/// Ô có cấu trúc tính trễ (T092): giá trị chỉ được tính ở lần đầu đọc ô (`MTables.cell`, `MTables.row`) rồi giữ lại. Dùng cho cột `Data`
+/// của bảng điều hướng nguồn cơ sở dữ liệu: `Source{[Schema=…,Item=…]}[Data]` chỉ đọc bảng được chọn. Lỗi khi tính thành `.error`
+/// (ném khi truy cập trường). `tag` mang thông tin nguồn cho hàm khác đọc lại (ví dụ `Value.NativeQuery` lấy địa chỉ máy chủ).
+public final class MDeferred: Sendable {
+    public let tag: (any Sendable)?
+    private let compute: @Sendable () throws -> MValue
+    private let cache = Mutex<MValue?>(nil)
+
+    public init(tag: (any Sendable)?, compute: @escaping @Sendable () throws -> MValue) {
+        self.tag = tag
+        self.compute = compute
+    }
+
+    public var value: MValue {
+        cache.withLock { cached in
+            if let cached { return cached }
+            let result: MValue
+            do { result = try compute() } catch let error as MError { result = .error(error) } catch {
+                result = .error(MError(reason: "DataSource.Error", message: error.localizedDescription))
+            }
+            cached = result
+            return result
         }
     }
 }

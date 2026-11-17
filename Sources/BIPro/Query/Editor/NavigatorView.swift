@@ -16,6 +16,11 @@ struct NavigatorView: View {
     @State private var searchText: String = ""
 
     private var fileName: String {
+        // Cơ sở dữ liệu: "máy:cổng: csdl" như gốc cây Navigator của Desktop (VM-F7b).
+        if state.sourceKind == .postgres {
+            let address = PostgresLocation(state.location).address
+            return "\(address.server): \(address.database)"
+        }
         let name = URL(fileURLWithPath: state.location).lastPathComponent
         return name.isEmpty ? "Nguồn dữ liệu" : name
     }

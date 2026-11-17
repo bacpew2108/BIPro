@@ -10,6 +10,11 @@ struct NavigatorTreeView: View {
     @State private var isRootExpanded: Bool = true
 
     private var fileName: String {
+        // Cơ sở dữ liệu: "máy:cổng: csdl" như gốc cây Navigator của Desktop (VM-F7b).
+        if state.sourceKind == .postgres {
+            let address = PostgresLocation(state.location).address
+            return "\(address.server): \(address.database)"
+        }
         let name = URL(fileURLWithPath: state.location).lastPathComponent
         return name.isEmpty ? "Nguồn dữ liệu" : name
     }
@@ -22,14 +27,19 @@ struct NavigatorTreeView: View {
         }
     }
 
+    /// Nguồn cơ sở dữ liệu (PostgreSQL, SQLite): danh sách phẳng giữ thứ tự máy chủ trả (khung nhìn trước, rồi bảng; Desktop VM-F7b), không chia nhóm.
+    private var isDatabase: Bool { state.sourceKind == .postgres || state.sourceKind == .sqlite }
+
     private var standardItems: [NavigatorItem] {
-        filteredItems.filter {
+        if isDatabase { return filteredItems }
+        return filteredItems.filter {
             $0.kind == .file || $0.kind == .sheet || $0.kind == .table || $0.kind == .record
         }
     }
 
     private var namedItems: [NavigatorItem] {
-        filteredItems.filter {
+        if isDatabase { return [] }
+        return filteredItems.filter {
             $0.kind == .namedTable || $0.kind == .view
         }
     }
@@ -96,7 +106,7 @@ struct NavigatorTreeView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DS.Palette.secondaryLabel)
 
-                    Image(systemName: "doc.text.fill")
+                    Image(systemName: isDatabase ? "cylinder.fill" : "doc.text.fill")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.orange)
 
@@ -205,7 +215,7 @@ struct NavigatorTreeView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.table)
         case .view:
-            Image(systemName: "tablecells.badge.rule")
+            Image(systemName: "tablecells.badge.ellipsis")
                 .font(.system(size: 13))
                 .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.secondaryLabel)
         case .file:
@@ -214,6 +224,10 @@ struct NavigatorTreeView: View {
                 .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.secondaryLabel)
         case .record:
             Image(systemName: "list.bullet")
+                .font(.system(size: 13))
+                .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.secondaryLabel)
+        case .query:
+            Image(systemName: "terminal")
                 .font(.system(size: 13))
                 .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.secondaryLabel)
         }

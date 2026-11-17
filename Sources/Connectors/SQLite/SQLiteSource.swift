@@ -5,6 +5,7 @@ import Darwin
 #endif
 import SQLite3
 
+// Thứ tự như Navigator của Desktop qua ODBC (VM-F7b): khung nhìn trước, rồi bảng theo tên.
 public struct SQLiteSource: DataSource {
     public let kind: SourceKind = .sqlite
     public let url: URL
@@ -29,7 +30,7 @@ public struct SQLiteSource: DataSource {
         let query = """
         SELECT type, name FROM sqlite_master
         WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'
-        ORDER BY name;
+        ORDER BY CASE type WHEN 'view' THEN 0 ELSE 1 END, name;
         """
 
         var stmt: OpaquePointer?

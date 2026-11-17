@@ -1,6 +1,6 @@
 // Phase F, T061: truy vấn M mà Desktop 2.159 sinh khi nạp một mục của Navigator (QUAN-SAT VM-F1 mục 3), để ghi vào
 // `Partition.QueryDefinition` và làm các bước đầu (khoá) của truy vấn trong Query Editor. CSV, Excel, JSON (VM-F7a, `JsonQuery`) và
-// Parquet đã quan sát; named table và SQLite là [SUY ĐOÁN] (chỉ đúng cú pháp M, chưa đối chiếu Desktop).
+// Parquet, SQLite (qua ODBC, VM-F7b) và PostgreSQL đã quan sát; named table là [SUY ĐOÁN] (chỉ đúng cú pháp M, chưa đối chiếu Desktop).
 
 import ColumnStore
 import Connectors
@@ -13,12 +13,15 @@ public struct LoadedOrigin: Sendable, Equatable {
     public let location: String
     public let itemName: String
     public let itemKind: SourceItemKind
+    /// Câu SQL người dùng nhập (PostgreSQL, mục `Query1`); `nil` cho mục bảng/tệp.
+    public let nativeQuery: String?
 
-    public init(kind: SourceKind, location: String, itemName: String, itemKind: SourceItemKind) {
+    public init(kind: SourceKind, location: String, itemName: String, itemKind: SourceItemKind, nativeQuery: String? = nil) {
         self.kind = kind
         self.location = location
         self.itemName = itemName
         self.itemKind = itemKind
+        self.nativeQuery = nativeQuery
     }
 }
 
@@ -30,6 +33,26 @@ enum StepKind {
     static let custom = "custom"
     /// Bước đọc từ file đã có (Desktop viết), không biết lệnh nào sinh ra.
     static let file = "file"
+}
+
+/// Chuỗi kết nối ODBC Desktop ghi cho tệp SQLite (VM-F7b quan sát với driver Devart; driver khác như "SQLite3 ODBC Driver" cũng đọc được).
+enum SQLiteODBC {
+    static let driver = "Devart ODBC Driver for SQLite"
+
+    static func connectionString(path: String) -> String { "Driver={\(driver)};Database=\(path)" }
+
+    /// Các cặp khoá=giá trị của chuỗi kết nối ODBC (khoá viết thường, bỏ ngoặc nhọn quanh giá trị).
+    static func properties(_ connection: String) -> [String: String] {
+        var out: [String: String] = [:]
+        for part in connection.split(separator: ";") {
+            guard let eq = part.firstIndex(of: "=") else { continue }
+            let key = part[..<eq].trimmingCharacters(in: .whitespaces).lowercased()
+            var value = part[part.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+            if value.hasPrefix("{"), value.hasSuffix("}") { value = String(value.dropFirst().dropLast()) }
+            out[key] = value
+        }
+        return out
+    }
 }
 
 enum SourceQuery {
@@ -59,9 +82,14 @@ enum SourceQuery {
             add(name, "Source{[Item=\(StepFactory.quote(origin.itemName)),Kind=\"\(kind)\"]}[Data]", StepKind.navigation)
             if !isTable { promote() }   // [SUY ĐOÁN] bảng đặt tên đã có tiêu đề, Desktop không thăng cấp.
         case .sqlite:
-            add("Source", "Sqlite.Database(File.Contents(\(path)), [CreateNavigationProperties=true])", StepKind.source)
+            // Desktop không có connector SQLite riêng: Get Data ▸ ODBC với driver SQLite (VM-F7b, Devart), điều hướng theo cấp `main`,
+            // không có "Changed Type" (kiểu lấy từ driver).
             let kind = origin.itemKind == .view ? "View" : "Table"
-            add("\(origin.itemName)_\(kind)", "Source{[Name=\(StepFactory.quote(origin.itemName)),Kind=\"\(kind)\"]}[Data]", StepKind.navigation)
+            return [QueryStep(name: "Source", expression: "Odbc.DataSource(\(StepFactory.quote(SQLiteODBC.connectionString(path: origin.location))), [HierarchicalNavigation=true])",
+                              kind: StepKind.source),
+                    QueryStep(name: "main_Database", expression: "Source{[Name=\"main\",Kind=\"Database\"]}[Data]", kind: StepKind.navigation),
+                    QueryStep(name: "\(origin.itemName)_\(kind)", expression: "main_Database{[Name=\(StepFactory.quote(origin.itemName)),Kind=\"\(kind)\"]}[Data]",
+                              kind: StepKind.navigation)]
         case .json:
             // Chuỗi bước tự mở rộng như Desktop (VM-F7a), gồm cả "Changed Type".
             if let plan = try? JsonQuery.plan(location: origin.location) { return plan.steps }
@@ -71,7 +99,7 @@ enum SourceQuery {
             return [QueryStep(name: "Source", expression: "Parquet.Document(File.Contents(\(path)), [Compression=null, LegacyColumnNameEncoding=false, MaxDepth=null])",
                               kind: StepKind.source)]
         case .postgres:
-            add("Source", "#table({}, {})", StepKind.source)
+            return postgresSteps(origin)
         }
         let changes = typeChanges(data)
         if !changes.isEmpty {
@@ -79,6 +107,23 @@ enum SourceQuery {
             steps.append(QueryStep(name: step.name, expression: step.expression, kind: StepKind.type))
         }
         return steps
+    }
+
+    /// Desktop (VM-F7b): không có "Changed Type" (kiểu lấy từ máy chủ). Bảng/khung nhìn: `Source = PostgreSQL.Database("máy:cổng", "csdl")`
+    /// rồi bước điều hướng tên `lược_đồ_bảng` (Applied Steps hiện "Navigation"); câu SQL: một bước `Value.NativeQuery(…, null, [EnableFolding=true])`.
+    static func postgresSteps(_ origin: LoadedOrigin) -> [QueryStep] {
+        let address = PostgresAddress(location: origin.location) ?? PostgresAddress(server: origin.location, database: "")
+        let database = "PostgreSQL.Database(\(StepFactory.quote(address.server)), \(StepFactory.quote(address.database)))"
+        if let sql = origin.nativeQuery {
+            return [QueryStep(name: "Source", expression: "Value.NativeQuery(\(database), \(StepFactory.quote(sql)), null, [EnableFolding=true])",
+                              kind: StepKind.source)]
+        }
+        let dot = origin.itemName.firstIndex(of: ".") ?? origin.itemName.startIndex
+        let schema = String(origin.itemName[..<dot])
+        let table = String(origin.itemName[origin.itemName.index(dot, offsetBy: dot == origin.itemName.endIndex ? 0 : 1)...])
+        return [QueryStep(name: "Source", expression: database, kind: StepKind.source),
+                QueryStep(name: "\(schema)_\(table)".replacingOccurrences(of: " ", with: "_"),
+                          expression: "Source{[Schema=\(StepFactory.quote(schema)),Item=\(StepFactory.quote(table))]}[Data]", kind: StepKind.navigation)]
     }
 
     /// Kiểu cột như Desktop gán ở "Changed Type". Cột ngày chỉ là `date` khi mọi giá trị nguyên ngày (dò 1000 dòng đầu).

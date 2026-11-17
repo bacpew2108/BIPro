@@ -405,6 +405,10 @@ struct GetDataDialogView: View {
     private func connect() {
         guard let entry = ConnectorCatalog.entries.first(where: { $0.kind == selectedKind }),
               entry.isAvailable else { return }
+        if selectedKind == .postgres {
+            state.beginDatabase(.postgres)   // hộp kết nối máy chủ thay cho hộp chọn tệp
+            return
+        }
         guard let path = pickFile(selectedKind) else { return }
         Task {
             await state.openSource(kind: selectedKind, location: path)
@@ -453,6 +457,8 @@ struct GetDataFlowView: View {
                     guard state.phase == .ready, let onTransform else { return }
                     if let tables = await state.loadDirectly(existingNames: existingTableNames) { onTransform(tables) }
                 }
+            } else if state.databaseForm != nil && (state.phase == .choosingSource || state.phase == .listingItems) {
+                DatabaseConnectView(state: state, onClose: onClose)
             } else if state.phase == .choosingSource {
                 GetDataDialogView(
                     state: state,

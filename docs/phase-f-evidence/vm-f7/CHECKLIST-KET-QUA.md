@@ -16,3 +16,24 @@ Bấm thử trong app BI Pro (cùng ngày): Lấy dữ liệu ▸ Tệp JSON m�
 cả hai nạp vào mô hình.
 
 Dọn VM: Desktop đã tắt, thư mục `C:\Users\bacpew\f7g` và `f7` đã xoá; ảnh gốc (có thanh tài khoản) đã xoá, chỉ giữ ảnh cắt.
+
+## T094 (US8, PostgreSQL), 2026-11-17, Claude lái VM
+
+Tệp `build/f-out/f7db/bipro-f7db.pbix` (BI Pro, `GetDataSecretsTests`: tài liệu mới → Get Data ▸ PostgreSQL `10.211.55.2:55432;sales` → Load `public.sales` + câu SQL `Query1` → card measure `Tổng amount` → lưu lần đầu).
+
+| Mục | Kết quả |
+|---|---|
+| Desktop 2.159 mở tệp | ĐẠT: bảng `public sales`, `Query1` ở Data pane (ảnh `g4-desktop-mo-bipro-f7db.png`) |
+| Số | ĐẠT: card `350.32K` = Σ amount 350 317,03 (psql) |
+| Refresh trong Desktop chạy M BI Pro ghi | ĐẠT: thêm tạm một dòng amount 1 000 trên máy chủ, Refresh → `351.32K` (ảnh `g5-desktop-refresh-bipro-f7db.png`); đã xoá dòng thử |
+| Mật khẩu trong tệp | Không có (`GetDataSecretsTests` soát mọi phần ZIP và mô hình ABF đã giải nén, UTF-8 và UTF-16) |
+
+## T094 (US8, SQLite), 2026-11-17, Claude lái VM
+
+Tệp `build/f-out/f7db/bipro-f7sqlite.pbix` (BI Pro, `F7SQLiteGateTests`: tài liệu mới → Get Data ▸ SQLite `sales_2026.sqlite` → Load NorthSales, Customers, Sales → card `Tổng Amount` → lưu lần đầu).
+
+| Mục | Kết quả |
+|---|---|
+| Desktop 2.159 mở tệp | ĐẠT: Customers, NorthSales, Sales ở Data pane (ảnh `g6-desktop-mo-bipro-f7sqlite.png`) |
+| Số | ĐẠT: card `350.32K` = Σ Amount 350 317,03 (sqlite3) |
+| Refresh trong Desktop | Không thử: M ghi đường dẫn tệp trên máy Mac (như CSV/Excel), VM không có đường dẫn đó |

@@ -61,10 +61,11 @@ import Connectors
         #expect(parquet?.isAvailable == true)
 
         let sqlite = ConnectorCatalog.entries.first(where: { $0.kind == .sqlite })
-        #expect(sqlite?.isAvailable == false)
+        #expect(sqlite?.isAvailable == true)
 
+        // US8 (T093): SQLite (tệp, M kiểu ODBC như Desktop) và PostgreSQL (hộp kết nối máy chủ) đã nối.
         let postgres = ConnectorCatalog.entries.first(where: { $0.kind == .postgres })
-        #expect(postgres?.isAvailable == false)
+        #expect(postgres?.isAvailable == true)
     }
 
     @Test func categoryPartition() {

@@ -190,6 +190,19 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - `swift test` 2171 qua; golden nặng 138 (137 qua, `huyTruyVanNangDungNhanh` chập chờn, chạy riêng qua).
 - **Tồn đọng US7:** xem trước bước khoá (bước nguồn) hiện bảng cuối chứ không hiện kết quả từng bước như Desktop (chung mọi nguồn); JSON gốc là bản ghi hoặc lồng > 2 cấp chưa quan sát ([SUY ĐOÁN]); Parquet chỉ lược đồ phẳng; độ phân giải thời gian 1/300 s của Desktop chưa mô phỏng; `Connectors/JSON/JSONSource` cũ không còn dùng trong app (còn test riêng); không tự phát hiện quan hệ, không Auto date/time như Desktop.
 
+## Phase F, US8 (PostgreSQL và SQLite) xong, gate T094 ĐẠT (2026-11-17, chưa commit)
+
+- US7 đã commit `c93cab0` (chưa push).
+- **T091 (VM-F7b, Claude lái VM):** máy chủ `postgres:16-alpine` (Docker, người dùng tải sẵn) chạy `bipro-pg`, cổng 55432 trên `127.0.0.1` và `10.211.55.2` (VM thấy Mac qua cầu Parallels); mật khẩu chỉ ở scratchpad phiên, không ghi docs. Quan sát `docs/phase-f-evidence/vm-f7/QUAN-SAT-DB.md` (+ ảnh `d1`–`d11`), golden `f7db-desktop.pbix` (ngoài git). **SQLite:** người dùng cài Devart ODBC Driver for SQLite 5.1.0; Desktop đi qua Get Data ▸ ODBC, M `Odbc.DataSource(…, [HierarchicalNavigation=true])` → `main_Database` → `Sales_Table`, TEXT giữ là chữ, driver làm hỏng chữ tiếng Việt; golden `f7sqlite-desktop.pbix` (ngoài git).
+- **T092:** `Sources/Connectors/Postgres/` (giao thức v3 simple query qua `URLSessionStreamTask`, SSLRequest rồi TLS hoặc hỏi kết nối không mã hoá, SCRAM-SHA-256/MD5/rõ, kiểu như Desktop: số nguyên → Int64, numeric/float → Double, date/timestamp → DateTime, uuid/json/jsonb → chữ; kiểu khác báo tên), `Credentials.swift` (`CredentialVault`: phiên + Keychain theo máy chủ), `SourceError.authentication/.insecureConnection`, `SourceItem.loadName`, `SourceItemKind.query`; MEngine `MDeferred` (ô `Data` tính trễ).
+- **T093 (PostgreSQL):** `DatabaseConnectView` (3 bước như Desktop), `NavigatorState.databaseForm`, Navigator phẳng, M `PostgreSQL.Database`/`Value.NativeQuery` (Refresh chạy được) giống hệt Desktop; `GetDataSecretsTests` soát không có mật khẩu trong `.pbix`; để lại `build/f-out/f7db/bipro-f7db.pbix` cho gate T094.
+- **T094 (PostgreSQL) ĐẠT** (VM, `vm-f7/CHECKLIST-KET-QUA.md`): Desktop mở `bipro-f7db.pbix`, card 350.32K đúng, Refresh trong Desktop chạy M BI Pro ghi (thêm dòng thử → 351.32K).
+- **Bấm thử app** (`build/BI Pro.app` mới đóng gói): Get Data ▸ PostgreSQL → máy chủ, đăng nhập (bỏ lưu Keychain), "Hỗ trợ mã hoá" OK → Navigator phẳng, tự xem trước → Tải được; Query Editor: Làm mới nguồn chạy với máy chủ có thông tin, máy chủ chưa có thông tin thì báo lỗi rõ và giữ dữ liệu (ảnh `vm-f7/b3`, `b4`). Sửa kèm: biểu tượng khung nhìn (SF Symbol `tablecells.badge.rule` không tồn tại → `tablecells.badge.ellipsis`).
+- Số: `swift test` 2195 qua (có máy chủ thử); golden nặng 97 qua; 1 triệu dòng PostgreSQL nạp 2,76 s (release).
+- **SQLite (T093, T094):** Get Data ▸ SQLite bật; Navigator khung nhìn trước; M dạng ODBC giống hệt Desktop; `Odbc.DataSource` (driver SQLite) chạy được trong BI Pro, driver khác báo chưa hỗ trợ. `SQLiteGoldenTests` 3, `F7SQLiteGateTests` 1; gate Desktop ĐẠT (`bipro-f7sqlite.pbix`, card 350.32K).
+- Test cần máy chủ: `BIPRO_PG="127.0.0.1:55432;sales;bipro;<mật khẩu>"` (thiếu thì bỏ qua).
+- Tồn đọng: tên driver ODBC ghi cứng là Devart (người dùng driver khác sửa M); kiểu khai báo DATE/TIME của SQLite BI Pro đọc thành ngày giờ, Devart chưa quan sát; timestamptz, time, interval, bytea, mảng báo chưa hỗ trợ; `Value.NativeQuery` cần cơ sở dữ liệu có ít nhất một bảng; cột bảng điều hướng `Name, Data, Schema, Item, Kind` là [SUY ĐOÁN]; chưa kiểm với máy chủ có SSL; Desktop tự phát hiện quan hệ và Auto date/time, BI Pro không; Query Editor hiện tên bước điều hướng là `public_sales` (Desktop hiện "Navigation").
+
 ## Việc tiếp theo
 
 **Phase E, chờ bạn (2026-11-14 đêm):**

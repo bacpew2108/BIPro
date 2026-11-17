@@ -64,6 +64,12 @@ public enum TableNaming {
 /// Tạo nguồn từ loại và địa chỉ người dùng chọn.
 public enum SourceFactory {
     public static func make(kind: SourceKind, location: String) throws -> any DataSource {
+        try make(kind: kind, location: location, credentials: .shared)
+    }
+
+    /// PostgreSQL: `location` = `máy:cổng;csdl`, có câu SQL thì thêm sau dòng mới (`PostgresLocation`); thông tin đăng nhập lấy theo máy
+    /// chủ từ `credentials`, chưa có thì báo lỗi xác thực (giao diện hỏi tên và mật khẩu).
+    public static func make(kind: SourceKind, location: String, credentials: CredentialVault) throws -> any DataSource {
         let url = URL(fileURLWithPath: location)
         switch kind {
         case .csv: return CSVSource(url: url)
@@ -71,9 +77,35 @@ public enum SourceFactory {
         case .json: return JsonQuerySource(url: url)
         case .sqlite: return SQLiteSource(url: url)
         case .parquet: return ParquetSource(url: url)
-        case .postgres: throw SourceError.unsupported("PostgreSQL (đợt P3)")
+        case .postgres:
+            let parsed = PostgresLocation(location)
+            guard let credential = credentials.credential(for: parsed.address.server) else {
+                throw SourceError.authentication("Cần thông tin đăng nhập để kết nối tới máy chủ PostgreSQL \(parsed.address.server).")
+            }
+            return PostgresSource(address: parsed.address, credential: credential, query: parsed.sql)
         }
     }
+}
+
+/// Địa chỉ PostgreSQL trong `NavigatorState.location`: `máy:cổng;csdl`, rồi câu SQL (nếu có) sau dòng mới đầu tiên.
+public struct PostgresLocation: Equatable, Sendable {
+    public let address: PostgresAddress
+    public let sql: String?
+
+    public init(address: PostgresAddress, sql: String?) {
+        self.address = address
+        let trimmed = sql?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.sql = trimmed.isEmpty ? nil : trimmed
+    }
+
+    public init(_ location: String) {
+        let parts = location.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        let head = String(parts.first ?? "")
+        self.init(address: PostgresAddress(location: head) ?? PostgresAddress(server: head, database: ""),
+                  sql: parts.count > 1 ? String(parts[1]) : nil)
+    }
+
+    public var location: String { sql.map { "\(address.location)\n\($0)" } ?? address.location }
 }
 
 /// Thông điệp tiếng Việt cho người dùng từ lỗi đọc nguồn. Không bao giờ chứa mật khẩu (contract data-source, bất biến 5).
@@ -87,6 +119,7 @@ public enum SourceMessage {
         case .empty: return "Nguồn không có dữ liệu để nạp."
         case .unsupported(let what): return "Chưa hỗ trợ: \(what)."
         case .cancelled: return "Đã huỷ."
+        case .authentication(let reason), .insecureConnection(let reason): return reason
         }
     }
 }
@@ -110,9 +143,15 @@ public enum TableLoader {
                 progress?((base + min(max(fraction, 0), 1)) / count)
             })
             if Task.isCancelled { throw SourceError.cancelled }
-            let name = TableNaming.uniqueName(item.name, taken: taken)
+            let name = TableNaming.uniqueName(item.loadName, taken: taken)
             taken.insert(name)
-            let origin = source.map { LoadedOrigin(kind: $0.kind, location: $0.location, itemName: item.name, itemKind: item.kind) }
+            let origin = source.map { source -> LoadedOrigin in
+                if source.kind == .postgres {
+                    let parsed = PostgresLocation(source.location)
+                    return LoadedOrigin(kind: .postgres, location: parsed.address.location, itemName: item.name, itemKind: item.kind, nativeQuery: parsed.sql)
+                }
+                return LoadedOrigin(kind: source.kind, location: source.location, itemName: item.name, itemKind: item.kind)
+            }
             result.append(LoadedTable(name: name, data: data, origin: origin))
         }
         progress?(1)

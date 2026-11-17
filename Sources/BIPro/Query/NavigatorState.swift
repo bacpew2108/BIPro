@@ -21,6 +21,30 @@ public struct NavigatorItem: Identifiable, Sendable, Equatable {
     }
 }
 
+/// Hộp kết nối cơ sở dữ liệu (PostgreSQL), theo các bước của Desktop (VM-F7b): địa chỉ (máy chủ, cơ sở dữ liệu, câu SQL tuỳ chọn) →
+/// thông tin đăng nhập (khi chưa có hoặc bị từ chối, kèm cảnh báo) → hỏi kết nối không mã hoá (máy chủ không có SSL).
+public struct DatabaseForm: Equatable, Sendable {
+    public enum Step: Equatable, Sendable { case address, credentials, encryption }
+
+    public var server = ""
+    public var database = ""
+    public var sql = ""
+    public var user = ""
+    /// Chỉ giữ trong bộ nhớ đến khi gửi; xoá ngay sau khi chuyển vào kho thông tin đăng nhập.
+    public var password = ""
+    /// Lưu vào Keychain (mặc định bật; tắt thì chỉ trong phiên).
+    public var savePassword = true
+    public var step: Step = .address
+    /// Cảnh báo ở bước đăng nhập (sai mật khẩu).
+    public var warning: String?
+    public var isConnecting = false
+
+    public init() {}
+
+    var address: PostgresAddress { PostgresAddress(server: server, database: database) }
+    var canSubmitAddress: Bool { !address.host.isEmpty && !address.database.isEmpty }
+}
+
 @MainActor
 @Observable
 public final class NavigatorState {
@@ -52,10 +76,104 @@ public final class NavigatorState {
     @ObservationIgnored private var sourceItems: [String: any SourceItem] = [:]
     @ObservationIgnored private var loadTask: Task<[LoadedTable], Error>?
     @ObservationIgnored private let makeSource: (SourceKind, String) throws -> any DataSource
+    @ObservationIgnored private let credentials: CredentialVault
 
-    public init(makeSource: @escaping (SourceKind, String) throws -> any DataSource = SourceFactory.make) {
-        self.makeSource = makeSource
+    /// Hộp kết nối cơ sở dữ liệu đang mở; `nil` với nguồn tệp.
+    public var databaseForm: DatabaseForm?
+
+    public init(makeSource: ((SourceKind, String) throws -> any DataSource)? = nil, credentials: CredentialVault = .shared) {
+        self.credentials = credentials
+        self.makeSource = makeSource ?? { kind, location in try SourceFactory.make(kind: kind, location: location, credentials: credentials) }
     }
+
+    // MARK: Nguồn cơ sở dữ liệu
+
+    /// Mở hộp kết nối của nguồn cơ sở dữ liệu (thay cho hộp chọn tệp).
+    public func beginDatabase(_ kind: SourceKind) {
+        sourceKind = kind
+        databaseForm = DatabaseForm()
+        phase = .choosingSource
+    }
+
+    public func cancelDatabase() {
+        databaseForm = nil
+        phase = .choosingSource
+    }
+
+    /// Bước địa chỉ xong: có thông tin đăng nhập của máy chủ thì kết nối luôn, chưa có thì sang bước đăng nhập.
+    public func submitDatabaseAddress() async {
+        guard var form = databaseForm, form.canSubmitAddress else { return }
+        if let saved = credentials.credential(for: form.address.server) {
+            form.user = saved.user
+            databaseForm = form
+            await connectDatabase()
+        } else {
+            form.step = .credentials
+            form.warning = nil
+            databaseForm = form
+        }
+    }
+
+    /// Ghi tên và mật khẩu vào kho (Keychain nếu `savePassword`) rồi kết nối. Giữ lựa chọn kết nối không mã hoá đã có của máy chủ.
+    public func submitDatabaseCredentials() async {
+        guard var form = databaseForm else { return }
+        let server = form.address.server
+        let allow = credentials.credential(for: server)?.allowUnencrypted ?? false
+        do {
+            try credentials.set(PostgresCredential(user: form.user, password: form.password, allowUnencrypted: allow), for: server,
+                                persist: form.savePassword)
+        } catch {
+            form.warning = SourceMessage.text(for: error)
+            databaseForm = form
+            return
+        }
+        form.password = ""
+        databaseForm = form
+        await connectDatabase()
+    }
+
+    /// Người dùng đồng ý kết nối không mã hoá (hộp "Hỗ trợ mã hoá"): ghi nhớ cho máy chủ rồi kết nối lại.
+    public func acceptUnencrypted() async {
+        guard let form = databaseForm, var credential = credentials.credential(for: form.address.server) else { return }
+        credential.allowUnencrypted = true
+        try? credentials.set(credential, for: form.address.server, persist: credentials.isPersisted(form.address.server))
+        await connectDatabase()
+    }
+
+    private func connectDatabase() async {
+        guard var form = databaseForm, let kind = sourceKind else { return }
+        form.isConnecting = true
+        form.warning = nil
+        databaseForm = form
+        let location = PostgresLocation(address: form.address, sql: form.sql).location
+        await openSource(kind: kind, location: location)
+        form.isConnecting = false
+        switch phase {
+        case .failed(let message):
+            switch lastOpenError {
+            case .authentication?:
+                form.step = .credentials
+                form.warning = message
+                phase = .choosingSource
+            case .insecureConnection?:
+                form.step = .encryption
+                phase = .choosingSource
+            default:
+                // Không tới được máy chủ, sai tên cơ sở dữ liệu…: ở lại bước đang đứng, hiện lỗi trong hộp.
+                form.warning = message
+                phase = .choosingSource
+            }
+        case .ready where items.count == 1 && items[0].kind == .query:
+            // Câu SQL: một mục `Query1`, đánh dấu và xem trước sẵn (Desktop bỏ qua Navigator, hiện thẳng bản xem trước).
+            checkedItemIDs = [items[0].id]
+            Task { await showPreview(items[0].id) }
+        default:
+            break
+        }
+        databaseForm = form
+    }
+
+    @ObservationIgnored private var lastOpenError: SourceError?
 
     public var canLoad: Bool { !checkedItemIDs.isEmpty && phase == .ready }
 
@@ -83,6 +201,7 @@ public final class NavigatorState {
         loaded = []
         progress = 0
         phase = .listingItems
+        lastOpenError = nil
         do {
             let found = try await makeSource(kind, location).items()
             var listed: [NavigatorItem] = []
@@ -94,6 +213,7 @@ public final class NavigatorState {
             items = listed
             phase = .ready
         } catch {
+            lastOpenError = error as? SourceError
             phase = .failed(SourceMessage.text(for: error))
         }
     }

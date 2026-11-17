@@ -90,7 +90,7 @@ struct NavigatorPreviewGrid: View {
                 .font(.system(size: 16))
                 .foregroundStyle(DS.Palette.accent)
         case .view:
-            Image(systemName: "tablecells.badge.rule")
+            Image(systemName: "tablecells.badge.ellipsis")
                 .font(.system(size: 16))
                 .foregroundStyle(DS.Palette.accent)
         case .file:
@@ -99,6 +99,10 @@ struct NavigatorPreviewGrid: View {
                 .foregroundStyle(DS.Palette.accent)
         case .record:
             Image(systemName: "list.bullet")
+                .font(.system(size: 16))
+                .foregroundStyle(DS.Palette.accent)
+        case .query:
+            Image(systemName: "terminal")
                 .font(.system(size: 16))
                 .foregroundStyle(DS.Palette.accent)
         }

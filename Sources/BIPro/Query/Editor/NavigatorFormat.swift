@@ -80,6 +80,7 @@ enum NavigatorFormat {
         case .view: return "Khung nhìn"
         case .file: return "Tệp"
         case .record: return "Bản ghi"
+        case .query: return "Truy vấn SQL"
         }
     }
 

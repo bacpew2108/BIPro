@@ -19,7 +19,7 @@ struct ConnectorEntry: Identifiable {
 }
 
 enum ConnectorCatalog {
-    static var availableKinds: Set<SourceKind> = [.excel, .csv, .json, .parquet]
+    static var availableKinds: Set<SourceKind> = [.excel, .csv, .json, .parquet, .sqlite, .postgres]
 
     static let entries: [ConnectorEntry] = [
         ConnectorEntry(

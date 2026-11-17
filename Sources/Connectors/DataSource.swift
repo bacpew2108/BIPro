@@ -9,6 +9,8 @@ public enum SourceKind: String, Sendable, CaseIterable {
 
 public enum SourceItemKind: String, Sendable {
     case file, sheet, table, namedTable, view, record
+    /// Câu SQL người dùng nhập (PostgreSQL: Desktop đặt tên `Query1`).
+    case query
 }
 
 /// Lỗi đọc nguồn. Thông điệp tiếng Việt, hiển thị trực tiếp cho người dùng. Không bao giờ chứa mật khẩu.
@@ -18,6 +20,10 @@ public enum SourceError: Error, Equatable, Sendable {
     case empty
     case unsupported(String)
     case cancelled
+    /// Máy chủ từ chối thông tin đăng nhập (sai tên, sai mật khẩu, thiếu quyền). Thông điệp không chứa mật khẩu.
+    case authentication(String)
+    /// Máy chủ không hỗ trợ kết nối mã hoá; chỉ kết nối tiếp khi người dùng đồng ý (Desktop hỏi "Encryption Support").
+    case insecureConnection(String)
 }
 
 public struct SourceColumn: Sendable, Equatable {
@@ -40,6 +46,8 @@ public protocol SourceItem: Sendable {
     /// Cột dò được mà không đọc hết mục; `nil` nếu chưa biết.
     var columns: [SourceColumn]? { get }
     var rowCountHint: Int? { get }
+    /// Tên bảng/truy vấn khi nạp; mặc định là `name` (PostgreSQL: `lược_đồ.bảng` hiện ở Navigator, nạp thành `lược_đồ bảng`).
+    var loadName: String { get }
 
     /// Tối đa `limit` dòng, không đọc quá phần cần.
     func preview(limit: Int) async throws -> TableData
@@ -48,6 +56,8 @@ public protocol SourceItem: Sendable {
 }
 
 extension SourceItem {
+    public var loadName: String { name }
+
     public func preview() async throws -> TableData { try await preview(limit: 200) }
 }
 
