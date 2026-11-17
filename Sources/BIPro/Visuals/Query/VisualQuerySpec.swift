@@ -24,6 +24,114 @@ struct GroupField: Hashable, Sendable {
     var sortBy: QueryColumn?
 }
 
+/// Phép gộp ngầm của một cột trong ô giá trị (đợt tồn đọng sau Phase F, US1). `rawValue` là mã `Aggregation.Function` Desktop lưu
+/// trong PBIR; hàm DAX và tiền tố tên cột kết quả theo Performance Analyzer (VM-F10, `docs/phase-f2-evidence/vm-f10/QUAN-SAT.md`).
+enum AggregateFunction: Int, CaseIterable, Hashable, Sendable {
+    case sum = 0, average = 1, countDistinct = 2, min = 3, max = 4, count = 5, median = 6, standardDeviation = 7, variance = 8
+
+    var daxFunction: String {
+        switch self {
+        case .sum: "SUM"
+        case .average: "AVERAGE"
+        case .countDistinct: "DISTINCTCOUNT"
+        case .min: "MIN"
+        case .max: "MAX"
+        case .count: "COUNTA"
+        case .median: "MEDIAN"
+        case .standardDeviation: "STDEV.P"
+        case .variance: "VAR.P"
+        }
+    }
+
+    /// Tiền tố tên cột kết quả: `"AverageAmount"`, `"DistinctCountCustomerID"`.
+    var resultPrefix: String {
+        switch self {
+        case .sum: "Sum"
+        case .average: "Average"
+        case .countDistinct: "DistinctCount"
+        case .min: "Min"
+        case .max: "Max"
+        case .count: "Count"
+        case .median: "Median"
+        case .standardDeviation: "StandardDeviation"
+        case .variance: "Variance"
+        }
+    }
+
+    /// Nhãn hiển thị tiếng Việt của trường, tương ứng nhãn Desktop ("Sum of Amount", "First Region", "Earliest OrderDate").
+    /// Desktop đổi Min/Max thành First/Last với cột chữ và Earliest/Latest với cột ngày.
+    func label(column: String, kind: ColumnKind) -> String { "\(name(kind: kind)) của \(column)" }
+
+    /// Tên phép gộp trong menu của trường ("Tổng", "Đầu tiên"…).
+    func name(kind: ColumnKind) -> String {
+        let name: String
+        switch (self, kind) {
+        case (.min, .text): name = "Đầu tiên"
+        case (.max, .text): name = "Cuối cùng"
+        case (.min, .date): name = "Sớm nhất"
+        case (.max, .date): name = "Muộn nhất"
+        case (.sum, _): name = "Tổng"
+        case (.average, _): name = "Trung bình"
+        case (.countDistinct, _): name = "Số lượng (riêng biệt)"
+        case (.min, _): name = "Nhỏ nhất"
+        case (.max, _): name = "Lớn nhất"
+        case (.count, _): name = "Số lượng"
+        case (.median, _): name = "Trung vị"
+        case (.standardDeviation, _): name = "Độ lệch chuẩn"
+        case (.variance, _): name = "Phương sai"
+        }
+        return name
+    }
+
+    /// Nhóm kiểu cột quyết định nhãn và danh sách phép gộp (VM-F10: cột chữ chỉ có First, Last, Count (Distinct), Count).
+    enum ColumnKind: Sendable {
+        case number, text, date
+
+        init(_ family: FieldRef.Family) {
+            switch family {
+            case .text, .boolean: self = .text
+            case .date: self = .date
+            case .numeric, .other: self = .number
+            }
+        }
+    }
+
+    /// Phép gộp khi cột vào ô giá trị (VM-F10): theo `SummarizeBy` của cột (3 Sum, 4 Min, 5 Max, 6 Count, 7 Average, 8 Distinct);
+    /// cột chữ, ngày không gộp (None) thành First/Earliest (Min). [SUY ĐOÁN] Cột số đặt None thành Count.
+    static func defaultFunction(for field: FieldRef) -> AggregateFunction {
+        switch field.summarizeBy {
+        case 3?: return .sum
+        case 4?: return .min
+        case 5?: return .max
+        case 6?: return .count
+        case 7?: return .average
+        case 8?: return .countDistinct
+        default: return field.family == .numeric ? .count : .min
+        }
+    }
+
+    /// Nhãn tiếng Anh cho `nativeQueryRef` khi Desktop đổi tên phép gộp theo kiểu cột ("First Region"); nil: dạng "<Phép> of <cột>".
+    /// [SUY ĐOÁN] dạng "First X"/"Earliest X" theo nhãn hiện trên Desktop; tệp VM-F10 chỉ có trường dời từ ô khác (giữ tên cột trần).
+    func nativeQueryRef(column: String, kind: ColumnKind) -> String? {
+        switch (self, kind) {
+        case (.min, .text): "First \(column)"
+        case (.max, .text): "Last \(column)"
+        case (.min, .date): "Earliest \(column)"
+        case (.max, .date): "Latest \(column)"
+        default: nil
+        }
+    }
+
+    /// Phép gộp trong menu của trường, theo thứ tự Desktop.
+    static func menu(for kind: ColumnKind) -> [AggregateFunction] {
+        switch kind {
+        case .number: [.sum, .average, .min, .max, .countDistinct, .count, .standardDeviation, .variance, .median]
+        // [SUY ĐOÁN] Cột ngày: Earliest, Latest, Count (Distinct), Count như cột chữ (menu cột ngày chưa mở được ở VM-F10).
+        case .text, .date: [.min, .max, .countDistinct, .count]
+        }
+    }
+}
+
 /// Một cột giá trị của SUMMARIZECOLUMNS.
 struct QueryMeasure: Hashable, Sendable {
     var field: FieldInfo
@@ -44,6 +152,8 @@ struct QueryMeasure: Hashable, Sendable {
         /// Thuộc tính định dạng lấy từ measure (`VisualFormat.measureDriven`).
         case formatting(MeasureDrivenProperty)
     }
+    /// Phép gộp ngầm: `measure` là tên cột, biểu thức là `CALCULATE(<HÀM>('Bảng'[cột]))`. `nil`: measure thật.
+    var aggregation: AggregateFunction? = nil
 }
 
 /// Bộ lọc theo measure của visual (Filters pane, thẻ measure): giữ các dòng mà measure thoả điều kiện.

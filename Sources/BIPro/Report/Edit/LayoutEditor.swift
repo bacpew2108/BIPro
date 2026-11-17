@@ -62,6 +62,8 @@ final class LayoutEditor {
     var currencyColumns: Set<String> = []
     /// Cột kiểu ngày giờ của mô hình (`Bảng[Cột]`): đổi sang biểu đồ cột/thanh thì sắp tăng dần theo cột này (VM-D9).
     var dateColumns: Set<String> = []
+    /// Cột của mô hình hiệu lực (gồm bảng vừa nạp, chưa có trong `modelBase`): kiểu cột cho phép gộp ngầm.
+    @ObservationIgnored var modelColumns: [ModelMetadata.Column] = []
     /// Giá trị (dạng literal, ví dụ `'Female'`) của cột ở ô Chú giải của visual, theo thứ tự đang hiện; rỗng khi chưa nạp dữ liệu.
     var legendValuesProvider: (String) -> [String] = { _ in [] }
     /// Bản gốc lúc mở (hoặc lúc lưu gần nhất).
@@ -682,7 +684,45 @@ final class LayoutEditor {
     /// Thêm `field` vào ô `role`. Trả lý do nếu bị từ chối (và ghi vào `fieldRefusal`), nil nếu thành công.
     @discardableResult
     func addField(_ field: FieldRef, to role: String, visual id: String) -> String? {
-        editFields(id) { wells, visual, _ in FieldEditor.add(field, to: role, wells: wells, visual: visual) }
+        let implicit = allowsImplicitMeasures
+        return editFields(id) { wells, visual, _ in FieldEditor.add(field, to: role, wells: wells, visual: visual, implicitMeasures: implicit) }
+    }
+
+    /// Mô hình cho phép gộp ngầm: không đặt "discourage implicit measures" (US1; Nhom6 đặt nên vẫn chặn). Không biết mô hình thì chặn.
+    var allowsImplicitMeasures: Bool { modelBase.map { !$0.discourageImplicitMeasures } ?? false }
+
+    /// Nhóm kiểu của cột `entity[property]` cho danh sách phép gộp và nhãn.
+    func aggregationKind(entity: String, property: String) -> AggregateFunction.ColumnKind {
+        VisualQuerySpecReader.kind(of: modelColumn(entity: entity, property: property)?.dataType)
+    }
+
+    /// Cột theo mô hình hiệu lực; chưa có thì theo mô hình gốc của file.
+    func modelColumn(entity: String, property: String) -> ModelMetadata.Column? {
+        modelColumns.first { $0.tableName == entity && $0.name == property }
+            ?? modelBase?.columns.first { $0.tableName == entity && $0.name == property }
+    }
+
+    /// Nhãn trường hiện ở Build pane và pane Bộ lọc: tên đổi riêng, hoặc nhãn tiếng Việt của phép gộp theo kiểu cột
+    /// ("Đầu tiên của Region"), hoặc nhãn thường.
+    func label(of field: ReportField) -> String {
+        if field.kind == .aggregation, field.displayName?.isEmpty ?? true, let code = field.aggregationFunction,
+           let function = AggregateFunction(rawValue: code) {
+            return function.label(column: field.property, kind: aggregationKind(entity: field.entity, property: field.property))
+        }
+        return field.label
+    }
+
+    /// Đổi phép gộp của trường gộp (menu của trường ở Build pane), một bước hoàn tác.
+    @discardableResult
+    func setAggregation(role: String, index: Int, to function: AggregateFunction, visual id: String) -> String? {
+        editFields(id) { wells, _, _ in
+            guard let elements = wells.first(where: { $0.role == role })?.elements, elements.indices.contains(index) else {
+                return .refused("Không có trường để đổi phép gộp.")
+            }
+            let field = elements[index].field
+            return FieldEditor.setAggregation(role: role, index: index, to: function,
+                                              kind: self.aggregationKind(entity: field.entity, property: field.property), wells: wells)
+        }
     }
 
     @discardableResult
@@ -718,7 +758,14 @@ final class LayoutEditor {
 
     @discardableResult
     func moveField(role: String, index: Int, to target: String, visual id: String) -> String? {
-        editFields(id) { wells, visual, _ in FieldEditor.move(role: role, index: index, to: target, wells: wells, visual: visual) }
+        let implicit = allowsImplicitMeasures
+        return editFields(id) { wells, visual, _ in
+            let element = wells.first(where: { $0.role == role })?.elements.dropFirst(index).first
+            let column = element.flatMap { e in
+                self.modelColumn(entity: e.field.entity, property: e.field.property).map(FieldRef.init(column:))
+            }
+            return FieldEditor.move(role: role, index: index, to: target, wells: wells, visual: visual, implicitMeasures: implicit, column: column)
+        }
     }
 
     @discardableResult

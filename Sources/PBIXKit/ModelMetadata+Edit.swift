@@ -24,6 +24,9 @@ extension ModelMetadata {
         functions = other.functions
         culture = other.culture
         modelAnnotations = other.modelAnnotations
+        discourageImplicitMeasures = other.discourageImplicitMeasures
+        dateTableRelationships = other.dateTableRelationships
+        variations = other.variations
     }
 
     /// Mô hình hiệu lực sau khi áp `edits` lên mô hình này. Không đụng ABF. Ném `ModelEditError` khi một thao tác không hợp lệ.
@@ -107,7 +110,8 @@ extension ModelMetadata {
             copy[index] = Relationship(name: old.name, fromTable: old.fromTable, fromColumn: old.fromColumn,
                                        toTable: old.toTable, toColumn: old.toColumn,
                                        isActive: patch.isActive ?? old.isActive, cardinality: old.cardinality,
-                                       crossFilteringBehavior: patch.crossFilteringBehavior ?? old.crossFilteringBehavior)
+                                       crossFilteringBehavior: patch.crossFilteringBehavior ?? old.crossFilteringBehavior,
+                                       joinOnDateBehavior: old.joinOnDateBehavior)
             return ModelMetadata(copying: self, relationships: copy)
 
         case .updateTable(let name, let patch):
@@ -124,7 +128,7 @@ extension ModelMetadata {
             let cardinality = (new.fromMany ? "M" : "1") + ":" + (new.toMany ? "M" : "1")
             let added = Relationship(name: new.name, fromTable: new.fromTable, fromColumn: new.fromColumn, toTable: new.toTable,
                                      toColumn: new.toColumn, isActive: new.isActive, cardinality: cardinality,
-                                     crossFilteringBehavior: new.crossFilteringBehavior)
+                                     crossFilteringBehavior: new.crossFilteringBehavior, joinOnDateBehavior: new.joinOnDateBehavior)
             return ModelMetadata(copying: self, relationships: relationships + [added])
 
         case .addTable(let new): return try addingTable(new)
@@ -155,6 +159,8 @@ extension ModelMetadata {
             return try deletingCalculatedColumn(table: table, name: name)
         case .updateCalculatedTable(let name, let expression, let columns):
             return try updatingCalculatedTable(name: name, expression: expression, columns: columns)
+        case .addHierarchy, .dropHierarchy, .addVariation, .dropVariation, .setModelAnnotation:
+            throw ModelEditError("Chưa hỗ trợ phân cấp, variation và chú thích mô hình (đợt tồn đọng sau Phase F, US2)")
 
         case .deleteRelationship(let name):
             guard relationships.contains(where: { $0.name == name }) else { throw ModelEditError("Không có quan hệ \(name)") }

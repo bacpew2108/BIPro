@@ -54,5 +54,6 @@ extension DocumentState {
         layout.decimalColumns = keys(.double)
         layout.currencyColumns = keys(.decimal)
         layout.dateColumns = keys(.dateTime)
+        layout.modelColumns = columns
     }
 }

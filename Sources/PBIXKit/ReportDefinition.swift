@@ -74,8 +74,13 @@ public struct ReportField: Sendable, Hashable {
     public var kind: Kind
     public var entity: String
     public var property: String
-    /// Aggregation function name for `.aggregation`.
+    /// Aggregation function name for `.aggregation` (tiếng Việt, ví dụ "Tổng").
     public var function: String?
+    /// Mã `Aggregation.Function` của PBIR (0 Sum … 8 Variance, VM-F10) cho `.aggregation`.
+    public var aggregationFunction: Int?
+    /// Tên phép gộp theo mã PBIR (VM-F10: 2 là Count (Distinct), 5 là Count).
+    public static let aggregateNames = [0: "Tổng", 1: "Trung bình", 2: "Số lượng (riêng biệt)", 3: "Nhỏ nhất", 4: "Lớn nhất",
+                                        5: "Số lượng", 6: "Trung vị", 7: "Độ lệch chuẩn", 8: "Phương sai"]
     public var displayName: String?
     public var queryRef: String
     /// `nativeQueryRef` và `active` của phần tử `projections[]` (PBIR); nil khi file không có.
@@ -83,7 +88,9 @@ public struct ReportField: Sendable, Hashable {
     public var active: Bool?
 
     public init(role: String, kind: Kind, entity: String, property: String, function: String? = nil,
-                displayName: String? = nil, queryRef: String, nativeQueryRef: String? = nil, active: Bool? = nil) {
+                displayName: String? = nil, queryRef: String, nativeQueryRef: String? = nil, active: Bool? = nil,
+                aggregationFunction: Int? = nil) {
+        self.aggregationFunction = aggregationFunction
         self.role = role
         self.kind = kind
         self.entity = entity
@@ -304,7 +311,6 @@ extension PBIXFile {
 
     // MARK: Shared field expressions
 
-    private static let aggregateNames = [0: "Sum", 1: "Average", 2: "Count", 3: "Min", 4: "Max", 5: "Count (Distinct)", 6: "Median"]
 
     private static func entity(_ expression: JSONValue?, aliases: [String: String]) -> String {
         let source = expression?["SourceRef"]
@@ -327,7 +333,9 @@ extension PBIXFile {
         }
         if let aggregation = json["Aggregation"], var inner = parseField(aggregation["Expression"], aliases: aliases) {
             inner.kind = .aggregation
-            inner.function = aggregateNames[Int(aggregation["Function"]?.number ?? -1)] ?? "Aggregate"
+            let code = Int(aggregation["Function"]?.number ?? -1)
+            inner.function = ReportField.aggregateNames[code] ?? "Gộp"
+            inner.aggregationFunction = code >= 0 ? code : nil
             return inner
         }
         if let level = json["HierarchyLevel"] {

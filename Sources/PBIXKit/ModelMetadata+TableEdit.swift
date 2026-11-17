@@ -242,7 +242,8 @@ extension ModelMetadata {
         let newRelationships = !renamed ? relationships : relationships.map {
             Relationship(name: $0.name, fromTable: $0.fromTable == oldName ? name : $0.fromTable, fromColumn: $0.fromColumn,
                          toTable: $0.toTable == oldName ? name : $0.toTable, toColumn: $0.toColumn, isActive: $0.isActive,
-                         cardinality: $0.cardinality, crossFilteringBehavior: $0.crossFilteringBehavior)
+                         cardinality: $0.cardinality, crossFilteringBehavior: $0.crossFilteringBehavior,
+                         joinOnDateBehavior: $0.joinOnDateBehavior)
         }
         let newMeasures = !renamed ? measures : measures.map { $0.tableName == oldName ? Measure.copy($0, tableName: name) : $0 }
         let newHierarchies = !renamed ? hierarchies : hierarchies.map {

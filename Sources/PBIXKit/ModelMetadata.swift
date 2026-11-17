@@ -129,6 +129,18 @@ public struct ModelMetadata: Sendable {
         public let cardinality: String
         /// 1 = single direction, 2 = both.
         public let crossFilteringBehavior: Int
+        /// `JoinOnDateBehavior`: 1 = ngày giờ đầy đủ, 2 = chỉ phần ngày (quan hệ tới bảng ngày cục bộ của Auto date/time).
+        public var joinOnDateBehavior: Int = 1
+    }
+
+    /// Dòng `Variation` (Auto date/time): cột ngày `table[column]` hiện phân cấp mặc định của bảng ngày cục bộ qua `relationship`.
+    public struct Variation: Sendable, Hashable {
+        public let table: String
+        public let column: String
+        public let name: String
+        public let relationship: String
+        public let hierarchy: HierarchyRef
+        public let isDefault: Bool
     }
 
     /// Where a column's VertiPaq data lives inside the ABF.
@@ -171,6 +183,11 @@ public struct ModelMetadata: Sendable {
     public let culture: String?
     /// Chú thích của mô hình (`Annotation`, ObjectType 1), ví dụ `__PBI_TimeIntelligenceEnabled`, `PBI_QueryOrder`.
     public let modelAnnotations: [String: String]
+    /// `Model.DiscourageImplicitMeasures`: bật thì ô giá trị của visual chỉ nhận measure (Nhom6), tắt thì cột tự gộp (US1).
+    public let discourageImplicitMeasures: Bool
+    /// Quan hệ có một đầu là bảng ngày cục bộ hay bảng mẫu của Auto date/time. Tách khỏi `relationships` vì các bảng đó ẩn với người dùng.
+    public let dateTableRelationships: [Relationship]
+    public let variations: [Variation]
 
     public var userTables: [Table] { tables.filter(\.isUserTable) }
 
@@ -255,20 +272,38 @@ public struct ModelMetadata: Sendable {
                       displayFolder: $0.nonEmpty(4), lineageTag: $0.string(5), levels: levels[$0.int(0)] ?? [])
         }
 
-        relationships = try db.rows("""
-            SELECT r.Name, ft.Name, fc.ExplicitName, tt.Name, tc.ExplicitName, r.IsActive,
+        // Bảng tính toán (`SystemFlags = 2`) cũng có quan hệ: bảng người dùng (CALENDAR…) và bảng ngày của Auto date/time.
+        let autoDateTables = Set(((try? db.rows("""
+            SELECT ObjectID FROM Annotation WHERE ObjectType = 3 AND Name IN ('__PBI_LocalDateTable', '__PBI_TemplateDateTable')
+            """)) ?? []).map { $0.int(0) })
+        let allRelationships = try db.rows("""
+            SELECT r.Name, ft.Name, COALESCE(fc.ExplicitName, fc.InferredName), tt.Name, COALESCE(tc.ExplicitName, tc.InferredName), r.IsActive,
                    CASE WHEN r.FromCardinality = 2 THEN 'M' ELSE '1' END || ':' ||
                    CASE WHEN r.ToCardinality = 2 THEN 'M' ELSE '1' END,
-                   r.CrossFilteringBehavior
+                   r.CrossFilteringBehavior, \(col("Relationship", "r", "JoinOnDateBehavior")), ft.ID, tt.ID
             FROM Relationship r
             JOIN [Table] ft ON ft.ID = r.FromTableID JOIN [Column] fc ON fc.ID = r.FromColumnID
             JOIN [Table] tt ON tt.ID = r.ToTableID JOIN [Column] tc ON tc.ID = r.ToColumnID
-            WHERE ft.SystemFlags = 0 AND tt.SystemFlags = 0
+            WHERE ft.SystemFlags IN (0, 2) AND tt.SystemFlags IN (0, 2)
             """).map {
-            Relationship(name: $0.string(0) ?? "", fromTable: $0.string(1) ?? "", fromColumn: $0.string(2) ?? "",
-                         toTable: $0.string(3) ?? "", toColumn: $0.string(4) ?? "",
-                         isActive: $0.int(5) != 0, cardinality: $0.string(6) ?? "", crossFilteringBehavior: $0.int(7))
+            (Relationship(name: $0.string(0) ?? "", fromTable: $0.string(1) ?? "", fromColumn: $0.string(2) ?? "",
+                          toTable: $0.string(3) ?? "", toColumn: $0.string(4) ?? "",
+                          isActive: $0.int(5) != 0, cardinality: $0.string(6) ?? "", crossFilteringBehavior: $0.int(7),
+                          joinOnDateBehavior: $0.int(8) == 0 ? 1 : $0.int(8)),
+             autoDateTables.contains($0.int(9)) || autoDateTables.contains($0.int(10)))
         }
+        relationships = allRelationships.filter { !$0.1 }.map(\.0)
+        dateTableRelationships = allRelationships.filter(\.1).map(\.0)
+        variations = db.hasColumn("Variation", "DefaultHierarchyID") ? ((try? db.rows("""
+            SELECT t.Name, COALESCE(c.ExplicitName, c.InferredName), v.Name, r.Name, ht.Name, h.Name, v.IsDefault
+            FROM Variation v JOIN [Column] c ON c.ID = v.ColumnID JOIN [Table] t ON t.ID = c.TableID
+            JOIN Relationship r ON r.ID = v.RelationshipID
+            JOIN Hierarchy h ON h.ID = v.DefaultHierarchyID JOIN [Table] ht ON ht.ID = h.TableID
+            ORDER BY v.ID
+            """)) ?? []).map {
+            Variation(table: $0.string(0) ?? "", column: $0.string(1) ?? "", name: $0.string(2) ?? "", relationship: $0.string(3) ?? "",
+                      hierarchy: HierarchyRef(table: $0.string(4) ?? "", name: $0.string(5) ?? ""), isDefault: $0.int(6) != 0)
+        } : []
 
         // One row per (column, partition); collapsed below into one entry per column.
         let storageRows = try db.rows("""
@@ -335,6 +370,8 @@ public struct ModelMetadata: Sendable {
             "SELECT t.Name FROM CalculationGroup c JOIN [Table] t ON t.ID = c.TableID ORDER BY c.ID")) ?? [])
             .compactMap { $0.string(0) }
         culture = (try? db.rows("SELECT Culture FROM Model ORDER BY ID LIMIT 1"))?.first?.nonEmpty(0)
+        discourageImplicitMeasures = db.hasColumn("Model", "DiscourageImplicitMeasures")
+            && ((try? db.rows("SELECT DiscourageImplicitMeasures FROM Model ORDER BY ID LIMIT 1"))?.first?.int(0) ?? 0) != 0
         modelAnnotations = Dictionary(
             ((try? db.rows("SELECT Name, Value FROM Annotation WHERE ObjectType = 1 ORDER BY ID")) ?? []).map { ($0.string(0) ?? "", $0.string(1) ?? "") },
             uniquingKeysWith: { first, _ in first })

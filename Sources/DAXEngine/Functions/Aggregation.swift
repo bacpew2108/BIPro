@@ -48,7 +48,57 @@ public enum AggregationFunctions: FunctionFamily {
                      impl: .scalar(extremeBody(wantMax: false))),
         FunctionSpec(name: "MAX", params: [.columnOrScalar("column"), .scalar("value2", optional: true)],
                      impl: .scalar(extremeBody(wantMax: true))),
+        // Đợt tồn đọng sau Phase F (US1): hàm Desktop sinh cho phép gộp ngầm Count, Median, Standard deviation, Variance (VM-F10).
+        FunctionSpec(name: "COUNTA", params: [.column("column")], impl: .scalar(countBody)),
+        FunctionSpec(name: "MEDIAN", params: [.column("column")], impl: .scalar(statisticBody("MEDIAN", median))),
+        FunctionSpec(name: "STDEV.P", params: [.column("column")],
+                     impl: .scalar(statisticBody("STDEV.P", { populationVariance($0).squareRoot() }))),
+        FunctionSpec(name: "VAR.P", params: [.column("column")], impl: .scalar(statisticBody("VAR.P", populationVariance))),
     ]
+
+    // MARK: MEDIAN, STDEV.P, VAR.P
+
+    /// Hàm thống kê trên các giá trị số không BLANK của cột (dòng thấy được). Không có giá trị thì BLANK; cột không phải số báo
+    /// `.typeMismatch` (như AVERAGE). Kết quả luôn là số thực; currency đổi về đơn vị thật (chia 10^4).
+    /// [SUY ĐOÁN] Desktop trả số thực cho mọi kiểu cột số (tài liệu DAX: "decimal number"); chưa so golden trên cột currency.
+    private static func statisticBody(_ name: String, _ compute: @escaping @Sendable ([Double]) -> Double) -> FunctionSpec.ScalarBody {
+        return { (frame: CallFrame) throws(DAXError) -> Value in
+            let column = try frame.column(0)
+            let (data, rows) = try visibleColumn(frame, column)
+            let kind = data.type
+            guard kind == .integer || kind == .currency || kind == .double else {
+                let store = try fkEvaluator(frame).store
+                let label = store.schema.column(column)?.name ?? "\(column)"
+                throw DAXError(.typeMismatch, "\(name) không hỗ trợ cột \(label) có kiểu \(kind)")
+            }
+            var values: [Double] = []
+            try fkForEachRow(rows) { (r: Int) throws(DAXError) in
+                switch data.value(at: r) {
+                case .integer(let v): values.append(kind == .currency ? Double(v) / 10_000 : Double(v))
+                case .currency(let v): values.append(Double(v) / 10_000)
+                case .double(let d): values.append(d)
+                default: break
+                }
+            }
+            return values.isEmpty ? .blank : .double(compute(values))
+        }
+    }
+
+    private static let median: @Sendable ([Double]) -> Double = { values in
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        return sorted.count % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+    }
+
+    /// Phương sai tổng thể: trung bình bình phương độ lệch so với trung bình (hai lượt, cộng Neumaier).
+    private static let populationVariance: @Sendable ([Double]) -> Double = { values in
+        var total = FKNeumaier()
+        values.forEach { total.add($0) }
+        let mean = total.value / Double(values.count)
+        var squares = FKNeumaier()
+        values.forEach { squares.add(($0 - mean) * ($0 - mean)) }
+        return squares.value / Double(values.count)
+    }
 
     // MARK: SUM
 

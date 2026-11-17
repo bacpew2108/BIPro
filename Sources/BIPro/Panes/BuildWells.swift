@@ -93,7 +93,7 @@ struct BuildWells: View {
     private func row(_ field: ReportField, index: Int, count: Int, rule: WellRule, editable: Bool, rules: [WellRule]) -> some View {
         ZStack(alignment: .trailing) {
             FieldChip(symbol: fieldSymbol(field), tint: field.kind == .measure ? DS.Palette.measure : DS.Palette.secondaryLabel,
-                      title: field.label, subtitle: field.label == field.property ? field.entity : "\(field.entity)[\(field.property)]")
+                      title: title(field), subtitle: title(field) == field.property ? field.entity : "\(field.entity)[\(field.property)]")
             if editable {
                 Button { layout.removeField(role: rule.role, index: index, visual: visual.id) } label: {
                     Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(DS.Palette.tertiaryLabel)
@@ -107,6 +107,20 @@ struct BuildWells: View {
         .contextMenu {
             if editable {
                 Button("Đổi tên cho visual này…") { renaming = Renaming(role: rule.role, index: index, text: field.displayName ?? "") }
+                if field.kind == .aggregation {
+                    // Danh sách phép gộp như menu của trường trong Desktop (VM-F10), dấu tích ở phép đang dùng.
+                    let kind = layout.aggregationKind(entity: field.entity, property: field.property)
+                    Divider()
+                    ForEach(AggregateFunction.menu(for: kind), id: \.self) { function in
+                        let name = function.name(kind: kind)
+                        Button {
+                            layout.setAggregation(role: rule.role, index: index, to: function, visual: visual.id)
+                        } label: {
+                            if field.aggregationFunction == function.rawValue { Label(name, systemImage: "checkmark") } else { Text(name) }
+                        }
+                    }
+                    Divider()
+                }
                 if index > 0 { Button("Lên") { layout.reorderField(role: rule.role, from: index, to: index - 1, visual: visual.id) } }
                 if index < count - 1 { Button("Xuống") { layout.reorderField(role: rule.role, from: index, to: index + 1, visual: visual.id) } }
                 let targets = rules.filter { $0.role != rule.role && $0.status == .observed && WellKind(field.kind).map($0.accepts.contains) == true }
@@ -178,6 +192,8 @@ struct BuildWells: View {
         .menuIndicator(.hidden)
         .buttonStyle(.plain)
     }
+
+    private func title(_ field: ReportField) -> String { layout.label(of: field) }
 
     private func fieldSymbol(_ field: ReportField) -> String {
         switch field.kind {

@@ -111,7 +111,7 @@ enum DAXQueryBuilder {
 
     private static func measureArgs(_ measures: [QueryMeasure], highlight: HighlightMode = .off) -> [String] {
         measures.flatMap { m -> [String] in
-            let ref = "\(QueryColumn(table: m.table, column: m.measure).dax)"
+            let ref = expression(m)
             var out = ["\"\(m.resultName)\", " + (m.ignore ? "IGNORE(\(ref))" : ref)]
             if highlight != .off, let twin = highlightName(m) {
                 let calc = "CALCULATE(\(ref), KEEPFILTERS(__H0FilterTable))"
@@ -121,6 +121,13 @@ enum DAXQueryBuilder {
             }
             return out
         }
+    }
+
+    /// Biểu thức của một cột giá trị: `'Bảng'[measure]`, hoặc `CALCULATE(<HÀM>('Bảng'[cột]))` với phép gộp ngầm (VM-F10).
+    private static func expression(_ m: QueryMeasure) -> String {
+        let ref = QueryColumn(table: m.table, column: m.measure).dax
+        guard let aggregation = m.aggregation else { return ref }
+        return "CALCULATE(\(aggregation.daxFunction)(\(ref)))"
     }
 
     enum HighlightMode { case off, keepValues, ignoreValues }
@@ -175,6 +182,15 @@ enum DAXQueryBuilder {
             if let body = valueFilterVariable(spec, vf, index: index, plain: plainFilters) { w.variable(valueNames[index], body) }
         }
         let filters = plainFilters + valueNames
+
+        // Không trục, không bộ lọc, không tô sáng: Desktop chỉ trả một dòng `ROW(...)`, không IGNORE (VM-F10: biểu đồ cột chỉ có
+        // Y-axis và card mới trên tài liệu không có bộ lọc). Có bộ lọc thì vẫn là SUMMARIZECOLUMNS (golden card Nhom6).
+        // [SUY ĐOÁN] Measure thật (không phải gộp ngầm) cũng theo khuôn này: VM-F10 chỉ thấy trường gộp ngầm.
+        if spec.primary.isEmpty, spec.secondary.isEmpty, filters.isEmpty, spec.highlight == nil, !spec.measures.isEmpty,
+           spec.shape == .card || spec.shape == .chart {
+            w.evaluate(call("ROW", spec.measures.map { "\"\($0.resultName)\", " + expression($0) }))
+            return w.text()
+        }
 
         switch spec.shape {
         case .card:

@@ -79,8 +79,10 @@ import Testing
     }
 
     @Test func numericColumnInAValueWellWaitsForAggregation() {
+        // Mô hình đặt "discourage implicit measures" (mặc định khi không biết): từ chối kèm lý do; cho gộp ngầm thì nhận (US1).
         let reason = WellRules.refusal(adding: Self.numeric, to: "Y", in: Self.visual("clusteredBarChart"))
-        #expect(reason?.contains("phép gộp") == true)
+        #expect(reason == WellRules.aggregationReason)
+        #expect(WellRules.refusal(adding: Self.numeric, to: "Y", in: Self.visual("clusteredBarChart"), implicitMeasures: true) == nil)
         // cột số vào ô cột (Category) thì được
         #expect(WellRules.refusal(adding: Self.numeric, to: "Category", in: Self.visual("clusteredBarChart")) == nil)
     }

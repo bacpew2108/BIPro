@@ -22,6 +22,17 @@ import Testing
         #expect(table.index(ofColumn: "name") == nil)           // M phân biệt hoa thường
     }
 
+    /// Đợt tồn đọng sau Phase F (T005, contracts/sources.md): kiểu M gốc của nguồn, mặc định không có; xem trước (`prefix`) giữ lại.
+    @Test func sourceTypeDefaultsToNilAndSurvivesPrefix() throws {
+        #expect(try sample().columns.allSatisfy { $0.sourceType == nil })
+        let table = try TableData(columns: [
+            TableColumn(name: "At", data: ColumnBuilder.dateTimes([1.5, nil]), sourceType: .dateTimeZone),
+            TableColumn(name: "Raw", data: ColumnBuilder.strings(["", nil]), sourceType: .binary),
+        ])
+        #expect(table.prefix(1).columns.map(\.sourceType) == [.dateTimeZone, .binary])
+        #expect(Set(MSourceType.allCases.map(\.rawValue)) == ["time", "duration", "dateTimeZone", "binary", "list", "record"])
+    }
+
     @Test func rejectsRowCountMismatch() {
         #expect(throws: TableDataError.rowCountMismatch(column: "B", expected: 2, actual: 3)) {
             try TableData(columns: [

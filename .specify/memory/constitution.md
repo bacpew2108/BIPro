@@ -66,8 +66,9 @@ lưu được.
 - Thứ tự: bản xem có số liệu trước (A → W → B → C), sau đó tới authoring (D, E), Power Query (F)
 và hoàn thiện (G).
 - Chưa làm AI hay Copilot: các nút này bị ẩn.
-- Test trong Power BI Desktop trên VM Windows 11 do người dùng làm tay. Agent không điều khiển VM.
-Agent chỉ chuẩn bị file và `CHECKLIST.md`.
+- Test trong Power BI Desktop trên VM Windows 11 do người dùng làm tay; agent chỉ chuẩn bị file và
+`CHECKLIST.md`. Agent không điều khiển VM, trừ khi người dùng cho phép cho một phase hoặc một đợt việc
+(ghi trong spec của đợt đó). Khi được phép: ảnh cắt che tên tài khoản, dọn thư mục VM sau mỗi buổi.
 
 ## Quy trình làm việc
 
@@ -96,4 +97,4 @@ chi tiết. Nếu hai bên mâu thuẫn, `CLAUDE.md` thắng, và constitution p
 - `/speckit-plan` (Constitution Check), `/speckit-analyze` và review của lead PHẢI kiểm sự tuân
 thủ. Vi phạm phải được ghi rõ lý do trong plan, hoặc phải sửa.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-03
+**Version**: 1.1.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-17 (1.1.0: cho phép agent lái VM khi người dùng cho phép theo phase/đợt; duyệt 2026-11-17)

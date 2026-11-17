@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-17 (Phase F: gate M3 và T116 đạt, còn T102; xem mục "Phase F, Giai đoạn 11–13"). Trước đó: 2026-11-15. **Phase D xong (D1 đến D7, VM-D1 đến VM-D21); Phase E (mô hình hoá + lưu T2, `specs/009-e-mo-hinh-hoa-luu-t2/`) xong code, kiểm Desktop (VM-E1 đến VM-E7) và tài liệu.** Phase E đã commit và push ngày 2026-11-15 (xem `git log`); commit trước đó `37f07bc` (đến VM-D21). `swift test` 1665 qua; test nặng Phase E 38 qua (`DiagramSaveTests` 5); golden release 137 qua (2026-11-14, trước VM-E7). `build/BI Pro.app` là bản đã đóng gói sau VM-E7. Mọi mục tồn đọng của Phase E đã làm xong (VM-E7, bên dưới). Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-17 (Phase F xong, T102 đã báo cáo; chờ bạn quyết định push; xem mục "Phase F, Giai đoạn 11–13"). Trước đó: 2026-11-15. **Phase D xong (D1 đến D7, VM-D1 đến VM-D21); Phase E (mô hình hoá + lưu T2, `specs/009-e-mo-hinh-hoa-luu-t2/`) xong code, kiểm Desktop (VM-E1 đến VM-E7) và tài liệu.** Phase E đã commit và push ngày 2026-11-15 (xem `git log`); commit trước đó `37f07bc` (đến VM-D21). `swift test` 1665 qua; test nặng Phase E 38 qua (`DiagramSaveTests` 5); golden release 137 qua (2026-11-14, trước VM-E7). `build/BI Pro.app` là bản đã đóng gói sau VM-E7. Mọi mục tồn đọng của Phase E đã làm xong (VM-E7, bên dưới). Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
@@ -235,7 +235,30 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - Lỗi có sẵn từ T084 lộ ở gate: cột bảng tính toán lấy từ cột mô hình cần `SourceColumn = Bảng[Cột]` và `ColumnOriginID` (VM-F9b), không thì Desktop báo "Unable to execute DAX". Đã sửa.
   - Nhom6 lưu lần 2 (sửa 3 cột gồm cột 1 triệu dòng, 1 cột phụ thuộc, xoá cột, sửa và xoá bảng): 3,4 s.
   - `swift test` 2241 qua; golden nặng 114 qua.
-- **Việc kế:** T102 báo cáo. Phase F chưa push.
+- **T102 xong (báo cáo trong phiên):** `tasks.md` chỉ còn T111 (RLE, tồn đọng). Đã tick kèm ghi chú các task cũ đã xong dưới task khác (T013–T015, T032, T041, T046) và các task bỏ vì không cần (T018–T019 `DataMashup`; T029–T031 nhánh dự phòng Enter Data).
+- **Tồn đọng sau Phase F:** T111 RLE (cỡ tệp); phép gộp ngầm (kéo cột số vào card thành Sum); Auto date/time và tự phát hiện quan hệ như Desktop; màn "Thêm dữ liệu vào báo cáo"; hàm văn bản DAX (mới có `LEFT`, `FORMAT`); sửa/xoá cột tính toán nằm trong quan hệ, là cấp phân cấp hay cột sắp xếp (cần dựng lại `R$`/`U$`); bảng quá 8 388 608 dòng (nhiều đoạn); kiểu PostgreSQL timestamptz/time/interval/bytea/mảng; tên driver ODBC ghi cứng Devart; Parquet chỉ lược đồ phẳng.
+- **Việc kế:** bạn quyết định push 63 commit Phase F (`65fa6c5`…`72e66aa`), rồi chọn phase tiếp theo (Spec Kit).
+
+## Tồn đọng sau Phase F (Spec Kit `specs/011-ton-dong-sau-phase-f/`, bắt đầu 2026-11-17)
+
+- Bạn bảo "Triển khai các phần tồn đọng đi". Đã chạy specify + clarify: `spec.md` 6 câu chuyện: (1, P1) gộp ngầm; (2, P1) tài liệu mới giống Desktop (màn "Thêm dữ liệu vào báo cáo" có Enter Data, Auto date/time, tự phát hiện quan hệ); (3, P2) hàm văn bản DAX; (4, P2) sửa/xoá cột tính toán dính quan hệ, phân cấp, cột sắp xếp; (5, P3) RLE và bảng hơn 8 388 608 dòng; (6, P3) PostgreSQL kiểu mới, driver ODBC SQLite chọn được, Parquet lồng.
+- Làm rõ: Claude lái VM như Phase F; màn thêm dữ liệu gồm Excel, nguồn khác, Enter Data (SQL Server và dữ liệu mẫu hiện xám). Nhãn gộp ngầm tiếng Việt ("Tổng của Amount"), lưu file theo Desktop.
+- Spec đã duyệt (2026-11-17, "Ok"). **Plan xong**: `plan.md`, `research.md`, `data-model.md`, `contracts/` (visual-aggregation, model-edits, sources), `quickstart.md`. Bằng chứng ở `docs/phase-f2-evidence/vm-f10` đến `vm-f15` (một buổi VM mỗi câu chuyện). Hai gói agy: F2-DAXTEXT (hàm văn bản) và F2-CONN (PostgreSQL, Parquet lồng); còn lại lead làm. Đọc sẵn: Nhom6 `Fact_Transaction` 1 056 320 dòng một đoạn; `w8.3.pbix` có đủ cấu trúc Auto date/time (bảng mẫu, `LocalDateTable_…`, `Date Hierarchy` + `U$`, `JoinOnDateBehavior = 2`, `Variation`, quan hệ `AutoDetected_…`).
+- Plan đã duyệt. **`tasks.md` xong** (T001–T066; T066 thêm sau analyze cho FR-015). `/speckit-analyze`: đã sửa 7 mục (hiến pháp lên 1.1.0: agent lái VM khi người dùng cho phép theo đợt; SC-007 driver SQLite; ca biên; trùng mẫu Parquet; câu chữ).
+- `tasks.md` đã duyệt (2026-11-17). **Đợt 0 xong (T001–T008, chưa commit)**:
+  - `docs/phase-f2-ownership.tsv`; `docs/phase-f2-evidence/` (vm-f10…vm-f15, README); `scripts/f2-samples/make_f2_samples.py` (mẫu ở `build/f2-out/samples/`; `--large` cho 10 triệu dòng);
+  - `F2Fixtures` (BIProTests, PBIXKitTests); `MSourceType` và `TableColumn.sourceType`;
+  - khung `ModelEdit` (`addHierarchy`, `dropHierarchy`, `addVariation`, `dropVariation`, `setModelAnnotation`, `NewRelationship.joinOnDateBehavior`, `NewTable.isPrivate/showAsVariationsOnly/annotations`), áp dụng báo "chưa hỗ trợ";
+  - `ModelMetadata.discourageImplicitMeasures`, `variations`, `dateTableRelationships`, `Relationship.joinOnDateBehavior`. Sửa kèm: quan hệ tới bảng tính toán của người dùng trước đây bị bỏ khi đọc.
+  - `swift test` 2249 qua.
+- **US1 gộp ngầm xong T009–T016, gate VM-F10 ĐẠT** (`docs/phase-f2-evidence/vm-f10/QUAN-SAT.md`, `KET-QUA.md`; chưa commit):
+  - VM-F10: mã `Aggregation.Function` 0 Sum, 1 Average, 2 Count (Distinct), 3 Min/First, 4 Max/Last, 5 Count, 6 Median, 7 StdDev, 8 Variance; DAX `CALCULATE(<HÀM>('T'[C]))` (Count = COUNTA, STDEV.P, VAR.P); `queryRef` giữ phép gộp lúc thêm; mặc định theo `SummarizeBy` (cột tên …ID là Count); không trục và không lọc thì `EVALUATE ROW(...)`.
+  - Mã: `AggregateFunction` + `QueryMeasure.aggregation` (đọc, sinh DAX, sắp xếp); engine thêm `COUNTA`, `MEDIAN`, `STDEV.P`, `VAR.P`; `WellRules`/`FieldEditor` nhận cột vào ô giá trị khi mô hình không "discourage implicit measures", đổi phép gộp (menu Build pane), dời cột sang ô giá trị; PBIXKit ghi `Aggregation` như Desktop (`newAggregation`, `changingAggregation`, sắp xếp mặc định).
+  - Gate tìm ra lỗi: gộp cùng cột hai lần trong một visual trùng `queryRef`, Desktop gộp làm một; nay chặn.
+  - `swift test` 2269 qua; golden nặng (release, `Nhom6|ORA|VIS|Batched|F6|T116|F2`) 122 qua.
+  - T017 bấm thử app ĐẠT: tích Amount vào biểu đồ đã chọn ra "Tổng của Amount", menu 9 phép gộp, đổi sang Trung bình, hoàn tác, tích Price vào card, lưu, mở lại giữ trường gộp (Function 0/1/3/8). Sửa kèm: pane Bộ lọc ghi "Nhỏ nhất của Region" cho cột chữ (nay dùng chung `LayoutEditor.label(of:)` với Build pane) và kiểu cột lấy từ mô hình gốc nên bảng vừa nạp ở tài liệu mới ra nhãn sai (nay `LayoutEditor.modelColumns` theo mô hình hiệu lực).
+  - Khác Desktop, ngoài phạm vi 011: tích cột khi chưa chọn visual thì Desktop tự tạo biểu đồ cột nhóm, BI Pro báo cần chọn visual; card mới (`cardVisual`) nhiều trường chỉ vẽ giá trị đầu.
+- **Việc kế:** bạn commit (Đợt 0 + US1) để giao gói agy; VM-F12 (T018) rồi giao F2-DAXTEXT; US2 (VM-F11).
 
 ## Việc tiếp theo
 

@@ -92,9 +92,13 @@ public struct NewRelationship: Sendable, Hashable {
     public var isActive: Bool
     /// 1 = một chiều, 2 = hai chiều.
     public var crossFilteringBehavior: Int
+    /// `Relationship.JoinOnDateBehavior`: 1 = so cả ngày giờ (mặc định), 2 = chỉ so phần ngày (quan hệ tới bảng ngày cục bộ của
+    /// Auto date/time, `w8.3.pbix`).
+    public var joinOnDateBehavior: Int
 
     public init(name: String = UUID().uuidString.lowercased(), fromTable: String, fromColumn: String, toTable: String,
-                toColumn: String, fromMany: Bool = true, toMany: Bool = false, isActive: Bool = true, crossFilteringBehavior: Int = 1) {
+                toColumn: String, fromMany: Bool = true, toMany: Bool = false, isActive: Bool = true, crossFilteringBehavior: Int = 1,
+                joinOnDateBehavior: Int = 1) {
         self.name = name
         self.fromTable = fromTable
         self.fromColumn = fromColumn
@@ -104,7 +108,33 @@ public struct NewRelationship: Sendable, Hashable {
         self.toMany = toMany
         self.isActive = isActive
         self.crossFilteringBehavior = crossFilteringBehavior
+        self.joinOnDateBehavior = joinOnDateBehavior
     }
+}
+
+/// Một cấp của phân cấp người dùng (đợt tồn đọng sau Phase F, `contracts/model-edits.md`).
+public struct HierarchyLevel: Sendable, Hashable {
+    public var name: String
+    public var column: String
+    public init(name: String, column: String) { self.name = name; self.column = column }
+}
+
+/// Phân cấp mới (`Hierarchy` + `Level`); chỉ mục `U$` do bộ ghi dựng từ dữ liệu các cột cấp.
+public struct NewHierarchy: Sendable, Hashable {
+    public var table: String
+    public var name: String
+    public var levels: [HierarchyLevel]
+    public var isHidden: Bool
+    public init(table: String, name: String, levels: [HierarchyLevel], isHidden: Bool = false) {
+        self.table = table; self.name = name; self.levels = levels; self.isHidden = isHidden
+    }
+}
+
+/// Phân cấp theo bảng và tên.
+public struct HierarchyRef: Sendable, Hashable {
+    public var table: String
+    public var name: String
+    public init(table: String, name: String) { self.table = table; self.name = name }
 }
 
 /// Một cột của bảng mới (Phase F). `dataType` là kiểu trong mô hình; `values` là dữ liệu đã mã hoá cho `VertiPaqWriter` (T014 mở rộng
@@ -152,15 +182,25 @@ public final class NewTable: Hashable, Sendable {
     public let lineageTag: String
     /// Dữ liệu ô do ứng dụng gắn kèm (BIPro gắn `TableData`); PBIXKit không đọc. Cùng đời với bảng nên các ảnh chụp hoàn tác dùng chung.
     public let attachment: (any Sendable)?
+    /// `Table.IsPrivate` (bảng mẫu `DateTableTemplate_…` của Auto date/time).
+    public let isPrivate: Bool
+    /// `Table.ShowAsVariationsOnly` (bảng ngày cục bộ `LocalDateTable_…`).
+    public let showAsVariationsOnly: Bool
+    /// Chú thích của bảng (`Annotation`, ObjectType 3), ví dụ `__PBI_LocalDateTable`.
+    public let annotations: [String: String]
 
     public init(name: String, columns: [NewTableColumn], queryExpression: String? = nil, enableLoad: Bool = true,
-                attachment: (any Sendable)? = nil, lineageTag: String? = nil) {
+                attachment: (any Sendable)? = nil, lineageTag: String? = nil, isPrivate: Bool = false,
+                showAsVariationsOnly: Bool = false, annotations: [String: String] = [:]) {
         self.name = name
         self.columns = columns
         self.queryExpression = queryExpression
         self.enableLoad = enableLoad
         self.lineageTag = lineageTag ?? UUID().uuidString.lowercased()
         self.attachment = attachment
+        self.isPrivate = isPrivate
+        self.showAsVariationsOnly = showAsVariationsOnly
+        self.annotations = annotations
     }
 
     public static func == (lhs: NewTable, rhs: NewTable) -> Bool { lhs === rhs }
@@ -195,6 +235,15 @@ public enum ModelEdit: Sendable, Hashable {
     case deleteCalculatedColumn(table: String, name: String)
     /// Sửa công thức bảng tính toán (T116): cột kết quả mới; cột cùng tên giữ ID và thuộc tính.
     case updateCalculatedTable(name: String, expression: String, columns: [ColumnSignature])
+    // Đợt tồn đọng sau Phase F (`specs/011-ton-dong-sau-phase-f/contracts/model-edits.md`): khung hợp đồng, áp dụng ở US2 (T030–T032).
+    /// Thêm phân cấp người dùng (Auto date/time: "Date Hierarchy").
+    case addHierarchy(NewHierarchy)
+    case dropHierarchy(table: String, name: String)
+    /// Dòng `Variation`: cột ngày hiện phân cấp mặc định của bảng ngày cục bộ qua quan hệ `relationship`.
+    case addVariation(table: String, column: String, relationship: String, hierarchy: HierarchyRef)
+    case dropVariation(table: String, column: String)
+    /// Chú thích của mô hình (ObjectType 1), ví dụ `__PBI_TimeIntelligenceEnabled`.
+    case setModelAnnotation(name: String, value: String)
 
     /// Thao tác thuộc Phase F cần tầng T3.
     /// Thao tác nhắm vào bảng `lowercasedName` (thêm/sửa/xoá measure, cột, bảng, cột tính toán của nó).
@@ -207,6 +256,8 @@ public enum ModelEdit: Sendable, Hashable {
         case .updateTable(let t, _), .replaceTable(let t, _), .dropTable(let t), .updateCalculatedTable(let t, _, _): t.lowercased() == lowercasedName
         case .addTable(let t): t.name.lowercased() == lowercasedName
         case .addCalculatedTable(let t, _, _): t.lowercased() == lowercasedName
+        case .addHierarchy(let h): h.table.lowercased() == lowercasedName
+        case .dropHierarchy(let t, _), .addVariation(let t, _, _, _), .dropVariation(let t, _): t.lowercased() == lowercasedName
         default: false
         }
     }
@@ -214,7 +265,7 @@ public enum ModelEdit: Sendable, Hashable {
     var needsData: Bool {
         switch self {
         case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable,
-             .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable: true
+             .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable, .addHierarchy: true
         default: false
         }
     }

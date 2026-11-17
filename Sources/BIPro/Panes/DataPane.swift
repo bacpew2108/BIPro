@@ -438,10 +438,15 @@ struct DataPane: View {
             }
             return
         }
-        if let used = visual.fields.first(where: { $0.queryRef == ref.queryRef && $0.kind != .hierarchyLevel }),
+        // Trường gộp ngầm có `queryRef` dạng `Sum(Bảng.Cột)`: so theo bảng và cột (US1).
+        let implicit = layout.allowsImplicitMeasures
+        if let used = visual.fields.first(where: { field in
+               field.kind != .hierarchyLevel && (field.queryRef == ref.queryRef
+                   || (field.kind == .aggregation && ref.kind == .column && field.entity == ref.entity && field.property == ref.property))
+           }),
            let index = visual.fields.filter({ $0.role == used.role }).firstIndex(of: used) {
             layout.removeField(role: used.role, index: index, visual: visual.id)
-        } else if let role = WellRules.defaultRole(for: ref, in: visual) {
+        } else if let role = WellRules.defaultRole(for: ref, in: visual, implicitMeasures: implicit) {
             layout.addField(ref, to: role, visual: visual.id)
         } else {
             layout.noteFieldRefusal("Visual này chưa có ô nhận \"\(ref.property)\".")

@@ -8,6 +8,8 @@ enum FieldEditor {
         case changed([PBIRQueryPatch.Well])
         case unchanged
         case refused(String)
+
+        var isUnchanged: Bool { if case .unchanged = self { true } else { false } }
     }
 
     typealias Well = PBIRQueryPatch.Well
@@ -15,9 +17,23 @@ enum FieldEditor {
     // MARK: Thêm
 
     /// Thêm `field` vào cuối ô `role`; ô một trường thì thay các trường cũ; ô chưa có trong file thì được tạo.
-    static func add(_ field: FieldRef, to role: String, wells: [Well], visual: ReportVisual) -> Result {
-        if let reason = WellRules.refusal(adding: field, to: role, in: visual) { return .refused(reason) }
+    /// `implicitMeasures`: cột vào ô chỉ nhận measure thành trường gộp với phép gộp mặc định của cột (VM-F10).
+    static func add(_ field: FieldRef, to role: String, wells: [Well], visual: ReportVisual, implicitMeasures: Bool = false) -> Result {
+        if let reason = WellRules.refusal(adding: field, to: role, in: visual, implicitMeasures: implicitMeasures) { return .refused(reason) }
         guard let rule = WellRules.rule(for: visual, role: role) else { return .refused("Visual này không có ô \"\(role)\".") }
+        if field.kind == .column, !rule.accepts.contains(.column) {
+            let function = AggregateFunction.defaultFunction(for: field)
+            let native = function.nativeQueryRef(column: field.property, kind: AggregateFunction.ColumnKind(field.family))
+            let element = PBIRQueryPatch.newAggregation(entity: field.entity, property: field.property, function: function.rawValue,
+                                                        role: role, nativeQueryRef: native)
+            var result = wells
+            if let index = result.firstIndex(where: { $0.role == role }) {
+                if rule.isSingle { result[index].elements = [element] } else { result[index].elements.append(element) }
+            } else {
+                result.append(Well(role: role, elements: [element]))
+            }
+            return .changed(result)
+        }
         if field.kind == .hierarchy {
             // Phân cấp: một phần tử mỗi cấp, `active: true` cả (VM-D11 mục 1). Ô một trường thì thay các trường cũ.
             guard !field.levels.isEmpty else { return .refused("Phân cấp \"\(field.property)\" không có cấp nào.") }
@@ -84,14 +100,26 @@ enum FieldEditor {
     }
 
     /// Chuyển phần tử `index` của ô `role` sang cuối ô `target` (giữ nguyên byte của phần tử).
-    static func move(role: String, index: Int, to target: String, wells: [Well], visual: ReportVisual) -> Result {
+    /// `column`: thông tin cột của phần tử (kiểu, `SummarizeBy`) khi cột dời sang ô chỉ nhận measure và thành trường gộp.
+    static func move(role: String, index: Int, to target: String, wells: [Well], visual: ReportVisual,
+                     implicitMeasures: Bool = false, column: FieldRef? = nil) -> Result {
         guard let w = wells.firstIndex(where: { $0.role == role }), wells[w].elements.indices.contains(index) else {
             return .refused("Không có trường để chuyển.")
         }
         guard role != target else { return .unchanged }
         var element = wells[w].elements[index]
-        if let reason = WellRules.refusal(moving: element.field, to: target, in: visual) { return .refused(reason) }
+        if let reason = WellRules.refusal(moving: element.field, to: target, in: visual, implicitMeasures: implicitMeasures) {
+            return .refused(reason)
+        }
         guard let rule = WellRules.rule(for: visual, role: target) else { return .refused("Visual này không có ô \"\(target)\".") }
+        if element.field.kind == .column, !rule.accepts.contains(.column) {
+            let info = column ?? FieldRef(kind: .column, entity: element.field.entity, property: element.field.property)
+            var converted = PBIRQueryPatch.newAggregation(entity: element.field.entity, property: element.field.property,
+                                                          function: AggregateFunction.defaultFunction(for: info).rawValue, role: target,
+                                                          nativeQueryRef: element.field.nativeQueryRef ?? element.field.property)
+            converted.field.displayName = element.field.displayName
+            element = converted
+        }
         element.field.role = target
         var result = wells
         result[w].elements.remove(at: index)
@@ -100,6 +128,26 @@ enum FieldEditor {
         } else {
             result.append(Well(role: target, elements: [element]))
         }
+        return .changed(result)
+    }
+
+    // MARK: Đổi phép gộp
+
+    /// Đổi phép gộp của trường gộp ở phần tử `index` của ô `role` (menu của trường, VM-F10). `kind` quyết định danh sách hợp lệ.
+    static func setAggregation(role: String, index: Int, to function: AggregateFunction, kind: AggregateFunction.ColumnKind,
+                               wells: [Well]) -> Result {
+        guard let w = wells.firstIndex(where: { $0.role == role }), wells[w].elements.indices.contains(index) else {
+            return .refused("Không có trường để đổi phép gộp.")
+        }
+        let element = wells[w].elements[index]
+        guard element.field.kind == .aggregation else { return .refused("Trường này không có phép gộp.") }
+        guard AggregateFunction.menu(for: kind).contains(function) else {
+            return .refused("Cột kiểu này không gộp bằng \(function.label(column: element.field.property, kind: kind)).")
+        }
+        guard element.field.aggregationFunction != function.rawValue else { return .unchanged }
+        var result = wells
+        result[w].elements[index] = PBIRQueryPatch.changingAggregation(
+            element, to: function.rawValue, nativeQueryRef: function.nativeQueryRef(column: element.field.property, kind: kind))
         return .changed(result)
     }
 

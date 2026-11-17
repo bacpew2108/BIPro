@@ -71,6 +71,11 @@ struct VisualQuerySpecReader {
         let splitScope = shape == .chart && !spec.secondary.isEmpty && queryState["Y2"] != nil
         for role in roleOrder where !(shape.isSlicer) {
             for projection in queryState[role]?["projections"]?.array ?? [] {
+                if let aggregated = implicitAggregation(projection, role: role, ignore: allIgnored || role == "Tooltips",
+                                                        used: &used) {
+                    if splitScope && role == "Y2" { scoped.append(aggregated) } else { values.append(aggregated) }
+                    continue
+                }
                 guard let (table, name) = Self.measureRef(projection["field"]) else { continue }
                 let field = FieldInfo(queryRef: projection["queryRef"]?.string ?? "\(table).\(name)",
                                       displayName: projection["displayName"]?.string ?? name, role: role,
@@ -195,6 +200,33 @@ struct VisualQuerySpecReader {
         }
     }
 
+    // MARK: - Phép gộp ngầm
+
+    /// Trường `Aggregation` (cột kèm phép gộp, VM-F10). Nhãn: tên đổi riêng của visual nếu có, không thì nhãn tiếng Việt theo phép gộp.
+    private func implicitAggregation(_ projection: JSONValue, role: String, ignore: Bool, used: inout Set<String>) -> QueryMeasure? {
+        guard let aggregation = projection["field"]?["Aggregation"],
+              let column = aggregation["Expression"]?["Column"],
+              let table = column["Expression"]?["SourceRef"]?["Entity"]?.string,
+              let name = column["Property"]?.string,
+              let code = aggregation["Function"]?.number, let function = AggregateFunction(rawValue: Int(code)) else { return nil }
+        let meta = metadataColumn(table, name)
+        let kind = Self.kind(of: meta?.dataType)
+        let keepsFormat: Set<AggregateFunction> = [.sum, .average, .min, .max, .median]
+        let field = FieldInfo(queryRef: projection["queryRef"]?.string ?? "\(function.resultPrefix)(\(table).\(name))",
+                              displayName: projection["displayName"]?.string ?? function.label(column: name, kind: kind), role: role,
+                              formatString: keepsFormat.contains(function) ? meta?.formatString : nil, isMeasure: true)
+        return QueryMeasure(field: field, table: table, measure: name, resultName: resultName(function.resultPrefix + name, used: &used),
+                            ignore: ignore, purpose: role == "Tooltips" ? .tooltip : .value, aggregation: function)
+    }
+
+    static func kind(of type: ModelMetadata.DataType?) -> AggregateFunction.ColumnKind {
+        switch type {
+        case .string?: .text
+        case .dateTime?: .date
+        default: .number
+        }
+    }
+
     // MARK: - Measure
 
     /// Tên cột kết quả theo quy tắc C1.md §2.1.
@@ -269,6 +301,13 @@ struct VisualQuerySpecReader {
             let ascending = first["direction"]?.string != "Descending"
             if let (table, name) = Self.measureRef(first["field"]),
                let m = spec.measures.first(where: { $0.table == table && $0.measure == name }) {
+                return [QuerySortKey(target: .result(m.resultName), ascending: ascending)] + byAxis
+            }
+            // Sắp theo trường gộp ngầm (VM-F10: mặc định giảm dần theo giá trị đầu, `isDefaultSort`).
+            if let aggregation = first["field"]?["Aggregation"], let column = aggregation["Expression"]?["Column"],
+               let table = column["Expression"]?["SourceRef"]?["Entity"]?.string, let name = column["Property"]?.string,
+               let code = aggregation["Function"]?.number,
+               let m = spec.measures.first(where: { $0.table == table && $0.measure == name && $0.aggregation?.rawValue == Int(code) }) {
                 return [QuerySortKey(target: .result(m.resultName), ascending: ascending)] + byAxis
             }
             if let col = column(of: first["field"]), let g = spec.primary.first(where: { $0.column == col }) {

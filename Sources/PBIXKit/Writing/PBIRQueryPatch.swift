@@ -91,6 +91,34 @@ public enum PBIRQueryPatch {
         return Element(field: field, source: nil)
     }
 
+    /// Tên phép gộp trong `queryRef` lúc Desktop thêm trường (VM-F10: `Sum(Sales.Amount)`, `CountNonNull(Sales.OrderID)`, `Min(Sales.Region)`).
+    /// [SUY ĐOÁN] Avg, DistinctCount, Median, StandardDeviation, Variance: Desktop chỉ tạo trường với phép gộp mặc định của cột.
+    static let queryRefAggregateNames = [0: "Sum", 1: "Avg", 2: "DistinctCount", 3: "Min", 4: "Max", 5: "CountNonNull", 6: "Median",
+                                         7: "StandardDeviation", 8: "Variance"]
+    /// Nhãn tiếng Anh Desktop ghi ở `nativeQueryRef` ("Sum of Amount", VM-F10).
+    static let nativeAggregateNames = [0: "Sum", 1: "Average", 2: "Count", 3: "Min", 4: "Max", 5: "Count", 6: "Median",
+                                       7: "Standard deviation", 8: "Variance"]
+
+    /// Trường gộp ngầm mới (đợt tồn đọng sau Phase F, US1): cột kèm mã phép gộp. `nativeQueryRef` mặc định "<Phép gộp> of <cột>".
+    public static func newAggregation(entity: String, property: String, function: Int, role: String,
+                                      nativeQueryRef: String? = nil) -> Element {
+        let field = ReportField(role: role, kind: .aggregation, entity: entity, property: property,
+                                function: ReportField.aggregateNames[function],
+                                queryRef: "\(queryRefAggregateNames[function] ?? "Sum")(\(entity).\(property))",
+                                nativeQueryRef: nativeQueryRef ?? "\(nativeAggregateNames[function] ?? "Sum") of \(property)",
+                                aggregationFunction: function)
+        return Element(field: field, source: nil)
+    }
+
+    /// Đổi phép gộp của một trường gộp: như Desktop, giữ `queryRef` và tên đổi riêng, đổi `Function` và `nativeQueryRef`.
+    public static func changingAggregation(_ element: Element, to function: Int, nativeQueryRef: String? = nil) -> Element {
+        var field = element.field
+        field.aggregationFunction = function
+        field.function = ReportField.aggregateNames[function]
+        field.nativeQueryRef = nativeQueryRef ?? "\(nativeAggregateNames[function] ?? "Sum") of \(field.property)"
+        return Element(field: field, source: nil)
+    }
+
     /// Một cấp của phân cấp, đúng dạng Desktop ghi khi thả cả phân cấp vào ô (VM-D11 mục 1): `HierarchyLevel`, `queryRef`
     /// `Bảng.Phân cấp.Cấp`, `nativeQueryRef` `Phân cấp Cấp`, `active: true` ở mọi cấp.
     public static func newHierarchyLevel(entity: String, hierarchy: String, level: String, role: String) -> Element {
@@ -340,7 +368,7 @@ public enum PBIRQueryPatch {
     }
 
     private static func groupingRefs(_ wells: [Well]) -> Set<String> {
-        Set(wells.filter { groupingRoles.contains($0.role) }.flatMap { $0.elements.filter { $0.field.kind != .measure }.map(\.field.queryRef) })
+        Set(wells.filter { groupingRoles.contains($0.role) }.flatMap { $0.elements.filter { $0.field.kind != .measure && $0.field.kind != .aggregation }.map(\.field.queryRef) })
     }
 
     /// Sau khi đổi trường, giữ `sortDefinition` mặc định (`isDefaultSort: true`) đúng như Desktop:
@@ -362,12 +390,18 @@ public enum PBIRQueryPatch {
         if let sort {
             // `sortDefinition` mặc định trỏ tới trường không còn trong visual (kể cả khi bỏ hết trường) bị bỏ hoặc chuyển cột.
             func target(_ sort: [String: Any]) -> (ref: String, kind: ReportField.Kind, direction: String)? {
-                guard let first = (sort["sort"] as? [[String: Any]])?.first, let field = first["field"] as? [String: Any],
-                      let kindKey = ["Measure", "Column"].first(where: { field[$0] != nil }),
+                guard let first = (sort["sort"] as? [[String: Any]])?.first, var field = first["field"] as? [String: Any] else { return nil }
+                // Trường gộp ngầm: đích là cột bên trong (VM-F10).
+                let aggregated = field["Aggregation"] != nil
+                if let aggregation = field["Aggregation"] as? [String: Any], let expression = aggregation["Expression"] as? [String: Any] {
+                    field = expression
+                }
+                guard let kindKey = ["Measure", "Column"].first(where: { field[$0] != nil }),
                       let inner = field[kindKey] as? [String: Any],
                       let entity = (((inner["Expression"] as? [String: Any])?["SourceRef"]) as? [String: Any])?["Entity"] as? String,
                       let property = inner["Property"] as? String else { return nil }
-                return ("\(entity).\(property)", kindKey == "Measure" ? .measure : .column, first["direction"] as? String ?? "Ascending")
+                return ("\(entity).\(property)", aggregated ? .aggregation : kindKey == "Measure" ? .measure : .column,
+                        first["direction"] as? String ?? "Ascending")
             }
             let sortTarget = target(sort)
             func contains(_ ref: String, in wells: [Well]) -> Bool {
@@ -412,7 +446,8 @@ public enum PBIRQueryPatch {
                   !wells.contains(where: { groupingRoles.contains($0.role) && !$0.elements.isEmpty }) else { return json }
             let role = type == "cardVisual" ? "Data" : "Y"
             guard previous.first(where: { $0.role == role })?.elements.isEmpty ?? true else { return json }
-            guard let well = wells.first(where: { $0.role == role }), let first = well.elements.first, first.field.kind == .measure else { return json }
+            guard let well = wells.first(where: { $0.role == role }), let first = well.elements.first,
+                  first.field.kind == .measure || first.field.kind == .aggregation else { return json }
             return try insertingSort(json, role: role, index: 0, direction: "Descending")
         }
     }
@@ -469,6 +504,21 @@ public enum PBIRQueryPatch {
         }
     }
 
+    /// Trường gộp ngầm, đúng thứ tự khoá Desktop ghi (VM-F10): `field.Aggregation{Expression{Column}, Function}`, `queryRef`,
+    /// `nativeQueryRef`, rồi `displayName` nếu đổi tên.
+    private static func aggregationBytes(_ field: ReportField) throws -> [UInt8] {
+        guard let function = field.aggregationFunction else { throw WriteError.invalid("an aggregation needs a function") }
+        var out = Array(#"{"field":{"Aggregation":{"Expression":{"Column":{"Expression":{"SourceRef":{"Entity":"#.utf8)
+        out += PBIRPatch.jsonStringToken(field.entity)
+        out += Array(#"}},"Property":"#.utf8) + PBIRPatch.jsonStringToken(field.property)
+        out += Array(#"}},"Function":\#(function)}},"queryRef":"#.utf8) + PBIRPatch.jsonStringToken(field.queryRef)
+        let native = (field.displayName?.isEmpty ?? true) ? (field.nativeQueryRef ?? field.property) : field.displayName!
+        out += Array(#","nativeQueryRef":"#.utf8) + PBIRPatch.jsonStringToken(native)
+        if let name = field.displayName, !name.isEmpty { out += Array(#","displayName":"#.utf8) + PBIRPatch.jsonStringToken(name) }
+        out.append(UInt8(ascii: "}"))
+        return out
+    }
+
     private static func hierarchyLevelBytes(_ field: ReportField) throws -> [UInt8] {
         // `queryRef` là `Bảng.Phân cấp.Cấp`: phần giữa là tên phân cấp.
         let prefix = field.entity + ".", suffix = "." + field.property
@@ -494,6 +544,7 @@ public enum PBIRQueryPatch {
         let field = element.field
         guard let source = element.source else {
             if field.kind == .hierarchyLevel { return try hierarchyLevelBytes(field) }
+            if field.kind == .aggregation { return try aggregationBytes(field) }
             let kindKey: String
             switch field.kind {
             case .measure: kindKey = "Measure"

@@ -1,0 +1,5 @@
+{
+ "665b72f6a3a0fae7efc0": "DEFINE\r\n\tVAR __DS0Core = \r\n\t\tSUMMARIZECOLUMNS(\r\n\t\t\t'Sales'[Region],\r\n\t\t\t\"AverageQty\", CALCULATE(AVERAGE('Sales'[Qty])),\r\n\t\t\t\"VariancePrice\", CALCULATE(VAR.P('Sales'[Price]))\r\n\t\t)\r\n\r\n\tVAR __DS0PrimaryWindowed = \r\n\t\tTOPN(1001, __DS0Core, 'Sales'[Region], 1)\r\n\r\nEVALUATE\r\n\t__DS0PrimaryWindowed\r\n\r\nORDER BY\r\n\t'Sales'[Region]",
+ "ef206c31fe599cf51b56": "EVALUATE\r\n\tROW(\r\n\t\t\"SumAmount\", CALCULATE(SUM('Sales'[Amount]))\r\n\t)",
+ "53372ccb7759bdc8a4ad": "EVALUATE\r\n\tROW(\r\n\t\t\"MinRegion\", CALCULATE(MIN('Sales'[Region]))\r\n\t)"
+}

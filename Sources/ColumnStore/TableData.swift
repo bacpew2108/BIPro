@@ -4,13 +4,23 @@
 // dữ liệu ghi lại VertiPaq. Ô lỗi của M (`Error`) không nằm trong cột (kiểu cột giữ nguyên, ô đó là BLANK) mà ở
 // `errorMask`: cột → dòng → thông điệp, thưa.
 
+/// Kiểu M gốc của cột khi nguồn có kiểu mà mô hình không có riêng (đợt tồn đọng sau Phase F, `specs/011-ton-dong-sau-phase-f/contracts/sources.md`):
+/// giá trị trong `data` đã đổi theo quy tắc Desktop (ví dụ time thành ngày giờ), còn kiểu này để Query Editor hiện đúng và M ghi đúng
+/// `Changed Type`.
+public enum MSourceType: String, CaseIterable, Sendable {
+    case time, duration, dateTimeZone, binary, list, record
+}
+
 public struct TableColumn: Sendable {
     public let name: String
     public let data: ColumnData
+    /// `nil`: kiểu M là kiểu của `data`.
+    public let sourceType: MSourceType?
 
-    public init(name: String, data: ColumnData) {
+    public init(name: String, data: ColumnData, sourceType: MSourceType? = nil) {
         self.name = name
         self.data = data
+        self.sourceType = sourceType
     }
 }
 
@@ -110,7 +120,7 @@ public struct TableData: Sendable {
     public func prefix(_ count: Int) -> TableData {
         let n = max(0, min(count, rowCount))
         if n == rowCount { return self }
-        let taken = columns.map { TableColumn(name: $0.name, data: $0.data.prefix(n)) }
+        let taken = columns.map { TableColumn(name: $0.name, data: $0.data.prefix(n), sourceType: $0.sourceType) }
         let mask = errorMask.compactMapValues { cells -> [Int: String]? in
             let kept = cells.filter { $0.key < n }
             return kept.isEmpty ? nil : kept

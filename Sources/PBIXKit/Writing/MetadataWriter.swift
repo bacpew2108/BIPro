@@ -694,6 +694,8 @@ extension MetadataWriter {
             try deleteCalculatedColumn(table: table, name: name)
         case .updateCalculatedTable(let name, let expression, let columns):
             try updateCalculatedTable(name: name, expression: expression, columns: columns)
+        case .addHierarchy, .dropHierarchy, .addVariation, .dropVariation, .setModelAnnotation:
+            throw WriteError.invalid("chưa lưu được phân cấp, variation và chú thích mô hình (đợt tồn đọng sau Phase F, US2)")
         case .deleteRelationship(let name):
             var removed: [String] = []
             try transaction { db, now in removed = try Self.deleteRelationship(db, name: name, now: now) }

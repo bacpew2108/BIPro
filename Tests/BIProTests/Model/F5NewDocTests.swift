@@ -64,10 +64,12 @@ struct F5NewDocTests {
         let metadata = try #require(state.workspace.metadata)
         let amount = try #require(metadata.columns.first { $0.tableName == "Sales" && $0.name == "Amount" })
         let region = try #require(metadata.columns.first { $0.tableName == "Sales" && $0.name == "Region" })
-        // Cột số vào ô giá trị cần measure (BI Pro chưa có phép gộp ngầm): tạo measure SUM như người dùng làm.
+        // Tài liệu mới không đặt "discourage implicit measures": cột số vào ô giá trị thành "Tổng của Amount" (US1, VM-F10). Sau đó
+        // người dùng vẫn thay bằng measure SUM (ô Values của card chỉ một trường).
         let view = CGRect(x: 0, y: 0, width: 1280, height: 720)
         let card = try #require(state.layout.insertVisual(type: "card", visibleRect: view))
-        #expect(state.layout.addField(FieldRef(column: amount), to: "Values", visual: card) != nil)
+        #expect(state.layout.addField(FieldRef(column: amount), to: "Values", visual: card) == nil)
+        #expect(state.layout.visual(card)?.fields.first?.aggregationFunction == 0)
         #expect(state.modelEditor.apply(.addMeasure(NewMeasure(table: "Sales", name: "Tổng Amount", expression: "SUM(Sales[Amount])"))) == nil)
         let total = FieldRef(kind: .measure, entity: "Sales", property: "Tổng Amount")
         #expect(state.layout.addField(total, to: "Values", visual: card) == nil)

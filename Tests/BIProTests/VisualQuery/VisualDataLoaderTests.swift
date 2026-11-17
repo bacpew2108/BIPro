@@ -26,7 +26,8 @@ import Testing
         #expect(s.cell.value == .integer(2))
         #expect(s.cell.formatString == "0")
         #expect(!first.fromCache)
-        #expect(first.query.contains("IGNORE('Fact_Trans'[Two])"))
+        // Card không bộ lọc: `ROW(...)` không IGNORE (VM-F10, đợt tồn đọng sau Phase F); có bộ lọc thì SUMMARIZECOLUMNS + IGNORE.
+        #expect(first.query.contains("ROW(") && first.query.contains("\"Two\", 'Fact_Trans'[Two]"))
         let second = try await loader.load(cardSpec())
         #expect(second.fromCache)
     }

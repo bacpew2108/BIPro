@@ -83,12 +83,13 @@ struct FiltersPane: View {
     @ViewBuilder private func section(_ title: String, filters: [ReportFilter], scope: String, level: ReportFilter.Level,
                                       empty: String) -> some View {
         let shown = cards(filters, scope: scope, level: level)
-            .filter { search.isEmpty || ($0.field?.label ?? $0.id).localizedCaseInsensitiveContains(search) }
+            .filter { search.isEmpty || ($0.field.map(state.layout.label(of:)) ?? $0.id).localizedCaseInsensitiveContains(search) }
         Text(title).font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 6)
         VStack(spacing: 6) {
             ForEach(shown) { filter in
                 FilterCard(filter: filter, key: key(filter, level, scope), interaction: state.interaction,
+                           title: filter.field.map(state.layout.label(of:)) ?? filter.id,
                            removable: !filter.id.hasPrefix("implicit-"))
             }
             AddFieldMenu(interaction: state.interaction, level: level, scope: scope)
@@ -129,6 +130,8 @@ struct FilterCard: View {
     let filter: ReportFilter
     let key: UserFilterKey
     let interaction: ReportInteraction
+    /// Nhãn thẻ (theo `LayoutEditor.label(of:)`, cùng nhãn ở Build pane).
+    var title: String? = nil
     var removable = false
     @State private var open = false
 
@@ -162,7 +165,7 @@ struct FilterCard: View {
     private func header(active: Bool) -> some View {
         HStack(alignment: .top, spacing: 6) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(filter.field?.label ?? filter.id)
+                Text(title ?? filter.field?.label ?? filter.id)
                     .font(.system(size: 13, weight: active ? .bold : .regular))
                     .foregroundStyle(DS.Palette.label).lineLimit(1)
                 Text(FilterEditing.summary(of: filter, key: key, interaction: interaction))

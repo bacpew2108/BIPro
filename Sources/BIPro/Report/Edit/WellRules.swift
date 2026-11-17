@@ -84,23 +84,39 @@ enum WellRules {
 
     /// Ô mặc định khi người dùng tick một trường ở pane Dữ liệu: ô đầu tiên (theo thứ tự trong Build pane) nhận được
     /// trường, ưu tiên ô khác Chú thích công cụ. Nil nếu không có ô nào nhận.
-    static func defaultRole(for field: FieldRef, in visual: ReportVisual) -> String? {
-        let candidates = rules(for: visual).filter { refusal(adding: field, to: $0.role, in: visual) == nil }
-        return (candidates.first { $0.role != "Tooltips" } ?? candidates.first)?.role
+    /// Mô hình cho gộp ngầm (`implicitMeasures`): cột số có `SummarizeBy` khác None vào ô giá trị trước (VM-F10: tích `Amount`,
+    /// `OrderID` vào Y-axis; tích `Region` vào X-axis).
+    static func defaultRole(for field: FieldRef, in visual: ReportVisual, implicitMeasures: Bool = false) -> String? {
+        let candidates = rules(for: visual).filter { refusal(adding: field, to: $0.role, in: visual, implicitMeasures: implicitMeasures) == nil }
+        if implicitMeasures, field.kind == .column, field.family == .numeric, (field.summarizeBy ?? 2) > 2,
+           let value = candidates.first(where: { $0.role != "Tooltips" && $0.accepts == [.measure] }) {
+            return value.role
+        }
+        let ordinary = candidates.filter { !(implicitMeasures && field.kind == .column && $0.accepts == [.measure]) }
+        return (ordinary.first { $0.role != "Tooltips" } ?? ordinary.first ?? candidates.first)?.role
     }
 
     // MARK: Từ chối
 
     static let unverifiedReason = "Ô này chưa kiểm với Power BI Desktop (buổi VM-D2), nên chưa thêm trường được."
-    static let aggregationReason = "Ô này cần measure: BI Pro chưa có phép gộp ngầm (cột số tự thành Tổng, Trung bình…). Hãy tạo measure, ví dụ SUM(Bảng[Cột]). Với mô hình đặt \"discourage implicit measures\" như Nhom6, Power BI Desktop cũng chặn cột số ở ô này (VM-D2b)."
+    static let aggregationReason = "Ô này cần measure: mô hình đặt \"discourage implicit measures\" (như Nhom6) nên Power BI Desktop cũng chặn cột ở ô này (VM-D2b). Hãy tạo measure, ví dụ SUM(Bảng[Cột])."
 
     /// Lý do không thêm được `field` vào ô `role` của `visual`, hoặc nil nếu thêm được.
-    static func refusal(adding field: FieldRef, to role: String, in visual: ReportVisual) -> String? {
+    /// `implicitMeasures`: mô hình không đặt "discourage implicit measures" thì ô chỉ nhận measure cũng nhận cột (thành trường gộp,
+    /// VM-F10). Cột đã gộp trong visual thì từ chối: hai trường cùng `queryRef` (`Sum(Bảng.Cột)`) bị Desktop coi là một (gate VM-F10,
+    /// biểu đồ hiện "Average of Qty and Average of Qty"); cách Desktop đặt `queryRef` khi thêm cùng cột hai lần chưa quan sát.
+    static func refusal(adding field: FieldRef, to role: String, in visual: ReportVisual, implicitMeasures: Bool = false) -> String? {
         guard let rule = rule(for: visual, role: role) else { return "Visual này không có ô \"\(role)\"." }
         guard rule.status == .observed else { return unverifiedReason }
         let kind = WellKind(field.kind)
+        if implicitMeasures, field.kind == .column, rule.accepts == [.measure] {
+            if visual.fields.contains(where: { $0.kind == .aggregation && $0.entity == field.entity && $0.property == field.property }) {
+                return "Cột \"\(field.property)\" đã được gộp trong visual này; đổi phép gộp ở trường đang có."
+            }
+            return nil
+        }
         guard rule.accepts.contains(kind) else {
-            if kind == .column, rule.accepts == [.measure], field.family == .numeric { return aggregationReason }
+            if kind == .column, rule.accepts == [.measure] { return aggregationReason }
             return "Ô \"\(rule.label)\" chỉ nhận \(rule.accepts.map(\.label).sorted().joined(separator: " hoặc "))."
         }
         // Desktop cho thêm cùng một measure hai lần vào một ô (VM-D2 `R-D2-h-dup`); cột trùng thì chưa quan sát nên từ chối.
@@ -114,9 +130,11 @@ enum WellRules {
     }
 
     /// Lý do không chuyển được `field` (đang ở một ô của `visual`) sang ô `role`, hoặc nil.
-    static func refusal(moving field: ReportField, to role: String, in visual: ReportVisual) -> String? {
+    static func refusal(moving field: ReportField, to role: String, in visual: ReportVisual, implicitMeasures: Bool = false) -> String? {
         guard let rule = rule(for: visual, role: role) else { return "Visual này không có ô \"\(role)\"." }
         guard rule.status == .observed else { return unverifiedReason }
+        // Cột dời sang ô giá trị thành trường gộp (VM-F10 a6: Region từ Categories sang Value thành First).
+        if implicitMeasures, field.kind == .column, rule.accepts == [.measure] { return nil }
         guard let kind = WellKind(field.kind), rule.accepts.contains(kind) else {
             return "Ô \"\(rule.label)\" không nhận loại trường này."
         }
