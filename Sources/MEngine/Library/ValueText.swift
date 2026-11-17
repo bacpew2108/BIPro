@@ -35,13 +35,13 @@ enum ValueText {
             let datePart = floor(d)
             let timePart = (d - datePart) * 86_400
             let civil = ValueDateHelper.civilFromSerial(datePart)
-            let secs = Int(timePart.rounded())
+            let secs = timePart.isFinite ? Int(timePart.rounded()) : 0
             let h = (secs / 3600) % 24
             let m = (secs / 60) % 60
             let s = secs % 60
             return .text(String(format: "%04d-%02d-%02d %02d:%02d:%02d", civil.year, civil.month, civil.day, h, m, s))
         case .time(let t):
-            let secs = Int((t * 86_400).rounded())
+            let secs = t.isFinite ? Int((t * 86_400).rounded()) : 0
             let h = (secs / 3600) % 24
             let m = (secs / 60) % 60
             let s = secs % 60
@@ -223,7 +223,7 @@ enum ValueText {
         ) { args in
             if case .null = args[0] { return .null }
             let s = try args.text(0, "Text.Start")
-            let count = Int(try args.number(1, "Text.Start"))
+            let count = try MInt.from(args.number(1, "Text.Start"), "Text.Start")
             guard count >= 0 else { throw MError.expression("Text.Start: count không được âm") }
             return .text(String(s.prefix(count)))
         },
@@ -236,7 +236,7 @@ enum ValueText {
         ) { args in
             if case .null = args[0] { return .null }
             let s = try args.text(0, "Text.End")
-            let count = Int(try args.number(1, "Text.End"))
+            let count = try MInt.from(args.number(1, "Text.End"), "Text.End")
             guard count >= 0 else { throw MError.expression("Text.End: count không được âm") }
             return .text(String(s.suffix(count)))
         },
@@ -249,7 +249,7 @@ enum ValueText {
         ) { args in
             if case .null = args[0] { return .null }
             let s = try args.text(0, "Text.PadStart")
-            let targetCount = Int(try args.number(1, "Text.PadStart"))
+            let targetCount = try MInt.from(args.number(1, "Text.PadStart"), "Text.PadStart")
             guard targetCount >= 0 else { throw MError.expression("Text.PadStart: count không được âm") }
             if s.count >= targetCount { return .text(s) }
             let padChar: Character

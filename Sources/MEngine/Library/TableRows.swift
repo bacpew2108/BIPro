@@ -173,7 +173,7 @@ public enum TableRowsLibrary {
             let table = try args.table(0, "Table.FirstN")
             let arg1 = args[1]
             if let n = MOperators.number(arg1) {
-                let count = Int(n)
+                let count = try MInt.from(n, "Table.FirstN")
                 guard count >= 0 else { throw MError.expression("Table.FirstN: count không được âm") }
                 let take = min(count, table.rowCount)
                 return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(0..<take)))
@@ -205,7 +205,7 @@ public enum TableRowsLibrary {
                 guard let n = MOperators.number(c) else {
                     throw MError.expression("Table.Skip: count phải là số")
                 }
-                count = Int(n)
+                count = try MInt.from(n, "Table.Skip")
             } else {
                 count = 1
             }
@@ -221,7 +221,7 @@ public enum TableRowsLibrary {
             observed: false
         ) { args in
             let table = try args.table(0, "Table.LastN")
-            let count = Int(try args.number(1, "Table.LastN"))
+            let count = try MInt.from(args.number(1, "Table.LastN"), "Table.LastN")
             guard count >= 0 else { throw MError.expression("Table.LastN: count không được âm") }
             let take = min(count, table.rowCount)
             let start = table.rowCount - take
@@ -235,7 +235,7 @@ public enum TableRowsLibrary {
             observed: false
         ) { args in
             let table = try args.table(0, "Table.RemoveFirstN")
-            let count = args.optional(1).flatMap { MOperators.number($0).map(Int.init) } ?? 1
+            let count = try args.optional(1).flatMap(MOperators.number).map { try MInt.from($0, "Table.RemoveFirstN") } ?? 1
             guard count >= 0 else { throw MError.expression("Table.RemoveFirstN: count không được âm") }
             let start = min(count, table.rowCount)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(start..<table.rowCount)))
@@ -248,7 +248,7 @@ public enum TableRowsLibrary {
             observed: false
         ) { args in
             let table = try args.table(0, "Table.RemoveLastN")
-            let count = args.optional(1).flatMap { MOperators.number($0).map(Int.init) } ?? 1
+            let count = try args.optional(1).flatMap(MOperators.number).map { try MInt.from($0, "Table.RemoveLastN") } ?? 1
             guard count >= 0 else { throw MError.expression("Table.RemoveLastN: count không được âm") }
             let keptCount = max(0, table.rowCount - count)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(0..<keptCount)))
@@ -261,10 +261,10 @@ public enum TableRowsLibrary {
             observed: false
         ) { args in
             let table = try args.table(0, "Table.Range")
-            let offset = Int(try args.number(1, "Table.Range"))
+            let offset = try MInt.from(args.number(1, "Table.Range"), "Table.Range")
             guard offset >= 0 else { throw MError.expression("Table.Range: offset không được âm") }
             let start = min(offset, table.rowCount)
-            let count = args.optional(2).flatMap { MOperators.number($0).map(Int.init) } ?? (table.rowCount - start)
+            let count = try args.optional(2).flatMap(MOperators.number).map { try MInt.from($0, "Table.Range") } ?? (table.rowCount - start)
             guard count >= 0 else { throw MError.expression("Table.Range: count không được âm") }
             let end = min(start + count, table.rowCount)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(start..<end)))

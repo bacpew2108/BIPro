@@ -192,7 +192,8 @@ final class PostgresConnection {
 
     /// Chạy `sql` (simple query). `onDescription` nhận cột của tập kết quả (gọi lại nếu có nhiều câu lệnh), `onRow` nhận từng dòng chữ
     /// (`nil` là NULL). Lỗi máy chủ ném sau khi đã đọc tới ReadyForQuery (kết nối dùng tiếp được). Huỷ Task: đóng kết nối, ném `.cancelled`.
-    func query(_ sql: String, onDescription: ([PostgresField]) throws -> Void, onRow: ([String?]) throws -> Void) async throws {
+    /// `onRow` trả `false` để dừng sớm (xem trước đủ dòng, T107): kết nối bị đóng ngay, không đọc phần còn lại; kết nối không dùng tiếp được.
+    func query(_ sql: String, onDescription: ([PostgresField]) throws -> Void, onRow: ([String?]) throws -> Bool) async throws {
         try await write([UInt8(ascii: "Q")] + Self.int32(Int32(sql.utf8.count + 5)) + Self.cString(sql))
         var failure: Error?
         var rows = 0
@@ -223,7 +224,12 @@ final class PostgresConnection {
                     let length = Int(reader.int32())
                     values.append(length < 0 ? nil : String(decoding: reader.bytes(length), as: UTF8.self))
                 }
-                do { try onRow(values) } catch { failure = error }
+                do {
+                    if try !onRow(values) {
+                        close(sendTerminate: false)
+                        return
+                    }
+                } catch { failure = error }
                 rows += 1
                 if rows & 0x3FF == 0, Task.isCancelled {
                     close(sendTerminate: false)
@@ -243,7 +249,7 @@ final class PostgresConnection {
     /// Các dòng của một truy vấn nhỏ (danh sách bảng, tên kiểu).
     func rows(_ sql: String) async throws -> [[String?]] {
         var out: [[String?]] = []
-        try await query(sql, onDescription: { _ in }, onRow: { out.append($0) })
+        try await query(sql, onDescription: { _ in }, onRow: { out.append($0); return true })
         return out
     }
 

@@ -106,14 +106,17 @@ public struct PostgresItem: SourceItem {
         try await connection.query(sql, onDescription: { fields in
             builder = PostgresTableBuilder(fields: fields)
         }, onRow: { row in
-            if let limit, count >= limit { return }
             try builder?.append(row)
             count += 1
             if let progress, expected > 0, count & 0xFFF == 0 { progress(min(Double(count) / expected, 0.99)) }
+            return limit.map { count < $0 } ?? true   // đủ dòng xem trước thì dừng đọc (T107)
         })
         guard let builder else { throw SourceError.empty }
         if let unsupported = builder.firstUnsupported {
-            let typeName = (try? await connection.rows("select format_type(\(unsupported.typeOID), \(unsupported.typeModifier))").first?.first ?? nil)
+            // Kết nối có thể đã đóng sau khi dừng sớm: hỏi tên kiểu trên kết nối mới.
+            let lookup = try? await PostgresConnection.open(address, credential: credential)
+            defer { lookup?.close() }
+            let typeName = (try? await lookup?.rows("select format_type(\(unsupported.typeOID), \(unsupported.typeModifier))").first?.first ?? nil)
                 ?? "oid \(unsupported.typeOID)"
             throw SourceError.unsupported("kiểu PostgreSQL \"\(typeName)\" ở cột \"\(unsupported.name)\"")
         }

@@ -42,10 +42,13 @@ public enum VertiPaqWriter {
         case dateTime([Double?])
         /// `nil` is NULL.
         case string([String?])
+        /// Fixed decimal (tiền tệ): Int64 nhân 10⁴. Desktop 2.159 (golden `f9currency-desktop.pbix`, 2026-11-17) lưu như cột số nguyên
+        /// (`DictionaryStorage.DataType` 6) với `Column.DataType` 10; giá trị `Int64.max` bị Desktop từ chối.
+        case currency([Int64?])
 
         public var count: Int {
             switch self {
-            case .int64(let v): v.count
+            case .int64(let v), .currency(let v): v.count
             case .boolean(let v): v.count
             case .double(let v), .dateTime(let v): v.count
             case .string(let v): v.count
@@ -55,6 +58,7 @@ public enum VertiPaqWriter {
         public var dataType: ModelMetadata.DataType {
             switch self {
             case .int64: .int64
+            case .currency: .decimal
             case .boolean: .boolean
             case .double: .double
             case .dateTime: .dateTime
@@ -288,8 +292,14 @@ public enum VertiPaqWriter {
         }
 
         if case .boolean(let flags) = values { return try encodeDictionary(.int64(flags.map { $0.map { $0 ? 1 : 0 } })) }
+        if case .currency(let amounts) = values {
+            guard !amounts.contains(Int64.max) else {
+                throw WriteError.invalid("giá trị tiền tệ 922337203685477,5807 không được hỗ trợ (Desktop cũng từ chối)")
+            }
+            return try encodeDictionary(.int64(amounts))
+        }
         switch values {
-        case .boolean: fatalError("đã đổi sang số nguyên ở trên")
+        case .boolean, .currency: fatalError("đã đổi sang số nguyên ở trên")
         case .int64(let v):
             let (ids, order, hasNulls) = assign(v)
             var out = VertiPaqByteWriter()
@@ -582,6 +592,9 @@ public enum VertiPaqWriter {
         case .int64(let v):
             let present = v.compactMap { $0 }
             return (present.min().map(String.init), present.max().map(String.init), 0)
+        case .currency(let v):
+            let present = v.compactMap { $0 }
+            return (present.min().map { doubleText(Double($0) / 10_000) }, present.max().map { doubleText(Double($0) / 10_000) }, 0)
         case .boolean(let v):
             let present = v.compactMap { $0 }
             return (present.contains(false) ? "FALSE" : present.isEmpty ? nil : "TRUE", present.contains(true) ? "TRUE" : present.isEmpty ? nil : "FALSE", 0)

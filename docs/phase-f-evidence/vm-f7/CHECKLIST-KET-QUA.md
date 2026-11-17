@@ -37,3 +37,8 @@ Tệp `build/f-out/f7db/bipro-f7sqlite.pbix` (BI Pro, `F7SQLiteGateTests`: tài 
 | Desktop 2.159 mở tệp | ĐẠT: Customers, NorthSales, Sales ở Data pane (ảnh `g6-desktop-mo-bipro-f7sqlite.png`) |
 | Số | ĐẠT: card `350.32K` = Σ Amount 350 317,03 (sqlite3) |
 | Refresh trong Desktop | Không thử: M ghi đường dẫn tệp trên máy Mac (như CSV/Excel), VM không có đường dẫn đó |
+
+## T103 (Fixed decimal), 2026-11-17, Claude lái VM
+
+- Quan sát: Desktop lưu cột `Currency.Type` với `Column.DataType` 10, FormatString `\$#,0.###############;(\$#,0.###############);\$#,0.###############`, chú thích `PBI_FormatHint {"currencyCulture":"en-US"}`, giá trị Int64 nhân 10⁴ (`DictionaryStorage.DataType` 6, `Statistics_DBType` 6). Giá trị 922337203685477,5807 (Int64 lớn nhất) bị từ chối khi nạp ("contains a value … which is not supported", ảnh `t2-currency-gioi-han.png`). Golden `f9currency-desktop.pbix` (ngoài git).
+- Gate: `build/f-out/f9/bipro-currency.pbix` (`CurrencyQueryApplyTests`: CSV → Query Editor đổi Price, Amount sang Fixed decimal → Close & Apply → card → lưu) mở trong Desktop, card `37.86K` = Σ Amount 37 860,12 (Python): **ĐẠT** (ảnh `g7-desktop-mo-bipro-currency.png`).

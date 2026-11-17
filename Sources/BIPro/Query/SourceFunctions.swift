@@ -267,11 +267,18 @@ enum SourceFunctions {
     private static func blocking<T: Sendable>(_ work: @escaping @Sendable () async throws -> T) throws -> T {
         let box = Box<T>()
         let done = DispatchSemaphore(value: 0)
-        Task.detached(priority: .userInitiated) {
+        let task = Task.detached(priority: .userInitiated) {
             do { box.result = .success(try await work()) } catch { box.result = .failure(error) }
             done.signal()
         }
-        done.wait()
+        // Huỷ lan sang việc đọc nguồn (lỗi T096): Task gọi hàm M bị huỷ (đóng Query Editor, làm mới khác) thì huỷ Task đọc và trả về ngay,
+        // không chờ đọc hết bảng. [Tồn đọng] chờ semaphore vẫn giữ một luồng của pool trong lúc đọc; bỏ hẳn cần hàm M bất đồng bộ.
+        while done.wait(timeout: .now() + .milliseconds(100)) == .timedOut {
+            if Task.isCancelled {
+                task.cancel()
+                throw CancellationError()
+            }
+        }
         do { return try box.result!.get() } catch let error as SourceError {
             throw MError(reason: "DataSource.Error", message: message(for: error))
         }

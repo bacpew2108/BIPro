@@ -210,6 +210,7 @@ public enum PBIXWriter {
             guard let values = inMemory[table.lowercased()]?.columns.first(where: { $0.name == column })?.values else { return nil }
             switch values {
             case .int64(let v): return v.map { $0.map { .int($0) } ?? .null }
+            case .currency(let v): return v.map { $0.map { .decimal(Double($0) / 10_000) } ?? .null }
             case .boolean(let v): return v.map { $0.map { .bool($0) } ?? .null }
             case .double(let v): return v.map { $0.map { .double($0 == 0 ? 0 : $0) } ?? .null }
             case .dateTime(let v): return v.map { $0.map { .dateTime($0) } ?? .null }
@@ -381,13 +382,14 @@ public enum PBIXWriter {
             let deletes = changes.allModelEdits.items.filter { if case .deleteRelationship = $0 { true } else { false } }.count + rebuilt
             // Bảng mới: tệp của bảng (`<Tên> (<id>).tbl…`) và của bảng hệ thống `H$<Tên> (<id>)$…`.
             // Tên tệp của bảng do Desktop ghi thay ký tự không phải chữ số bằng khoảng trắng ("Dim_Loan_Profile" thành "Dim Loan Profile (31).tbl").
-            func flat(_ text: String) -> String { String(text.map { $0.isLetter || $0.isNumber || $0 == "(" || $0 == "$" || $0 == "." || $0 == "\\" ? $0 : " " }) }
-            let newPrefixes = newTableNames.flatMap { [flat("\($0) ("), flat("H$\($0) (")] }
-            let gonePrefixes = goneNames.flatMap { [flat("\($0) ("), flat("H$\($0) (")] }
+            // Khớp cả mã bảng: tiền tố chỉ theo tên ("Sales (") còn trúng tệp của bảng "Sales (2)" và bỏ qua so byte của nó (lỗi T096/T104).
+            let flat = Self.flatFileName
+            let newPrefixes = Self.tableFilePrefixes(model.tables.filter { newTableNames.contains($0.name) }.map { ($0.name, $0.id) })
+            let gonePrefixes = Self.tableFilePrefixes(oldModel.tables.filter { goneNames.contains($0.name) }.map { ($0.name, $0.id) })
             // Cột tính toán thêm vào bảng đã có (T084): tệp mới của cột trong thư mục bảng, phân vùng và bảng `H$` của cột.
             let calculatedFiles: [(table: [String], column: String)] = changes.allModelEdits.items.compactMap { edit in
                 guard case .addCalculatedColumn(let table, let name, _, _) = edit else { return nil }
-                return ([flat("\(table) ("), flat("H$\(table) (")], flat("\(name) ("))
+                return (Self.tableFilePrefixes(model.tables.filter { $0.name == table }.map { ($0.name, $0.id) }), flat("\(name) ("))
             }
             let isCalculatedFile: (String) -> Bool = { path in
                 let f = flat(path)
@@ -425,4 +427,16 @@ public enum PBIXWriter {
 extension PBIXFile {
     /// A `PBIXFile` over an archive that is already open.
     init(archive: ZipArchive) { self.archive = archive }
+}
+
+extension PBIXWriter {
+    /// Tên tệp ABF do Desktop ghi thay ký tự không phải chữ, số, `(`, `$`, `.`, `\\` bằng khoảng trắng ("Dim_Loan_Profile" → "Dim Loan Profile (31).tbl").
+    static func flatFileName(_ text: String) -> String {
+        String(text.map { $0.isLetter || $0.isNumber || $0 == "(" || $0 == "$" || $0 == "." || $0 == "\\" ? $0 : " " })
+    }
+
+    /// Tiền tố tệp của bảng và bảng hệ thống `H$` của nó, kèm mã bảng: `<Tên> (<id>)` và `H$<Tên> (<id>)$`.
+    static func tableFilePrefixes(_ tables: [(name: String, id: Int)]) -> [String] {
+        tables.flatMap { [flatFileName("\($0.name) (\($0.id))"), flatFileName("H$\($0.name) (\($0.id))$")] }
+    }
 }

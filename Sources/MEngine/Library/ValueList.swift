@@ -263,7 +263,7 @@ enum ValueList {
             let start = try args.number(0, "List.Numbers")
             let count = try args.optional(1).map { v -> Int in
                 guard let n = MOperators.number(v) else { throw MError.expression("List.Numbers: count phải là số") }
-                return Int(n)
+                return try MInt.from(n, "List.Numbers")
             } ?? 1
             guard count >= 0 else { throw MError.expression("List.Numbers: count không được âm") }
             let increment = try args.optional(2).map { v -> Double in

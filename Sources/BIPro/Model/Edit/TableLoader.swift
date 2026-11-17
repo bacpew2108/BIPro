@@ -49,7 +49,8 @@ public struct LoadedTable: Identifiable, Sendable {
 /// Đặt tên bảng khi nạp.
 public enum TableNaming {
     /// Tên chưa dùng: `base`, nếu trùng (không phân biệt hoa thường, như tên bảng tabular) thì `base (2)`, `base (3)`…
-    /// [SUY ĐOÁN] hậu tố " (n)" bắt đầu từ 2, chưa quan sát Desktop (chờ VM-F2, T032).
+    /// Hậu tố " (n)" bắt đầu từ 2 như Desktop (`Query1 (2)`, `sales_2026 (2)`: docs/phase-f-evidence/vm-f8/QUAN-SAT.md); so tên không
+    /// phân biệt hoa thường là [SUY ĐOÁN].
     public static func uniqueName(_ base: String, taken: Set<String>) -> String {
         let trimmed = base.trimmingCharacters(in: .whitespaces)
         let root = trimmed.isEmpty ? "Table" : trimmed

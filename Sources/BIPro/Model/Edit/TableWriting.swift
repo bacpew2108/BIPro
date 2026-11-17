@@ -54,7 +54,10 @@ extension TableLoader {
             for row in 0..<count { if case .boolean(let x) = data.value(at: row) { v.append(x) } else { v.append(nil) } }
             return .boolean(v)
         case .currency:
-            throw ModelEditError("Cột «\(column.name)» kiểu tiền tệ chưa lưu được vào file .pbix (đang làm). Đổi sang số thập phân rồi lưu lại.")
+            // Fixed decimal: Int64 nhân 10⁴, như Desktop lưu (T103).
+            var v: [Int64?] = []; v.reserveCapacity(count)
+            for row in 0..<count { if case .currency(let x) = data.value(at: row) { v.append(x) } else { v.append(nil) } }
+            return .currency(v)
         }
     }
 }

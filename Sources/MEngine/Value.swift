@@ -109,3 +109,14 @@ public struct MFunction: @unchecked Sendable {
         self.implementation = implementation
     }
 }
+
+/// Đổi số M sang `Int` an toàn (lỗi T096: `Int(Double)` sập cả app với NaN, ±vô cực hoặc số quá lớn). Báo `Expression.Error` như Power Query
+/// ("số nằm ngoài phạm vi") thay vì dừng chương trình. Phần thập phân bị cắt như `Int(_:)`.
+public enum MInt {
+    public static func from(_ value: Double, _ context: String) throws -> Int {
+        guard value.isFinite, abs(value) <= 9_007_199_254_740_992 else {
+            throw MError(reason: "Expression.Error", message: "\(context): số \(value) nằm ngoài phạm vi số nguyên")
+        }
+        return Int(value)
+    }
+}

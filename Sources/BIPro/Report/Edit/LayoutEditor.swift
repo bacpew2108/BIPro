@@ -1266,15 +1266,25 @@ final class LayoutEditor {
     func modelDelta() throws -> ModelEdits {
         if savedModelEdits.isEmpty { return try TableLoader.writable(modelEdits) }
         guard let base = modelBase else { throw ModelEditError("Thiếu mô hình gốc để tính phần đổi của lần lưu này") }
-        // Bảng nạp sau lần lưu trước đi đầu (measure và quan hệ trên chúng đứng sau); phần còn lại do so hai mô hình.
+        // Thứ tự: (1) phần so mô hình xoá measure/quan hệ: chỉ nhắm vào đối tượng đã có trong file, phải đi trước khi xoá bảng chứa
+        // chúng (bộ ghi từ chối xoá bảng còn measure/quan hệ; lỗi T096); (2) thao tác bảng sau lần lưu trước, giữ thứ tự (xoá A rồi nạp
+        // A mới vẫn đúng); (3) phần so mô hình còn lại (measure và quan hệ trên bảng mới đứng sau bảng).
         let saved = Set(savedModelEdits.items)
-        var delta = ModelEdits(modelEdits.items.filter { edit in
+        let diff = ModelMetadata.edits(from: try base.applying(savedModelEdits), to: try base.applying(modelEdits)).items
+        func isDeletion(_ edit: ModelEdit) -> Bool {
             switch edit {
-            case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: !saved.contains(edit)
+            case .deleteMeasure, .deleteRelationship: true
             default: false
             }
-        })
-        for edit in ModelMetadata.edits(from: try base.applying(savedModelEdits), to: try base.applying(modelEdits)).items { delta.append(edit) }
+        }
+        var delta = ModelEdits(diff.filter(isDeletion))
+        for edit in modelEdits.items {
+            switch edit {
+            case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: if !saved.contains(edit) { delta.append(edit) }
+            default: break
+            }
+        }
+        for edit in diff where !isDeletion(edit) { delta.append(edit) }
         return try TableLoader.writable(delta)
     }
 

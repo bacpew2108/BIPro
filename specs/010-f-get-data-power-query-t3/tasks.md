@@ -152,9 +152,9 @@ Trong lúc chờ T010, được làm song song: Giai đoạn 4 (đọc nguồn) 
 
 ## Giai đoạn 11: Hoàn thiện, tích hợp, review (không có nhãn câu chuyện)
 
-- [ ] T095 [LEAD] Chạy golden nặng đầy đủ `BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --no-parallel --filter "Nhom6|ORA|VIS|Batched"` và `swift test`: 30 DAX và 72 truy vấn visual không đổi (SC-007), không test nào bị tắt; ghi số vào `docs/STATE.md`
-- [ ] T096 [LEAD] `/code-review` toàn bộ thay đổi Phase F (hai trục Chuẩn và Đặc tả), sửa lỗi tìm được; ghi kết quả
-- [ ] T097 [LEAD] `/speckit-converge` đối chiếu mã với `spec.md`, `plan.md`, `tasks.md`; thêm task cho phần chưa dựng
+- [x] T095 [LEAD] **(2026-11-17: 111/111 qua, release, --no-parallel; `swift test` 2208 qua)** Chạy golden nặng đầy đủ `BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --no-parallel --filter "Nhom6|ORA|VIS|Batched"` và `swift test`: 30 DAX và 72 truy vấn visual không đổi (SC-007), không test nào bị tắt; ghi số vào `docs/STATE.md`
+- [x] T096 [LEAD] **(2026-11-17: `/code-review high b9201f6..HEAD`, 10 phát hiện, đều kiểm lại trong code và sửa kèm test: CSV ranh giới khối (UTF-8 nhiều byte, `""`, CR LF, byte hỏng) `CSVChunkBoundaryTests`; lưu lần hai xoá bảng `SecondSaveDropTableTests`; gộp add/drop bảng `ModelEditsCollapseTests`; số vô cực/NaN làm sập `NonFiniteNumberTests`; `Number.Round` ToEven + RoundingMode theo quan sát Desktop `NumberRoundTests`; JSON surrogate lẻ; `refreshSource` tìm lại truy vấn theo id; huỷ lan sang việc đọc nguồn. Tồn đọng: chờ semaphore vẫn giữ luồng pool)** `/code-review` toàn bộ thay đổi Phase F (hai trục Chuẩn và Đặc tả), sửa lỗi tìm được; ghi kết quả
+- [x] T097 [LEAD] **(2026-11-17: 10 phát hiện, thêm T103–T112 ở Giai đoạn 12)** `/speckit-converge` đối chiếu mã với `spec.md`, `plan.md`, `tasks.md`; thêm task cho phần chưa dựng
 - [ ] T098 [LEAD] Rà `FR-001…FR-082` ↔ test; bổ sung test còn thiếu; kiểm SC-001 (luồng `sales_2026.xlsx` đầy đủ < 5 phút thao tác, số khớp 100%), SC-004, SC-005, SC-006, SC-008 (không mất thay đổi âm thầm khi đóng Query Editor)
 - [ ] T099 [LEAD] `zsh scripts/build-app.sh` dựng lại `build/BI Pro.app`; bấm thử toàn bộ luồng chính (Get Data, Query Editor, Close & Apply, cột tính toán, file mới) và ghi vào `docs/STATE.md`
 - [ ] T100 [VM] Gate tổng M3: luồng `sales_2026.xlsx` → Query Editor → Close & Apply → report → lưu `.pbix` → mở trong Desktop (SC-001, SC-009); `docs/phase-f-evidence/CHECKLIST-M3.md`
@@ -179,3 +179,16 @@ Trong lúc chờ T010, được làm song song: Giai đoạn 4 (đọc nguồn) 
 - **MVP = Giai đoạn 1 đến 5** (US3 → US1 → US2): đạt điều kiện "xong khi" của phase (luồng `sales_2026.xlsx` mở được trong Desktop). Sau T066 là điểm dừng được.
 - Tăng dần: US4 → US5 → US6 (P2), rồi US7, US8 (P3). Nếu M3 trễ thì cắt P3 trước, không cắt P1/P2 (plan, "Cần bạn quyết" 4).
 - Mọi lát kết thúc bằng gate Desktop (do bạn làm tay), kiểm golden nặng ở lát đụng engine, và cập nhật `docs/STATE.md`.
+
+## Giai đoạn 12: Hội tụ (Convergence, `/speckit-converge` 2026-11-17)
+
+- [x] T103 **(2026-11-17: xong, gate Desktop ĐẠT, `CurrencyWriteTests` 3, `CurrencyQueryApplyTests` 1)** Ghi cột tiền tệ (Fixed decimal, `Currency.Type`) vào VertiPaq và `metadata.sqlitedb` thay cho lỗi "chưa lưu được" ở `TableWriting.swift`; quan sát cách Desktop lưu cột Fixed decimal trước khi viết, gate Desktop mở được và đúng số per FR-050 (partial)
+- [x] T104 **(2026-11-17: xong, `TableFilePrefixTests`)** Kiểm sau ghi (`DocumentSaver.verifyTables`/`PBIXWriter`) so tệp bảng theo đúng tên tệp thay vì tiền tố tên, kèm test hai bảng tên giống tiền tố per FR-051 (partial)
+- [x] T105 **(2026-11-17: xong, `ExcelXMLEdgeTests` 3; thêm: inline string nhiều đoạn chỉ giữ đoạn cuối)** Bộ đọc xlsx: giữ ô thiếu thuộc tính `r` (vị trí theo thứ tự), bỏ chữ phiên âm `rPh` khỏi shared strings, giữ khoảng trắng đầu/cuối của inline string; test bằng tệp xlsx dựng tay per FR-003 (partial)
+- [ ] T106 Đo bản release lưu bảng 1 triệu dòng qua đường app đầy đủ (`TableData` → mã hoá → `PBIXWriter` → `verifyTables`) và lưu 100 000 dòng trên nền Nhom6; ghi `measurements.md` per SC-004 (partial)
+- [x] T107 **(2026-11-17: xong, `previewOfHugeQueryStopsEarly`)** Xem trước câu SQL PostgreSQL dừng đọc sau `limit` dòng (huỷ truy vấn phía máy chủ hoặc đóng kết nối) thay vì tải hết kết quả per SC-003 (partial)
+- [ ] T108 Liệt kê SQLite không chạy `COUNT(*)` trên từng bảng (đếm rẻ hoặc để trễ tới khi xem trước) per SC-003 (partial)
+- [ ] T109 Parquet đọc theo ánh xạ tệp (không chép cả tệp vào bộ nhớ) per SC-005 (partial)
+- [ ] T110 Hàm nguồn M (`File.Contents`, `Csv.Document`, `PostgreSQL.Database`…) chạy bất đồng bộ, bỏ chờ semaphore giữ luồng pool trong `SourceFunctions.blocking` per plan: engine M (partial)
+- [ ] T111 Nén RLE khi ghi cột VertiPaq có giá trị lặp (kích thước tệp gần Desktop) per T014 (partial)
+- [x] T112 **(2026-11-17: xong, `vm-f2/QUAN-SAT.md` trỏ tới VM-F1 mục 2–3 và VM-F8)** Gom quan sát Get Data CSV/Excel của Desktop (Navigator, kiểu dò, dấu phân cách, mã hoá, hậu tố tên trùng " (2)" đã thấy ở VM-F8) vào `docs/phase-f-evidence/vm-f2/QUAN-SAT.md`; bỏ nhãn [SUY ĐOÁN] đã kiểm ở `TableNaming` per FR-081 (partial)

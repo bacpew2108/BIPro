@@ -169,7 +169,7 @@ enum DocumentSaver {
                     case .dateTime(let v): expected = .dateTime(v)
                     case .string(let v): expected = .string(v)
                     case .boolean(let v): expected = .bool(v)
-                    case .currency: throw SaveError.verificationFailed("cột «\(column.name)» có kiểu chưa lưu được")
+                    case .currency(let v): expected = .decimal(Double(v) / 10_000)
                     }
                     guard written[row] == expected else {
                         throw SaveError.verificationFailed("bảng «\(table.name)», cột «\(column.name)», dòng \(row + 1) đọc lại khác dữ liệu trong bộ nhớ")

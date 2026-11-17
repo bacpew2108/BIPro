@@ -126,13 +126,20 @@ public enum MJson {
                     case UInt8(ascii: "t"): out.append(0x09)
                     case UInt8(ascii: "u"):
                         var code = try hex4()
+                        var pending: UInt32?   // \u sau surrogate cao mà không phải surrogate thấp: giữ lại làm ký tự riêng (lỗi T096)
                         if (0xD800...0xDBFF).contains(code), index + 1 < bytes.count, bytes[index] == UInt8(ascii: "\\"), bytes[index + 1] == UInt8(ascii: "u") {
                             index += 2
                             let low = try hex4()
-                            code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+                            if (0xDC00...0xDFFF).contains(low) {
+                                code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+                            } else {
+                                pending = low
+                            }
                         }
-                        let scalar = Unicode.Scalar(code) ?? "\u{FFFD}"
-                        out.append(contentsOf: Array(String(Character(scalar)).utf8))
+                        for value in [code] + (pending.map { [$0] } ?? []) {
+                            let scalar = Unicode.Scalar(value) ?? "\u{FFFD}"
+                            out.append(contentsOf: Array(String(Character(scalar)).utf8))
+                        }
                     default: throw failure("ký tự thoát lạ")
                     }
                     continue
@@ -200,14 +207,14 @@ enum JsonLibrary {
         var names: [String]
         switch args.optional(2) {
         case .none: names = (0..<(rows.first?.count ?? 1)).map { "Column\($0 + 1)" }
-        case .number(let n)?: names = (0..<max(Int(n), 0)).map { "Column\($0 + 1)" }
+        case .number(let n)?: names = (0..<max(try MInt.from(n, "Table.FromList"), 0)).map { "Column\($0 + 1)" }
         case .list(let list)?: names = try list.map { v in guard case .text(let s) = v else { throw MError.expression("Table.FromList: tên cột phải là text") }; return s }
         case .type(let t)? where t.kind == .table: names = t.fields.map(\.name)
         default: throw MError.expression("Table.FromList: tham số columns không hợp lệ")
         }
         if names.isEmpty { names = ["Column1"] }
         let fill = args.optional(3) ?? .null
-        let extra = Int(MOperators.number(args[4]) ?? 1)
+        let extra = try MInt.from(MOperators.number(args[4]) ?? 1, "Table.FromList")
         var columns = Array(repeating: [MValue](), count: names.count)
         for row in rows {
             for c in names.indices {

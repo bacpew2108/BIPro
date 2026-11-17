@@ -6,18 +6,24 @@ final class SharedStringsParser: NSObject, XMLParserDelegate {
     private(set) var strings: [String] = []
     private var currentText: String = ""
     private var inTTag = false
+    /// Trong `<rPh>` (chữ phiên âm): bỏ qua `<t>` của nó, không thuộc nội dung ô (T105).
+    private var phoneticDepth = 0
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
         if elementName == "si" {
             currentText = ""
+        } else if elementName == "rPh" {
+            phoneticDepth += 1
         } else if elementName == "t" {
-            inTTag = true
+            inTTag = phoneticDepth == 0
         }
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
         if elementName == "si" {
             strings.append(currentText)
+        } else if elementName == "rPh" {
+            phoneticDepth -= 1
         } else if elementName == "t" {
             inTTag = false
         }
@@ -159,6 +165,10 @@ final class SheetParser: NSObject, XMLParserDelegate {
     private var currentValText: String = ""
     private var inVTag = false
     private var inInlineStrTTag = false
+    /// Vị trí khi ô hoặc dòng không có thuộc tính `r` (ECMA-376 cho phép bỏ): dòng kế tiếp, cột sau ô trước (T105).
+    private var currentRow = -1
+    private var lastCol = -1
+    private var phoneticDepth = 0
 
     init(sharedStrings: [String], isDateStyle: [Int: Bool], date1904: Bool) {
         self.sharedStrings = sharedStrings
@@ -169,6 +179,9 @@ final class SheetParser: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
         if elementName == "dimension" {
             dimensionRef = attributeDict["ref"]
+        } else if elementName == "row" {
+            currentRow = attributeDict["r"].flatMap(Int.init).map { $0 - 1 } ?? currentRow + 1
+            lastCol = -1
         } else if elementName == "c" {
             currentCellRef = attributeDict["r"] ?? ""
             currentCellType = attributeDict["t"]
@@ -177,9 +190,11 @@ final class SheetParser: NSObject, XMLParserDelegate {
         } else if elementName == "v" {
             inVTag = true
             currentValText = ""
+        } else if elementName == "rPh" {
+            phoneticDepth += 1
         } else if elementName == "t" {
-            inInlineStrTTag = true
-            currentValText = ""
+            // Inline string có thể có nhiều đoạn `<r><t>`: gom tất cả, không xoá chữ đã gom (T105).
+            inInlineStrTTag = phoneticDepth == 0
         }
     }
 
@@ -188,9 +203,17 @@ final class SheetParser: NSObject, XMLParserDelegate {
             inVTag = false
         } else if elementName == "t" {
             inInlineStrTTag = false
+        } else if elementName == "rPh" {
+            phoneticDepth -= 1
         } else if elementName == "c" {
-            guard let pos = ExcelRefParser.parseCellRef(currentCellRef) else { return }
-            let text = currentValText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let explicit = currentCellRef.isEmpty ? nil : ExcelRefParser.parseCellRef(currentCellRef)
+            if !currentCellRef.isEmpty && explicit == nil { return }
+            let pos = explicit ?? (col: lastCol + 1, row: max(currentRow, 0))
+            lastCol = pos.col
+            if explicit != nil { currentRow = pos.row }
+            // Chữ giữ nguyên khoảng trắng (Excel lưu đúng nội dung ô); số, logic, chỉ số shared string thì bỏ khoảng trắng thừa.
+            let raw = currentValText
+            let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
             let cellValue: ExcelCellType?
             switch currentCellType {
@@ -205,7 +228,7 @@ final class SheetParser: NSObject, XMLParserDelegate {
             case "e":
                 cellValue = .error(text)
             case "str", "inlineStr":
-                cellValue = .string(text)
+                cellValue = .string(raw)
             default:
                 // Số hoặc ngày
                 if let num = Double(text) {

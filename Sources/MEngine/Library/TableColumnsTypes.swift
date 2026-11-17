@@ -235,7 +235,7 @@ enum TableColumnsTypesHelper {
                     let datePart = floor(d)
                     let timePart = (d - datePart) * 86_400
                     let civil = ValueDateHelper.civilFromSerial(datePart)
-                    let secs = Int(timePart.rounded())
+                    let secs = timePart.isFinite ? Int(timePart.rounded()) : 0
                     let h = (secs / 3600) % 24
                     let m = (secs / 60) % 60
                     let s = secs % 60

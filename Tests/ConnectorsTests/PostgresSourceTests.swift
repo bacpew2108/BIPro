@@ -140,4 +140,16 @@ enum PGFixture {
         #expect(table.columns.map(\.data.type) == [.integer, .double, .string, .dateTime])
         #expect(elapsed < .seconds(10))
     }
+
+    /// T107: xem trước câu SQL dừng đọc khi đủ dòng, không tải hết kết quả.
+    @Test func previewOfHugeQueryStopsEarly() async throws {
+        guard let (address, credential) = PGFixture.config else { return }
+        let item = try #require(try await PostgresSource(address: address, credential: credential,
+                                                         query: "select g as id from generate_series(1, 5000000) g").items().first)
+        let clock = ContinuousClock()
+        let start = clock.now
+        let preview = try await item.preview(limit: 10)
+        #expect(preview.rowCount == 10)
+        #expect(clock.now - start < .seconds(1))
+    }
 }

@@ -454,11 +454,13 @@ public final class QueryEditorState {
         }
         guard case .table(let fresh) = value else { return "Nguồn của \"\(query.name)\" không trả về bảng (\(value.kindName))." }
         await ensureBase(query)
+        // Trong lúc chờ đọc nguồn, người dùng có thể đã xoá hoặc đổi thứ tự truy vấn: tìm lại theo id, không dùng chỉ số cũ (lỗi T096).
+        guard let current = queries.firstIndex(where: { $0.id == id }) else { return nil }
         let unchanged = bases[id].map { MTables.identical($0, fresh) } ?? false
         bases[id] = fresh
         caches.removeAll(); cacheSignatures.removeAll(); dependencyResults.removeAll()
         if !unchanged {
-            queries[index].dataChanged = true
+            queries[current].dataChanged = true
             hasPendingChanges = true
         }
         scheduleRefresh()

@@ -281,7 +281,7 @@ public struct TableMetadataWriter {
         let dataType = Int64(column.dataType.rawValue)
         let systemTableID: Int64? = column.hierarchy == nil ? nil : allocate()
 
-        let dbType: Int64 = isRowNumber ? 20 : (column.dataType == .string ? 130 : (column.dataType == .double ? 5 : (column.dataType == .dateTime ? 7 : (column.dataType == .boolean ? 11 : 20))))
+        let dbType: Int64 = isRowNumber ? 20 : (column.dataType == .string ? 130 : (column.dataType == .double ? 5 : (column.dataType == .dateTime ? 7 : (column.dataType == .boolean ? 11 : (column.dataType == .decimal ? 6 : 20)))))
         try db.run("""
             INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags,
                 Collation, OrderByColumn, Locale, BinaryCharacters, Statistics_DistinctStates, Statistics_MinDataID,
@@ -308,7 +308,7 @@ public struct TableMetadataWriter {
             """, [
                 .int(dictionaryStorageID), .int(columnStorageID), .int(Int64(column.dictionaryType)),
                 // Desktop: the dictionary of a date column holds doubles, so its DataType is 8 (Marketing `Ngày`).
-                .int(column.dataType == .dateTime ? 8 : (column.dataType == .boolean ? 6 : dataType)),
+                .int(column.dataType == .dateTime ? 8 : (column.dataType == .boolean || column.dataType == .decimal ? 6 : dataType)),
                 .int(Int64(column.dictionaryBaseID)), .double(column.magnitude),
                 // Value-encoded columns have no dictionary file: Desktop writes LastId 2 and Size 144 for all of them.
                 .int(column.dictionary == nil ? 2 : Int64(column.maxDataID)),
@@ -502,6 +502,7 @@ public struct TableMetadataWriter {
             case .double: "number"
             case .dateTime: "date"
             case .boolean: "logical"
+            case .decimal: "Currency.Type"
             case .string: "text"
             default: "any"
             }
@@ -517,6 +518,8 @@ public struct TableMetadataWriter {
         case .int64: "0"
         case .dateTime: "Long Date"
         case .boolean: "\"TRUE\";\"TRUE\";\"FALSE\""
+        // Fixed decimal (Desktop 2.159, `f9currency-desktop.pbix`).
+        case .decimal: #"\$#,0.###############;(\$#,0.###############);\$#,0.###############"#
         default: nil
         }
     }

@@ -186,6 +186,18 @@ public enum ModelEdit: Sendable, Hashable {
     case addCalculatedTable(name: String, expression: String, columns: [ColumnSignature])
 
     /// Thao tác thuộc Phase F cần tầng T3.
+    /// Thao tác nhắm vào bảng `lowercasedName` (thêm/sửa/xoá measure, cột, bảng, cột tính toán của nó).
+    func mentionsTable(_ lowercasedName: String) -> Bool {
+        switch self {
+        case .addMeasure(let m): m.table.lowercased() == lowercasedName
+        case .updateMeasure(let t, _, _), .deleteMeasure(let t, _), .updateColumn(let t, _, _), .addCalculatedColumn(let t, _, _, _):
+            t.lowercased() == lowercasedName
+        case .updateTable(let t, _), .replaceTable(let t, _), .dropTable(let t): t.lowercased() == lowercasedName
+        case .addTable(let t): t.name.lowercased() == lowercasedName
+        default: false
+        }
+    }
+
     var needsData: Bool {
         switch self {
         case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: true
@@ -227,7 +239,24 @@ public struct ModelEdits: Sendable, Hashable {
                     added[table.name.lowercased()] = at
                 } else { out.append(edit) }
             case .dropTable(let name):
-                if let at = added.removeValue(forKey: name.lowercased()) { out[at] = nil } else { out.append(edit) }
+                guard let at = added.removeValue(forKey: name.lowercased()) else { out.append(edit); continue }
+                // Bảng chưa từng có trong file: bỏ cả mọi thao tác nhắc tới nó ở giữa (measure, cột, quan hệ…), không thì bộ ghi
+                // áp chúng lên bảng không tồn tại (lỗi T096).
+                let key = name.lowercased()
+                var relationships = Set<String>()
+                for index in at..<out.count {
+                    guard let item = out[index] else { continue }
+                    if case .addRelationship(let r) = item, r.fromTable.lowercased() == key || r.toTable.lowercased() == key {
+                        relationships.insert(r.name)
+                        out[index] = nil
+                    } else if item.mentionsTable(key) {
+                        out[index] = nil
+                    } else if case .updateRelationship(let r, _) = item, relationships.contains(r) {
+                        out[index] = nil
+                    } else if case .deleteRelationship(let r) = item, relationships.contains(r) {
+                        out[index] = nil
+                    }
+                }
             default:
                 out.append(edit)
             }

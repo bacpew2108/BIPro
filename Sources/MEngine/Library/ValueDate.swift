@@ -4,7 +4,8 @@ import ColumnStore
 
 enum ValueDateHelper {
     static func civilFromSerial(_ serial: Double) -> (year: Int, month: Int, day: Int) {
-        let z = Int(floor(serial)) + 693_899
+        // Ngày ngoài phạm vi (vô cực, NaN) không được làm sập app: kẹp về khoảng hợp lệ của M (năm 1–9999).
+        let z = Int(floor(serial.isFinite ? min(max(serial, -693_593), 2_958_465) : 0)) + 693_899
         let era = (z >= 0 ? z : z - 146_096) / 146_097
         let doe = z - era * 146_097
         let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365
@@ -123,7 +124,7 @@ enum ValueDate {
             observed: false
         ) { args in
             if case .null = args[0] { return .null }
-            let deltaMonths = Int(try args.number(1, "Date.AddMonths"))
+            let deltaMonths = try MInt.from(args.number(1, "Date.AddMonths"), "Date.AddMonths")
             let d: Double
             let isDateTime: Bool
             let timeFraction: Double
@@ -167,11 +168,11 @@ enum ValueDate {
                 throw MError.expression("Date.DayOfWeek: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
             }
             // 1899-12-30 (serial 0) là Thứ Bảy (Saturday = 6). Sunday = 0, Monday = 1, ..., Saturday = 6.
-            let serialInt = Int(floor(d))
+            let serialInt = try MInt.from(floor(d), "Date.DayOfWeek")
             let sundayZeroDOW = ((serialInt + 6) % 7 + 7) % 7
             let firstDay = try args.optional(1).map { v -> Int in
                 guard let n = MOperators.number(v) else { throw MError.expression("Date.DayOfWeek: firstDayOfWeek phải là số") }
-                return Int(n)
+                return try MInt.from(n, "Date.DayOfWeek")
             } ?? 0
             let adjusted = ((sundayZeroDOW - firstDay) % 7 + 7) % 7
             return .number(Double(adjusted))

@@ -66,7 +66,7 @@ enum ValueReplacerSplitter {
             let delimiter = try args.text(0, "Splitter.SplitTextByDelimiter")
             let quoteStyle = try args.optional(1).map { v -> Int in
                 guard let n = MOperators.number(v) else { throw MError.expression("Splitter.SplitTextByDelimiter: quoteStyle phải là số") }
-                return Int(n)
+                return try MInt.from(n, "Splitter.SplitTextByDelimiter")
             } ?? 0
 
             let inner = MFunction(

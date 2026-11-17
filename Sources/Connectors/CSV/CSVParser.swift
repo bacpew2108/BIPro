@@ -39,7 +39,8 @@ enum CSVParser {
         if sampleData.isEmpty {
             return DetectionResult(encoding: .utf8, bomLength: 0)
         }
-        if String(data: sampleData, encoding: .utf8) != nil {
+        // Mẫu có thể cắt giữa một ký tự nhiều byte: chỉ xét phần ký tự đủ (lỗi T096).
+        if String(data: sampleData.prefix(utf8CompleteLength(sampleData)), encoding: .utf8) != nil {
             return DetectionResult(encoding: .utf8, bomLength: 0)
         } else {
             return DetectionResult(encoding: .windowsCP1252, bomLength: 0)
@@ -96,7 +97,8 @@ enum CSVParser {
         encoding: String.Encoding,
         bomLength: Int,
         limit: Int?,
-        progress: SourceProgress?
+        progress: SourceProgress?,
+        chunkSize: Int = 65536
     ) async throws -> [[String?]] {
         guard let handle = try? FileHandle(forReadingFrom: url) else {
             throw SourceError.unreadable("Không thể đọc file: \(url.lastPathComponent)")
@@ -119,7 +121,6 @@ enum CSVParser {
         var inQuotes = false
         var hasSeenCharInField = false
 
-        let chunkSize = 65536
         var leftoverData = Data()
 
         func finishField() {
@@ -146,122 +147,64 @@ enum CSVParser {
             currentRow = []
         }
 
-        while true {
+        // Trạng thái giữ qua các khối (lỗi T096: `""` và CR LF rơi đúng ranh giới khối).
+        var quotePending = false   // trong ngoặc kép, vừa gặp `"`: ký tự sau quyết định là `""` hay đóng ngoặc
+        var skipNextIfLF = false
+
+        /// Xử lý một ký tự; trả `true` khi đủ `limit` dòng.
+        func consume(_ c: Character) -> Bool {
+            if skipNextIfLF {
+                skipNextIfLF = false
+                if c == "\n" { return false }
+            }
+            if quotePending {
+                quotePending = false
+                if c == "\"" {
+                    currentField.append("\"")
+                    return false
+                }
+                inQuotes = false
+            }
+            if inQuotes {
+                if c == "\"" { quotePending = true } else { currentField.append(c) }
+                return false
+            }
+            if c == "\"" {
+                isQuoted = true
+                inQuotes = true
+            } else if c == delimiter {
+                finishField()
+            } else if c == "\r\n" || c == "\n" || c == "\r" {
+                if c == "\r" { skipNextIfLF = true }
+                finishRow()
+                if let limit, rows.count >= limit { return true }
+            } else {
+                hasSeenCharInField = true
+                currentField.append(c)
+            }
+            return false
+        }
+
+        var reachedLimit = false
+        while !reachedLimit {
             if Task.isCancelled {
                 throw SourceError.cancelled
             }
-
             let nextChunk = (try? handle.read(upToCount: chunkSize)) ?? Data()
-            if nextChunk.isEmpty {
+            let atEnd = nextChunk.isEmpty
+            totalBytesRead += Int64(nextChunk.count)
+            if fileSize > 0, !atEnd {
+                progress?(min(0.99, Double(totalBytesRead) / Double(fileSize)))
+            }
+            var data = leftoverData
+            data.append(nextChunk)
+            let (text, used) = decode(data, encoding: encoding, final: atEnd)
+            leftoverData = Data(data.dropFirst(used))
+            for c in text where consume(c) {
+                reachedLimit = true
                 break
             }
-            totalBytesRead += Int64(nextChunk.count)
-            if fileSize > 0 {
-                let p = min(0.99, Double(totalBytesRead) / Double(fileSize))
-                progress?(p)
-            }
-
-            var fullChunk = leftoverData
-            fullChunk.append(nextChunk)
-
-            // Tìm ranh giới giải mã hợp lệ cho chunk
-            var text: String?
-            var validLength = fullChunk.count
-            while validLength > 0 {
-                let sub = fullChunk.prefix(validLength)
-                if let str = String(data: sub, encoding: encoding) {
-                    text = str
-                    break
-                }
-                validLength -= 1
-            }
-
-            if let text = text {
-                leftoverData = fullChunk.dropFirst(validLength)
-                var skipNextIfLF = false
-
-                var i = text.startIndex
-                while i < text.endIndex {
-                    let c = text[i]
-
-                    if skipNextIfLF {
-                        skipNextIfLF = false
-                        if c == "\n" {
-                            i = text.index(after: i)
-                            continue
-                        }
-                    }
-
-                    if inQuotes {
-                        if c == "\"" {
-                            let nextIdx = text.index(after: i)
-                            if nextIdx < text.endIndex && text[nextIdx] == "\"" {
-                                currentField.append("\"")
-                                i = nextIdx
-                            } else {
-                                inQuotes = false
-                            }
-                        } else {
-                            currentField.append(c)
-                        }
-                    } else {
-                        if c == "\"" {
-                            isQuoted = true
-                            inQuotes = true
-                        } else if c == delimiter {
-                            finishField()
-                        } else if c == "\r\n" || c == "\n" || c == "\r" {
-                            if c == "\r" {
-                                let nextIdx = text.index(after: i)
-                                if nextIdx == text.endIndex {
-                                    skipNextIfLF = true
-                                }
-                            }
-                            finishRow()
-                            if let limit = limit, rows.count >= limit {
-                                break
-                            }
-                        } else {
-                            hasSeenCharInField = true
-                            currentField.append(c)
-                        }
-                    }
-
-                    i = text.index(after: i)
-                }
-
-                if let limit = limit, rows.count >= limit {
-                    break
-                }
-            } else {
-                leftoverData = fullChunk
-                if nextChunk.count < chunkSize {
-                    break
-                }
-            }
-        }
-
-        // Xử lý dữ liệu còn lại ở cuối file nếu chưa kết thúc bằng newline
-        if !leftoverData.isEmpty {
-            if let text = String(data: leftoverData, encoding: encoding) {
-                for c in text {
-                    if inQuotes {
-                        if c == "\"" { inQuotes = false } else { currentField.append(c) }
-                    } else {
-                        if c == "\"" {
-                            isQuoted = true
-                            inQuotes = true
-                        } else if c == delimiter {
-                            finishField()
-                        } else if c == "\r\n" || c == "\r" || c == "\n" {
-                            finishRow()
-                        } else {
-                            hasSeenCharInField = true
-                            currentField.append(c)
-                        }
-                    }
-                }
-            }
+            if atEnd { break }
         }
 
         // Kết thúc ô / dòng cuối nếu có
@@ -271,5 +214,41 @@ enum CSVParser {
 
         progress?(1.0)
         return rows
+    }
+
+    /// Số byte đầu của `data` gồm các ký tự UTF-8 đủ: bỏ chuỗi byte còn dở ở cuối (tối đa 3 byte).
+    static func utf8CompleteLength(_ data: Data) -> Int {
+        let bytes = [UInt8](data.suffix(4))
+        let base = data.count - bytes.count
+        for back in 1...max(bytes.count, 1) where back <= bytes.count {
+            let b = bytes[bytes.count - back]
+            if b & 0xC0 == 0x80 { continue }            // byte nối, lùi tiếp
+            let need = b & 0x80 == 0 ? 1 : b & 0xE0 == 0xC0 ? 2 : b & 0xF0 == 0xE0 ? 3 : b & 0xF8 == 0xF0 ? 4 : 1
+            return back < need ? base + bytes.count - back : data.count
+        }
+        return data.count
+    }
+
+    /// Giải mã phần đủ ký tự của `data`; trả chữ và số byte đã dùng. Byte hỏng thành U+FFFD (không bỏ phần sau, lỗi T096).
+    /// `final`: cuối tệp, giải mã hết.
+    static func decode(_ data: Data, encoding: String.Encoding, final: Bool) -> (String, Int) {
+        switch encoding {
+        case .utf8:
+            let used = final ? data.count : utf8CompleteLength(data)
+            return (String(decoding: data.prefix(used), as: UTF8.self), used)
+        case .utf16LittleEndian, .utf16BigEndian, .utf16:
+            var used = data.count & ~1
+            let big = encoding == .utf16BigEndian
+            func unit(_ i: Int) -> UInt16 {
+                let a = UInt16(data[data.startIndex + i]), b = UInt16(data[data.startIndex + i + 1])
+                return big ? a << 8 | b : b << 8 | a
+            }
+            if !final, used >= 2, (0xD800...0xDBFF).contains(unit(used - 2)) { used -= 2 }   // cặp surrogate dở
+            let units = stride(from: 0, to: used, by: 2).map(unit)
+            return (String(decoding: units, as: UTF16.self), final ? data.count : used)
+        default:
+            let text = String(data: data, encoding: encoding) ?? String(data: data, encoding: .isoLatin1) ?? ""
+            return (text, data.count)
+        }
     }
 }

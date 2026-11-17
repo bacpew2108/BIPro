@@ -203,6 +203,16 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - Test cần máy chủ: `BIPRO_PG="127.0.0.1:55432;sales;bipro;<mật khẩu>"` (thiếu thì bỏ qua).
 - Tồn đọng: tên driver ODBC ghi cứng là Devart (người dùng driver khác sửa M); kiểu khai báo DATE/TIME của SQLite BI Pro đọc thành ngày giờ, Devart chưa quan sát; timestamptz, time, interval, bytea, mảng báo chưa hỗ trợ; `Value.NativeQuery` cần cơ sở dữ liệu có ít nhất một bảng; cột bảng điều hướng `Name, Data, Schema, Item, Kind` là [SUY ĐOÁN]; chưa kiểm với máy chủ có SSL; Desktop tự phát hiện quan hệ và Auto date/time, BI Pro không; Query Editor hiện tên bước điều hướng là `public_sales` (Desktop hiện "Navigation").
 
+## Phase F, Giai đoạn 11 (hoàn thiện, 2026-11-17)
+
+- US8 đã commit `f906f21` (chưa push).
+- **T095:** golden nặng đầy đủ (`Nhom6|ORA|VIS|Batched`, release, --no-parallel) 111/111 qua.
+- **T096:** `/code-review high b9201f6..HEAD` ra 10 lỗi; đã kiểm từng lỗi trong code và sửa, mỗi lỗi có test (xem `tasks.md` T096). `Number.Round` quan sát trên Desktop: mặc định ToEven, làm tròn theo giá trị thập phân, RoundingMode chỉ quyết điểm giữa (ảnh `vm-f7/t1-number-round.png`). `swift test` 2208 qua.
+- Tồn đọng từ review (mức thấp, chưa sửa): `blocking` vẫn giữ một luồng pool khi chờ đọc nguồn; xem trước câu SQL PostgreSQL vẫn tải hết kết quả; liệt kê SQLite đếm `COUNT(*)` từng bảng; Excel bỏ ô thiếu thuộc tính `r`, chữ phiên âm `rPh` lẫn vào shared strings, inline string mất khoảng trắng đầu/cuối; Parquet đọc cả tệp vào bộ nhớ; kiểm sau ghi khớp tệp bảng theo tiền tố tên.
+- **T097 `/speckit-converge`:** thêm T103–T112 (Giai đoạn 12). Đã xong: T103 (cột Fixed decimal lưu như Desktop, gate Desktop ĐẠT `bipro-currency.pbix`), T104 (kiểm sau ghi theo mã bảng), T105 (xlsx: ô thiếu `r`, `rPh`, inline string), T107 (xem trước SQL PostgreSQL dừng sớm), T112 (`vm-f2/QUAN-SAT.md`). Còn: T106 (đo SC-004 đường app + nền Nhom6), T108 (SQLite đếm), T109 (Parquet bỏ bản chép `[UInt8]`), T110 (hàm nguồn M bất đồng bộ), T111 (RLE).
+- **Việc kế Giai đoạn 11:** T098 (FR ↔ test, SC-008), T099 (đóng gói app, bấm thử), T100 (gate tổng M3 trên VM), T101 (tài liệu, dọn VM `C:\Users\bacpew\f7db`), T102 (báo cáo). Chưa commit từ sau `f906f21`.
+- Máy chủ thử `bipro-pg` từng biến mất giữa phiên (không do Claude xoá), đã dựng lại cùng dữ liệu.
+
 ## Việc tiếp theo
 
 **Phase E, chờ bạn (2026-11-14 đêm):**

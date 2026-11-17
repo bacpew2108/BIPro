@@ -53,6 +53,7 @@ import Testing
                 case .dateTime(let v): expected = v[row].map { .dateTime($0) } ?? .null
                 case .string(let v): expected = v[row].map { .string($0) } ?? .null
                 case .boolean(let v): expected = v[row].map { .bool($0) } ?? .null
+                case .currency(let v): expected = v[row].map { .decimal(Double($0) / 10_000) } ?? .null
                 }
                 #expect(decoded[row] == expected, Comment(rawValue: "cột \(i) dòng \(row)"))
             }

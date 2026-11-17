@@ -27,13 +27,19 @@ enum MBuiltins {
         case "ExtraValues.List", "MissingField.Error": return .number(0)
         case "ExtraValues.Error", "MissingField.Ignore": return .number(1)
         case "ExtraValues.Ignore", "MissingField.UseNull": return .number(2)
+        // RoundingMode (Desktop 2.159, quan sát 2026-11-17): Up 0, Down 1, AwayFromZero 2, TowardZero 3, ToEven 4.
+        case "RoundingMode.Up": return .number(0)
+        case "RoundingMode.Down": return .number(1)
+        case "RoundingMode.AwayFromZero": return .number(2)
+        case "RoundingMode.TowardZero": return .number(3)
+        case "RoundingMode.ToEven": return .number(4)
         default: return nil
         }
     }
 
     private static func ints(_ args: [MValue], _ names: [String]) throws -> [Double] {
         try zip(args, names).map { value, name in
-            guard let n = MOperators.number(value), n == n.rounded() || name == "giây" else {
+            guard let n = MOperators.number(value), n.isFinite, abs(n) < 1e9, n == n.rounded() || name == "giây" else {
                 throw MError.expression("Giá trị \(name) phải là số")
             }
             return n

@@ -273,7 +273,7 @@ final class Interpreter: @unchecked Sendable {
             }
         }
         guard case .number(let d) = index, d == d.rounded(), d >= 0 else { throw MError.expression("Chỉ mục phải là số nguyên không âm") }
-        let i = Int(d)
+        let i = try MInt.from(d, "Chỉ mục")
         switch target {
         case .list(let items):
             guard i < items.count else {
