@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-15. **Phase D xong (D1 đến D7, VM-D1 đến VM-D21); Phase E (mô hình hoá + lưu T2, `specs/009-e-mo-hinh-hoa-luu-t2/`) xong code, kiểm Desktop (VM-E1 đến VM-E7) và tài liệu.** Phase E đã commit và push ngày 2026-11-15 (xem `git log`); commit trước đó `37f07bc` (đến VM-D21). `swift test` 1665 qua; test nặng Phase E 38 qua (`DiagramSaveTests` 5); golden release 137 qua (2026-11-14, trước VM-E7). `build/BI Pro.app` là bản đã đóng gói sau VM-E7. Mọi mục tồn đọng của Phase E đã làm xong (VM-E7, bên dưới). Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-17 (Phase F: gate M3 đạt, còn FR-060 sửa/xoá cột tính toán; xem mục "Phase F, Giai đoạn 11–13"). Trước đó: 2026-11-15. **Phase D xong (D1 đến D7, VM-D1 đến VM-D21); Phase E (mô hình hoá + lưu T2, `specs/009-e-mo-hinh-hoa-luu-t2/`) xong code, kiểm Desktop (VM-E1 đến VM-E7) và tài liệu.** Phase E đã commit và push ngày 2026-11-15 (xem `git log`); commit trước đó `37f07bc` (đến VM-D21). `swift test` 1665 qua; test nặng Phase E 38 qua (`DiagramSaveTests` 5); golden release 137 qua (2026-11-14, trước VM-E7). `build/BI Pro.app` là bản đã đóng gói sau VM-E7. Mọi mục tồn đọng của Phase E đã làm xong (VM-E7, bên dưới). Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
@@ -203,15 +203,27 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - Test cần máy chủ: `BIPRO_PG="127.0.0.1:55432;sales;bipro;<mật khẩu>"` (thiếu thì bỏ qua).
 - Tồn đọng: tên driver ODBC ghi cứng là Devart (người dùng driver khác sửa M); kiểu khai báo DATE/TIME của SQLite BI Pro đọc thành ngày giờ, Devart chưa quan sát; timestamptz, time, interval, bytea, mảng báo chưa hỗ trợ; `Value.NativeQuery` cần cơ sở dữ liệu có ít nhất một bảng; cột bảng điều hướng `Name, Data, Schema, Item, Kind` là [SUY ĐOÁN]; chưa kiểm với máy chủ có SSL; Desktop tự phát hiện quan hệ và Auto date/time, BI Pro không; Query Editor hiện tên bước điều hướng là `public_sales` (Desktop hiện "Navigation").
 
-## Phase F, Giai đoạn 11 (hoàn thiện, 2026-11-17)
+## Phase F, Giai đoạn 11–13 (hoàn thiện, 2026-11-17)
 
-- US8 đã commit `f906f21` (chưa push).
-- **T095:** golden nặng đầy đủ (`Nhom6|ORA|VIS|Batched`, release, --no-parallel) 111/111 qua.
-- **T096:** `/code-review high b9201f6..HEAD` ra 10 lỗi; đã kiểm từng lỗi trong code và sửa, mỗi lỗi có test (xem `tasks.md` T096). `Number.Round` quan sát trên Desktop: mặc định ToEven, làm tròn theo giá trị thập phân, RoundingMode chỉ quyết điểm giữa (ảnh `vm-f7/t1-number-round.png`). `swift test` 2208 qua.
-- Tồn đọng từ review (mức thấp, chưa sửa): `blocking` vẫn giữ một luồng pool khi chờ đọc nguồn; xem trước câu SQL PostgreSQL vẫn tải hết kết quả; liệt kê SQLite đếm `COUNT(*)` từng bảng; Excel bỏ ô thiếu thuộc tính `r`, chữ phiên âm `rPh` lẫn vào shared strings, inline string mất khoảng trắng đầu/cuối; Parquet đọc cả tệp vào bộ nhớ; kiểm sau ghi khớp tệp bảng theo tiền tố tên.
-- **T097 `/speckit-converge`:** thêm T103–T112 (Giai đoạn 12). Đã xong: T103 (cột Fixed decimal lưu như Desktop, gate Desktop ĐẠT `bipro-currency.pbix`), T104 (kiểm sau ghi theo mã bảng), T105 (xlsx: ô thiếu `r`, `rPh`, inline string), T107 (xem trước SQL PostgreSQL dừng sớm), T112 (`vm-f2/QUAN-SAT.md`). Còn: T106 (đo SC-004 đường app + nền Nhom6), T108 (SQLite đếm), T109 (Parquet bỏ bản chép `[UInt8]`), T110 (hàm nguồn M bất đồng bộ), T111 (RLE).
-- **Việc kế Giai đoạn 11:** T098 (FR ↔ test, SC-008), T099 (đóng gói app, bấm thử), T100 (gate tổng M3 trên VM), T101 (tài liệu, dọn VM `C:\Users\bacpew\f7db`), T102 (báo cáo). Chưa commit từ sau `f906f21`.
-- Máy chủ thử `bipro-pg` từng biến mất giữa phiên (không do Claude xoá), đã dựng lại cùng dữ liệu.
+- Commit gần nhất `9a3afc4` (lưu tiến độ, chưa push); phần sau đây chưa commit.
+- **T095/T096/T097:** golden nặng 111 qua; 10 lỗi `/code-review` đã sửa; converge thêm T103–T112.
+- **Giai đoạn 12 (converge):** xong T103 (Fixed decimal, gate Desktop ĐẠT), T104, T105, T107, T112, và:
+  - T106: đo SC-004 qua đường app (`SavePerformanceTests`, `measurements.md`). Tài liệu mới 100 000 dòng 0,97 s, 1 triệu dòng 5,44 s (702 MB); Nhom6 + 100 000 dòng 3,96 s. Nhom6 chỉ T2 từ 3,0–3,8 s xuống 2,2 s nhờ bỏ giải nén lặp ở kiểm sau ghi (`PBIXWriter.Result.model`) và hạ độ sâu tìm khớp XPress9 xuống 4.
+  - T108: SQLite chỉ đếm khi `MAX(rowid)` ≤ 100 000.
+  - T109: Parquet ánh xạ tệp, chép từng column chunk.
+  - T110: bộ thông dịch M chạy trên hàng đợi GCD riêng, huỷ qua `MCancellation`.
+  - T111 (RLE) để tồn đọng: cần quan sát Desktop; chỉ ảnh hưởng cỡ tệp.
+- **T098 (FR ↔ test):** thêm Giai đoạn 13.
+  - T113 đã sửa: tắt Enable load của bảng mà visual, bộ lọc, bookmark, cột hoặc bảng tính toán còn dùng thì bị chặn kèm nơi dùng.
+  - T114 đã sửa: sheet Query Editor chỉ đóng qua nút "Đóng" (có hỏi).
+  - **T115, T116 còn mở:** FR-060 sửa và xoá cột, bảng tính toán chưa có (mới có thêm và hoàn tác). Cần quan sát Desktop trên VM trước (T115).
+- **T099:** đã dựng lại `build/BI Pro.app` và bấm thử: Query Editor, bước mới, hộp "Thay đổi chưa áp dụng", Áp dụng, Lưu, mở lại, Lấy dữ liệu.
+- **T100, gate M3 ĐẠT** (`docs/phase-f-evidence/CHECKLIST-M3.md`):
+  - Luồng `sales_2026.xlsx` trên tài liệu mới: Desktop mở được và Refresh ra đúng 191 dòng, Σ Amount 69 256,96.
+  - Nhom6 nén ở độ sâu 4: Desktop mở được.
+- **Thư mục VM:** đã dọn `C:\Users\bacpew\m3` và `f7db`.
+- **Số test:** `swift test` 2228 qua; golden nặng 113 qua.
+- **Việc kế:** T115 (VM) → T116, rồi T102 báo cáo. Phase F chưa push.
 
 ## Việc tiếp theo
 

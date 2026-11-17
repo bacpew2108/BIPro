@@ -85,6 +85,26 @@ enum ModelReferences {
         return found
     }
 
+    /// Tệp báo cáo (visual, bộ lọc trang/báo cáo, bookmark) nhắc tới bất kỳ trường nào của bảng `table` (T098, FR-004: gỡ bảng đã nạp).
+    /// Measure, quan hệ, cột và bảng tính toán đã chặn ở `ModelMetadata.droppingTable`.
+    static func documentUsages(ofTable table: String, documents: [ModelDocument]) -> [ModelUsage] {
+        documents.compactMap { document in
+            mentionsEntity(document.json, table: table) ? ModelUsage(kind: .document, detail: document.label) : nil
+        }
+    }
+
+    private static func mentionsEntity(_ json: JSONValue, table: String) -> Bool {
+        switch json {
+        case .object(let dict):
+            if dict["SourceRef"]?["Entity"]?.string == table { return true }
+            return dict.values.contains { mentionsEntity($0, table: table) }
+        case .array(let items):
+            return items.contains { mentionsEntity($0, table: table) }
+        default:
+            return false
+        }
+    }
+
     /// Lời giải thích khi bị chặn: tối đa 10 nơi, rồi "và N nơi nữa".
     static func message(_ usages: [ModelUsage], what: String) -> String {
         let shown = usages.prefix(10).map(\.detail).joined(separator: ", ")

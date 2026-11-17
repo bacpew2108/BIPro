@@ -104,12 +104,15 @@ struct cxpress9_encoder {
 // Level 9 settings from Xpress9Wrapper.c (Hugoberry/xpress9-python). The window is
 // min(16 + (level - 6) * 2, XPRESS9_WINDOW_SIZE_LOG2_MAX) = 22. m_uMaxStreamLength
 // is 0 (no limit): the wrapper's 64 KiB value would reject multi-MB streams.
+// Lookup depth 4 instead of the wrapper's 9 (Phase F, T106): on Nhom6 (90 MB ABF) compression takes
+// 1.3 s instead of 1.8 s and the stream grows by 12 KB (53 946 150 vs 53 934 517 bytes; Desktop's own
+// stream is 54 180 916). The depth only steers the encoder's match search; any depth yields a valid stream.
 static void cx_fill_encoder_params(XPRESS9_ENCODER_PARAMS *params) {
     memset(params, 0, sizeof(*params));
     params->m_cbSize = sizeof(*params);
     params->m_uMaxStreamLength = 0;
     params->m_uMtfEntryCount = 4;
-    params->m_uLookupDepth = 9;
+    params->m_uLookupDepth = 4;
     params->m_uWindowSizeLog2 = XPRESS9_WINDOW_SIZE_LOG2_MAX;
     params->m_uOptimizationLevel = 0;
     params->m_uPtrMinMatchLength = 4;

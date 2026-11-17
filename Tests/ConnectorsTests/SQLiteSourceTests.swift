@@ -87,6 +87,57 @@ import SQLite3
         try await body(dbURL)
     }
 
+    /// T108 (SC-003): liệt kê không quét bảng lớn. Bảng có `MAX(rowid)` quá 100 000 không có số dòng lúc liệt kê; nạp cả bảng
+    /// mới đếm để báo tiến độ. Bảng nhỏ đếm đúng (kể cả khi đã xoá dòng), bảng WITHOUT ROWID không đếm.
+    @Test func listingSkipsCountOnLargeTables() async throws {
+        try await withTempDB { url in
+            var db: OpaquePointer?
+            sqlite3_open(url.path, &db)
+            defer { sqlite3_close(db) }
+            sqlite3_exec(db, """
+                CREATE TABLE Big (id INTEGER PRIMARY KEY, v INTEGER);
+                WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 150000) INSERT INTO Big SELECT i, i % 7 FROM n;
+                CREATE TABLE Small (id INTEGER PRIMARY KEY, v TEXT);
+                INSERT INTO Small VALUES (1, 'a'), (2, 'b'), (3, 'c'), (900000, 'd');
+                DELETE FROM Small WHERE id = 2;
+                CREATE TABLE NoRowid (k TEXT PRIMARY KEY, v INTEGER) WITHOUT ROWID;
+                INSERT INTO NoRowid VALUES ('x', 1), ('y', 2);
+                """, nil, nil, nil)
+
+            let items = try await SQLiteSource(url: url).items()
+            let big = try #require(items.first { $0.name == "Big" })
+            #expect(big.rowCountHint == nil)
+            #expect(items.first { $0.name == "NoRowid" }?.rowCountHint == nil)
+
+            let reports = ProgressLog()
+            let table = try await big.load(progress: { reports.append($0) })
+            #expect(table.rowCount == 150_000)
+            #expect(!reports.values.isEmpty)
+            #expect(reports.values.contains { $0 > 0 && $0 < 1 })   // tiến độ giữa chừng (ngoài 0 và 1 lúc đầu, cuối)
+
+            let small = try #require(items.first { $0.name == "Small" })
+            // MAX(rowid) = 900 000 nhưng chỉ 3 dòng: không đếm lúc liệt kê (tránh quét bảng lớn mà không biết cỡ thật).
+            #expect(small.rowCountHint == nil)
+            #expect(try await small.load(progress: nil).rowCount == 3)
+            #expect(try await items.first { $0.name == "NoRowid" }!.load(progress: nil).rowCount == 2)
+        }
+    }
+
+    @Test func listingCountsSmallTablesExactly() async throws {
+        try await withTempDB { url in
+            var db: OpaquePointer?
+            sqlite3_open(url.path, &db)
+            defer { sqlite3_close(db) }
+            sqlite3_exec(db, """
+                CREATE TABLE T (id INTEGER PRIMARY KEY, v TEXT);
+                INSERT INTO T VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd');
+                DELETE FROM T WHERE id = 2;
+                """, nil, nil, nil)
+            let items = try await SQLiteSource(url: url).items()
+            #expect(items.first?.rowCountHint == 3)
+        }
+    }
+
     @Test func specialCharactersInTableAndColumnNames() async throws {
         try await withTempDB { url in
             var db: OpaquePointer?
@@ -184,4 +235,11 @@ import SQLite3
             try await source.items()
         }
     }
+}
+
+private final class ProgressLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [Double] = []
+    func append(_ value: Double) { lock.lock(); stored.append(value); lock.unlock() }
+    var values: [Double] { lock.lock(); defer { lock.unlock() }; return stored }
 }

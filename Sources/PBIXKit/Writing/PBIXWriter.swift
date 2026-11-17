@@ -10,6 +10,15 @@ public enum PBIXWriter {
     public struct Result: Sendable {
         public let data: Data
         public let tier: SaveTier
+        /// The DataModel decompressed from `data` while verifying it (nil when the model was not rebuilt), so callers that check
+        /// more of the model read the written bytes without decompressing them again.
+        public let model: ABFBackup?
+
+        public init(data: Data, tier: SaveTier, model: ABFBackup? = nil) {
+            self.data = data
+            self.tier = tier
+            self.model = model
+        }
     }
 
     static let metadataPath = "metadata.sqlitedb"
@@ -50,9 +59,10 @@ public enum PBIXWriter {
             throw WriteError.invalid("cannot replace \(Self.diagramLayoutPath): not a member of \(source.lastPathComponent)")
         }
         let needsModel = rebuildModel || changes.changesModel
-        let model = needsModel ? try timed("rebuiltDataModel") {
+        let rebuilt = needsModel ? try timed("rebuiltDataModel") {
             try rebuiltDataModel(archive: archive, edits: changes.allModelEdits, calculated: changes.calculatedData)
         } : nil
+        let model = rebuilt?.stream
 
         let dropsBinding = changes.changesReport && archive.entry(Self.securityBindingsPath) != nil
         var members: [(path: String, source: ZipWriter.Source)] = []
@@ -78,8 +88,8 @@ public enum PBIXWriter {
             members.insert((path: path, source: .bytes(changes.addedParts[path]!, method: 8)), at: index)
         }
         let data = try timed("zip") { try ZipWriter.write(members, modified: nil) }
-        try timed("verify") { try verify(data, changes: changes, source: archive) }
-        return Result(data: data, tier: changes.tier)
+        let readBack = try timed("verify") { try verify(data, changes: changes, source: archive, sourceABF: rebuilt?.source) }
+        return Result(data: data, tier: changes.tier, model: readBack)
     }
 
     /// `[Content_Types].xml` without the `<Override PartName="/SecurityBindings" .../>` element, byte for byte
@@ -180,11 +190,13 @@ public enum PBIXWriter {
 
     /// T2: adds measures to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel.
     static func rebuiltDataModel(archive: ZipArchive, measures: [NewMeasure]) throws -> Data {
-        try rebuiltDataModel(archive: archive, edits: ModelEdits(measures.map { .addMeasure($0) }))
+        try rebuiltDataModel(archive: archive, edits: ModelEdits(measures.map { .addMeasure($0) })).stream
     }
 
-    /// T2: applies model edits to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel.
-    static func rebuiltDataModel(archive: ZipArchive, edits: ModelEdits, calculated: [String: VertiPaqWriter.Values] = [:]) throws -> Data {
+    /// T2: applies model edits to metadata.sqlitedb, rebuilds the ABF and recompresses the DataModel. Also returns the source ABF it
+    /// decompressed, which `verify` compares against.
+    static func rebuiltDataModel(archive: ZipArchive, edits: ModelEdits,
+                                 calculated: [String: VertiPaqWriter.Values] = [:]) throws -> (stream: Data, source: ABFBackup) {
         guard let entry = archive.entry("DataModel") else { throw ZipArchive.Error.missingEntry("DataModel") }
         let stream = try archive.storedSlice(entry) ?? archive.read(entry)
         let (abfBytes, _) = try timed("decompress") { try DataModelStream.decompress(stream) }
@@ -258,12 +270,14 @@ public enum PBIXWriter {
             }
         }
         let newABF = try timed("abfRebuild") { try ABFWriter.rebuild(abf, replacing: [ABFPayload(path: metadataFile.path, data: try metadata.serialize())] + metadata.replacedFiles, adding: metadata.addedFiles, removing: metadata.removedFiles) }
-        return try timed("compress") { try DataModelStream.compress(abf: newABF) }
+        return (try timed("compress") { try DataModelStream.compress(abf: newABF) }, abf)
     }
 
     /// Reads the written bytes back and checks every change. With the source archive it also checks that
-    /// every member that was not touched is unchanged.
-    static func verify(_ data: Data, changes: PBIXChanges, source: ZipArchive? = nil) throws {
+    /// every member that was not touched is unchanged. `sourceABF` is the source DataModel already decompressed by the build
+    /// (read from `source` otherwise). Returns the DataModel read back from `data` when the model changed.
+    @discardableResult
+    static func verify(_ data: Data, changes: PBIXChanges, source: ZipArchive? = nil, sourceABF: ABFBackup? = nil) throws -> ABFBackup? {
         let pbix: PBIXFile
         do {
             pbix = try PBIXFile(data: data)
@@ -309,12 +323,12 @@ public enum PBIXWriter {
                 throw WriteError.verificationFailed("unexpected number of members")
             }
         }
-        guard changes.changesModel else { return }
+        guard changes.changesModel else { return nil }
         let (abf, _) = try timed("verify.decompressNew") { try pbix.loadDataModel() }
         let model = try ModelMetadata(sqlite: try abf.contents(named: metadataPath))
         if let source {
             // Mô hình đọc lại phải bằng mô hình nguồn sau khi áp đúng danh sách thao tác (bỏ `lineageTag` của measure mới).
-            let (oldABF, _) = try timed("verify.decompressOld") { try PBIXFile(archive: source).loadDataModel() }
+            let oldABF = try sourceABF ?? timed("verify.decompressOld") { try PBIXFile(archive: source).loadDataModel().0 }
             let oldModel = try ModelMetadata(sqlite: try oldABF.contents(named: metadataPath))
             let expected: ModelMetadata
             do { expected = try oldModel.applying(changes.allModelEdits) } catch {
@@ -421,6 +435,7 @@ public enum PBIXWriter {
                 guard found else { throw WriteError.verificationFailed("measure \(measure.name) is missing after save") }
             }
         }
+        return abf
     }
 }
 

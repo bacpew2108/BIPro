@@ -27,3 +27,21 @@ Bản release (`BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --s
 | Thêm các bước sau (sắp xếp trên 200 000 dòng, bỏ cột, giữ 500 dòng) | 0,002 đến 0,012 s | không có ngưỡng |
 
 Ghi nhận: bước đầu tiên chạm bảng đầy đủ tốn hơn 1 s (bộ nhớ đệm `MPreviewCache` tính mỗi bước một lần từ kết quả đầy đủ của bước trước), các bước sau rất nhanh vì chỉ còn tập đã lọc. Một bước nặng ngay trên 1 triệu dòng (ví dụ sắp xếp) sẽ chậm hơn 0,5 s; cân nhắc tính trên mẫu khi cần (chưa làm). Navigator chỉ đọc 200 dòng nên không phụ thuộc kích thước file.
+
+## T106 (SC-004, SC-005): lưu T3 qua đường app đầy đủ, 2026-11-17
+
+Bản release (`BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --no-parallel --filter SavePerformanceTests`), Mac Apple Silicon. Đường đo: `DocumentState.loadFromGetData` (Get Data ▸ Tải) → `DocumentSaver` (`TableData` → `NewTable` → VertiPaq → `PBIXWriter.build` gồm kiểm sau ghi → `verifyModel`, `verifyTables` đọc lại từng ô → ghi tạm, mở lại, thay). Bảng 10 cột như S5.
+
+| Trường hợp | Lưu | File | Bộ nhớ đỉnh | Ngưỡng |
+|---|---|---|---|---|
+| Tài liệu mới, 100 000 dòng | 0,97 s | 1 MB | 178 MB | < 4 s: **đạt** |
+| Tài liệu mới, 1 triệu dòng | 5,44 s | 27 MB | 702 MB | < 15 s, < 2 GB: **đạt** |
+| Nền Nhom6 (54 MB), thêm bảng 100 000 dòng | 3,96 s | 53 MB | 1 160 MB | không có ngưỡng riêng |
+| Nhom6 chỉ đổi T2 (thêm một measure), 3 lần | 2,22 / 2,34 / 2,26 s | | | Phase E < 3 s: **đạt** |
+
+Trước khi sửa, lưu Nhom6 chỉ T2 mất 3,03 đến 3,78 s (trượt nhẹ ngưỡng Phase E). Tách bước (`BIPRO_TIMING=1`): giải nén nguồn 0,24 s, dựng lại ABF 0,21 s, **nén XPress9 1,62 s**, kiểm sau ghi giải nén lại bản mới 0,29 s và bản cũ 0,29 s, `verifyModel` và `verifyTables` mỗi hàm giải nén lại thêm một lần (0,3 s). Hai sửa:
+
+1. Giải nén mỗi bản một lần: `PBIXWriter.build` đưa ABF nguồn đã giải nén vào `verify`, và trả ABF đọc lại từ byte mới (`Result.model`) để `DocumentSaver.verifyModel`/`verifyTables` dùng lại. Mọi phép kiểm vẫn đọc từ byte của file mới.
+2. Bộ nén XPress9 tìm khớp với độ sâu 4 thay vì 9 (`cxpress9.c`). Trên ABF 90 MB của Nhom6, thời gian nén 1,8 s còn 1,3 s, luồng nén to hơn 12 KB (53 946 150 so với 53 934 517 byte; Desktop tự ghi 54 180 916). Độ sâu chỉ ảnh hưởng cách bộ nén tìm khớp, không đổi định dạng luồng. Desktop mở tệp Nhom6 do BI Pro lưu sau thay đổi này: kiểm ở gate T100.
+
+Định dạng nén của Desktop với Nhom6 là XPress9 đơn luồng: mọi khối dùng chung cửa sổ lịch sử, nên không nén song song theo khối mà vẫn giữ định dạng ấy.

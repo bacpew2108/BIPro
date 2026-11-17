@@ -262,8 +262,8 @@ enum SourceFunctions {
         var result: Result<T, Error>?
     }
 
-    /// Chạy việc bất đồng bộ của Connectors ngay trong hàm M đồng bộ. Hàm M chạy ngoài luồng chính (bộ chạy M là `async` không gắn `MainActor`),
-    /// việc đọc tệp ở một Task riêng nên không tự chờ chính nó.
+    /// Chạy việc bất đồng bộ của Connectors ngay trong hàm M đồng bộ. Bộ chạy M chạy trên hàng đợi GCD riêng (`MCancellation`, T110), nên
+    /// chờ ở đây không giữ luồng của pool hợp tác; việc đọc ở một Task riêng chạy trên pool.
     private static func blocking<T: Sendable>(_ work: @escaping @Sendable () async throws -> T) throws -> T {
         let box = Box<T>()
         let done = DispatchSemaphore(value: 0)
@@ -271,10 +271,10 @@ enum SourceFunctions {
             do { box.result = .success(try await work()) } catch { box.result = .failure(error) }
             done.signal()
         }
-        // Huỷ lan sang việc đọc nguồn (lỗi T096): Task gọi hàm M bị huỷ (đóng Query Editor, làm mới khác) thì huỷ Task đọc và trả về ngay,
-        // không chờ đọc hết bảng. [Tồn đọng] chờ semaphore vẫn giữ một luồng của pool trong lúc đọc; bỏ hẳn cần hàm M bất đồng bộ.
+        // Huỷ lan sang việc đọc nguồn (lỗi T096): lần chạy M bị huỷ (đóng Query Editor, làm mới khác) thì huỷ Task đọc và trả về ngay,
+        // không chờ đọc hết bảng.
         while done.wait(timeout: .now() + .milliseconds(100)) == .timedOut {
-            if Task.isCancelled {
+            if MCancellation.isCancelled {
                 task.cancel()
                 throw CancellationError()
             }

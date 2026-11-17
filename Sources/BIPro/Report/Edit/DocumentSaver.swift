@@ -93,8 +93,8 @@ enum DocumentSaver {
             throw SaveError.verificationFailed("\(error)")
         }
         try verifyLayout(result.data, editor: editor)
-        try verifyModel(result.data, editor: editor)
-        try verifyTables(result.data, editor: editor)
+        try verifyModel(result.data, editor: editor, model: result.model)
+        try verifyTables(result.data, editor: editor, model: result.model)
 
         // 4. Ghi tạm, mở lại, sao lưu, thay.
         do {
@@ -135,7 +135,8 @@ enum DocumentSaver {
     }
 
     /// Bảng nạp từ Get Data (T3): đọc lại từng ô từ file đã dựng, phải bằng `TableData` trong bộ nhớ (FR-050, FR-051). Sai một ô là từ chối lưu.
-    static func verifyTables(_ data: Data, editor: LayoutEditor) throws {
+    /// `model` là DataModel `PBIXWriter.verify` đã giải nén từ chính `data` (tránh giải nén lại); nil thì đọc từ `data`.
+    static func verifyTables(_ data: Data, editor: LayoutEditor, model: ABFBackup? = nil) throws {
         let tables: [NewTable] = editor.modelEdits.collapsingTableEdits().items.compactMap {
             switch $0 {
             case .addTable(let table), .replaceTable(_, let table):
@@ -146,7 +147,7 @@ enum DocumentSaver {
         guard !tables.isEmpty else { return }
         let abf: ABFBackup, metadata: ModelMetadata
         do {
-            abf = try PBIXFile(data: data).loadDataModel().0
+            abf = try model ?? PBIXFile(data: data).loadDataModel().0
             metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
         } catch { throw SaveError.verificationFailed("không đọc lại được mô hình: \(error)") }
         for table in tables {
@@ -180,12 +181,12 @@ enum DocumentSaver {
     }
 
     /// Mô hình đọc lại từ bytes đã dựng phải bằng mô hình hiệu lực của `editor` (Phase E): measure, quan hệ, cột.
-    static func verifyModel(_ data: Data, editor: LayoutEditor) throws {
+    static func verifyModel(_ data: Data, editor: LayoutEditor, model: ABFBackup? = nil) throws {
         guard let base = editor.modelBase, !editor.modelEdits.isEmpty || !editor.savedModelEdits.isEmpty else { return }
         let written: ModelMetadata
         let expected: ModelMetadata
         do {
-            let (abf, _) = try PBIXFile(data: data).loadDataModel()
+            let abf = try model ?? PBIXFile(data: data).loadDataModel().0
             written = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
             expected = try base.applying(editor.modelEdits)
         } catch {

@@ -166,9 +166,21 @@ final class DocumentState {
         wireReportEditing()
         let runtime = workspace.runtime
         layout.modelBase = runtime?.base
-        modelEditor = ModelEditor(layout: layout) { edits in
+        modelEditor = ModelEditor(layout: layout) { [weak workspace] edits in
             guard let runtime else { throw ModelEditError("File không có mô hình dữ liệu để sửa") }
             try runtime.validate(edits)
+            // Gỡ bảng đã nạp (tắt "Enable load", T098 FR-004) mà báo cáo còn dùng trường của nó: chặn kèm nơi dùng.
+            func drops(_ list: ModelEdits) -> Set<String> {
+                Set(list.items.compactMap { if case .dropTable(let name) = $0 { name } else { nil } })
+            }
+            guard let workspace else { return }
+            let newDrops = drops(edits).subtracting(drops(layout.modelEdits))
+            guard !newDrops.isEmpty else { return }
+            let documents = ModelReferences.documents(layout: layout, workspace: workspace)
+            for name in newDrops.sorted() {
+                let usages = ModelReferences.documentUsages(ofTable: name, documents: documents)
+                if !usages.isEmpty { throw ModelEditError("Không thể gỡ bảng \(name): " + ModelReferences.message(usages, what: "bảng \(name)")) }
+            }
         }
         layout.diagramSource = { [weak workspace] in
             guard let archive = workspace?.pbix.archive, let entry = archive.entry("DiagramLayout") else { return nil }

@@ -46,7 +46,8 @@ public struct ParquetFile: Sendable {
         let type: DAXType
     }
 
-    let bytes: [UInt8]
+    /// Nội dung tệp, ánh xạ từ đĩa khi được (T109, SC-005): không chép cả tệp vào bộ nhớ, mỗi lần chỉ chép footer hoặc một column chunk.
+    let data: Data
     let metadata: ParquetFileMetaData
     let leaves: [Leaf]
 
@@ -55,18 +56,23 @@ public struct ParquetFile: Sendable {
         do { data = try Data(contentsOf: url, options: .mappedIfSafe) } catch {
             throw SourceError.unreadable("Không thể đọc file: \(url.lastPathComponent)")
         }
-        try self.init(bytes: [UInt8](data), name: url.lastPathComponent)
+        try self.init(data: data, name: url.lastPathComponent)
     }
 
     init(bytes: [UInt8], name: String) throws {
+        try self.init(data: Data(bytes), name: name)
+    }
+
+    init(data: Data, name: String) throws {
         let magic: [UInt8] = Array("PAR1".utf8)
-        guard bytes.count >= 12, Array(bytes[0..<4]) == magic, Array(bytes[(bytes.count - 4)...]) == magic else {
+        let n = data.count
+        guard n >= 12, Self.copy(data, 0, 4) == magic, Self.copy(data, n - 4, n) == magic else {
             throw SourceError.unreadable("\(name) không phải tệp Parquet")
         }
-        let n = bytes.count
-        let length = Int(bytes[n - 8]) | Int(bytes[n - 7]) << 8 | Int(bytes[n - 6]) << 16 | Int(bytes[n - 5]) << 24
+        let tail = Self.copy(data, n - 8, n - 4)
+        let length = Int(tail[0]) | Int(tail[1]) << 8 | Int(tail[2]) << 16 | Int(tail[3]) << 24
         guard length > 0, length <= n - 12 else { throw ThriftCompactReader.failure("độ dài footer") }
-        var reader = ThriftCompactReader(bytes, at: n - 8 - length)
+        var reader = ThriftCompactReader(Self.copy(data, n - 8 - length, n - 8))
         let metadata = try ParquetFileMetaData(reader.structure())
         guard let root = metadata.schema.first else { throw ThriftCompactReader.failure("thiếu lược đồ") }
         var leaves: [Leaf] = []
@@ -77,7 +83,7 @@ public struct ParquetFile: Sendable {
             leaves.append(Leaf(name: element.name, element: element, maxDefinition: element.repetition == 1 ? 1 : 0, type: try Self.type(of: element)))
         }
         guard root.children == leaves.count else { throw SourceError.unsupported("Parquet có cột lồng") }
-        self.bytes = bytes
+        self.data = data
         self.metadata = metadata
         self.leaves = leaves
     }
@@ -123,20 +129,42 @@ public struct ParquetFile: Sendable {
         }
     }
 
+    /// Byte `from..<to` của `data` (đã chặn trong tệp), chép ra mảng.
+    static func copy(_ data: Data, _ from: Int, _ to: Int) -> [UInt8] {
+        let lower = data.startIndex + max(0, min(from, data.count)), upper = data.startIndex + max(0, min(to, data.count))
+        return lower < upper ? [UInt8](data[lower..<upper]) : []
+    }
+
     private func readChunk(_ chunk: ParquetColumnChunk, leaf: Leaf, rows: Int, into sink: inout ColumnSink) throws {
         var position = chunk.dataPageOffset
         if let dictionary = chunk.dictionaryPageOffset, dictionary > 0, dictionary < position { position = dictionary }
+        // Chỉ chép column chunk (`total_compressed_size` byte từ trang đầu); vị trí trong `bytes` tính từ `base`. Vài bộ ghi cũ ghi
+        // `total_compressed_size` thiếu: trang vượt khung thì mở khung tới cuối phần dữ liệu (trước footer).
+        let base = position
+        var bytes = Self.copy(data, base, base + max(chunk.totalCompressedSize, 0))
+        func covers(_ end: Int) -> Bool {
+            if end <= base + bytes.count { return true }
+            guard bytes.count < data.count - base else { return false }
+            bytes = Self.copy(data, base, data.count)
+            return end <= base + bytes.count
+        }
         var dictionary: ColumnValues?
         var read = 0
         let start = sink.count
         while read < rows {
-            guard position < bytes.count else { throw ParquetBytes.truncated }
-            var reader = ThriftCompactReader(bytes, at: position)
-            let header = try ParquetPageHeader(reader.structure())
-            let body = reader.index
-            guard body + header.compressedSize <= bytes.count else { throw ParquetBytes.truncated }
+            guard position < data.count, covers(position + 1) else { throw ParquetBytes.truncated }
+            var reader = ThriftCompactReader(bytes, at: position - base)
+            let header: ParquetPageHeader
+            do { header = try ParquetPageHeader(reader.structure()) } catch {
+                // Tiêu đề trang bị khung cắt ngang: mở khung rồi đọc lại.
+                guard bytes.count < data.count - base, covers(data.count) else { throw error }
+                reader = ThriftCompactReader(bytes, at: position - base)
+                header = try ParquetPageHeader(reader.structure())
+            }
+            let body = base + reader.index
+            guard body + header.compressedSize <= data.count, covers(body + header.compressedSize) else { throw ParquetBytes.truncated }
             position = body + header.compressedSize
-            let raw = bytes[body..<position]
+            let raw = bytes[(body - base)..<(position - base)]
             switch header.type {
             case 2:
                 let page = try ParquetCodec.decompress(raw, codec: chunk.codec, size: header.uncompressedSize)

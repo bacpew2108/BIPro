@@ -15,7 +15,7 @@
 | Gate W1 (ghi lại không đổi) | ✅ người dùng xác nhận: mở được, dữ liệu nạp đủ | `tuan6.2` không có visual nên dashboard trống là đúng như file gốc |
 | Gate W2 (sửa tiêu đề, T1) | ⏳ test tay trên VM | `build/w-out/W2/` |
 | Gate W3 (thêm measure, T2) | ⏳ test tay trên VM | `build/w-out/W3/` |
-| Gate W4 (bảng mới, T3) | ⏳ test tay trên VM | `build/w-out/W4/`, rủi ro cao nhất |
+| Gate W4 (bảng mới, T3) | ✅ thay bằng gate F-T3 của Phase F | Desktop mở bảng mới do BI Pro lưu, mọi ô khớp (SC-006, `FGateTests`, `docs/phase-f-evidence/vm-f3/`); gate tổng M3 đạt 2026-11-17 (`CHECKLIST-M3.md`) |
 
 Tổng test: **62/62 pass**, build không lỗi.
 

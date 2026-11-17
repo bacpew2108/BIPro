@@ -80,27 +80,36 @@ public struct SQLiteSource: DataSource {
             columns.append(SourceColumn(name: colName, type: daxType))
         }
 
-        // [SUY ĐOÁN] rowCountHint = SELECT COUNT(*) chỉ khi bảng nhỏ hơn 1 000 000 dòng (không chạy cho khung nhìn)
-        var countHint: Int? = nil
-        if kind == .table {
-            let countSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM \(quotedName) LIMIT 1000001);"
-            var cstmt: OpaquePointer?
-            if sqlite3_prepare_v2(db, countSQL, -1, &cstmt, nil) == SQLITE_OK {
-                if sqlite3_step(cstmt) == SQLITE_ROW {
-                    let total = Int(sqlite3_column_int64(cstmt, 0))
-                    if total <= 1_000_000 {
-                        countHint = total
-                    }
-                }
-                sqlite3_finalize(cstmt)
-            }
-        }
+        // Số dòng lúc liệt kê (T108, SC-003): `MAX(rowid)` tra cây B nên rẻ; chỉ khi nó không quá `countLimit` mới đếm đúng bằng COUNT(*)
+        // (quét tối đa chừng đó dòng). Bảng lớn hơn, khung nhìn và bảng WITHOUT ROWID không có số dòng lúc liệt kê; nạp cả bảng mới đếm.
+        let countHint = kind == .table ? SQLiteHelper.cheapRowCount(db: db, quotedName: quotedName, limit: SQLiteHelper.countLimit) : nil
 
         return (columns, countHint)
     }
 }
 
 enum SQLiteHelper {
+    /// Bảng có `MAX(rowid)` không quá ngưỡng này mới được đếm lúc liệt kê (T108).
+    static let countLimit = 100_000
+
+    /// Số dòng của bảng. Với `limit`: chỉ đếm khi `MAX(rowid)` không quá `limit` (bảng WITHOUT ROWID không có rowid: nil), để không
+    /// quét bảng lớn; nil là không giới hạn. Lỗi trả nil (số dòng chỉ để hiển thị và báo tiến độ).
+    static func cheapRowCount(db: OpaquePointer, quotedName: String, limit: Int?) -> Int? {
+        func scalar(_ sql: String) -> Int64?? {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { sqlite3_finalize(stmt); return nil }
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return .some(sqlite3_column_type(stmt, 0) == SQLITE_NULL ? nil : sqlite3_column_int64(stmt, 0))
+        }
+        if let limit {
+            guard let maxRowid = scalar("SELECT MAX(rowid) FROM \(quotedName);") else { return nil }
+            if let maxRowid, maxRowid > Int64(limit) { return nil }
+        }
+        guard let count = scalar("SELECT COUNT(*) FROM \(quotedName);"), let count else { return nil }
+        return Int(count)
+    }
+
     /// [SUY ĐOÁN] Trích dẫn tên bảng/cột SQLite: nhân đôi dấu ngoặc kép
     static func quoteIdentifier(_ name: String) -> String {
         "\"" + name.replacingOccurrences(of: "\"", with: "\"\"") + "\""
@@ -196,6 +205,9 @@ private struct SQLiteItem: SourceItem, Sendable {
         defer { sqlite3_finalize(stmt) }
 
         progress?(0.0)
+        // Tiến độ khi nạp cả bảng: số dòng lúc liệt kê, không có (bảng lớn) thì đếm bây giờ (rẻ so với đọc cả bảng). Khung nhìn không đếm.
+        let total = rowCountHint ?? (limit == nil && progress != nil && kind == .table
+            ? SQLiteHelper.cheapRowCount(db: db, quotedName: quotedName, limit: nil) : nil)
 
         // Thu thập giá trị theo từng cột
         var intBuilders: [[Int64?]] = []
@@ -294,7 +306,7 @@ private struct SQLiteItem: SourceItem, Sendable {
             }
 
             rowIdx += 1
-            if let hint = rowCountHint, hint > 0, rowIdx % 500 == 0 {
+            if let hint = total, hint > 0, rowIdx % 500 == 0 {
                 let p = min(0.99, Double(rowIdx) / Double(hint))
                 progress?(p)
             }

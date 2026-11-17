@@ -161,6 +161,12 @@ extension ModelMetadata {
         if !hosted.isEmpty { blockers.append("còn chứa measure " + hosted.joined(separator: ", ")) }
         let users = measures.filter { $0.tableName != name && Self.mentionsTable($0.expression, name) }.map(\.name)
         if !users.isEmpty { blockers.append("measure " + users.joined(separator: ", ") + " đang dùng bảng") }
+        // Cột tính toán và bảng tính toán ở bảng khác nhắc tới bảng này (T098, FR-004).
+        let calculated = columns.filter { $0.tableName != name && $0.kind == .calculated && Self.mentionsTable($0.expression ?? "", name) }
+            .map { "\($0.tableName)[\($0.name)]" }
+        if !calculated.isEmpty { blockers.append("cột tính toán " + calculated.joined(separator: ", ") + " đang dùng bảng") }
+        let calculatedTables = calculatedTableExpressions.filter { $0.key != name && Self.mentionsTable($0.value, name) }.keys.sorted()
+        if !calculatedTables.isEmpty { blockers.append("bảng tính toán " + calculatedTables.joined(separator: ", ") + " đang dùng bảng") }
         if !blockers.isEmpty { throw ModelEditError("Không thể xoá bảng \(name): " + blockers.joined(separator: "; ")) }
         var queries = partitionQueries
         queries[name] = nil

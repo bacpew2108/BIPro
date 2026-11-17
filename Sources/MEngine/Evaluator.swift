@@ -29,22 +29,26 @@ public struct MEvaluator: Sendable {
 
     /// `step`: đánh giá đến hết bước này của `let` ngoài cùng (xem trước ở bước giữa).
     /// `rowLimit`: nếu kết quả là bảng thì chỉ giữ chừng đó dòng đầu (xem trước); nguồn nhận gợi ý riêng qua `MEnvironment`.
+    /// Chạy trên hàng đợi riêng của bộ chạy M (T110, `MCancellation`), không giữ luồng của pool hợp tác; huỷ Task thì dừng ở điểm kiểm tiếp theo.
     public func evaluate(_ expression: MExpression, upTo step: String? = nil, rowLimit: Int? = nil) async throws -> MValue {
         try Task.checkCancellation()
-        let interpreter = Interpreter(environment: environment)
-        var result: MValue
-        if let step {
-            guard case .letIn(let bindings, _) = expression, bindings.contains(where: { $0.name == step }) else {
-                throw MError.expression("Bước '\(step)' không có trong truy vấn")
+        let environment = environment
+        return try await MCancellation.run {
+            let interpreter = Interpreter(environment: environment)
+            var result: MValue
+            if let step {
+                guard case .letIn(let bindings, _) = expression, bindings.contains(where: { $0.name == step }) else {
+                    throw MError.expression("Bước '\(step)' không có trong truy vấn")
+                }
+                let scope = interpreter.letScope(bindings, parent: interpreter.root)
+                result = try interpreter.lookup(step, in: scope, line: 1)
+            } else {
+                result = try interpreter.evaluate(expression, in: interpreter.root)
             }
-            let scope = interpreter.letScope(bindings, parent: interpreter.root)
-            result = try interpreter.lookup(step, in: scope, line: 1)
-        } else {
-            result = try interpreter.evaluate(expression, in: interpreter.root)
+            if case .error(let e) = result { throw e }
+            if let rowLimit, case .table(let table) = result { result = .table(table.prefix(rowLimit)) }
+            return result
         }
-        if case .error(let e) = result { throw e }
-        if let rowLimit, case .table(let table) = result { result = .table(table.prefix(rowLimit)) }
-        return result
     }
 }
 
@@ -202,7 +206,7 @@ final class Interpreter: @unchecked Sendable {
     private func evaluateList(_ items: [MExpression], in scope: MScope) throws -> MValue {
         var values: [MValue] = []
         for item in items {
-            try Task.checkCancellation()
+            try MCancellation.check()
             if case .range(let from, let to) = item {
                 guard case .number(let a) = try evaluate(from, in: scope), case .number(let b) = try evaluate(to, in: scope),
                       a == a.rounded(), b == b.rounded() else { throw MError.expression("Khoảng a..b phải là số nguyên") }
@@ -218,7 +222,7 @@ final class Interpreter: @unchecked Sendable {
         let inner = letScope(bindings, parent: scope)
         var fields: [MField] = []
         for binding in bindings {
-            try Task.checkCancellation()
+            try MCancellation.check()
             do { fields.append(MField(name: binding.name, value: try inner.thunks[binding.name]!.force(self))) }
             catch let e as MError { fields.append(MField(name: binding.name, value: .error(e))) }
         }
@@ -318,7 +322,7 @@ final class Interpreter: @unchecked Sendable {
     }
 
     private func invoke(_ callee: MExpression, _ arguments: [MExpression], line: Int, in scope: MScope) throws -> MValue {
-        try Task.checkCancellation()
+        try MCancellation.check()
         guard case .function(let function) = try evaluate(callee, in: scope) else {
             throw MError.expression("Chỉ có thể gọi giá trị kiểu hàm")
         }

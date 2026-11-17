@@ -47,6 +47,8 @@ struct ShellView: View {
                                   onApply: { state.applyQueryEditor() }, onClose: { state.closeQueryEditor() })
                     .frame(minWidth: 1000, idealWidth: 1280, maxWidth: .infinity, minHeight: 640, idealHeight: 800, maxHeight: .infinity)
                     .environment(\.colorScheme, .light)
+                    // SC-008: chỉ đóng qua nút "Đóng" (Esc), nút này hỏi "Pending changes" khi còn thay đổi chưa áp dụng.
+                    .interactiveDismissDisabled()
             }
         }
     }
