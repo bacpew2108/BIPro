@@ -4,8 +4,9 @@
 //
 // - SUMX, AVERAGEX: BLANK bị bỏ qua (AVERAGEX không tính BLANK vào mẫu). Kiểu kết quả theo FKAccumulator.
 // - MINX, MAXX: nhỏ nhất/lớn nhất trong các giá trị không BLANK; không có thì BLANK.
-// - CONCATENATEX(bảng, biểu thức, delimiter, [khoá, [ASC|DESC]]…): BLANK của biểu thức bị bỏ qua (không sinh
-//   delimiter thừa). Không có khoá thì giữ thứ tự lặp của bảng [SUY ĐOÁN]. Khoá BLANK đứng trước [SUY ĐOÁN].
+// - CONCATENATEX(bảng, biểu thức, [delimiter], [khoá, [ASC|DESC]]…) (VM-F12): BLANK của biểu thức thành chuỗi rỗng
+//   ({"a", BLANK(), "c"} → "a,,c"); bảng rỗng → BLANK; thiếu delimiter thì nối liền. Không có khoá thì giữ thứ tự lặp
+//   của bảng [SUY ĐOÁN]. Khoá BLANK đứng trước [SUY ĐOÁN].
 //   Khoá khác loại (số/chuỗi/logic) báo .typeMismatch. Sắp xếp ổn định (hoà thì giữ thứ tự lặp).
 // - PERCENTILEX.INC(bảng, biểu thức, k, [ASC|DESC]): bỏ BLANK; k ngoài [0, 1] báo .runtime; công thức nội suy
 //   tuyến tính của Excel PERCENTILE.INC (rank = k·(n−1)). DESC sắp giảm dần rồi áp cùng công thức [SUY ĐOÁN].
@@ -24,7 +25,7 @@ public enum IteratorFunctions: FunctionFamily {
                      impl: .scalar(extremexBody(wantMax: false))),
         FunctionSpec(name: "MAXX", params: [.table("table"), .lazy("expression")],
                      impl: .scalar(extremexBody(wantMax: true))),
-        FunctionSpec(name: "CONCATENATEX", params: [.table("table"), .lazy("expression"), .scalar("delimiter"),
+        FunctionSpec(name: "CONCATENATEX", params: [.table("table"), .lazy("expression"), .scalar("delimiter", optional: true),
                                                     .lazy("orderBy_expression", optional: true, repeats: true),
                                                     .keyword("order", ["ASC", "DESC"], optional: true)],
                      impl: .scalar(concatenatexBody)),
@@ -104,9 +105,7 @@ public enum IteratorFunctions: FunctionFamily {
         var texts: [String] = []
         var keys: [[Value]] = []
         try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
-            let value = try frame.scalar(1, in: inner)
-            if value.isBlank { return }
-            texts.append(value.asText())
+            texts.append(try frame.scalar(1, in: inner).asText())
             var row: [Value] = []
             row.reserveCapacity(spec.count)
             for key in spec {
@@ -129,7 +128,8 @@ public enum IteratorFunctions: FunctionFamily {
                 return a < b
             }
         }
-        let delimiter = try frame.scalar(2).asText()
+        if texts.isEmpty { return .blank }
+        let delimiter = frame.isBlankArgument(2) ? "" : try frame.scalar(2).asText()
         return .string(order.map { texts[$0] }.joined(separator: delimiter))
     }
 

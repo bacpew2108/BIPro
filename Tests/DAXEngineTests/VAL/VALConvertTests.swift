@@ -178,18 +178,25 @@ import Testing
         #expect(Value.concatenate(.boolean(true), .string("")) == .string("TRUE"))
     }
 
-    @Test func noiChuoiSoThucKhongKyHieuMu() {
-        // [SUY ĐOÁN] 15 chữ số có nghĩa và không ký hiệu mũ.
+    @Test func noiChuoiSoThuc15ChuSo() {
+        // VM-F12: 1/3 → "0.333333333333333", 0.000001 → "0.000001", 1234567890123 giữ nguyên, 1E+20 → "1E+20".
+        // [SUY ĐOÁN] ngưỡng chuyển sang ký hiệu mũ là 1E+15 (mới thấy 1E+20).
         #expect(Value.concatenate(.double(0.1 + 0.2), .string("")) == .string("0.3"))
-        #expect(Value.concatenate(.double(1e20), .string("")) == .string("100000000000000000000"))
+        #expect(Value.concatenate(.double(1.0 / 3), .string("")) == .string("0.333333333333333"))
+        #expect(Value.concatenate(.double(0.000001), .string("")) == .string("0.000001"))
+        #expect(Value.concatenate(.double(1_234_567_890_123), .string("")) == .string("1234567890123"))
+        #expect(Value.concatenate(.double(1e20), .string("")) == .string("1E+20"))
+        #expect(Value.concatenate(.double(-1.5e20), .string("")) == .string("-1.5E+20"))
         #expect(Value.concatenate(.double(-0.0000125), .string("")) == .string("-0.0000125"))
         #expect(Value.concatenate(.double(.infinity), .string("")) == .string("∞"))
         #expect(Value.concatenate(.double(.nan), .string("")) == .string("NaN"))
     }
 
     @Test func noiChuoiVoiNgay() {
-        // [SUY ĐOÁN, chờ O2] Định dạng en-US "M/d/yyyy h:mm:ss AM", giờ UTC.
-        #expect(Value.concatenate(.dateTime(45_000), .string("")) == .string("3/15/2023 12:00:00 AM"))
+        // VM-F12: DATE(2026, 1, 2) & "" → "1/2/2026" (nửa đêm thì bỏ phần giờ).
+        // [SUY ĐOÁN, chờ O2] Có giờ thì en-US "M/d/yyyy h:mm:ss AM", giờ UTC.
+        #expect(Value.concatenate(.dateTime(46_024), .string("")) == .string("1/2/2026"))
+        #expect(Value.concatenate(.dateTime(45_000), .string("")) == .string("3/15/2023"))
         #expect(Value.concatenate(.dateTime(45_000.5), .string("")) == .string("3/15/2023 12:00:00 PM"))
     }
 

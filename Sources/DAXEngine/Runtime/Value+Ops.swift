@@ -154,7 +154,17 @@ private func blankStandIn(for other: Value) -> Value {
 }
 
 /// Ngày OLE thành "M/d/yyyy h:mm:ss AM" theo en-US, giờ UTC. [SUY ĐOÁN, chờ O2: định dạng khi Copy.]
-private func dateTimeText(_ serial: Double) -> String {
+/// Số lớn đổi sang chuỗi dạng mũ, 15 chữ số có nghĩa: 1E+20 → "1E+20" (VM-F12). [SUY ĐOÁN] ngưỡng 1E+15.
+private func scientificText(_ magnitude: Double) -> String {
+    let parts = String(format: "%.14E", magnitude).split(separator: "E")
+    var mantissa = String(parts[0])
+    while mantissa.hasSuffix("0") { mantissa.removeLast() }
+    if mantissa.hasSuffix(".") { mantissa.removeLast() }
+    let exponent = Int(parts[1]) ?? 0
+    return "\(mantissa)E\(exponent < 0 ? "-" : "+")\(abs(exponent))"
+}
+
+private func dateTimeText(_ serial: Double, dropMidnight: Bool = true) -> String {
     guard serial.isFinite else { return nonFiniteText(serial) }
     // 25569 là số ngày từ 1899-12-30 đến 1970-01-01.
     let ms = ((serial - 25_569) * 86_400_000).rounded()
@@ -163,6 +173,8 @@ private func dateTimeText(_ serial: Double) -> String {
     let date = Date(timeIntervalSince1970: ms / 1000)
     let c = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
     let hour = c.hour ?? 0
+    // VM-F12: DATE(2026, 1, 2) & "" → "1/2/2026": nửa đêm thì chỉ có ngày.
+    if dropMidnight, hour == 0, c.minute ?? 0 == 0, c.second ?? 0 == 0 { return "\(c.month ?? 0)/\(c.day ?? 0)/\(c.year ?? 0)" }
     let hour12 = hour % 12 == 0 ? 12 : hour % 12
     func two(_ n: Int) -> String { n < 10 ? "0\(n)" : "\(n)" }
     return "\(c.month ?? 0)/\(c.day ?? 0)/\(c.year ?? 0) \(hour12):\(two(c.minute ?? 0)):\(two(c.second ?? 0)) \(hour < 12 ? "AM" : "PM")"
@@ -230,10 +242,17 @@ extension Value {
             return c < 0 && text != "0" ? "-" + text : text
         case .double(let d):
             guard d.isFinite else { return nonFiniteText(d) }
-            let text = DecimalText(magnitudeOf: abs(d)).plainString
+            let text = abs(d) >= 1e15 ? scientificText(abs(d)) : DecimalText(magnitudeOf: abs(d)).plainString
             return d < 0 && text != "0" ? "-" + text : text
         case .dateTime(let d): return dateTimeText(d)
         }
+    }
+
+    /// Chuỗi hiển thị trong lưới khi cột không có mẫu định dạng: như `asText()`, nhưng ngày giờ luôn có phần giờ
+    /// ("1/1/2013 12:00:00 AM", như lưới Desktop, O1).
+    public func displayText() -> String {
+        if case .dateTime(let d) = self { return dateTimeText(d, dropMidnight: false) }
+        return asText()
     }
 
     /// Số học: `+ - * / ^`. `/` và `^` luôn ra số thực. Quy tắc BLANK và ép kiểu theo architecture.md §5.5.
@@ -315,9 +334,10 @@ extension Value {
         }
     }
 
-    /// Toán tử `&`: nối hai vế sau khi ép sang chuỗi. BLANK thành "".
+    /// Toán tử `&`: nối hai vế sau khi ép sang chuỗi. BLANK thành "", nhưng hai vế đều BLANK thì ra BLANK (VM-F12).
     public static func concatenate(_ lhs: Value, _ rhs: Value) -> Value {
-        .string(lhs.asText() + rhs.asText())
+        if lhs.isBlank && rhs.isBlank { return .blank }
+        return .string(lhs.asText() + rhs.asText())
     }
 
     /// DIVIDE(a, b[, alt]). Trả `alternate` (mặc định BLANK) khi b là BLANK hoặc b = 0, không báo lỗi.

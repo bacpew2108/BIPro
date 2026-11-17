@@ -469,7 +469,7 @@ public enum VertiPaq {
                 bit += length
             }
             if bytes.count % 2 == 1 { bytes.removeLast() }
-            strings.append(String(data: Data(bytes), encoding: .utf16LittleEndian) ?? "")
+            strings.append(Data(bytes).utf16LEString())
         }
         return strings
     }

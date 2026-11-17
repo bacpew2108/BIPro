@@ -258,7 +258,18 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - `swift test` 2269 qua; golden nặng (release, `Nhom6|ORA|VIS|Batched|F6|T116|F2`) 122 qua.
   - T017 bấm thử app ĐẠT: tích Amount vào biểu đồ đã chọn ra "Tổng của Amount", menu 9 phép gộp, đổi sang Trung bình, hoàn tác, tích Price vào card, lưu, mở lại giữ trường gộp (Function 0/1/3/8). Sửa kèm: pane Bộ lọc ghi "Nhỏ nhất của Region" cho cột chữ (nay dùng chung `LayoutEditor.label(of:)` với Build pane) và kiểu cột lấy từ mô hình gốc nên bảng vừa nạp ở tài liệu mới ra nhãn sai (nay `LayoutEditor.modelColumns` theo mô hình hiệu lực).
   - Khác Desktop, ngoài phạm vi 011: tích cột khi chưa chọn visual thì Desktop tự tạo biểu đồ cột nhóm, BI Pro báo cần chọn visual; card mới (`cardVisual`) nhiều trường chỉ vẽ giá trị đầu.
-- **Việc kế:** bạn commit (Đợt 0 + US1) để giao gói agy; VM-F12 (T018) rồi giao F2-DAXTEXT; US2 (VM-F11).
+- Đợt 0 + US1 đã commit `72a900e` (chưa push).
+- **US3: T018 VM-F12 xong, T019 brief xong** (2026-11-17/18, Claude lái VM; chưa commit):
+  - `docs/phase-f2-evidence/vm-f12/QUAN-SAT.md` và `golden.tsv` (286 ca, 1 198 ô, mỗi hàm ít nhất 28 ô). Sinh bằng `scripts/f2-samples/vm_f12_queries.py` (bảng tính toán dán vào Desktop) và `vm_f12_golden.py` (đọc `.pbix` đã lưu qua `pbix-dump rows --escape`).
+  - Phát hiện: DAX đếm UTF-16 code unit; đối số số làm tròn; không chuẩn hoá Unicode; bảng lưu chuỗi không phân biệt hoa thường (CSV "ABC" thành "abc" khi nạp; **BI Pro chưa kiểm, tồn đọng mới ngoài 011**); `ISERROR(v)` với VAR không bắt lỗi; lưới DAX query view không hiện surrogate lẻ.
+  - Lead sửa kèm (TDD):
+    - `utf16LEString` giải mã từng đơn vị; trước đây một surrogate lẻ làm rỗng cả trang từ điển.
+    - `pbix-dump rows --escape`.
+    - `&`: BLANK & BLANK = BLANK; ngày nửa đêm thành "1/2/2026"; lưới vẫn có giờ qua `Value.displayText()`. Số ≥ 1E+15 thành dạng mũ "1E+20" (`[SUY ĐOÁN]` ngưỡng).
+    - `CONCATENATEX`: delimiter tuỳ chọn, phần tử BLANK thành "", bảng rỗng ra BLANK. Test cũ (suy đoán Python) đã đổi theo golden. `[SUY ĐOÁN]` Desktop cũng lặp dòng trống ảo của bảng chiều.
+  - `swift test` 2271 qua.
+  - Brief `docs/tasks/f2-daxtext.md`: 18 hàm (`CONCATENATEX` lead đã làm), golden 100% trừ 4 ô `UNICODE` của surrogate lẻ.
+- **Việc kế:** bạn commit phần trên (cần `git status` sạch) rồi giao F2-DAXTEXT cho agy (T020); trong lúc chờ: US2 (VM-F11).
 
 ## Việc tiếp theo
 

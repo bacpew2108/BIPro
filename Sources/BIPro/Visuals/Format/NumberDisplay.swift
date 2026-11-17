@@ -95,7 +95,7 @@ enum NumberDisplay {
         case .double(let d):
             return decimal(d, precision: 2, trimZeros: true)
         default:
-            return cell.value.asText()
+            return cell.value.displayText()
         }
     }
 

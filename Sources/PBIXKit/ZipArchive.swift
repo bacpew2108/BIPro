@@ -194,6 +194,10 @@ extension Data {
         if body.count >= 2, body[body.startIndex] == 0xFF, body[body.startIndex + 1] == 0xFE {
             body = body.dropFirst(2)
         }
-        return String(data: body, encoding: .utf16LittleEndian) ?? ""
+        // Giải mã từng đơn vị: surrogate lẻ (Desktop lưu được, VM-F12) thành U+FFFD, không làm rỗng cả chuỗi.
+        let units = stride(from: body.startIndex, to: body.endIndex - 1, by: 2).map {
+            UInt16(body[$0]) | UInt16(body[$0 + 1]) << 8
+        }
+        return String(decoding: units, as: UTF16.self)
     }
 }

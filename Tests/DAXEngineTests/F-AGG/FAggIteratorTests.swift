@@ -78,39 +78,43 @@ import DAXTestSupport
 
     // MARK: CONCATENATEX
 
+    // VM-F12: phần tử BLANK thành chuỗi rỗng ({"a", BLANK(), "c"} → "a,,c"). Dim_Account có dòng trống ảo (khoá ngoại
+    // không khớp), nên chuỗi kết thúc bằng một phần tử rỗng. [SUY ĐOÁN] Desktop cũng lặp dòng trống ảo ở đây.
     @Test func concatenatexThuTuLapVaDelimiter() throws {
         let env = FAggEnv.minibank()
         #expect(try env.value("CONCATENATEX ( Dim_Account, Dim_Account[branch_city], \", \" )")
-            == .string("Hà Nội, Đà Nẵng, TP. Hồ Chí Minh, Hà Nội, Đà Nẵng"))
+            == .string("Hà Nội, Đà Nẵng, TP. Hồ Chí Minh, Hà Nội, Đà Nẵng, "))
     }
 
     @Test func concatenatexOrderDescTheoKhoa() throws {
         let env = FAggEnv.minibank()
         #expect(try env.value("CONCATENATEX ( Dim_Account, Dim_Account[branch_city], \", \", Dim_Account[account_key], DESC )")
-            == .string("Đà Nẵng, Hà Nội, TP. Hồ Chí Minh, Đà Nẵng, Hà Nội"))
+            == .string("Đà Nẵng, Hà Nội, TP. Hồ Chí Minh, Đà Nẵng, Hà Nội, "))
     }
 
-    @Test func concatenatexBoQuaBlankTrenFactTrans() throws {
+    @Test func concatenatexBlankThanhChuoiRongTrenFactTrans() throws {
         let env = FAggEnv.minibank()
-        // Đáp án Python: 39 vùng (dòng FK 99 là BLANK, bị bỏ qua), sắp theo trans_key giảm dần.
-        let dapAn = "Miền Bắc|Miền Bắc|Unknown|Miền Trung|Miền Bắc|Miền Bắc|Miền Trung|Unknown|Miền Trung|Unknown|Miền Bắc|Miền Trung|Miền Trung|Miền Bắc|Miền Bắc|Miền Trung|Miền Trung|Unknown|Miền Trung|Miền Trung|Miền Trung|Unknown|Miền Trung|Unknown|Miền Bắc|Miền Bắc|Miền Trung|Miền Bắc|Miền Bắc|Miền Bắc|Miền Bắc|Miền Bắc|Miền Trung|Miền Trung|Miền Trung|Miền Bắc|Miền Trung|Miền Bắc|Unknown"
+        // Đáp án Python: 40 dòng sắp theo trans_key giảm dần; dòng FK 99 (vùng BLANK) thành phần tử rỗng (VM-F12).
+        let dapAn = "Miền Bắc|Miền Bắc|Unknown|Miền Trung|Miền Bắc|Miền Bắc|Miền Trung||Unknown|Miền Trung|Unknown|Miền Bắc|Miền Trung|Miền Trung|Miền Bắc|Miền Bắc|Miền Trung|Miền Trung|Unknown|Miền Trung|Miền Trung|Miền Trung|Unknown|Miền Trung|Unknown|Miền Bắc|Miền Bắc|Miền Trung|Miền Bắc|Miền Bắc|Miền Bắc|Miền Bắc|Miền Bắc|Miền Trung|Miền Trung|Miền Trung|Miền Bắc|Miền Trung|Miền Bắc|Unknown"
         #expect(try env.value("CONCATENATEX ( Fact_Trans, Fact_Trans[client_region], \"|\", Fact_Trans[trans_key], DESC )")
             == .string(dapAn))
     }
 
     @Test func concatenatexKhoNhoBlankVaOrderAscDesc() throws {
         let env = FAggEnv.kho()
-        #expect(try env.value("CONCATENATEX ( Kho, Kho[so], \",\" )") == .string("5,3,5,1,7"))
-        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \" | \" )") == .string("a | b | a | c | b"))
-        // Sắp theo thực giảm dần: 4,0(c), 2,5(a), 2,0(b), 1,5(a), 0,5(BLANK bỏ), -3,0(b).
-        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \" | \", Kho[thuc], DESC )") == .string("c | a | b | a | b"))
-        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \" | \", Kho[thuc], ASC )") == .string("b | a | b | a | c"))
+        #expect(try env.value("CONCATENATEX ( Kho, Kho[so], \",\" )") == .string("5,,3,5,1,7"))
+        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \" | \" )") == .string("a | b | a |  | c | b"))
+        #expect(try env.value("CONCATENATEX ( Kho, Kho[so] )") == .string("53517"), "thiếu delimiter thì nối liền")
+        // Sắp theo thực giảm dần: 4,0(c), 2,5(a), 2,0(b), 1,5(a), 0,5(BLANK → rỗng), -3,0(b).
+        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \" | \", Kho[thuc], DESC )") == .string("c | a | b | a |  | b"))
+        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \" | \", Kho[thuc], ASC )") == .string("b |  | a | b | a | c"))
     }
 
-    @Test func concatenatexBangRongLaChuoiRong() throws {
+    @Test func concatenatexBangRongLaBlank() throws {
+        // VM-F12: CONCATENATEX(FILTER({1}, FALSE()), [Value], ",") → BLANK.
         let env = FAggEnv.kho()
         let khong = try env.filter("Kho", "so", [.integer(99)])
-        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \",\" )", filter: khong) == .string(""))
+        #expect(try env.value("CONCATENATEX ( Kho, Kho[nhom], \",\" )", filter: khong) == .blank)
     }
 
     // MARK: PERCENTILEX.INC

@@ -1,0 +1,1199 @@
+Case	Table	ID	Expr	Result
+IN-Txt	HCol	1	[Txt]	T:Hà Nội
+IN-Txt	HCol	2	[Txt]	T:Hà Nội
+IN-Txt	HCol	3	[Txt]	T:ĐÀ NẴNG
+IN-Txt	HCol	4	[Txt]	T:  khoảng trắng   giữa
+IN-Txt	HCol	5	[Txt]	T:
+IN-Txt	HCol	6	[Txt]	T:
+IN-Txt	HCol	7	[Txt]	T:abc
+IN-Txt	HCol	8	[Txt]	T:abc
+IN-Txt	HCol	9	[Txt]	T:a*b?c~d
+IN-Txt	HCol	10	[Txt]	T:1,5
+IN-Txt	HCol	11	[Txt]	T:1.5
+IN-Txt	HCol	12	[Txt]	T: 12
+IN-Txt	HCol	13	[Txt]	T:-3.75
+IN-Txt	HCol	14	[Txt]	T:😀 emoji
+IN-Txt	HCol	15	[Txt]	T:x😀y
+IN-Txt	HCol	16	[Txt]	T:Ngày 1/2/2026
+IN-Txt	HCol	17	[Txt]	T:Trường Đại học Bách khoa
+IN-Txt	HCol	18	[Txt]	T:aaaaaaaaaa
+IN-Txt	HCol	19	[Txt]	T:tab\tgiữa
+IN-Txt	HCol	20	[Txt]	T:dòng\nmới
+IN-Nfd	HCol	1	[Nfd]	T:Hà Nội
+IN-Nfd	HCol	2	[Nfd]	T:Hà Nội
+IN-Nfd	HCol	3	[Nfd]	T:ĐÀ NẴNG
+IN-Nfd	HCol	4	[Nfd]	T:  khoảng trắng   giữa
+IN-Nfd	HCol	5	[Nfd]	T:
+IN-Nfd	HCol	6	[Nfd]	T:
+IN-Nfd	HCol	7	[Nfd]	T:abc
+IN-Nfd	HCol	8	[Nfd]	T:abc
+IN-Nfd	HCol	9	[Nfd]	T:a*b?c~d
+IN-Nfd	HCol	10	[Nfd]	T:1,5
+IN-Nfd	HCol	11	[Nfd]	T:1.5
+IN-Nfd	HCol	12	[Nfd]	T: 12
+IN-Nfd	HCol	13	[Nfd]	T:-3.75
+IN-Nfd	HCol	14	[Nfd]	T:😀 emoji
+IN-Nfd	HCol	15	[Nfd]	T:x😀y
+IN-Nfd	HCol	16	[Nfd]	T:Ngày 1/2/2026
+IN-Nfd	HCol	17	[Nfd]	T:Trường Đại học Bách khoa
+IN-Nfd	HCol	18	[Nfd]	T:aaaaaaaaaa
+IN-Nfd	HCol	19	[Nfd]	T:tab\tgiữa
+IN-Nfd	HCol	20	[Nfd]	T:dòng\nmới
+IN-Num	HCol	1	[Num]	N:1
+IN-Num	HCol	2	[Num]	N:-1
+IN-Num	HCol	3	[Num]	N:2.5
+IN-Num	HCol	4	[Num]	N:100
+IN-Num	HCol	5	[Num]	N:1234567.891
+IN-Num	HCol	6	[Num]	N:0
+IN-Num	HCol	7	[Num]	N:1
+IN-Num	HCol	8	[Num]	N:-1
+IN-Num	HCol	9	[Num]	N:2.5
+IN-Num	HCol	10	[Num]	N:100
+IN-Num	HCol	11	[Num]	N:1234567.891
+IN-Num	HCol	12	[Num]	N:0
+IN-Num	HCol	13	[Num]	N:1
+IN-Num	HCol	14	[Num]	N:-1
+IN-Num	HCol	15	[Num]	N:2.5
+IN-Num	HCol	16	[Num]	N:100
+IN-Num	HCol	17	[Num]	N:1234567.891
+IN-Num	HCol	18	[Num]	N:0
+IN-Num	HCol	19	[Num]	N:1
+IN-Num	HCol	20	[Num]	N:-1
+LEN-Txt	HCol	1	LEN([Txt])	N:6
+LEN-Txt	HCol	2	LEN([Txt])	N:6
+LEN-Txt	HCol	3	LEN([Txt])	N:7
+LEN-Txt	HCol	4	LEN([Txt])	N:21
+LEN-Txt	HCol	5	LEN([Txt])	N:0
+LEN-Txt	HCol	6	LEN([Txt])	N:0
+LEN-Txt	HCol	7	LEN([Txt])	N:3
+LEN-Txt	HCol	8	LEN([Txt])	N:3
+LEN-Txt	HCol	9	LEN([Txt])	N:7
+LEN-Txt	HCol	10	LEN([Txt])	N:3
+LEN-Txt	HCol	11	LEN([Txt])	N:3
+LEN-Txt	HCol	12	LEN([Txt])	N:3
+LEN-Txt	HCol	13	LEN([Txt])	N:5
+LEN-Txt	HCol	14	LEN([Txt])	N:8
+LEN-Txt	HCol	15	LEN([Txt])	N:4
+LEN-Txt	HCol	16	LEN([Txt])	N:13
+LEN-Txt	HCol	17	LEN([Txt])	N:24
+LEN-Txt	HCol	18	LEN([Txt])	N:10
+LEN-Txt	HCol	19	LEN([Txt])	N:8
+LEN-Txt	HCol	20	LEN([Txt])	N:8
+LEN-Nfd	HCol	1	LEN([Nfd])	N:9
+LEN-Nfd	HCol	2	LEN([Nfd])	N:9
+LEN-Nfd	HCol	3	LEN([Nfd])	N:10
+LEN-Nfd	HCol	4	LEN([Nfd])	N:26
+LEN-Nfd	HCol	5	LEN([Nfd])	N:0
+LEN-Nfd	HCol	6	LEN([Nfd])	N:0
+LEN-Nfd	HCol	7	LEN([Nfd])	N:3
+LEN-Nfd	HCol	8	LEN([Nfd])	N:3
+LEN-Nfd	HCol	9	LEN([Nfd])	N:7
+LEN-Nfd	HCol	10	LEN([Nfd])	N:3
+LEN-Nfd	HCol	11	LEN([Nfd])	N:3
+LEN-Nfd	HCol	12	LEN([Nfd])	N:3
+LEN-Nfd	HCol	13	LEN([Nfd])	N:5
+LEN-Nfd	HCol	14	LEN([Nfd])	N:8
+LEN-Nfd	HCol	15	LEN([Nfd])	N:4
+LEN-Nfd	HCol	16	LEN([Nfd])	N:14
+LEN-Nfd	HCol	17	LEN([Nfd])	N:30
+LEN-Nfd	HCol	18	LEN([Nfd])	N:10
+LEN-Nfd	HCol	19	LEN([Nfd])	N:10
+LEN-Nfd	HCol	20	LEN([Nfd])	N:11
+LEN-Num	HCol	1	LEN([Num])	N:1
+LEN-Num	HCol	2	LEN([Num])	N:2
+LEN-Num	HCol	3	LEN([Num])	N:3
+LEN-Num	HCol	4	LEN([Num])	N:3
+LEN-Num	HCol	5	LEN([Num])	N:11
+LEN-Num	HCol	6	LEN([Num])	N:1
+LEN-Num	HCol	7	LEN([Num])	N:1
+LEN-Num	HCol	8	LEN([Num])	N:2
+LEN-Num	HCol	9	LEN([Num])	N:3
+LEN-Num	HCol	10	LEN([Num])	N:3
+LEN-Num	HCol	11	LEN([Num])	N:11
+LEN-Num	HCol	12	LEN([Num])	N:1
+LEN-Num	HCol	13	LEN([Num])	N:1
+LEN-Num	HCol	14	LEN([Num])	N:2
+LEN-Num	HCol	15	LEN([Num])	N:3
+LEN-Num	HCol	16	LEN([Num])	N:3
+LEN-Num	HCol	17	LEN([Num])	N:11
+LEN-Num	HCol	18	LEN([Num])	N:1
+LEN-Num	HCol	19	LEN([Num])	N:1
+LEN-Num	HCol	20	LEN([Num])	N:2
+UPPER-Txt	HCol	1	UPPER([Txt])	T:HÀ NỘI
+UPPER-Txt	HCol	2	UPPER([Txt])	T:HÀ NỘI
+UPPER-Txt	HCol	3	UPPER([Txt])	T:ĐÀ NẴNG
+UPPER-Txt	HCol	4	UPPER([Txt])	T:  KHOẢNG TRẮNG   GIỮA
+UPPER-Txt	HCol	5	UPPER([Txt])	T:
+UPPER-Txt	HCol	6	UPPER([Txt])	T:
+UPPER-Txt	HCol	7	UPPER([Txt])	T:ABC
+UPPER-Txt	HCol	8	UPPER([Txt])	T:ABC
+UPPER-Txt	HCol	9	UPPER([Txt])	T:A*B?C~D
+UPPER-Txt	HCol	10	UPPER([Txt])	T:1,5
+UPPER-Txt	HCol	11	UPPER([Txt])	T:1.5
+UPPER-Txt	HCol	12	UPPER([Txt])	T: 12
+UPPER-Txt	HCol	13	UPPER([Txt])	T:-3.75
+UPPER-Txt	HCol	14	UPPER([Txt])	T:😀 EMOJI
+UPPER-Txt	HCol	15	UPPER([Txt])	T:X😀Y
+UPPER-Txt	HCol	16	UPPER([Txt])	T:NGÀY 1/2/2026
+UPPER-Txt	HCol	17	UPPER([Txt])	T:TRƯỜNG ĐẠI HỌC BÁCH KHOA
+UPPER-Txt	HCol	18	UPPER([Txt])	T:AAAAAAAAAA
+UPPER-Txt	HCol	19	UPPER([Txt])	T:TAB\tGIỮA
+UPPER-Txt	HCol	20	UPPER([Txt])	T:DÒNG\nMỚI
+UPPER-Nfd	HCol	1	UPPER([Nfd])	T:HÀ NỘI
+UPPER-Nfd	HCol	2	UPPER([Nfd])	T:HÀ NỘI
+UPPER-Nfd	HCol	3	UPPER([Nfd])	T:ĐÀ NẴNG
+UPPER-Nfd	HCol	4	UPPER([Nfd])	T:  KHOẢNG TRẮNG   GIỮA
+UPPER-Nfd	HCol	5	UPPER([Nfd])	T:
+UPPER-Nfd	HCol	6	UPPER([Nfd])	T:
+UPPER-Nfd	HCol	7	UPPER([Nfd])	T:ABC
+UPPER-Nfd	HCol	8	UPPER([Nfd])	T:ABC
+UPPER-Nfd	HCol	9	UPPER([Nfd])	T:A*B?C~D
+UPPER-Nfd	HCol	10	UPPER([Nfd])	T:1,5
+UPPER-Nfd	HCol	11	UPPER([Nfd])	T:1.5
+UPPER-Nfd	HCol	12	UPPER([Nfd])	T: 12
+UPPER-Nfd	HCol	13	UPPER([Nfd])	T:-3.75
+UPPER-Nfd	HCol	14	UPPER([Nfd])	T:😀 EMOJI
+UPPER-Nfd	HCol	15	UPPER([Nfd])	T:X😀Y
+UPPER-Nfd	HCol	16	UPPER([Nfd])	T:NGÀY 1/2/2026
+UPPER-Nfd	HCol	17	UPPER([Nfd])	T:TRƯỜNG ĐẠI HỌC BÁCH KHOA
+UPPER-Nfd	HCol	18	UPPER([Nfd])	T:AAAAAAAAAA
+UPPER-Nfd	HCol	19	UPPER([Nfd])	T:TAB\tGIỮA
+UPPER-Nfd	HCol	20	UPPER([Nfd])	T:DÒNG\nMỚI
+LOWER-Txt	HCol	1	LOWER([Txt])	T:hà nội
+LOWER-Txt	HCol	2	LOWER([Txt])	T:hà nội
+LOWER-Txt	HCol	3	LOWER([Txt])	T:đà nẵng
+LOWER-Txt	HCol	4	LOWER([Txt])	T:  khoảng trắng   giữa
+LOWER-Txt	HCol	5	LOWER([Txt])	T:
+LOWER-Txt	HCol	6	LOWER([Txt])	T:
+LOWER-Txt	HCol	7	LOWER([Txt])	T:abc
+LOWER-Txt	HCol	8	LOWER([Txt])	T:abc
+LOWER-Txt	HCol	9	LOWER([Txt])	T:a*b?c~d
+LOWER-Txt	HCol	10	LOWER([Txt])	T:1,5
+LOWER-Txt	HCol	11	LOWER([Txt])	T:1.5
+LOWER-Txt	HCol	12	LOWER([Txt])	T: 12
+LOWER-Txt	HCol	13	LOWER([Txt])	T:-3.75
+LOWER-Txt	HCol	14	LOWER([Txt])	T:😀 emoji
+LOWER-Txt	HCol	15	LOWER([Txt])	T:x😀y
+LOWER-Txt	HCol	16	LOWER([Txt])	T:ngày 1/2/2026
+LOWER-Txt	HCol	17	LOWER([Txt])	T:trường đại học bách khoa
+LOWER-Txt	HCol	18	LOWER([Txt])	T:aaaaaaaaaa
+LOWER-Txt	HCol	19	LOWER([Txt])	T:tab\tgiữa
+LOWER-Txt	HCol	20	LOWER([Txt])	T:dòng\nmới
+LOWER-Nfd	HCol	1	LOWER([Nfd])	T:hà nội
+LOWER-Nfd	HCol	2	LOWER([Nfd])	T:hà nội
+LOWER-Nfd	HCol	3	LOWER([Nfd])	T:đà nẵng
+LOWER-Nfd	HCol	4	LOWER([Nfd])	T:  khoảng trắng   giữa
+LOWER-Nfd	HCol	5	LOWER([Nfd])	T:
+LOWER-Nfd	HCol	6	LOWER([Nfd])	T:
+LOWER-Nfd	HCol	7	LOWER([Nfd])	T:abc
+LOWER-Nfd	HCol	8	LOWER([Nfd])	T:abc
+LOWER-Nfd	HCol	9	LOWER([Nfd])	T:a*b?c~d
+LOWER-Nfd	HCol	10	LOWER([Nfd])	T:1,5
+LOWER-Nfd	HCol	11	LOWER([Nfd])	T:1.5
+LOWER-Nfd	HCol	12	LOWER([Nfd])	T: 12
+LOWER-Nfd	HCol	13	LOWER([Nfd])	T:-3.75
+LOWER-Nfd	HCol	14	LOWER([Nfd])	T:😀 emoji
+LOWER-Nfd	HCol	15	LOWER([Nfd])	T:x😀y
+LOWER-Nfd	HCol	16	LOWER([Nfd])	T:ngày 1/2/2026
+LOWER-Nfd	HCol	17	LOWER([Nfd])	T:trường đại học bách khoa
+LOWER-Nfd	HCol	18	LOWER([Nfd])	T:aaaaaaaaaa
+LOWER-Nfd	HCol	19	LOWER([Nfd])	T:tab\tgiữa
+LOWER-Nfd	HCol	20	LOWER([Nfd])	T:dòng\nmới
+MID-2-3	HCol	1	MID([Txt], 2, 3)	T:à N
+MID-2-3	HCol	2	MID([Txt], 2, 3)	T:à N
+MID-2-3	HCol	3	MID([Txt], 2, 3)	T:À N
+MID-2-3	HCol	4	MID([Txt], 2, 3)	T: kh
+MID-2-3	HCol	5	MID([Txt], 2, 3)	T:
+MID-2-3	HCol	6	MID([Txt], 2, 3)	T:
+MID-2-3	HCol	7	MID([Txt], 2, 3)	T:bc
+MID-2-3	HCol	8	MID([Txt], 2, 3)	T:bc
+MID-2-3	HCol	9	MID([Txt], 2, 3)	T:*b?
+MID-2-3	HCol	10	MID([Txt], 2, 3)	T:,5
+MID-2-3	HCol	11	MID([Txt], 2, 3)	T:.5
+MID-2-3	HCol	12	MID([Txt], 2, 3)	T:12
+MID-2-3	HCol	13	MID([Txt], 2, 3)	T:3.7
+MID-2-3	HCol	14	MID([Txt], 2, 3)	T:� e
+MID-2-3	HCol	15	MID([Txt], 2, 3)	T:😀y
+MID-2-3	HCol	16	MID([Txt], 2, 3)	T:gày
+MID-2-3	HCol	17	MID([Txt], 2, 3)	T:rườ
+MID-2-3	HCol	18	MID([Txt], 2, 3)	T:aaa
+MID-2-3	HCol	19	MID([Txt], 2, 3)	T:ab\t
+MID-2-3	HCol	20	MID([Txt], 2, 3)	T:òng
+MID-ID	HCol	1	MID([Txt], [ID] - 5, 4)	E
+MID-ID	HCol	2	MID([Txt], [ID] - 5, 4)	E
+MID-ID	HCol	3	MID([Txt], [ID] - 5, 4)	E
+MID-ID	HCol	4	MID([Txt], [ID] - 5, 4)	E
+MID-ID	HCol	5	MID([Txt], [ID] - 5, 4)	E
+MID-ID	HCol	6	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	7	MID([Txt], [ID] - 5, 4)	T:bc
+MID-ID	HCol	8	MID([Txt], [ID] - 5, 4)	T:c
+MID-ID	HCol	9	MID([Txt], [ID] - 5, 4)	T:?c~d
+MID-ID	HCol	10	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	11	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	12	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	13	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	14	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	15	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	16	MID([Txt], [ID] - 5, 4)	T:026
+MID-ID	HCol	17	MID([Txt], [ID] - 5, 4)	T:học 
+MID-ID	HCol	18	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	19	MID([Txt], [ID] - 5, 4)	T:
+MID-ID	HCol	20	MID([Txt], [ID] - 5, 4)	T:
+RIGHT-3	HCol	1	RIGHT([Txt], 3)	T:Nội
+RIGHT-3	HCol	2	RIGHT([Txt], 3)	T:Nội
+RIGHT-3	HCol	3	RIGHT([Txt], 3)	T:ẴNG
+RIGHT-3	HCol	4	RIGHT([Txt], 3)	T:iữa
+RIGHT-3	HCol	5	RIGHT([Txt], 3)	T:
+RIGHT-3	HCol	6	RIGHT([Txt], 3)	T:
+RIGHT-3	HCol	7	RIGHT([Txt], 3)	T:abc
+RIGHT-3	HCol	8	RIGHT([Txt], 3)	T:abc
+RIGHT-3	HCol	9	RIGHT([Txt], 3)	T:c~d
+RIGHT-3	HCol	10	RIGHT([Txt], 3)	T:1,5
+RIGHT-3	HCol	11	RIGHT([Txt], 3)	T:1.5
+RIGHT-3	HCol	12	RIGHT([Txt], 3)	T: 12
+RIGHT-3	HCol	13	RIGHT([Txt], 3)	T:.75
+RIGHT-3	HCol	14	RIGHT([Txt], 3)	T:oji
+RIGHT-3	HCol	15	RIGHT([Txt], 3)	T:😀y
+RIGHT-3	HCol	16	RIGHT([Txt], 3)	T:026
+RIGHT-3	HCol	17	RIGHT([Txt], 3)	T:hoa
+RIGHT-3	HCol	18	RIGHT([Txt], 3)	T:aaa
+RIGHT-3	HCol	19	RIGHT([Txt], 3)	T:iữa
+RIGHT-3	HCol	20	RIGHT([Txt], 3)	T:mới
+RIGHT-def	HCol	1	RIGHT([Txt])	T:i
+RIGHT-def	HCol	2	RIGHT([Txt])	T:i
+RIGHT-def	HCol	3	RIGHT([Txt])	T:G
+RIGHT-def	HCol	4	RIGHT([Txt])	T:a
+RIGHT-def	HCol	5	RIGHT([Txt])	T:
+RIGHT-def	HCol	6	RIGHT([Txt])	T:
+RIGHT-def	HCol	7	RIGHT([Txt])	T:c
+RIGHT-def	HCol	8	RIGHT([Txt])	T:c
+RIGHT-def	HCol	9	RIGHT([Txt])	T:d
+RIGHT-def	HCol	10	RIGHT([Txt])	T:5
+RIGHT-def	HCol	11	RIGHT([Txt])	T:5
+RIGHT-def	HCol	12	RIGHT([Txt])	T:2
+RIGHT-def	HCol	13	RIGHT([Txt])	T:5
+RIGHT-def	HCol	14	RIGHT([Txt])	T:i
+RIGHT-def	HCol	15	RIGHT([Txt])	T:y
+RIGHT-def	HCol	16	RIGHT([Txt])	T:6
+RIGHT-def	HCol	17	RIGHT([Txt])	T:a
+RIGHT-def	HCol	18	RIGHT([Txt])	T:a
+RIGHT-def	HCol	19	RIGHT([Txt])	T:a
+RIGHT-def	HCol	20	RIGHT([Txt])	T:i
+RIGHT-ID	HCol	1	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	2	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	3	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	4	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	5	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	6	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	7	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	8	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	9	RIGHT([Txt], [ID] - 10)	E
+RIGHT-ID	HCol	10	RIGHT([Txt], [ID] - 10)	T:
+RIGHT-ID	HCol	11	RIGHT([Txt], [ID] - 10)	T:5
+RIGHT-ID	HCol	12	RIGHT([Txt], [ID] - 10)	T:12
+RIGHT-ID	HCol	13	RIGHT([Txt], [ID] - 10)	T:.75
+RIGHT-ID	HCol	14	RIGHT([Txt], [ID] - 10)	T:moji
+RIGHT-ID	HCol	15	RIGHT([Txt], [ID] - 10)	T:x😀y
+RIGHT-ID	HCol	16	RIGHT([Txt], [ID] - 10)	T:2/2026
+RIGHT-ID	HCol	17	RIGHT([Txt], [ID] - 10)	T:ch khoa
+RIGHT-ID	HCol	18	RIGHT([Txt], [ID] - 10)	T:aaaaaaaa
+RIGHT-ID	HCol	19	RIGHT([Txt], [ID] - 10)	T:tab\tgiữa
+RIGHT-ID	HCol	20	RIGHT([Txt], [ID] - 10)	T:dòng\nmới
+LEFT-2	HCol	1	LEFT([Txt], 2)	T:Hà
+LEFT-2	HCol	2	LEFT([Txt], 2)	T:Hà
+LEFT-2	HCol	3	LEFT([Txt], 2)	T:ĐÀ
+LEFT-2	HCol	4	LEFT([Txt], 2)	T:  
+LEFT-2	HCol	5	LEFT([Txt], 2)	T:
+LEFT-2	HCol	6	LEFT([Txt], 2)	T:
+LEFT-2	HCol	7	LEFT([Txt], 2)	T:ab
+LEFT-2	HCol	8	LEFT([Txt], 2)	T:ab
+LEFT-2	HCol	9	LEFT([Txt], 2)	T:a*
+LEFT-2	HCol	10	LEFT([Txt], 2)	T:1,
+LEFT-2	HCol	11	LEFT([Txt], 2)	T:1.
+LEFT-2	HCol	12	LEFT([Txt], 2)	T: 1
+LEFT-2	HCol	13	LEFT([Txt], 2)	T:-3
+LEFT-2	HCol	14	LEFT([Txt], 2)	T:😀
+LEFT-2	HCol	15	LEFT([Txt], 2)	T:x�
+LEFT-2	HCol	16	LEFT([Txt], 2)	T:Ng
+LEFT-2	HCol	17	LEFT([Txt], 2)	T:Tr
+LEFT-2	HCol	18	LEFT([Txt], 2)	T:aa
+LEFT-2	HCol	19	LEFT([Txt], 2)	T:ta
+LEFT-2	HCol	20	LEFT([Txt], 2)	T:dò
+TRIM-Txt	HCol	1	TRIM([Txt])	T:Hà Nội
+TRIM-Txt	HCol	2	TRIM([Txt])	T:Hà Nội
+TRIM-Txt	HCol	3	TRIM([Txt])	T:ĐÀ NẴNG
+TRIM-Txt	HCol	4	TRIM([Txt])	T:khoảng trắng giữa
+TRIM-Txt	HCol	5	TRIM([Txt])	T:
+TRIM-Txt	HCol	6	TRIM([Txt])	T:
+TRIM-Txt	HCol	7	TRIM([Txt])	T:abc
+TRIM-Txt	HCol	8	TRIM([Txt])	T:abc
+TRIM-Txt	HCol	9	TRIM([Txt])	T:a*b?c~d
+TRIM-Txt	HCol	10	TRIM([Txt])	T:1,5
+TRIM-Txt	HCol	11	TRIM([Txt])	T:1.5
+TRIM-Txt	HCol	12	TRIM([Txt])	T:12
+TRIM-Txt	HCol	13	TRIM([Txt])	T:-3.75
+TRIM-Txt	HCol	14	TRIM([Txt])	T:😀 emoji
+TRIM-Txt	HCol	15	TRIM([Txt])	T:x😀y
+TRIM-Txt	HCol	16	TRIM([Txt])	T:Ngày 1/2/2026
+TRIM-Txt	HCol	17	TRIM([Txt])	T:Trường Đại học Bách khoa
+TRIM-Txt	HCol	18	TRIM([Txt])	T:aaaaaaaaaa
+TRIM-Txt	HCol	19	TRIM([Txt])	T:tab\tgiữa
+TRIM-Txt	HCol	20	TRIM([Txt])	T:dòng\nmới
+SUBST-a	HCol	1	SUBSTITUTE([Txt], "a", "X")	T:Hà Nội
+SUBST-a	HCol	2	SUBSTITUTE([Txt], "a", "X")	T:Hà Nội
+SUBST-a	HCol	3	SUBSTITUTE([Txt], "a", "X")	T:ĐÀ NẴNG
+SUBST-a	HCol	4	SUBSTITUTE([Txt], "a", "X")	T:  khoảng trắng   giữX
+SUBST-a	HCol	5	SUBSTITUTE([Txt], "a", "X")	T:
+SUBST-a	HCol	6	SUBSTITUTE([Txt], "a", "X")	T:
+SUBST-a	HCol	7	SUBSTITUTE([Txt], "a", "X")	T:Xbc
+SUBST-a	HCol	8	SUBSTITUTE([Txt], "a", "X")	T:Xbc
+SUBST-a	HCol	9	SUBSTITUTE([Txt], "a", "X")	T:X*b?c~d
+SUBST-a	HCol	10	SUBSTITUTE([Txt], "a", "X")	T:1,5
+SUBST-a	HCol	11	SUBSTITUTE([Txt], "a", "X")	T:1.5
+SUBST-a	HCol	12	SUBSTITUTE([Txt], "a", "X")	T: 12
+SUBST-a	HCol	13	SUBSTITUTE([Txt], "a", "X")	T:-3.75
+SUBST-a	HCol	14	SUBSTITUTE([Txt], "a", "X")	T:😀 emoji
+SUBST-a	HCol	15	SUBSTITUTE([Txt], "a", "X")	T:x😀y
+SUBST-a	HCol	16	SUBSTITUTE([Txt], "a", "X")	T:Ngày 1/2/2026
+SUBST-a	HCol	17	SUBSTITUTE([Txt], "a", "X")	T:Trường Đại học Bách khoX
+SUBST-a	HCol	18	SUBSTITUTE([Txt], "a", "X")	T:XXXXXXXXXX
+SUBST-a	HCol	19	SUBSTITUTE([Txt], "a", "X")	T:tXb\tgiữX
+SUBST-a	HCol	20	SUBSTITUTE([Txt], "a", "X")	T:dòng\nmới
+SUBST-a-2	HCol	1	SUBSTITUTE([Txt], "a", "X", 2)	T:Hà Nội
+SUBST-a-2	HCol	2	SUBSTITUTE([Txt], "a", "X", 2)	T:Hà Nội
+SUBST-a-2	HCol	3	SUBSTITUTE([Txt], "a", "X", 2)	T:ĐÀ NẴNG
+SUBST-a-2	HCol	4	SUBSTITUTE([Txt], "a", "X", 2)	T:  khoảng trắng   giữa
+SUBST-a-2	HCol	5	SUBSTITUTE([Txt], "a", "X", 2)	T:
+SUBST-a-2	HCol	6	SUBSTITUTE([Txt], "a", "X", 2)	T:
+SUBST-a-2	HCol	7	SUBSTITUTE([Txt], "a", "X", 2)	T:abc
+SUBST-a-2	HCol	8	SUBSTITUTE([Txt], "a", "X", 2)	T:abc
+SUBST-a-2	HCol	9	SUBSTITUTE([Txt], "a", "X", 2)	T:a*b?c~d
+SUBST-a-2	HCol	10	SUBSTITUTE([Txt], "a", "X", 2)	T:1,5
+SUBST-a-2	HCol	11	SUBSTITUTE([Txt], "a", "X", 2)	T:1.5
+SUBST-a-2	HCol	12	SUBSTITUTE([Txt], "a", "X", 2)	T: 12
+SUBST-a-2	HCol	13	SUBSTITUTE([Txt], "a", "X", 2)	T:-3.75
+SUBST-a-2	HCol	14	SUBSTITUTE([Txt], "a", "X", 2)	T:😀 emoji
+SUBST-a-2	HCol	15	SUBSTITUTE([Txt], "a", "X", 2)	T:x😀y
+SUBST-a-2	HCol	16	SUBSTITUTE([Txt], "a", "X", 2)	T:Ngày 1/2/2026
+SUBST-a-2	HCol	17	SUBSTITUTE([Txt], "a", "X", 2)	T:Trường Đại học Bách khoa
+SUBST-a-2	HCol	18	SUBSTITUTE([Txt], "a", "X", 2)	T:aXaaaaaaaa
+SUBST-a-2	HCol	19	SUBSTITUTE([Txt], "a", "X", 2)	T:tab\tgiữX
+SUBST-a-2	HCol	20	SUBSTITUTE([Txt], "a", "X", 2)	T:dòng\nmới
+SUBST-nfc	HCol	1	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:Hà N#i
+SUBST-nfc	HCol	2	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:Hà N#i
+SUBST-nfc	HCol	3	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:ĐÀ NẴNG
+SUBST-nfc	HCol	4	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:  khoảng trắng   giữa
+SUBST-nfc	HCol	5	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:
+SUBST-nfc	HCol	6	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:
+SUBST-nfc	HCol	7	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:abc
+SUBST-nfc	HCol	8	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:abc
+SUBST-nfc	HCol	9	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:a*b?c~d
+SUBST-nfc	HCol	10	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:1,5
+SUBST-nfc	HCol	11	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:1.5
+SUBST-nfc	HCol	12	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T: 12
+SUBST-nfc	HCol	13	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:-3.75
+SUBST-nfc	HCol	14	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:😀 emoji
+SUBST-nfc	HCol	15	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:x😀y
+SUBST-nfc	HCol	16	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:Ngày 1/2/2026
+SUBST-nfc	HCol	17	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:Trường Đại học Bách khoa
+SUBST-nfc	HCol	18	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:aaaaaaaaaa
+SUBST-nfc	HCol	19	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:tab\tgiữa
+SUBST-nfc	HCol	20	SUBSTITUTE([Txt], UNICHAR(7897), "#")	T:dòng\nmới
+SUBST-nfd	HCol	1	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:Hà Nội
+SUBST-nfd	HCol	2	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:Hà Nội
+SUBST-nfd	HCol	3	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:ĐÀ NẴNG
+SUBST-nfd	HCol	4	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:  khoảng trắng   giữa
+SUBST-nfd	HCol	5	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:
+SUBST-nfd	HCol	6	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:
+SUBST-nfd	HCol	7	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:abc
+SUBST-nfd	HCol	8	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:abc
+SUBST-nfd	HCol	9	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:a*b?c~d
+SUBST-nfd	HCol	10	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:1,5
+SUBST-nfd	HCol	11	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:1.5
+SUBST-nfd	HCol	12	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T: 12
+SUBST-nfd	HCol	13	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:-3.75
+SUBST-nfd	HCol	14	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:😀 emoji
+SUBST-nfd	HCol	15	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:x😀y
+SUBST-nfd	HCol	16	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:Ngày 1/2/2026
+SUBST-nfd	HCol	17	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:Trường Đại học Bách khoa
+SUBST-nfd	HCol	18	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:aaaaaaaaaa
+SUBST-nfd	HCol	19	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:tab\tgiữa
+SUBST-nfd	HCol	20	SUBSTITUTE([Nfd], UNICHAR(7897), "#")	T:dòng\nmới
+REPLACE-2-3	HCol	1	REPLACE([Txt], 2, 3, "__")	T:H__ội
+REPLACE-2-3	HCol	2	REPLACE([Txt], 2, 3, "__")	T:H__ội
+REPLACE-2-3	HCol	3	REPLACE([Txt], 2, 3, "__")	T:Đ__ẴNG
+REPLACE-2-3	HCol	4	REPLACE([Txt], 2, 3, "__")	T: __oảng trắng   giữa
+REPLACE-2-3	HCol	5	REPLACE([Txt], 2, 3, "__")	T:__
+REPLACE-2-3	HCol	6	REPLACE([Txt], 2, 3, "__")	T:__
+REPLACE-2-3	HCol	7	REPLACE([Txt], 2, 3, "__")	T:a__
+REPLACE-2-3	HCol	8	REPLACE([Txt], 2, 3, "__")	T:a__
+REPLACE-2-3	HCol	9	REPLACE([Txt], 2, 3, "__")	T:a__c~d
+REPLACE-2-3	HCol	10	REPLACE([Txt], 2, 3, "__")	T:1__
+REPLACE-2-3	HCol	11	REPLACE([Txt], 2, 3, "__")	T:1__
+REPLACE-2-3	HCol	12	REPLACE([Txt], 2, 3, "__")	T: __
+REPLACE-2-3	HCol	13	REPLACE([Txt], 2, 3, "__")	T:-__5
+REPLACE-2-3	HCol	14	REPLACE([Txt], 2, 3, "__")	T:�__moji
+REPLACE-2-3	HCol	15	REPLACE([Txt], 2, 3, "__")	T:x__
+REPLACE-2-3	HCol	16	REPLACE([Txt], 2, 3, "__")	T:N__ 1/2/2026
+REPLACE-2-3	HCol	17	REPLACE([Txt], 2, 3, "__")	T:T__ng Đại học Bách khoa
+REPLACE-2-3	HCol	18	REPLACE([Txt], 2, 3, "__")	T:a__aaaaaa
+REPLACE-2-3	HCol	19	REPLACE([Txt], 2, 3, "__")	T:t__giữa
+REPLACE-2-3	HCol	20	REPLACE([Txt], 2, 3, "__")	T:d__\nmới
+CONCAT-Txt-Num	HCol	1	CONCATENATE([Txt], [Num])	T:Hà Nội1
+CONCAT-Txt-Num	HCol	2	CONCATENATE([Txt], [Num])	T:Hà Nội-1
+CONCAT-Txt-Num	HCol	3	CONCATENATE([Txt], [Num])	T:ĐÀ NẴNG2.5
+CONCAT-Txt-Num	HCol	4	CONCATENATE([Txt], [Num])	T:  khoảng trắng   giữa100
+CONCAT-Txt-Num	HCol	5	CONCATENATE([Txt], [Num])	T:1234567.891
+CONCAT-Txt-Num	HCol	6	CONCATENATE([Txt], [Num])	T:0
+CONCAT-Txt-Num	HCol	7	CONCATENATE([Txt], [Num])	T:abc1
+CONCAT-Txt-Num	HCol	8	CONCATENATE([Txt], [Num])	T:abc-1
+CONCAT-Txt-Num	HCol	9	CONCATENATE([Txt], [Num])	T:a*b?c~d2.5
+CONCAT-Txt-Num	HCol	10	CONCATENATE([Txt], [Num])	T:1,5100
+CONCAT-Txt-Num	HCol	11	CONCATENATE([Txt], [Num])	T:1.51234567.891
+CONCAT-Txt-Num	HCol	12	CONCATENATE([Txt], [Num])	T: 120
+CONCAT-Txt-Num	HCol	13	CONCATENATE([Txt], [Num])	T:-3.751
+CONCAT-Txt-Num	HCol	14	CONCATENATE([Txt], [Num])	T:😀 emoji-1
+CONCAT-Txt-Num	HCol	15	CONCATENATE([Txt], [Num])	T:x😀y2.5
+CONCAT-Txt-Num	HCol	16	CONCATENATE([Txt], [Num])	T:Ngày 1/2/2026100
+CONCAT-Txt-Num	HCol	17	CONCATENATE([Txt], [Num])	T:Trường Đại học Bách khoa1234567.891
+CONCAT-Txt-Num	HCol	18	CONCATENATE([Txt], [Num])	T:aaaaaaaaaa0
+CONCAT-Txt-Num	HCol	19	CONCATENATE([Txt], [Num])	T:tab\tgiữa1
+CONCAT-Txt-Num	HCol	20	CONCATENATE([Txt], [Num])	T:dòng\nmới-1
+CONCAT-ID-Txt	HCol	1	CONCATENATE([ID], [Txt])	T:1Hà Nội
+CONCAT-ID-Txt	HCol	2	CONCATENATE([ID], [Txt])	T:2Hà Nội
+CONCAT-ID-Txt	HCol	3	CONCATENATE([ID], [Txt])	T:3ĐÀ NẴNG
+CONCAT-ID-Txt	HCol	4	CONCATENATE([ID], [Txt])	T:4  khoảng trắng   giữa
+CONCAT-ID-Txt	HCol	5	CONCATENATE([ID], [Txt])	T:5
+CONCAT-ID-Txt	HCol	6	CONCATENATE([ID], [Txt])	T:6
+CONCAT-ID-Txt	HCol	7	CONCATENATE([ID], [Txt])	T:7abc
+CONCAT-ID-Txt	HCol	8	CONCATENATE([ID], [Txt])	T:8abc
+CONCAT-ID-Txt	HCol	9	CONCATENATE([ID], [Txt])	T:9a*b?c~d
+CONCAT-ID-Txt	HCol	10	CONCATENATE([ID], [Txt])	T:101,5
+CONCAT-ID-Txt	HCol	11	CONCATENATE([ID], [Txt])	T:111.5
+CONCAT-ID-Txt	HCol	12	CONCATENATE([ID], [Txt])	T:12 12
+CONCAT-ID-Txt	HCol	13	CONCATENATE([ID], [Txt])	T:13-3.75
+CONCAT-ID-Txt	HCol	14	CONCATENATE([ID], [Txt])	T:14😀 emoji
+CONCAT-ID-Txt	HCol	15	CONCATENATE([ID], [Txt])	T:15x😀y
+CONCAT-ID-Txt	HCol	16	CONCATENATE([ID], [Txt])	T:16Ngày 1/2/2026
+CONCAT-ID-Txt	HCol	17	CONCATENATE([ID], [Txt])	T:17Trường Đại học Bách khoa
+CONCAT-ID-Txt	HCol	18	CONCATENATE([ID], [Txt])	T:18aaaaaaaaaa
+CONCAT-ID-Txt	HCol	19	CONCATENATE([ID], [Txt])	T:19tab\tgiữa
+CONCAT-ID-Txt	HCol	20	CONCATENATE([ID], [Txt])	T:20dòng\nmới
+CONCATX-ID	HCol	1	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:1
+CONCATX-ID	HCol	2	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:2,1
+CONCATX-ID	HCol	3	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:3,2,1
+CONCATX-ID	HCol	4	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:4,3,2,1
+CONCATX-ID	HCol	5	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:5,4,3,2,1
+CONCATX-ID	HCol	6	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:6,5,4,3,2,1
+CONCATX-ID	HCol	7	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:7,6,5,4,3,2,1
+CONCATX-ID	HCol	8	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	9	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	10	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	11	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	12	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	13	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	14	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:14,13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	15	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	16	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	17	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	18	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	19	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+CONCATX-ID	HCol	20	VAR i = [ID] RETURN CONCATENATEX(FILTER(text_cases, text_cases[ID] <= i), text_cases[ID], ",", text_cases[ID], DESC)	T:20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+SEARCH-a	HCol	1	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	2	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	3	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	4	SEARCH("a", [Txt], 1, -1)	N:21
+SEARCH-a	HCol	5	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	6	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	7	SEARCH("a", [Txt], 1, -1)	N:1
+SEARCH-a	HCol	8	SEARCH("a", [Txt], 1, -1)	N:1
+SEARCH-a	HCol	9	SEARCH("a", [Txt], 1, -1)	N:1
+SEARCH-a	HCol	10	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	11	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	12	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	13	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	14	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	15	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	16	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-a	HCol	17	SEARCH("a", [Txt], 1, -1)	N:24
+SEARCH-a	HCol	18	SEARCH("a", [Txt], 1, -1)	N:1
+SEARCH-a	HCol	19	SEARCH("a", [Txt], 1, -1)	N:2
+SEARCH-a	HCol	20	SEARCH("a", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	1	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	2	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	3	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	4	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	5	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	6	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	7	SEARCH("A?C", [Txt], 1, -1)	N:1
+SEARCH-A?C	HCol	8	SEARCH("A?C", [Txt], 1, -1)	N:1
+SEARCH-A?C	HCol	9	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	10	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	11	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	12	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	13	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	14	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	15	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	16	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	17	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	18	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	19	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-A?C	HCol	20	SEARCH("A?C", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	1	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	2	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	3	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	4	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	5	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	6	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	7	SEARCH("*b", [Txt], 1, -1)	N:1
+SEARCH-*b	HCol	8	SEARCH("*b", [Txt], 1, -1)	N:1
+SEARCH-*b	HCol	9	SEARCH("*b", [Txt], 1, -1)	N:1
+SEARCH-*b	HCol	10	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	11	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	12	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	13	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	14	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	15	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	16	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	17	SEARCH("*b", [Txt], 1, -1)	N:1
+SEARCH-*b	HCol	18	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-*b	HCol	19	SEARCH("*b", [Txt], 1, -1)	N:1
+SEARCH-*b	HCol	20	SEARCH("*b", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	1	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	2	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	3	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	4	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	5	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	6	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	7	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	8	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	9	SEARCH("~*", [Txt], 1, -1)	N:2
+SEARCH-~*	HCol	10	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	11	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	12	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	13	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	14	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	15	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	16	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	17	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	18	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	19	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-~*	HCol	20	SEARCH("~*", [Txt], 1, -1)	N:-1
+SEARCH-n-nodef	HCol	1	SEARCH("n", [Txt])	N:4
+SEARCH-n-nodef	HCol	2	SEARCH("n", [Txt])	N:4
+SEARCH-n-nodef	HCol	3	SEARCH("n", [Txt])	N:4
+SEARCH-n-nodef	HCol	4	SEARCH("n", [Txt])	N:7
+SEARCH-n-nodef	HCol	5	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	6	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	7	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	8	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	9	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	10	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	11	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	12	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	13	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	14	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	15	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	16	SEARCH("n", [Txt])	N:1
+SEARCH-n-nodef	HCol	17	SEARCH("n", [Txt])	N:5
+SEARCH-n-nodef	HCol	18	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	19	SEARCH("n", [Txt])	E
+SEARCH-n-nodef	HCol	20	SEARCH("n", [Txt])	N:3
+SEARCH-nfc	HCol	1	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	2	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	3	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	4	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	5	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	6	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	7	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	8	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	9	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	10	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	11	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	12	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	13	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	14	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	15	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	16	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	17	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	18	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	19	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+SEARCH-nfc	HCol	20	SEARCH(UNICHAR(7897), [Nfd], 1, -1)	N:-1
+FIND-a	HCol	1	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	2	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	3	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	4	FIND("a", [Txt], 1, -1)	N:21
+FIND-a	HCol	5	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	6	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	7	FIND("a", [Txt], 1, -1)	N:1
+FIND-a	HCol	8	FIND("a", [Txt], 1, -1)	N:1
+FIND-a	HCol	9	FIND("a", [Txt], 1, -1)	N:1
+FIND-a	HCol	10	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	11	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	12	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	13	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	14	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	15	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	16	FIND("a", [Txt], 1, -1)	N:-1
+FIND-a	HCol	17	FIND("a", [Txt], 1, -1)	N:24
+FIND-a	HCol	18	FIND("a", [Txt], 1, -1)	N:1
+FIND-a	HCol	19	FIND("a", [Txt], 1, -1)	N:2
+FIND-a	HCol	20	FIND("a", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	1	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	2	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	3	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	4	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	5	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	6	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	7	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	8	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	9	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	10	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	11	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	12	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	13	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	14	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	15	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	16	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	17	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	18	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	19	FIND("A", [Txt], 1, -1)	N:-1
+FIND-Aup	HCol	20	FIND("A", [Txt], 1, -1)	N:-1
+FIND-a-nodef	HCol	1	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	2	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	3	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	4	FIND("a", [Txt])	N:21
+FIND-a-nodef	HCol	5	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	6	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	7	FIND("a", [Txt])	N:1
+FIND-a-nodef	HCol	8	FIND("a", [Txt])	N:1
+FIND-a-nodef	HCol	9	FIND("a", [Txt])	N:1
+FIND-a-nodef	HCol	10	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	11	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	12	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	13	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	14	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	15	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	16	FIND("a", [Txt])	E
+FIND-a-nodef	HCol	17	FIND("a", [Txt])	N:24
+FIND-a-nodef	HCol	18	FIND("a", [Txt])	N:1
+FIND-a-nodef	HCol	19	FIND("a", [Txt])	N:2
+FIND-a-nodef	HCol	20	FIND("a", [Txt])	E
+REPT-2	HCol	1	REPT([Txt], 2)	T:Hà NộiHà Nội
+REPT-2	HCol	2	REPT([Txt], 2)	T:Hà NộiHà Nội
+REPT-2	HCol	3	REPT([Txt], 2)	T:ĐÀ NẴNGĐÀ NẴNG
+REPT-2	HCol	4	REPT([Txt], 2)	T:  khoảng trắng   giữa  khoảng trắng   giữa
+REPT-2	HCol	5	REPT([Txt], 2)	T:
+REPT-2	HCol	6	REPT([Txt], 2)	T:
+REPT-2	HCol	7	REPT([Txt], 2)	T:abcabc
+REPT-2	HCol	8	REPT([Txt], 2)	T:abcabc
+REPT-2	HCol	9	REPT([Txt], 2)	T:a*b?c~da*b?c~d
+REPT-2	HCol	10	REPT([Txt], 2)	T:1,51,5
+REPT-2	HCol	11	REPT([Txt], 2)	T:1.51.5
+REPT-2	HCol	12	REPT([Txt], 2)	T: 12 12
+REPT-2	HCol	13	REPT([Txt], 2)	T:-3.75-3.75
+REPT-2	HCol	14	REPT([Txt], 2)	T:😀 emoji😀 emoji
+REPT-2	HCol	15	REPT([Txt], 2)	T:x😀yx😀y
+REPT-2	HCol	16	REPT([Txt], 2)	T:Ngày 1/2/2026Ngày 1/2/2026
+REPT-2	HCol	17	REPT([Txt], 2)	T:Trường Đại học Bách khoaTrường Đại học Bách khoa
+REPT-2	HCol	18	REPT([Txt], 2)	T:aaaaaaaaaaaaaaaaaaaa
+REPT-2	HCol	19	REPT([Txt], 2)	T:tab\tgiữatab\tgiữa
+REPT-2	HCol	20	REPT([Txt], 2)	T:dòng\nmớidòng\nmới
+REPT-ID	HCol	1	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	2	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	3	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	4	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	5	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	6	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	7	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	8	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	9	REPT("ab", [ID] - 10)	E
+REPT-ID	HCol	10	REPT("ab", [ID] - 10)	T:
+REPT-ID	HCol	11	REPT("ab", [ID] - 10)	T:ab
+REPT-ID	HCol	12	REPT("ab", [ID] - 10)	T:abab
+REPT-ID	HCol	13	REPT("ab", [ID] - 10)	T:ababab
+REPT-ID	HCol	14	REPT("ab", [ID] - 10)	T:abababab
+REPT-ID	HCol	15	REPT("ab", [ID] - 10)	T:ababababab
+REPT-ID	HCol	16	REPT("ab", [ID] - 10)	T:abababababab
+REPT-ID	HCol	17	REPT("ab", [ID] - 10)	T:ababababababab
+REPT-ID	HCol	18	REPT("ab", [ID] - 10)	T:abababababababab
+REPT-ID	HCol	19	REPT("ab", [ID] - 10)	T:ababababababababab
+REPT-ID	HCol	20	REPT("ab", [ID] - 10)	T:abababababababababab
+VALUE-Txt	HCol	1	VALUE([Txt])	E
+VALUE-Txt	HCol	2	VALUE([Txt])	E
+VALUE-Txt	HCol	3	VALUE([Txt])	E
+VALUE-Txt	HCol	4	VALUE([Txt])	E
+VALUE-Txt	HCol	5	VALUE([Txt])	E
+VALUE-Txt	HCol	6	VALUE([Txt])	E
+VALUE-Txt	HCol	7	VALUE([Txt])	E
+VALUE-Txt	HCol	8	VALUE([Txt])	E
+VALUE-Txt	HCol	9	VALUE([Txt])	E
+VALUE-Txt	HCol	10	VALUE([Txt])	N:15
+VALUE-Txt	HCol	11	VALUE([Txt])	N:1.5
+VALUE-Txt	HCol	12	VALUE([Txt])	N:12
+VALUE-Txt	HCol	13	VALUE([Txt])	N:-3.75
+VALUE-Txt	HCol	14	VALUE([Txt])	E
+VALUE-Txt	HCol	15	VALUE([Txt])	E
+VALUE-Txt	HCol	16	VALUE([Txt])	E
+VALUE-Txt	HCol	17	VALUE([Txt])	E
+VALUE-Txt	HCol	18	VALUE([Txt])	E
+VALUE-Txt	HCol	19	VALUE([Txt])	E
+VALUE-Txt	HCol	20	VALUE([Txt])	E
+EXACT-Txt-Nfd	HCol	1	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	2	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	3	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	4	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	5	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	6	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	7	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	8	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	9	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	10	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	11	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	12	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	13	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	14	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	15	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	16	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	17	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	18	EXACT([Txt], [Nfd])	L:TRUE
+EXACT-Txt-Nfd	HCol	19	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-Nfd	HCol	20	EXACT([Txt], [Nfd])	L:FALSE
+EXACT-Txt-UP	HCol	1	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	2	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	3	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	4	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	5	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	6	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	7	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	8	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	9	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	10	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	11	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	12	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	13	EXACT([Txt], UPPER([Txt]))	L:TRUE
+EXACT-Txt-UP	HCol	14	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	15	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	16	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	17	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	18	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	19	EXACT([Txt], UPPER([Txt]))	L:FALSE
+EXACT-Txt-UP	HCol	20	EXACT([Txt], UPPER([Txt]))	L:FALSE
+UNICODE-Txt	HCol	1	UNICODE([Txt])	N:72
+UNICODE-Txt	HCol	2	UNICODE([Txt])	N:72
+UNICODE-Txt	HCol	3	UNICODE([Txt])	N:272
+UNICODE-Txt	HCol	4	UNICODE([Txt])	N:32
+UNICODE-Txt	HCol	5	UNICODE([Txt])	B
+UNICODE-Txt	HCol	6	UNICODE([Txt])	B
+UNICODE-Txt	HCol	7	UNICODE([Txt])	N:97
+UNICODE-Txt	HCol	8	UNICODE([Txt])	N:97
+UNICODE-Txt	HCol	9	UNICODE([Txt])	N:97
+UNICODE-Txt	HCol	10	UNICODE([Txt])	N:49
+UNICODE-Txt	HCol	11	UNICODE([Txt])	N:49
+UNICODE-Txt	HCol	12	UNICODE([Txt])	N:32
+UNICODE-Txt	HCol	13	UNICODE([Txt])	N:45
+UNICODE-Txt	HCol	14	UNICODE([Txt])	N:128512
+UNICODE-Txt	HCol	15	UNICODE([Txt])	N:120
+UNICODE-Txt	HCol	16	UNICODE([Txt])	N:78
+UNICODE-Txt	HCol	17	UNICODE([Txt])	N:84
+UNICODE-Txt	HCol	18	UNICODE([Txt])	N:97
+UNICODE-Txt	HCol	19	UNICODE([Txt])	N:116
+UNICODE-Txt	HCol	20	UNICODE([Txt])	N:100
+UNICODE-Nfd	HCol	1	UNICODE([Nfd])	N:72
+UNICODE-Nfd	HCol	2	UNICODE([Nfd])	N:72
+UNICODE-Nfd	HCol	3	UNICODE([Nfd])	N:272
+UNICODE-Nfd	HCol	4	UNICODE([Nfd])	N:32
+UNICODE-Nfd	HCol	5	UNICODE([Nfd])	B
+UNICODE-Nfd	HCol	6	UNICODE([Nfd])	B
+UNICODE-Nfd	HCol	7	UNICODE([Nfd])	N:97
+UNICODE-Nfd	HCol	8	UNICODE([Nfd])	N:97
+UNICODE-Nfd	HCol	9	UNICODE([Nfd])	N:97
+UNICODE-Nfd	HCol	10	UNICODE([Nfd])	N:49
+UNICODE-Nfd	HCol	11	UNICODE([Nfd])	N:49
+UNICODE-Nfd	HCol	12	UNICODE([Nfd])	N:32
+UNICODE-Nfd	HCol	13	UNICODE([Nfd])	N:45
+UNICODE-Nfd	HCol	14	UNICODE([Nfd])	N:128512
+UNICODE-Nfd	HCol	15	UNICODE([Nfd])	N:120
+UNICODE-Nfd	HCol	16	UNICODE([Nfd])	N:78
+UNICODE-Nfd	HCol	17	UNICODE([Nfd])	N:84
+UNICODE-Nfd	HCol	18	UNICODE([Nfd])	N:97
+UNICODE-Nfd	HCol	19	UNICODE([Nfd])	N:116
+UNICODE-Nfd	HCol	20	UNICODE([Nfd])	N:100
+UNICHAR-ID	HCol	1	UNICHAR([ID] + 64)	T:A
+UNICHAR-ID	HCol	2	UNICHAR([ID] + 64)	T:B
+UNICHAR-ID	HCol	3	UNICHAR([ID] + 64)	T:C
+UNICHAR-ID	HCol	4	UNICHAR([ID] + 64)	T:D
+UNICHAR-ID	HCol	5	UNICHAR([ID] + 64)	T:E
+UNICHAR-ID	HCol	6	UNICHAR([ID] + 64)	T:F
+UNICHAR-ID	HCol	7	UNICHAR([ID] + 64)	T:G
+UNICHAR-ID	HCol	8	UNICHAR([ID] + 64)	T:H
+UNICHAR-ID	HCol	9	UNICHAR([ID] + 64)	T:I
+UNICHAR-ID	HCol	10	UNICHAR([ID] + 64)	T:J
+UNICHAR-ID	HCol	11	UNICHAR([ID] + 64)	T:K
+UNICHAR-ID	HCol	12	UNICHAR([ID] + 64)	T:L
+UNICHAR-ID	HCol	13	UNICHAR([ID] + 64)	T:M
+UNICHAR-ID	HCol	14	UNICHAR([ID] + 64)	T:N
+UNICHAR-ID	HCol	15	UNICHAR([ID] + 64)	T:O
+UNICHAR-ID	HCol	16	UNICHAR([ID] + 64)	T:P
+UNICHAR-ID	HCol	17	UNICHAR([ID] + 64)	T:Q
+UNICHAR-ID	HCol	18	UNICHAR([ID] + 64)	T:R
+UNICHAR-ID	HCol	19	UNICHAR([ID] + 64)	T:S
+UNICHAR-ID	HCol	20	UNICHAR([ID] + 64)	T:T
+FIXED-Num	HCol	1	FIXED([Num])	T:1.00
+FIXED-Num	HCol	2	FIXED([Num])	T:-1.00
+FIXED-Num	HCol	3	FIXED([Num])	T:2.50
+FIXED-Num	HCol	4	FIXED([Num])	T:100.00
+FIXED-Num	HCol	5	FIXED([Num])	T:1,234,567.89
+FIXED-Num	HCol	6	FIXED([Num])	T:0.00
+FIXED-Num	HCol	7	FIXED([Num])	T:1.00
+FIXED-Num	HCol	8	FIXED([Num])	T:-1.00
+FIXED-Num	HCol	9	FIXED([Num])	T:2.50
+FIXED-Num	HCol	10	FIXED([Num])	T:100.00
+FIXED-Num	HCol	11	FIXED([Num])	T:1,234,567.89
+FIXED-Num	HCol	12	FIXED([Num])	T:0.00
+FIXED-Num	HCol	13	FIXED([Num])	T:1.00
+FIXED-Num	HCol	14	FIXED([Num])	T:-1.00
+FIXED-Num	HCol	15	FIXED([Num])	T:2.50
+FIXED-Num	HCol	16	FIXED([Num])	T:100.00
+FIXED-Num	HCol	17	FIXED([Num])	T:1,234,567.89
+FIXED-Num	HCol	18	FIXED([Num])	T:0.00
+FIXED-Num	HCol	19	FIXED([Num])	T:1.00
+FIXED-Num	HCol	20	FIXED([Num])	T:-1.00
+FIXED-Num-1	HCol	1	FIXED([Num], 1)	T:1.0
+FIXED-Num-1	HCol	2	FIXED([Num], 1)	T:-1.0
+FIXED-Num-1	HCol	3	FIXED([Num], 1)	T:2.5
+FIXED-Num-1	HCol	4	FIXED([Num], 1)	T:100.0
+FIXED-Num-1	HCol	5	FIXED([Num], 1)	T:1,234,567.9
+FIXED-Num-1	HCol	6	FIXED([Num], 1)	T:0.0
+FIXED-Num-1	HCol	7	FIXED([Num], 1)	T:1.0
+FIXED-Num-1	HCol	8	FIXED([Num], 1)	T:-1.0
+FIXED-Num-1	HCol	9	FIXED([Num], 1)	T:2.5
+FIXED-Num-1	HCol	10	FIXED([Num], 1)	T:100.0
+FIXED-Num-1	HCol	11	FIXED([Num], 1)	T:1,234,567.9
+FIXED-Num-1	HCol	12	FIXED([Num], 1)	T:0.0
+FIXED-Num-1	HCol	13	FIXED([Num], 1)	T:1.0
+FIXED-Num-1	HCol	14	FIXED([Num], 1)	T:-1.0
+FIXED-Num-1	HCol	15	FIXED([Num], 1)	T:2.5
+FIXED-Num-1	HCol	16	FIXED([Num], 1)	T:100.0
+FIXED-Num-1	HCol	17	FIXED([Num], 1)	T:1,234,567.9
+FIXED-Num-1	HCol	18	FIXED([Num], 1)	T:0.0
+FIXED-Num-1	HCol	19	FIXED([Num], 1)	T:1.0
+FIXED-Num-1	HCol	20	FIXED([Num], 1)	T:-1.0
+FIXED-Num--2	HCol	1	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	2	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	3	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	4	FIXED([Num], -2)	T:100
+FIXED-Num--2	HCol	5	FIXED([Num], -2)	T:1,234,600
+FIXED-Num--2	HCol	6	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	7	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	8	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	9	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	10	FIXED([Num], -2)	T:100
+FIXED-Num--2	HCol	11	FIXED([Num], -2)	T:1,234,600
+FIXED-Num--2	HCol	12	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	13	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	14	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	15	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	16	FIXED([Num], -2)	T:100
+FIXED-Num--2	HCol	17	FIXED([Num], -2)	T:1,234,600
+FIXED-Num--2	HCol	18	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	19	FIXED([Num], -2)	T:0
+FIXED-Num--2	HCol	20	FIXED([Num], -2)	T:0
+FIXED-Num-2-T	HCol	1	FIXED([Num], 2, TRUE())	T:1.00
+FIXED-Num-2-T	HCol	2	FIXED([Num], 2, TRUE())	T:-1.00
+FIXED-Num-2-T	HCol	3	FIXED([Num], 2, TRUE())	T:2.50
+FIXED-Num-2-T	HCol	4	FIXED([Num], 2, TRUE())	T:100.00
+FIXED-Num-2-T	HCol	5	FIXED([Num], 2, TRUE())	T:1234567.89
+FIXED-Num-2-T	HCol	6	FIXED([Num], 2, TRUE())	T:0.00
+FIXED-Num-2-T	HCol	7	FIXED([Num], 2, TRUE())	T:1.00
+FIXED-Num-2-T	HCol	8	FIXED([Num], 2, TRUE())	T:-1.00
+FIXED-Num-2-T	HCol	9	FIXED([Num], 2, TRUE())	T:2.50
+FIXED-Num-2-T	HCol	10	FIXED([Num], 2, TRUE())	T:100.00
+FIXED-Num-2-T	HCol	11	FIXED([Num], 2, TRUE())	T:1234567.89
+FIXED-Num-2-T	HCol	12	FIXED([Num], 2, TRUE())	T:0.00
+FIXED-Num-2-T	HCol	13	FIXED([Num], 2, TRUE())	T:1.00
+FIXED-Num-2-T	HCol	14	FIXED([Num], 2, TRUE())	T:-1.00
+FIXED-Num-2-T	HCol	15	FIXED([Num], 2, TRUE())	T:2.50
+FIXED-Num-2-T	HCol	16	FIXED([Num], 2, TRUE())	T:100.00
+FIXED-Num-2-T	HCol	17	FIXED([Num], 2, TRUE())	T:1234567.89
+FIXED-Num-2-T	HCol	18	FIXED([Num], 2, TRUE())	T:0.00
+FIXED-Num-2-T	HCol	19	FIXED([Num], 2, TRUE())	T:1.00
+FIXED-Num-2-T	HCol	20	FIXED([Num], 2, TRUE())	T:-1.00
+COMBINE-Txt-Num	HCol	1	COMBINEVALUES("|", [Txt], [Num])	T:Hà Nội|1
+COMBINE-Txt-Num	HCol	2	COMBINEVALUES("|", [Txt], [Num])	T:Hà Nội|-1
+COMBINE-Txt-Num	HCol	3	COMBINEVALUES("|", [Txt], [Num])	T:ĐÀ NẴNG|2.5
+COMBINE-Txt-Num	HCol	4	COMBINEVALUES("|", [Txt], [Num])	T:  khoảng trắng   giữa|100
+COMBINE-Txt-Num	HCol	5	COMBINEVALUES("|", [Txt], [Num])	T:|1234567.891
+COMBINE-Txt-Num	HCol	6	COMBINEVALUES("|", [Txt], [Num])	T:|0
+COMBINE-Txt-Num	HCol	7	COMBINEVALUES("|", [Txt], [Num])	T:abc|1
+COMBINE-Txt-Num	HCol	8	COMBINEVALUES("|", [Txt], [Num])	T:abc|-1
+COMBINE-Txt-Num	HCol	9	COMBINEVALUES("|", [Txt], [Num])	T:a*b?c~d|2.5
+COMBINE-Txt-Num	HCol	10	COMBINEVALUES("|", [Txt], [Num])	T:1,5|100
+COMBINE-Txt-Num	HCol	11	COMBINEVALUES("|", [Txt], [Num])	T:1.5|1234567.891
+COMBINE-Txt-Num	HCol	12	COMBINEVALUES("|", [Txt], [Num])	T: 12|0
+COMBINE-Txt-Num	HCol	13	COMBINEVALUES("|", [Txt], [Num])	T:-3.75|1
+COMBINE-Txt-Num	HCol	14	COMBINEVALUES("|", [Txt], [Num])	T:😀 emoji|-1
+COMBINE-Txt-Num	HCol	15	COMBINEVALUES("|", [Txt], [Num])	T:x😀y|2.5
+COMBINE-Txt-Num	HCol	16	COMBINEVALUES("|", [Txt], [Num])	T:Ngày 1/2/2026|100
+COMBINE-Txt-Num	HCol	17	COMBINEVALUES("|", [Txt], [Num])	T:Trường Đại học Bách khoa|1234567.891
+COMBINE-Txt-Num	HCol	18	COMBINEVALUES("|", [Txt], [Num])	T:aaaaaaaaaa|0
+COMBINE-Txt-Num	HCol	19	COMBINEVALUES("|", [Txt], [Num])	T:tab\tgiữa|1
+COMBINE-Txt-Num	HCol	20	COMBINEVALUES("|", [Txt], [Num])	T:dòng\nmới|-1
+COMBINE-ID-Txt	HCol	1	COMBINEVALUES(",", [ID], [Txt])	T:1,Hà Nội
+COMBINE-ID-Txt	HCol	2	COMBINEVALUES(",", [ID], [Txt])	T:2,Hà Nội
+COMBINE-ID-Txt	HCol	3	COMBINEVALUES(",", [ID], [Txt])	T:3,ĐÀ NẴNG
+COMBINE-ID-Txt	HCol	4	COMBINEVALUES(",", [ID], [Txt])	T:4,  khoảng trắng   giữa
+COMBINE-ID-Txt	HCol	5	COMBINEVALUES(",", [ID], [Txt])	T:5,
+COMBINE-ID-Txt	HCol	6	COMBINEVALUES(",", [ID], [Txt])	T:6,
+COMBINE-ID-Txt	HCol	7	COMBINEVALUES(",", [ID], [Txt])	T:7,abc
+COMBINE-ID-Txt	HCol	8	COMBINEVALUES(",", [ID], [Txt])	T:8,abc
+COMBINE-ID-Txt	HCol	9	COMBINEVALUES(",", [ID], [Txt])	T:9,a*b?c~d
+COMBINE-ID-Txt	HCol	10	COMBINEVALUES(",", [ID], [Txt])	T:10,1,5
+COMBINE-ID-Txt	HCol	11	COMBINEVALUES(",", [ID], [Txt])	T:11,1.5
+COMBINE-ID-Txt	HCol	12	COMBINEVALUES(",", [ID], [Txt])	T:12, 12
+COMBINE-ID-Txt	HCol	13	COMBINEVALUES(",", [ID], [Txt])	T:13,-3.75
+COMBINE-ID-Txt	HCol	14	COMBINEVALUES(",", [ID], [Txt])	T:14,😀 emoji
+COMBINE-ID-Txt	HCol	15	COMBINEVALUES(",", [ID], [Txt])	T:15,x😀y
+COMBINE-ID-Txt	HCol	16	COMBINEVALUES(",", [ID], [Txt])	T:16,Ngày 1/2/2026
+COMBINE-ID-Txt	HCol	17	COMBINEVALUES(",", [ID], [Txt])	T:17,Trường Đại học Bách khoa
+COMBINE-ID-Txt	HCol	18	COMBINEVALUES(",", [ID], [Txt])	T:18,aaaaaaaaaa
+COMBINE-ID-Txt	HCol	19	COMBINEVALUES(",", [ID], [Txt])	T:19,tab\tgiữa
+COMBINE-ID-Txt	HCol	20	COMBINEVALUES(",", [ID], [Txt])	T:20,dòng\nmới
+LEN-blank	HLit1		LEN(BLANK())	B
+LEN-empty	HLit1		LEN("")	N:0
+LEN-emoji	HLit1		LEN(UNICHAR(128512))	N:2
+LEN-nfdlit	HLit1		LEN(UNICHAR(111)&UNICHAR(803)&UNICHAR(770))	N:3
+LEN-numlit	HLit1		LEN(123.45)	N:6
+LEN-bool	HLit1		LEN(TRUE())	N:4
+LEN-int	HLit1		LEN(-120)	N:4
+UPPER-blank	HLit1		UPPER(BLANK())	B
+UPPER-ss	HLit1		UPPER(UNICHAR(223))	T:ß
+UPPER-num	HLit1		UPPER(1.5)	T:1.5
+UPPER-d	HLit1		UPPER(UNICHAR(273))	T:Đ
+LOWER-blank	HLit1		LOWER(BLANK())	B
+LOWER-I	HLit1		LOWER(UNICHAR(304))	T:i
+LOWER-bool	HLit1		LOWER(TRUE())	T:true
+UPPER-emoji	HLit1		UPPER("a" & UNICHAR(128512))	T:A😀
+MID-0	HLit1		MID("abcdef", 0, 2)	E
+MID-neg	HLit1		MID("abcdef", -1, 2)	E
+MID-past	HLit1		MID("abcdef", 10, 2)	T:
+MID-len0	HLit1		MID("abcdef", 2, 0)	T:
+MID-lenneg	HLit1		MID("abcdef", 2, -1)	E
+MID-long	HLit1		MID("abcdef", 2, 100)	T:bcdef
+MID-blank	HLit1		MID(BLANK(), 1, 2)	B
+MID-frac	HLit1		MID("abcdef", 1.7, 2.6)	T:bcd
+MID-emoji	HLit1		MID("x" & UNICHAR(128512) & "y", 2, 1)	T:�
+MID-emoji2	HLit1		MID("x" & UNICHAR(128512) & "y", 2, 2)	T:😀
+MID-num	HLit1		MID(12345, 2, 2)	T:23
+MID-emoji-u	HLit1		UNICODE(MID("x" & UNICHAR(128512) & "y", 2, 1))	E
+MID-emoji-len	HLit1		LEN(MID("x" & UNICHAR(128512) & "y", 2, 1))	N:1
+MID-emoji-u3	HLit1		UNICODE(MID("x" & UNICHAR(128512) & "y", 3, 1))	N:56832
+RIGHT-emoji-u	HLit1		UNICODE(RIGHT("x" & UNICHAR(128512), 1))	N:56832
+LEFT-emoji-u	HLit1		UNICODE(LEFT(UNICHAR(128512) & "x", 1))	E
+MID-6	HLit1		MID("abcdef", 6, 1)	T:f
+MID-7	HLit1		MID("abcdef", 7, 1)	T:
+MID-blanklen	HLit1		MID("abcdef", 2, BLANK())	T:
+MID-blankstart	HLit1		MID("abcdef", BLANK(), 2)	E
+RIGHT-0	HLit1		RIGHT("abc", 0)	T:
+RIGHT-neg	HLit1		RIGHT("abc", -1)	E
+RIGHT-past	HLit1		RIGHT("abc", 10)	T:abc
+RIGHT-blank	HLit1		RIGHT(BLANK(), 2)	B
+RIGHT-def1	HLit1		RIGHT("abc")	T:c
+RIGHT-num	HLit1		RIGHT(12345, 2)	T:45
+RIGHT-frac	HLit1		RIGHT("abcdef", 2.9)	T:def
+RIGHT-emoji	HLit1		RIGHT("x" & UNICHAR(128512), 1)	T:�
+RIGHT-blanklen	HLit1		RIGHT("abc", BLANK())	T:
+LEFT-0	HLit1		LEFT("abc", 0)	T:
+LEFT-neg	HLit1		LEFT("abc", -1)	E
+LEFT-emoji	HLit1		LEFT(UNICHAR(128512) & "x", 1)	T:�
+TRIM-sp	HLit1		TRIM("  a   b  ")	T:a b
+TRIM-blank	HLit1		TRIM(BLANK())	B
+TRIM-tab	HLit1		TRIM(" a" & UNICHAR(9) & " b ")	T:a\t b
+TRIM-nbsp	HLit1		TRIM(UNICHAR(160) & "a" & UNICHAR(160))	T: a 
+TRIM-num	HLit1		TRIM(12)	T:12
+TRIM-empty	HLit1		TRIM("   ")	T:
+TRIM-nl	HLit1		TRIM(" a " & UNICHAR(10) & " b ")	T:a \n b
+TRIM-ideo	HLit1		TRIM(UNICHAR(12288) & "a")	T:　a
+SUBST-0	HLit1		SUBSTITUTE("aaa", "a", "b", 0)	E
+SUBST-neg	HLit1		SUBSTITUTE("aaa", "a", "b", -1)	E
+SUBST-4	HLit1		SUBSTITUTE("aaa", "a", "b", 4)	T:aaa
+SUBST-3	HLit1		SUBSTITUTE("aaa", "a", "b", 3)	T:aab
+SUBST-emptyold	HLit1		SUBSTITUTE("aaa", "", "x")	T:aaa
+SUBST-blank	HLit1		SUBSTITUTE(BLANK(), "a", "b")	B
+SUBST-newblank	HLit1		SUBSTITUTE("aaa", "a", BLANK())	T:
+SUBST-case	HLit1		SUBSTITUTE("aAa", "a", "x")	T:xAx
+SUBST-overlap	HLit1		SUBSTITUTE("aaaa", "aa", "x")	T:xx
+SUBST-overlap-2	HLit1		SUBSTITUTE("aaaa", "aa", "x", 2)	T:axa
+SUBST-num	HLit1		SUBSTITUTE(1000, 0, 9)	T:1999
+SUBST-frac	HLit1		SUBSTITUTE("aaa", "a", "b", 1.9)	T:aba
+SUBST-oldblank	HLit1		SUBSTITUTE("aaa", BLANK(), "x")	T:aaa
+REPLACE-0	HLit2		REPLACE("abcdef", 0, 2, "X")	E
+REPLACE-neg	HLit2		REPLACE("abcdef", -1, 2, "X")	E
+REPLACE-past	HLit2		REPLACE("abcdef", 10, 2, "X")	T:abcdefX
+REPLACE-len0	HLit2		REPLACE("abcdef", 2, 0, "X")	T:aXbcdef
+REPLACE-lenneg	HLit2		REPLACE("abcdef", 2, -1, "X")	E
+REPLACE-long	HLit2		REPLACE("abcdef", 2, 100, "X")	T:aX
+REPLACE-blank	HLit2		REPLACE(BLANK(), 1, 1, "X")	T:X
+REPLACE-newblank	HLit2		REPLACE("abc", 1, 1, BLANK())	T:bc
+REPLACE-7	HLit2		REPLACE("abcdef", 7, 1, "X")	T:abcdefX
+REPLACE-num	HLit2		REPLACE(12345, 2, 2, "-")	T:1-45
+REPLACE-frac	HLit2		REPLACE("abcdef", 2.8, 1.9, "X")	T:abXef
+REPLACE-emoji	HLit2		REPLACE("x" & UNICHAR(128512) & "y", 2, 1, "-")	T:x-�y
+CONCAT-bb	HLit2		CONCATENATE(BLANK(), BLANK())	B
+CONCAT-ab	HLit2		CONCATENATE("a", BLANK())	T:a
+CONCAT-nums	HLit2		CONCATENATE(1, 2)	T:12
+CONCAT-bool	HLit2		CONCATENATE(TRUE(), "x")	T:TRUEx
+CONCAT-dec	HLit2		CONCATENATE(1.5, "")	T:1.5
+CONCAT-big	HLit2		CONCATENATE(1234567890123, "")	T:1234567890123
+CONCAT-small	HLit2		CONCATENATE(0.000001, "")	T:0.000001
+CONCAT-third	HLit2		CONCATENATE(1/3, "")	T:0.333333333333333
+CONCAT-neg	HLit2		CONCATENATE(-2.50, "x")	T:-2.5x
+CONCAT-1e20	HLit2		CONCATENATE(1E+20, "")	T:1E+20
+CONCAT-date	HLit2		CONCATENATE(DATE(2026, 1, 2), "")	T:1/2/2026
+AMP-bb	HLit2		BLANK() & BLANK()	B
+CONCATX-1	HLit2		CONCATENATEX({1, 2, 3}, [Value], ",")	T:1,2,3
+CONCATX-nodelim	HLit2		CONCATENATEX({1, 2, 3}, [Value])	T:123
+CONCATX-asc	HLit2		CONCATENATEX({"b", "a", "c"}, [Value], "-", [Value], ASC)	T:a-b-c
+CONCATX-desc	HLit2		CONCATENATEX({"b", "a", "c"}, [Value], "-", [Value], DESC)	T:c-b-a
+CONCATX-empty	HLit2		CONCATENATEX(FILTER({1}, FALSE()), [Value], ",")	B
+CONCATX-blankitem	HLit2		CONCATENATEX({"a", BLANK(), "c"}, [Value], ",")	T:a,,c
+CONCATX-dec	HLit2		CONCATENATEX({1.5, 2.25}, [Value], ";")	T:1.5;2.25
+CONCATX-bool	HLit2		CONCATENATEX({TRUE(), FALSE()}, [Value], ",")	T:TRUE,FALSE
+CONCATX-expr	HLit2		CONCATENATEX({1, 2}, [Value] * 10, "+")	T:10+20
+CONCATX-two	HLit2		CONCATENATEX({("b", 2), ("a", 1)}, [Value1], ",", [Value2], ASC)	T:a,b
+CONCATX-defsort	HLit2		CONCATENATEX({"b", "a", "c"}, [Value], "-", [Value])	T:a-b-c
+SEARCH-b	HLit2		SEARCH("b", "abc")	N:2
+SEARCH-Bup	HLit2		SEARCH("B", "abc")	N:2
+SEARCH-q	HLit2		SEARCH("a?c", "abc")	N:1
+SEARCH-star	HLit2		SEARCH("a*c", "abxyc")	N:1
+SEARCH-staronly	HLit2		SEARCH("*", "abc")	N:1
+SEARCH-qempty	HLit2		SEARCH("?", "", 1, -1)	N:-1
+SEARCH-esc*	HLit2		SEARCH("~*", "a*b")	N:2
+SEARCH-esc?	HLit2		SEARCH("~?", "a?b")	N:2
+SEARCH-esc~	HLit2		SEARCH("~~", "a~b")	N:2
+SEARCH-tilde	HLit2		SEARCH("~", "a~b")	N:1
+SEARCH-empty	HLit2		SEARCH("", "abc")	N:1
+SEARCH-nf	HLit2		SEARCH("x", "abc")	E
+SEARCH-nf-def	HLit2		SEARCH("x", "abc", 1, -1)	N:-1
+SEARCH-nf-blank	HLit2		SEARCH("x", "abc", 1, BLANK())	B
+SEARCH-start3	HLit2		SEARCH("b", "abcb", 3)	N:4
+SEARCH-start0	HLit2		SEARCH("b", "abc", 0)	E
+SEARCH-start10	HLit2		SEARCH("b", "abc", 10)	E
+SEARCH-start10-def	HLit2		SEARCH("b", "abc", 10, -1)	N:-1
+SEARCH-blankfind	HLit2		SEARCH(BLANK(), "abc")	N:1
+SEARCH-blankwithin	HLit2		SEARCH("a", BLANK(), 1, -1)	N:-1
+SEARCH-empty-start4	HLit2		SEARCH("", "abc", 4)	E
+SEARCH-empty-start5	HLit2		SEARCH("", "abc", 5, -1)	N:-1
+SEARCH-accent	HLit2		SEARCH("o", UNICHAR(7897), 1, -1)	N:-1
+SEARCH-dd	HLit2		SEARCH("d", UNICHAR(273), 1, -1)	N:-1
+SEARCH-emoji	HLit2		SEARCH("y", "x" & UNICHAR(128512) & "y")	N:4
+SEARCH-num	HLit2		SEARCH(3, 12345)	N:3
+SEARCH-q2	HLit2		SEARCH("b?", "abc")	N:2
+SEARCH-star2	HLit2		SEARCH("b*", "abc")	N:2
+FIND-b	HLit3		FIND("b", "abc")	N:2
+FIND-Bup	HLit3		FIND("B", "abc")	E
+FIND-B-def	HLit3		FIND("B", "abc", 1, -1)	N:-1
+FIND-empty	HLit3		FIND("", "abc")	N:1
+FIND-empty3	HLit3		FIND("", "abc", 3)	N:1
+FIND-q	HLit3		FIND("?", "a?b")	N:2
+FIND-star	HLit3		FIND("*", "abc", 1, -1)	N:-1
+FIND-start3	HLit3		FIND("b", "abcb", 3)	N:4
+FIND-start0	HLit3		FIND("b", "abc", 0, -1)	E
+FIND-start4	HLit3		FIND("b", "abc", 4, -1)	N:-1
+FIND-start5	HLit3		FIND("b", "abc", 5, -1)	N:-1
+FIND-blankwithin	HLit3		FIND("a", BLANK(), 1, -1)	N:-1
+FIND-blankfind	HLit3		FIND(BLANK(), "abc")	N:1
+FIND-nf-blank	HLit3		FIND("x", "abc", 1, BLANK())	B
+FIND-emoji	HLit3		FIND("y", UNICHAR(128512) & "y")	N:3
+FIND-accent	HLit3		FIND("o", UNICHAR(7897), 1, -1)	N:-1
+FIND-num	HLit3		FIND(4, 12345)	N:4
+REPT-3	HLit3		REPT("ab", 3)	T:ababab
+REPT-0	HLit3		REPT("ab", 0)	T:
+REPT-neg	HLit3		REPT("ab", -1)	E
+REPT-frac	HLit3		REPT("ab", 2.9)	T:ababab
+REPT-blank	HLit3		REPT(BLANK(), 3)	B
+REPT-empty	HLit3		REPT("", 5)	T:
+REPT-num	HLit3		REPT(12, 2)	T:1212
+REPT-blankn	HLit3		REPT("ab", BLANK())	T:
+REPT-emoji	HLit3		REPT(UNICHAR(128512), 2)	T:😀😀
+VALUE-comma	HLit3		VALUE("1,5")	N:15
+VALUE-dot	HLit3		VALUE("1.5")	N:1.5
+VALUE-sp	HLit3		VALUE(" 12 ")	N:12
+VALUE-neg	HLit3		VALUE("-3.75")	N:-3.75
+VALUE-exp	HLit3		VALUE("1e3")	N:1000
+VALUE-dollar	HLit3		VALUE("$5")	N:5
+VALUE-pct	HLit3		VALUE("10%")	E
+VALUE-empty	HLit3		VALUE("")	E
+VALUE-blank	HLit3		VALUE(BLANK())	B
+VALUE-abc	HLit3		VALUE("abc")	E
+VALUE-paren	HLit3		VALUE("(5)")	N:-5
+VALUE-thou	HLit3		VALUE("1,234.5")	N:1234.5
+VALUE-true	HLit3		VALUE("TRUE")	E
+VALUE-num	HLit3		VALUE(12)	N:12
+VALUE-date	HLit3		VALUE("2026-01-02")	N:46024
+VALUE-time	HLit3		VALUE("12:00")	N:0.5
+VALUE-plus	HLit3		VALUE("+7")	N:7
+VALUE-int	HLit3		VALUE("42")	N:42
+VALUE-lead0	HLit3		VALUE("007")	N:7
+VALUE-tab	HLit3		VALUE(UNICHAR(9) & "5")	N:5
+EXACT-case	HLit3		EXACT("a", "A")	L:FALSE
+EXACT-same	HLit3		EXACT("a", "a")	L:TRUE
+EXACT-blank-empty	HLit3		EXACT(BLANK(), "")	L:TRUE
+EXACT-bb	HLit3		EXACT(BLANK(), BLANK())	L:TRUE
+EXACT-num	HLit3		EXACT(1, "1")	L:TRUE
+EXACT-nfd	HLit3		EXACT(UNICHAR(7897), UNICHAR(111)&UNICHAR(803)&UNICHAR(770))	L:FALSE
+EXACT-sp	HLit3		EXACT("a", "a ")	L:FALSE
+EXACT-dec	HLit3		EXACT(1.5, "1.5")	L:TRUE
+EXACT-bool	HLit3		EXACT(TRUE(), "TRUE")	L:TRUE
+EXACT-dd	HLit3		EXACT(UNICHAR(273), UNICHAR(272))	L:FALSE
+UNICHAR-65	HLit3		UNICHAR(65)	T:A
+UNICHAR-0	HLit3		UNICHAR(0)	E
+UNICHAR-neg	HLit3		UNICHAR(-1)	E
+UNICHAR-emoji	HLit3		UNICHAR(128512)	T:😀
+UNICHAR-surr	HLit3		UNICHAR(55357)	E
+UNICHAR-max	HLit3		UNICHAR(1114111)	E
+UNICHAR-over	HLit3		UNICHAR(1114112)	E
+UNICHAR-frac	HLit3		UNICHAR(65.7)	T:B
+UNICHAR-blank	HLit3		UNICHAR(BLANK())	B
+UNICHAR-text	HLit3		UNICHAR("66")	T:B
+UNICHAR-len	HLit3		LEN(UNICHAR(128512))	N:2
+UNICHAR-1	HLit3		UNICODE(UNICHAR(1))	E
+UNICODE-A	HLit3		UNICODE("A")	N:65
+UNICODE-empty	HLit3		UNICODE("")	B
+UNICODE-emoji	HLit3		UNICODE(UNICHAR(128512))	N:128512
+UNICODE-blank	HLit3		UNICODE(BLANK())	B
+UNICODE-nfdlit	HLit3		UNICODE(UNICHAR(111)&UNICHAR(803)&UNICHAR(770))	N:111
+UNICODE-num	HLit3		UNICODE(123)	N:49
+UNICODE-ab	HLit3		UNICODE("ab")	N:97
+UNICODE-dd	HLit3		UNICODE(UNICHAR(273))	N:273
+UNICODE-emoji2	HLit3		UNICODE(UNICHAR(128512) & "a")	N:128512
+UNICODE-bool	HLit3		UNICODE(TRUE())	N:84
+FIXED-def	HLit3		FIXED(1234.567)	T:1,234.57
+FIXED-1	HLit3		FIXED(1234.567, 1)	T:1,234.6
+FIXED-0	HLit3		FIXED(1234.567, 0)	T:1,235
+FIXED--2	HLit3		FIXED(1234.567, -2)	T:1,200
+FIXED-negnum	HLit3		FIXED(-1234.567, 2)	T:-1,234.57
+FIXED-nocomma	HLit3		FIXED(1234.567, 2, TRUE())	T:1234.57
+FIXED-half0	HLit3		FIXED(0.5, 0)	T:1
+FIXED-half1	HLit3		FIXED(1.5, 0)	T:2
+FIXED-half2	HLit3		FIXED(2.5, 0)	T:3
+FIXED-halfneg	HLit3		FIXED(-2.5, 0)	T:-3
+FIXED-blank	HLit3		FIXED(BLANK())	T:0.00
+FIXED-text	HLit3		FIXED("12.3", 1)	T:12.3
+FIXED-big	HLit3		FIXED(1E+15, 2)	T:1,000,000,000,000,000.00
+FIXED-128	HLit3		FIXED(1.5, 128)	E
+FIXED-neg5	HLit3		FIXED(123456, -5)	T:100,000
+FIXED-neg7	HLit3		FIXED(123456, -7)	T:0
+FIXED-frac	HLit3		FIXED(1.23456, 2.9)	T:1.235
+FIXED-false	HLit3		FIXED(1234.5, 1, FALSE())	T:1,234.5
+FIXED-small	HLit3		FIXED(0.000123, 5)	T:0.00012
+FIXED-0n	HLit3		FIXED(0, 2)	T:0.00
+FIXED-negsmall	HLit3		FIXED(-0.001, 2)	T:0.00
+FIXED-blankdec	HLit3		FIXED(1.25, BLANK())	T:1
+COMBINE-ab	HLit3		COMBINEVALUES("|", "a", "b")	T:a|b
+COMBINE-blank	HLit3		COMBINEVALUES("|", "a", BLANK())	T:a|
+COMBINE-nums	HLit3		COMBINEVALUES("|", 1, 2.5)	T:1|2.5
+COMBINE-three	HLit3		COMBINEVALUES("|", "a", "b", "c")	T:a|b|c
+COMBINE-bool	HLit3		COMBINEVALUES(", ", TRUE(), "x")	T:TRUE, x
+COMBINE-bb	HLit3		COMBINEVALUES("|", BLANK(), BLANK())	T:|
+COMBINE-date	HLit3		COMBINEVALUES("|", DATE(2026, 1, 2), 1)	T:1/2/2026|1

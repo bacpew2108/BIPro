@@ -10,7 +10,7 @@ usage: pbix-dump <command> <file.pbix> [args]
   columns <table>         columns of a table with type and kind
   measures [--dax]        measures (with --dax: as a .dax script)
   relationships           model relationships
-  rows <table> [n]        first n rows (default 20) as TSV
+  rows <table> [n] [--escape]  first n rows (default 20) as TSV; --escape writes \\, \t, \n, \r as escapes
   decode-all              decode every column of every user table (smoke test)
   verify                  compare decoded distinct counts with engine statistics
   report                  pages and visuals of the report definition
@@ -127,13 +127,20 @@ do {
 
     case "rows":
         guard args.count >= 4 else { fail(usage) }
-        let limit = args.count >= 5 ? Int(args[4]) ?? 20 : 20
+        let escape = args.contains("--escape")
+        let positional = args.filter { $0 != "--escape" }
+        let limit = positional.count >= 5 ? Int(positional[4]) ?? 20 : 20
         let model = try Model(pbix)
         let columns = try VertiPaq.decodeTable(args[3], metadata: model.metadata, abf: model.abf)
         guard let first = columns.first else { fail("no stored columns for \(args[3])") }
+        func cell(_ text: String) -> String {
+            guard escape else { return text }
+            return text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\t", with: "\\t")
+                .replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\r", with: "\\r")
+        }
         print(columns.map(\.name).joined(separator: "\t"))
         for row in 0..<min(limit, first.count) {
-            print(columns.map { $0[row].description }.joined(separator: "\t"))
+            print(columns.map { cell($0[row].description) }.joined(separator: "\t"))
         }
         FileHandle.standardError.write(Data("(\(first.count) rows)\n".utf8))
 

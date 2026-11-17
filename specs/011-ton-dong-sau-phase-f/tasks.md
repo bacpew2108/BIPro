@@ -90,7 +90,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 **Kiểm độc lập**: bộ golden DAX query view, mỗi hàm ít nhất 10 ô.
 
-- [ ] T018 [US3] [VM] **VM-F12**: nạp `text_cases.csv` vào Desktop.
+- [X] T018 **(2026-11-18: xong; 286 ca, 1 198 ô; kết quả lấy từ bảng tính toán đã lưu vì lưới query view không hiện surrogate lẻ)** [US3] [VM] **VM-F12**: nạp `text_cases.csv` vào Desktop.
   - Chạy trong DAX query view truy vấn `EVALUATE ADDCOLUMNS(...)` gọi đủ 19 hàm của FR-020 với các đối số biên:
     - vị trí 0, âm và ngoài độ dài;
     - BLANK, chuỗi rỗng;
@@ -101,7 +101,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
     - `UNICHAR`, `UNICODE` của emoji;
     - `LEN` của chuỗi NFD và emoji.
   - Copy table thành `docs/phase-f2-evidence/vm-f12/golden.tsv` (giá trị và kiểu) và ghi nguyên văn các lỗi Desktop báo vào `QUAN-SAT.md`.
-- [ ] T019 [US3] [LEAD] `docs/tasks/f2-daxtext.md`: brief cho gói F2-DAXTEXT (`/writing-for-agents`).
+- [X] T019 **(2026-11-18: xong; CONCATENATEX lead sửa ở `Iterators.swift`, gói còn 18 hàm; miễn 4 ô UNICODE của surrogate lẻ)** [US3] [LEAD] `docs/tasks/f2-daxtext.md`: brief cho gói F2-DAXTEXT (`/writing-for-agents`).
   - Mục tiêu và danh sách hàm.
   - Tệp được sửa (đúng T001), "không sửa gì ngoài danh sách".
   - Golden `vm-f12/golden.tsv`; test `Tests/DAXEngineTests/F-TEXT/TextFunctionGoldenTests.swift` đọc TSV, không hard-code.

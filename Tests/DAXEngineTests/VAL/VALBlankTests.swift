@@ -84,10 +84,11 @@ import Testing
     }
 
     @Test func blankVoiNoiChuoi() {
-        // & biến BLANK thành "".
+        // & biến BLANK thành ""; hai vế đều BLANK thì ra BLANK (VM-F12: BLANK() & BLANK(), CONCATENATE(BLANK(), BLANK())).
         #expect(Value.concatenate(.blank, .string("x")) == .string("x"))
         #expect(Value.concatenate(.string("x"), .blank) == .string("x"))
-        #expect(Value.concatenate(.blank, .blank) == .string(""))
+        #expect(Value.concatenate(.blank, .blank) == .blank)
+        #expect(Value.concatenate(.blank, .string("")) == .string(""))
         #expect(Value.concatenate(.blank, .integer(5)) == .string("5"))
     }
 
