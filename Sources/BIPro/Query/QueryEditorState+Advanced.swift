@@ -72,16 +72,50 @@ extension QueryEditorState {
         return nil
     }
 
-    /// Cột của bảng lồng trong cột `column` của bước đang xem (sau Merge): lấy từ xem trước. `nil` khi không phải cột bảng lồng.
-    public func nestedColumns(of column: String) -> [QueryColumnInfo]? {
-        guard let preview, let index = preview.index(ofColumn: column), let first = preview.nested[index]?.first else { return nil }
-        return first.columns.map { QueryColumnInfo(name: $0.name, type: $0.data.type) }
+    /// Loại cột mở rộng được trong xem trước: bảng lồng (Merge), bản ghi hoặc danh sách (JSON). `nil` khi cột thường hoặc lẫn loại.
+    public enum ExpandableKind: Sendable, Equatable { case table, record, list }
+
+    public func expandableKind(of column: String) -> ExpandableKind? {
+        guard let preview, let index = preview.index(ofColumn: column) else { return nil }
+        if preview.nested[index] != nil { return .table }
+        guard preview.structured[index] != nil else { return nil }
+        var kinds = Set<ExpandableKind>()
+        for row in 0..<preview.rowCount {
+            switch MTables.cell(preview, row: row, column: index) {
+            case .record: kinds.insert(.record)
+            case .list: kinds.insert(.list)
+            case .table: kinds.insert(.table)
+            case .null: continue
+            default: return nil
+            }
+        }
+        return kinds.count == 1 ? kinds.first : nil
     }
 
-    /// Cột có chứa bảng lồng (kết quả Merge chưa mở) trong xem trước hiện tại.
+    /// Cột của bảng lồng (sau Merge, hoặc ô bảng) hay trường của cột bản ghi (hợp theo thứ tự xuất hiện) trong cột `column` của bước đang xem:
+    /// lấy từ xem trước. `nil` khi không mở rộng được bằng hộp chọn cột.
+    public func nestedColumns(of column: String) -> [QueryColumnInfo]? {
+        guard let preview, let index = preview.index(ofColumn: column) else { return nil }
+        if let first = preview.nested[index]?.first { return first.columns.map { QueryColumnInfo(name: $0.name, type: $0.data.type) } }
+        guard preview.structured[index] != nil else { return nil }
+        var out: [QueryColumnInfo] = []
+        var seen = Set<String>()
+        for row in 0..<preview.rowCount {
+            switch MTables.cell(preview, row: row, column: index) {
+            case .record(let fields):
+                for field in fields where seen.insert(field.name).inserted { out.append(QueryColumnInfo(name: field.name, type: .string)) }
+            case .table(let t):
+                for c in t.columns where seen.insert(c.name).inserted { out.append(QueryColumnInfo(name: c.name, type: c.data.type)) }
+            default: continue
+            }
+        }
+        return out.isEmpty ? nil : out
+    }
+
+    /// Cột có chứa bảng lồng (kết quả Merge chưa mở), bản ghi hoặc danh sách trong xem trước hiện tại.
     public var nestedColumnNames: [String] {
         guard let preview else { return [] }
-        return preview.nested.keys.sorted().map { preview.columns[$0].name }
+        return Set(preview.nested.keys).union(preview.structured.keys).sorted().map { preview.columns[$0].name }
     }
 
     /// Đồ thị cho cửa sổ Query Dependencies: nguồn bên ngoài → truy vấn, truy vấn → truy vấn dùng nó.

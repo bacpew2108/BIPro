@@ -151,6 +151,7 @@ public struct ExpandColumnPopover: View {
     public init(
         sourceColumn: String,
         columns: [QueryColumnInfo],
+        kind: ExpandColumnModel.Kind = .table,
         scrollable: Bool = true,
         onCommit: @escaping (StepCommand) -> Void,
         onCancel: @escaping () -> Void
@@ -162,10 +163,9 @@ public struct ExpandColumnPopover: View {
         self.onCancel = onCancel
 
         let names = columns.map(\.name)
-        self._model = State(initialValue: ExpandColumnModel(
-            sourceColumn: sourceColumn,
-            allColumns: names
-        ))
+        var model = ExpandColumnModel(sourceColumn: sourceColumn, allColumns: names)
+        model.kind = kind
+        self._model = State(initialValue: model)
     }
 
     private var typeMap: [String: DAXType] {

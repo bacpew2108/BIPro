@@ -53,11 +53,12 @@ import Connectors
         #expect(csv?.isDefault == false)
         #expect(csv?.isAvailable == true)
 
+        // US7 (T088, T089): JSON và Parquet đã nối.
         let json = ConnectorCatalog.entries.first(where: { $0.kind == .json })
-        #expect(json?.isAvailable == false)
+        #expect(json?.isAvailable == true)
 
         let parquet = ConnectorCatalog.entries.first(where: { $0.kind == .parquet })
-        #expect(parquet?.isAvailable == false)
+        #expect(parquet?.isAvailable == true)
 
         let sqlite = ConnectorCatalog.entries.first(where: { $0.kind == .sqlite })
         #expect(sqlite?.isAvailable == false)

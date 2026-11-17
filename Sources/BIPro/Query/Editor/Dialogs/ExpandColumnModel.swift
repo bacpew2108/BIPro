@@ -1,8 +1,11 @@
 import Foundation
 import MEngine
 
-/// Logic thuần của hộp thoại/popover mở rộng cột bảng lồng sau Merge.
+/// Logic thuần của hộp thoại/popover mở rộng cột bảng lồng sau Merge, hoặc cột bản ghi (JSON, T088: `Table.ExpandRecordColumn`).
 public struct ExpandColumnModel: Sendable, Equatable {
+    public enum Kind: Sendable, Equatable { case table, record }
+
+    public var kind: Kind = .table
     public var sourceColumn: String
     public var allColumns: [String]
     public var selectedColumns: Set<String>
@@ -51,6 +54,9 @@ public struct ExpandColumnModel: Sendable, Equatable {
 
     public func command() -> StepCommand? {
         guard isValid else { return nil }
+        if kind == .record {
+            return .expandRecord(column: sourceColumn, fields: orderedSelectedColumns, prefixed: usePrefix)
+        }
         return .expandColumn(
             column: sourceColumn,
             names: orderedSelectedColumns,

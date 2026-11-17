@@ -29,10 +29,15 @@ public struct TableData: Sendable {
     /// cột → dòng → bảng lồng (kết quả `Table.NestedJoin`). Cột đó giữ chỗ bằng cột chuỗi trống. Chỉ do `Table.NestedJoin` tạo; mọi phép
     /// biến đổi khác dựng bảng mới nên bỏ phần này (`Table.ExpandTableColumn` sau đó báo cột không phải bảng lồng).
     public let nested: [Int: [TableData]]
+    /// cột → dòng → giá trị có cấu trúc của M (bản ghi, danh sách, bảng; T087: kết quả `Json.Document`, `Table.FromList`). ColumnStore không
+    /// hiểu giá trị này (MEngine đọc lại); cột giữ chỗ bằng chuỗi "Record"/"List"/"Table" (ô null không có mục). Phép chọn/đổi tên/sắp xếp
+    /// cột và cắt dòng giữ lại phần này (`keeping`, `slicingStructured`).
+    public let structured: [Int: [Int: any Sendable]]
 
     /// Bất biến: mọi cột cùng `rowCount`; tên cột không rỗng và duy nhất (phân biệt hoa thường, như M);
     /// mọi ô trong `errorMask` nằm trong bảng.
-    public init(columns: [TableColumn], errorMask: [Int: [Int: String]] = [:], nested: [Int: [TableData]] = [:]) throws {
+    public init(columns: [TableColumn], errorMask: [Int: [Int: String]] = [:], nested: [Int: [TableData]] = [:],
+                structured: [Int: [Int: any Sendable]] = [:]) throws {
         var seen = Set<String>()
         let rows = columns.first?.data.rowCount ?? 0
         for column in columns {
@@ -52,8 +57,39 @@ public struct TableData: Sendable {
         for (column, tables) in nested where column < 0 || column >= columns.count || tables.count != rows {
             throw TableDataError.errorOutOfRange(column: column, row: tables.count)
         }
+        for (column, cells) in structured {
+            for row in cells.keys where column < 0 || column >= columns.count || row < 0 || row >= rows {
+                throw TableDataError.errorOutOfRange(column: column, row: row)
+            }
+        }
         self.errorMask = errorMask
         self.nested = nested
+        self.structured = structured.filter { !$0.value.isEmpty }
+    }
+
+    /// Bảng mới gồm `columns`, trong đó cột thứ `i` lấy từ cột `sources[i]` của bảng này (nil: cột mới): mang theo bảng lồng và ô có cấu trúc
+    /// của cột nguồn. Dùng cho chọn, bỏ, đổi tên, sắp xếp, đổi kiểu cột.
+    public func keeping(columns: [TableColumn], sources: [Int?], errorMask: [Int: [Int: String]]) throws -> TableData {
+        var keptNested: [Int: [TableData]] = [:]
+        var keptStructured: [Int: [Int: any Sendable]] = [:]
+        for (index, source) in sources.enumerated() {
+            guard let source else { continue }
+            if let tables = nested[source] { keptNested[index] = tables }
+            if let cells = structured[source] { keptStructured[index] = cells }
+        }
+        return try TableData(columns: columns, errorMask: errorMask, nested: keptNested, structured: keptStructured)
+    }
+
+    /// Ô có cấu trúc sau khi cắt dòng: dòng mới `i` lấy từ dòng `rows[i]`.
+    public func slicingStructured(rows: [Int]) -> [Int: [Int: any Sendable]] {
+        guard !structured.isEmpty else { return [:] }
+        var out: [Int: [Int: any Sendable]] = [:]
+        for (column, cells) in structured {
+            var kept: [Int: any Sendable] = [:]
+            for (newRow, oldRow) in rows.enumerated() { if let value = cells[oldRow] { kept[newRow] = value } }
+            if !kept.isEmpty { out[column] = kept }
+        }
+        return out
     }
 
     public func index(ofColumn name: String) -> Int? {
@@ -81,7 +117,7 @@ public struct TableData: Sendable {
         }
         let keptNested = nested.mapValues { Array($0.prefix(n)) }
         // Bất biến giữ nguyên (cùng cột, dòng ngắn đi), nên không thể ném.
-        return try! TableData(columns: taken, errorMask: mask, nested: keptNested)
+        return try! TableData(columns: taken, errorMask: mask, nested: keptNested, structured: slicingStructured(rows: Array(0..<n)))
     }
 }
 

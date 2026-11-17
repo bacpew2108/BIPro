@@ -59,6 +59,16 @@ public final class NavigatorState {
 
     public var canLoad: Bool { !checkedItemIDs.isEmpty && phase == .ready }
 
+    /// Nguồn mở thẳng Query Editor, không qua Navigator (Desktop 2.159, VM-F7a: JSON).
+    public var opensEditorDirectly: Bool { sourceKind == .json }
+
+    /// Nguồn không qua Navigator: đánh dấu mọi mục rồi nạp. `nil` khi lỗi hoặc huỷ (như `load`).
+    public func loadDirectly(existingNames: Set<String> = []) async -> [LoadedTable]? {
+        guard opensEditorDirectly, phase == .ready, !items.isEmpty else { return nil }
+        checkedItemIDs = Set(items.map(\.id))
+        return await load(existingNames: existingNames)
+    }
+
     /// Mở nguồn và liệt kê mục. Xoá danh sách, đánh dấu và xem trước của nguồn trước. Lỗi → `.failed(thông điệp tiếng Việt)`.
     public func openSource(kind: SourceKind, location: String) async {
         loadTask?.cancel()

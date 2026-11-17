@@ -1,6 +1,6 @@
 // Phase F, T061: truy vấn M mà Desktop 2.159 sinh khi nạp một mục của Navigator (QUAN-SAT VM-F1 mục 3), để ghi vào
-// `Partition.QueryDefinition` và làm các bước đầu (khoá) của truy vấn trong Query Editor. CSV và Excel đã quan sát; named table,
-// SQLite và JSON là [SUY ĐOÁN] (chỉ đúng cú pháp M, chưa đối chiếu Desktop).
+// `Partition.QueryDefinition` và làm các bước đầu (khoá) của truy vấn trong Query Editor. CSV, Excel, JSON (VM-F7a, `JsonQuery`) và
+// Parquet đã quan sát; named table và SQLite là [SUY ĐOÁN] (chỉ đúng cú pháp M, chưa đối chiếu Desktop).
 
 import ColumnStore
 import Connectors
@@ -63,9 +63,14 @@ enum SourceQuery {
             let kind = origin.itemKind == .view ? "View" : "Table"
             add("\(origin.itemName)_\(kind)", "Source{[Name=\(StepFactory.quote(origin.itemName)),Kind=\"\(kind)\"]}[Data]", StepKind.navigation)
         case .json:
+            // Chuỗi bước tự mở rộng như Desktop (VM-F7a), gồm cả "Changed Type".
+            if let plan = try? JsonQuery.plan(location: origin.location) { return plan.steps }
             add("Source", "Json.Document(File.Contents(\(path)))", StepKind.source)
-            add("Converted to Table", "Table.FromRecords(Source)", StepKind.navigation)   // [SUY ĐOÁN] Desktop mở rộng cột bằng nhiều bước.
-        case .parquet, .postgres:
+        case .parquet:
+            // Desktop (VM-F7a): một bước, kiểu lấy từ lược đồ tệp, không có "Changed Type".
+            return [QueryStep(name: "Source", expression: "Parquet.Document(File.Contents(\(path)), [Compression=null, LegacyColumnNameEncoding=false, MaxDepth=null])",
+                              kind: StepKind.source)]
+        case .postgres:
             add("Source", "#table({}, {})", StepKind.source)
         }
         let changes = typeChanges(data)

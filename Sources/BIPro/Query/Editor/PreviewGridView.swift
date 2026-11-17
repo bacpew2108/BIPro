@@ -38,10 +38,23 @@ struct PreviewGridView: View {
 
     // MARK: - Top Context Bar
 
-    /// Cột chứa bảng lồng (kết quả Merge chưa mở): tra thẳng `TableData.nested`, không sắp xếp tên cột cho từng ô.
+    /// Cột mở rộng được: bảng lồng (Merge chưa mở) hoặc bản ghi/danh sách (JSON, T088): tra thẳng `TableData.nested`/`structured`.
     private func isNestedColumn(_ name: String) -> Bool {
         guard let table = previewTable, let index = table.index(ofColumn: name) else { return false }
-        return table.nested[index] != nil
+        return table.nested[index] != nil || table.structured[index] != nil
+    }
+
+    /// Chữ của ô có cấu trúc (cột giữ chỗ ghi "Record"/"List"/"Table"); ô null trả `nil`.
+    private func nestedLabel(_ table: TableData, row: Int, column: Int) -> String? {
+        if table.nested[column] != nil { return "Bảng" }
+        guard table.structured[column] != nil else { return nil }
+        switch table.value(row: row, column: column) {
+        case .string("Record"): return "Bản ghi"
+        case .string("List"): return "Danh sách"
+        case .string("Table"): return "Bảng"
+        case .blank: return nil
+        case let other: return NavigatorFormat.cell(other)
+        }
     }
 
     private var topContextBar: some View {
@@ -180,9 +193,9 @@ struct PreviewGridView: View {
                         let error = table.error(row: rowIdx, column: colIdx)
                         let isSelected = selectedColumns.contains(col.name)
                         let isNumeric = isNumericType(col.data.type)
-                        let isNested = table.nested[colIdx] != nil
+                        let label = nestedLabel(table, row: rowIdx, column: colIdx)
 
-                        dataCell(value: val, error: error, isNumeric: isNumeric, isSelected: isSelected, isOdd: isOdd, isNested: isNested)
+                        dataCell(value: val, error: error, isNumeric: isNumeric, isSelected: isSelected, isOdd: isOdd, nestedText: label)
                             .frame(width: 140, height: 26)
                             .hairline(.trailing)
                             .contentShape(Rectangle())
@@ -249,7 +262,7 @@ struct PreviewGridView: View {
                         .onTapGesture {
                             onExpandColumn?(name)
                         }
-                        .help("Mở rộng cột bảng lồng")
+                        .help("Mở rộng cột")
                 }
 
                 Image(systemName: "chevron.down")
@@ -332,7 +345,7 @@ struct PreviewGridView: View {
     // MARK: - Data Cell
 
     @ViewBuilder
-    private func dataCell(value: StoredValue, error: String?, isNumeric: Bool, isSelected: Bool, isOdd: Bool, isNested: Bool = false) -> some View {
+    private func dataCell(value: StoredValue, error: String?, isNumeric: Bool, isSelected: Bool, isOdd: Bool, nestedText: String? = nil) -> some View {
         let bg: Color = {
             if error != nil {
                 return DS.Palette.danger.opacity(0.12)
@@ -354,8 +367,8 @@ struct PreviewGridView: View {
                     .padding(.vertical, 1)
                     .background(Capsule().fill(DS.Palette.danger))
                 Spacer()
-            } else if isNested {
-                Text("Bảng")
+            } else if let nestedText {
+                Text(nestedText)
                     .font(DS.Typeface.bodySmall)
                     .italic()
                     .foregroundStyle(DS.Palette.accent)

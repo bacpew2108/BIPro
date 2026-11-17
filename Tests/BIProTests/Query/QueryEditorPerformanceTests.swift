@@ -99,4 +99,26 @@ struct QueryEditorPerformanceTests {
         #expect(navigator.preview?.rowCount == 200)
         #expect(open < 3.0, "\(open) s")
     }
+
+    /// T090 (US7): Parquet 1 triệu dòng (`python3 scripts/f-samples/make_parquet.py --large`, một row group, SNAPPY, từ điển). Thiếu tệp thì bỏ qua.
+    @Test func navigatorXemTruocParquetMotTrieuDongDuoi3s() async throws {
+        guard let url = FFixtures.sample("sales_1m.parquet") else { return }
+        let navigator = NavigatorState()
+        var itemID = ""
+        let open = await seconds {
+            await navigator.openSource(kind: .parquet, location: url.path)
+            itemID = navigator.items.first?.id ?? ""
+            await navigator.showPreview(itemID)
+        }
+        print("BENCHMARK Navigator 1M Parquet [mở + xem trước]: \(String(format: "%.3f", open)) s")
+        #expect(navigator.phase == .ready && navigator.previewError == nil)
+        #expect(navigator.preview?.rowCount == 200)
+        #expect(open < 3.0, "\(open) s")
+
+        navigator.toggle(itemID)
+        var loaded: [LoadedTable]?
+        let full = await seconds { loaded = await navigator.load() }
+        print("BENCHMARK nạp đủ 1M Parquet: \(String(format: "%.3f", full)) s")
+        #expect(loaded?.first?.data.rowCount == Self.rows)
+    }
 }

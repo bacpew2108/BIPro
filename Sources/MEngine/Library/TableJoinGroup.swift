@@ -59,25 +59,7 @@ public enum JoinGroupLibrary {
 
     /// Dựng bảng từ giá trị theo cột. Giá trị `.error` thành ô trống kèm thông điệp trong `errorMask`.
     private static func assemble(names: [String], types: [MType?], columns: [[MValue]], nested: [Int: [TableData]] = [:]) throws -> TableData {
-        var built: [TableColumn] = []
-        var mask: [Int: [Int: String]] = [:]
-        for (index, name) in names.enumerated() {
-            var values = columns[index]
-            for (row, value) in values.enumerated() {
-                if case .error(let error) = value {
-                    mask[index, default: [:]][row] = error.message
-                    values[row] = .null
-                }
-            }
-            built.append(TableColumn(name: name, data: try MTables.column(values, type: types[index], name: name)))
-        }
-        do {
-            return try TableData(columns: built, errorMask: mask, nested: nested)
-        } catch TableDataError.duplicateColumn(let name) {
-            throw MError.expression("Tên cột trùng: \(name)")
-        } catch TableDataError.emptyColumnName {
-            throw MError.expression("Tên cột không được rỗng")
-        }
+        try MTables.build(names: names, types: types, columns: columns, nested: nested)
     }
 
     private static func joinKind(_ value: MValue?, function: String, default fallback: Int) throws -> Int {
@@ -255,8 +237,18 @@ public enum JoinGroupLibrary {
         let table = try args.table(0, "Table.ExpandTableColumn")
         let name = try args.text(1, "Table.ExpandTableColumn")
         guard let column = table.index(ofColumn: name) else { throw MError.expression("Table.ExpandTableColumn: không tìm thấy cột '\(name)'") }
-        guard let nested = table.nested[column] else {
-            throw MError.expression("Table.ExpandTableColumn: cột '\(name)' không phải cột bảng lồng (chỉ giữ nguyên ngay sau Table.NestedJoin)")
+        // Bảng lồng của NestedJoin, hoặc ô bảng có cấu trúc (giá trị `.table` trong cột `any`); ô null mở thành một dòng trống.
+        let structuredTables: [TableData]? = table.structured[column].flatMap { _ in
+            let empty = try? TableData(columns: [])
+            let tables = (0..<table.rowCount).map { row -> TableData? in
+                if case .table(let t) = MTables.cell(table, row: row, column: column) { return t }
+                if case .null = MTables.cell(table, row: row, column: column) { return empty }
+                return nil
+            }
+            return tables.contains { $0 == nil } ? nil : tables.compactMap { $0 }
+        }
+        guard let nested = table.nested[column] ?? structuredTables else {
+            throw MError.expression("Table.ExpandTableColumn: cột '\(name)' không phải cột bảng lồng")
         }
         let wanted = try TableRowsHelper.extractColumnNames(args[2], functionName: "Table.ExpandTableColumn")
         let renamed = try args.optional(3).map { try TableRowsHelper.extractColumnNames($0, functionName: "Table.ExpandTableColumn") } ?? wanted

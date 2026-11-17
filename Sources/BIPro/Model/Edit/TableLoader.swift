@@ -68,9 +68,9 @@ public enum SourceFactory {
         switch kind {
         case .csv: return CSVSource(url: url)
         case .excel: return ExcelSource(url: url)
-        case .json: return JSONSource(url: url)
+        case .json: return JsonQuerySource(url: url)
         case .sqlite: return SQLiteSource(url: url)
-        case .parquet: throw SourceError.unsupported("Parquet (đợt P3)")
+        case .parquet: return ParquetSource(url: url)
         case .postgres: throw SourceError.unsupported("PostgreSQL (đợt P3)")
         }
     }

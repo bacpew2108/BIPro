@@ -31,7 +31,8 @@ enum TableRowsHelper {
             }
         }
 
-        return try TableData(columns: newColumns, errorMask: newMask)
+        let nested = table.nested.mapValues { tables in rowIndices.map { tables[$0] } }
+        return try TableData(columns: newColumns, errorMask: newMask, nested: nested, structured: table.slicingStructured(rows: rowIndices))
     }
 
     private static func sliceColumn(data: ColumnData, rowIndices: [Int]) -> ColumnData {

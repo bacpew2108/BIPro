@@ -23,6 +23,10 @@ enum MBuiltins {
         case "JoinKind.LeftAnti": return .number(4)
         case "JoinKind.RightAnti": return .number(5)
         case "GroupKind.Local": return .number(0)
+        // ExtraValues (List 0, Error 1, Ignore 2) và MissingField (Error 0, Ignore 1, UseNull 2): tài liệu M.
+        case "ExtraValues.List", "MissingField.Error": return .number(0)
+        case "ExtraValues.Error", "MissingField.Ignore": return .number(1)
+        case "ExtraValues.Ignore", "MissingField.UseNull": return .number(2)
         default: return nil
         }
     }

@@ -18,6 +18,15 @@ public struct MEvaluator: Sendable {
         try await evaluate(try MParser.parse(source), upTo: step, rowLimit: rowLimit)
     }
 
+    /// Đánh giá đồng bộ một biểu thức (không kiểm huỷ Task, không giới hạn dòng): cho bộ dựng truy vấn nguồn chạy trong hàm đồng bộ
+    /// (T088: dựng chuỗi bước JSON như Desktop).
+    public func evaluateNow(source: String) throws -> MValue {
+        let interpreter = Interpreter(environment: environment)
+        let result = try interpreter.evaluate(try MParser.parse(source), in: interpreter.root)
+        if case .error(let e) = result { throw e }
+        return result
+    }
+
     /// `step`: đánh giá đến hết bước này của `let` ngoài cùng (xem trước ở bước giữa).
     /// `rowLimit`: nếu kết quả là bảng thì chỉ giữ chừng đó dòng đầu (xem trước); nguồn nhận gợi ý riêng qua `MEnvironment`.
     public func evaluate(_ expression: MExpression, upTo step: String? = nil, rowLimit: Int? = nil) async throws -> MValue {

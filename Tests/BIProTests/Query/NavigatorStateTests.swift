@@ -68,11 +68,12 @@ import Connectors
         #expect(!state.canLoad)
     }
 
-    @Test func parquetAndPostgresAreNotYetSupported() async {
+    /// Parquet đã nối (T089): tệp không có báo lỗi đọc tiếng Việt; PostgreSQL vẫn chưa.
+    @Test func missingParquetFailsAndPostgresIsNotYetSupported() async {
         let state = NavigatorState()
-        await state.openSource(kind: .parquet, location: "/tmp/x.parquet")
+        await state.openSource(kind: .parquet, location: "/tmp/khong-co-\(UUID().uuidString).parquet")
         guard case .failed(let message) = state.phase else { Issue.record("phase = \(state.phase)"); return }
-        #expect(message.contains("Chưa hỗ trợ"))
+        #expect(message.contains("Không thể đọc file"))
         await state.openSource(kind: .postgres, location: "localhost/db")
         guard case .failed = state.phase else { Issue.record("phase = \(state.phase)"); return }
     }

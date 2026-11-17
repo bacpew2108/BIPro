@@ -115,11 +115,17 @@ public enum TableColumnsLibrary {
             var newColumns: [TableColumn] = []
             var newMask = table.errorMask
 
+            var sources: [Int?] = []
             for (colIdx, col) in table.columns.enumerated() {
                 guard let targetType = transforms[col.name] else {
                     newColumns.append(col)
+                    sources.append(colIdx)
                     continue
                 }
+                if table.structured[colIdx] != nil || table.nested[colIdx] != nil {
+                    throw MError.expression("Table.TransformColumnTypes: cột '\(col.name)' chứa bản ghi, danh sách hoặc bảng; hãy mở rộng trước khi đổi kiểu")
+                }
+                sources.append(nil)
                 let newCol = try TableColumnsTypesHelper.transformColumn(
                     col: col,
                     colIdx: colIdx,
@@ -130,7 +136,7 @@ public enum TableColumnsLibrary {
                 newColumns.append(newCol)
             }
 
-            return .table(try TableData(columns: newColumns, errorMask: newMask))
+            return .table(try table.keeping(columns: newColumns, sources: sources, errorMask: newMask))
         },
 
         MFunction(
@@ -164,7 +170,7 @@ public enum TableColumnsLibrary {
                 throw MError.expression("Table.RenameColumns: không tìm thấy cột '\(missing)'")
             }
 
-            return .table(try TableData(columns: newColumns, errorMask: table.errorMask))
+            return .table(try table.keeping(columns: newColumns, sources: Array(table.columns.indices), errorMask: table.errorMask))
         },
 
         MFunction(
@@ -184,17 +190,19 @@ public enum TableColumnsLibrary {
 
             var newColumns: [TableColumn] = []
             var newMask: [Int: [Int: String]] = [:]
+            var sources: [Int?] = []
 
             for (oldIdx, col) in table.columns.enumerated() {
                 if toRemove.contains(col.name) { continue }
                 let newIdx = newColumns.count
                 newColumns.append(col)
+                sources.append(oldIdx)
                 if let errors = table.errorMask[oldIdx] {
                     newMask[newIdx] = errors
                 }
             }
 
-            return .table(try TableData(columns: newColumns, errorMask: newMask))
+            return .table(try table.keeping(columns: newColumns, sources: sources, errorMask: newMask))
         },
 
         // [SUY ĐOÁN]
@@ -208,6 +216,7 @@ public enum TableColumnsLibrary {
 
             var newColumns: [TableColumn] = []
             var newMask: [Int: [Int: String]] = [:]
+            var sources: [Int?] = []
 
             for name in selectedNames {
                 guard let oldIdx = table.index(ofColumn: name) else {
@@ -215,12 +224,13 @@ public enum TableColumnsLibrary {
                 }
                 let newIdx = newColumns.count
                 newColumns.append(table.columns[oldIdx])
+                sources.append(oldIdx)
                 if let errors = table.errorMask[oldIdx] {
                     newMask[newIdx] = errors
                 }
             }
 
-            return .table(try TableData(columns: newColumns, errorMask: newMask))
+            return .table(try table.keeping(columns: newColumns, sources: sources, errorMask: newMask))
         },
 
         // [SUY ĐOÁN]
@@ -235,6 +245,7 @@ public enum TableColumnsLibrary {
             var newColumns: [TableColumn] = []
             var newMask: [Int: [Int: String]] = [:]
             var seen = Set<String>()
+            var sources: [Int?] = []
 
             for name in orderedNames {
                 guard let oldIdx = table.index(ofColumn: name) else {
@@ -242,6 +253,7 @@ public enum TableColumnsLibrary {
                 }
                 let newIdx = newColumns.count
                 newColumns.append(table.columns[oldIdx])
+                sources.append(oldIdx)
                 seen.insert(name)
                 if let errors = table.errorMask[oldIdx] {
                     newMask[newIdx] = errors
@@ -252,13 +264,14 @@ public enum TableColumnsLibrary {
                 if !seen.contains(col.name) {
                     let newIdx = newColumns.count
                     newColumns.append(col)
+                    sources.append(oldIdx)
                     if let errors = table.errorMask[oldIdx] {
                         newMask[newIdx] = errors
                     }
                 }
             }
 
-            return .table(try TableData(columns: newColumns, errorMask: newMask))
+            return .table(try table.keeping(columns: newColumns, sources: sources, errorMask: newMask))
         },
 
         // [SUY ĐOÁN]

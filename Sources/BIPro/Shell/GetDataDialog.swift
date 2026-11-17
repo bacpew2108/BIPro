@@ -414,6 +414,7 @@ struct GetDataDialogView: View {
 
 struct GetDataFlowView: View {
     let state: NavigatorState
+    private var isFailed: Bool { if case .failed = state.phase { true } else { false } }
     let existingTableNames: Set<String>
     let pickFile: (SourceKind) -> String?
     let onLoad: ([LoadedTable]) -> String?
@@ -439,7 +440,20 @@ struct GetDataFlowView: View {
 
     var body: some View {
         Group {
-            if state.phase == .choosingSource {
+            if state.opensEditorDirectly && state.phase != .choosingSource && !isFailed {
+                // JSON: Desktop mở thẳng Power Query Editor (VM-F7a), chỉ hiện tiến độ trong lúc dựng các bước.
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Đang đọc \(URL(fileURLWithPath: state.location).lastPathComponent)…")
+                        .font(DS.Typeface.body)
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                }
+                .frame(width: 420, height: 160)
+                .task(id: state.phase) {
+                    guard state.phase == .ready, let onTransform else { return }
+                    if let tables = await state.loadDirectly(existingNames: existingTableNames) { onTransform(tables) }
+                }
+            } else if state.phase == .choosingSource {
                 GetDataDialogView(
                     state: state,
                     pickFile: pickFile,

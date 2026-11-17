@@ -6,7 +6,7 @@
 // - `Csv.Document(path, [Delimiter, Encoding, …])`: mọi cột là text tên `Column1…` (Desktop; bước "Promoted Headers" và "Changed Type" lo phần còn lại).
 // - `Excel.Workbook(path, useHeaders, _)`: bảng `Name, Data, Item, Kind, Hidden`; `Data` là bảng lồng của từng trang tính/bảng đặt tên, đọc đủ
 //   mọi mục một lần ([SUY ĐOÁN] ô lẫn kiểu thành text vì `TableData` chưa có cột `any`).
-// SQLite và JSON chưa nối (báo "Chưa hỗ trợ").
+// - `Json.Document(path)` (T088): đọc tệp JSON, giữ thứ tự khoá. `Parquet.Document(path, options)` (T089). SQLite chưa nối (báo "Chưa hỗ trợ").
 
 import ColumnStore
 import Connectors
@@ -16,7 +16,8 @@ import MEngine
 enum SourceFunctions {
     /// Hàm nguồn dạng giá trị M, để gộp vào `MEnvironment.bindings`.
     static var bindings: [String: MValue] {
-        [fileContents.name: .function(fileContents), csvDocument.name: .function(csvDocument), excelWorkbook.name: .function(excelWorkbook)]
+        [fileContents.name: .function(fileContents), csvDocument.name: .function(csvDocument), excelWorkbook.name: .function(excelWorkbook),
+         jsonDocument.name: .function(jsonDocument), parquetDocument.name: .function(parquetDocument)]
     }
 
     // MARK: File.Contents
@@ -65,6 +66,39 @@ enum SourceFunctions {
         case 20127: .ascii
         default: nil
         }
+    }
+
+    // MARK: Json.Document
+
+    /// `Json.Document(File.Contents(path))`: đọc tệp rồi phân tích (`MJson.parse`, giữ thứ tự khoá). Đối số không phải đường dẫn tệp có thật
+    /// thì là văn bản JSON (như `Json.Document` của thư viện).
+    static let jsonDocument = MFunction(
+        name: "Json.Document", parameters: [MParameter(name: "jsonText"), MParameter(name: "encoding", isOptional: true)], observed: true
+    ) { args in
+        guard case .text(let text) = args[0] else { throw MError.expression("Json.Document: nguồn phải là kết quả của File.Contents hoặc text") }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.hasPrefix("{"), !trimmed.hasPrefix("["), FileManager.default.fileExists(atPath: text) {
+            let data: Data
+            do { data = try Data(contentsOf: URL(fileURLWithPath: text)) } catch {
+                throw MError(reason: "DataSource.Error", message: "Không đọc được tệp \"\(text)\".", detail: text)
+            }
+            return try MJson.parse(data)
+        }
+        return try MJson.parse(Data(text.utf8))
+    }
+
+    // MARK: Parquet.Document
+
+    /// `Parquet.Document(File.Contents(path), [Compression, LegacyColumnNameEncoding, MaxDepth])` (T089): bảng của tệp, kiểu theo lược đồ.
+    /// Tuỳ chọn của Desktop được nhận nhưng không đổi kết quả (BI Pro tự nhận codec, chỉ đọc lược đồ phẳng).
+    static let parquetDocument = MFunction(
+        name: "Parquet.Document", parameters: [MParameter(name: "binary"), MParameter(name: "options", isOptional: true)], observed: true
+    ) { args in
+        guard case .text(let path) = args[0] else { throw MError.expression("Parquet.Document: nguồn phải là kết quả của File.Contents") }
+        let table = try blocking {
+            try ParquetFile(url: URL(fileURLWithPath: path)).read(rowLimit: nil, progress: nil)
+        }
+        return .table(table)
     }
 
     // MARK: Excel.Workbook

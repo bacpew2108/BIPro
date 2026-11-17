@@ -160,7 +160,12 @@ public struct QueryEditorWindow: View {
                                 openFilterPopover(for: col)
                             },
                             onExpandColumn: { col in
-                                activeExpandColumn = col
+                                // Cột danh sách: mở thành dòng mới ngay (Desktop: "Expand to New Rows"); bảng/bản ghi: hộp chọn cột.
+                                if state.expandableKind(of: col) == .list {
+                                    executeCommand(.expandList(column: col))
+                                } else {
+                                    activeExpandColumn = col
+                                }
                             }
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -236,6 +241,7 @@ public struct QueryEditorWindow: View {
                 ExpandColumnPopover(
                     sourceColumn: colName,
                     columns: nestedCols,
+                    kind: state.expandableKind(of: colName) == .record ? .record : .table,
                     scrollable: scrollable,
                     onCommit: { cmd in
                         activeExpandColumn = nil

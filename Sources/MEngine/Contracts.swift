@@ -33,5 +33,5 @@ public enum MLibrary {
     }()
 
     static let all: [MFunction] = TableColumnsLibrary.functions + TableRowsLibrary.functions
-        + ValueLibrary.functions + JoinGroupLibrary.functions
+        + ValueLibrary.functions + JoinGroupLibrary.functions + JsonLibrary.functions
 }

@@ -153,6 +153,11 @@ public enum StepCommand: Sendable, Equatable {
     case merge(otherQuery: String, leftKeys: [String], rightKeys: [String], kind: JoinChoice, newColumn: String)
     /// Mở cột bảng lồng sau Merge [SUY ĐOÁN]; `prefixed` đặt tên mới `Cột.tên` như mặc định của Desktop.
     case expandColumn(column: String, names: [String], prefixed: Bool)
+    /// Mở cột bản ghi (Desktop, VM-F7a: bước `Expanded <cột>`, `Table.ExpandRecordColumn(prev, cột, {trường}, {tên mới})`); `prefixed` đặt
+    /// tên `Cột.trường`, không tiền tố thì tên mới bằng tên trường (cột `Column1` của bước đổi danh sách thành bảng).
+    case expandRecord(column: String, fields: [String], prefixed: Bool)
+    /// Mở cột danh sách thành dòng mới (Desktop, VM-F7a: `Table.ExpandListColumn(prev, cột)`, bước `Expanded <cột>`).
+    case expandList(column: String)
     /// Append Queries (Desktop, VM-F4: bước `Appended Query`, `Table.Combine({prev, Q})`).
     case append(queries: [String])
     /// Group By nhiều khoá, nhiều phép tổng hợp (Desktop, VM-F4: bước `Grouped Rows`; Count Rows quan sát nguyên văn, Sum/Average/... theo dạng đã biết [SUY ĐOÁN]).
@@ -232,6 +237,11 @@ public enum StepFactory {
         case .expandColumn(let column, let names, let prefixed):
             let renamed = prefixed ? list(names.map { "\(column).\($0)" }) : list(names)
             return [make("Expanded \(column)", "Table.ExpandTableColumn(\(p), \(quote(column)), \(list(names)), \(renamed))")]
+        case .expandRecord(let column, let fields, let prefixed):
+            let renamed = prefixed ? list(fields.map { "\(column).\($0)" }) : list(fields)
+            return [make("Expanded \(column)", "Table.ExpandRecordColumn(\(p), \(quote(column)), \(list(fields)), \(renamed))")]
+        case .expandList(let column):
+            return [make("Expanded \(column)", "Table.ExpandListColumn(\(p), \(quote(column)))")]
         case .append(let queries):
             let items = ([p] + queries.map { $0 == currentQuery ? p : MQuery.reference(to: $0) }).joined(separator: ", ")
             return [make("Appended Query", "Table.Combine({\(items)})")]

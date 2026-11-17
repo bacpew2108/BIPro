@@ -16,8 +16,13 @@ public enum MTables {
         }
     }
 
+    /// Giá trị M của ô; ô có cấu trúc (bản ghi, danh sách, bảng của `TableData.structured`) trả nguyên giá trị đó.
     public static func cell(_ table: TableData, row: Int, column: Int) -> MValue {
         if let message = table.error(row: row, column: column) { return .error(MError.expression(message)) }
+        if let cells = table.structured[column] {
+            if let value = cells[row] as? MValue { return value }
+            return .null
+        }
         return value(table.value(row: row, column: column))
     }
 
@@ -28,6 +33,28 @@ public enum MTables {
             if let nested = table.nested[column], nested.indices.contains(row) { return MField(name: table.columns[column].name, value: .table(nested[row])) }
             return MField(name: table.columns[column].name, value: cell(table, row: row, column: column))
         })
+    }
+
+    /// Chữ hiển thị của giá trị đơn nằm lẫn trong cột có cấu trúc.
+    static func scalarText(_ value: MValue) -> String {
+        switch value {
+        case .text(let s): s
+        case .number(let d): d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : String(d)
+        case .logical(let b): b ? "TRUE" : "FALSE"
+        default: ""
+        }
+    }
+
+    /// Giá trị có cấu trúc (không đặt được vào cột thường) và chữ giữ chỗ của nó trong lưới ("Record", "List", "Table" như Desktop).
+    static func placeholder(_ value: MValue) -> String? {
+        switch value {
+        case .record: "Record"
+        case .list: "List"
+        case .table: "Table"
+        case .function: "Function"
+        case .type: "Type"
+        default: nil
+        }
     }
 
     public static func column(_ table: TableData, _ column: Int) -> MValue {
@@ -47,18 +74,47 @@ public enum MTables {
     /// Dựng bảng từ các hàng giá trị. `types[i] == nil` thì suy kiểu cột từ giá trị (xem `inferType`).
     public static func build(names: [String], types: [MType?], rows: [[MValue]]) throws -> TableData {
         guard names.count == types.count else { throw MError.expression("Số tên cột và số kiểu không khớp") }
+        return try build(names: names, types: types, columns: names.indices.map { index in rows.map { $0[index] } })
+    }
+
+    /// Dựng bảng từ các cột giá trị. Cột có bản ghi, danh sách hoặc bảng (kiểu `any`) thành cột giữ chỗ kèm `TableData.structured` (kiểu khai
+    /// báo `text` cũng nhận, vì cột giữ chỗ là cột chuỗi khi phép biến đổi khác chép lại kiểu cột).
+    public static func build(names: [String], types: [MType?], columns values: [[MValue]], nested: [Int: [TableData]] = [:]) throws -> TableData {
         var columns: [TableColumn] = []
         var mask: [Int: [Int: String]] = [:]
+        var structured: [Int: [Int: any Sendable]] = [:]
         for (index, name) in names.enumerated() {
-            var values = rows.map { $0[index] }
+            var values = values[index]
             // Ô có giá trị lỗi (phần tử danh sách lỗi): ô trống kèm thông điệp trong `errorMask` (Desktop: lỗi ở ô, bảng vẫn có).
             for (row, value) in values.enumerated() {
                 if case .error(let error) = value { mask[index, default: [:]][row] = error.message; values[row] = .null }
             }
+            if values.contains(where: { placeholder($0) != nil }) {
+                let declared = types[index]?.kind
+                guard declared == nil || declared == .any || declared == .anynonnull || declared == .text || declared == .record || declared == .list || declared == .table else {
+                    throw MError.expression("Giá trị không khớp kiểu \(declared!.rawValue) của cột '\(name)'")
+                }
+                var cells: [Int: any Sendable] = [:]
+                var labels: [String?] = []
+                for (row, value) in values.enumerated() {
+                    if case .null = value { labels.append(nil); continue }
+                    if let label = placeholder(value) {
+                        cells[row] = value
+                        labels.append(label)
+                    } else {
+                        // Cột lẫn giá trị đơn với bản ghi/danh sách: giữ giá trị đó dạng có cấu trúc, chữ là giá trị của nó.
+                        cells[row] = value
+                        labels.append(scalarText(value))
+                    }
+                }
+                structured[index] = cells
+                columns.append(TableColumn(name: name, data: ColumnBuilder.strings(labels)))
+                continue
+            }
             columns.append(TableColumn(name: name, data: try column(values, type: types[index], name: name)))
         }
         do {
-            return try TableData(columns: columns, errorMask: mask)
+            return try TableData(columns: columns, errorMask: mask, nested: nested, structured: structured)
         } catch TableDataError.duplicateColumn(let name) {
             throw MError.expression("Tên cột trùng: \(name)")
         } catch TableDataError.emptyColumnName {

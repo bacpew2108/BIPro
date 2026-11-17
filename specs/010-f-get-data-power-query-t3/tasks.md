@@ -137,11 +137,11 @@ Trong lúc chờ T010, được làm song song: Giai đoạn 4 (đọc nguồn) 
 
 **Mục tiêu**: Get Data nhận Parquet và JSON (tập con tự viết). **Kiểm độc lập**: nạp `sales_2026.parquet` và `orders.json` (mảng lồng); số dòng và giá trị khớp bản Desktop.
 
-- [ ] T086 [US7] [VM] **VM-F7a**: Desktop nạp `orders.json` (mảng lồng) và `sales_2026.parquet` (nếu có tệp từ T089); ghi biểu thức M (`Json.Document`, `Table.FromRecords`, `Table.ExpandRecordColumn`, `Table.ExpandListColumn`, `Parquet.Document`), kiểu ánh xạ; `docs/phase-f-evidence/vm-f7/QUAN-SAT.md`
-- [ ] T087 [US7] [LEAD] `Sources/MEngine/Library/Json.swift` (`Json.Document`, `Table.FromRecords`, `Table.ExpandRecordColumn`, `Table.ExpandListColumn`, `Record.*`, `List.*` còn thiếu) + test golden T086
-- [ ] T088 [US7] [LEAD] `Sources/Connectors/JSON/JSONSource.swift` nối Navigator, bước "Expand" trong Query Editor; test `GetDataJSONTests.swift`
-- [ ] T089 [US7] [LEAD] `Sources/Connectors/Parquet/ParquetSource.swift`: tập con (footer Thrift compact, trang `PLAIN`/`RLE_DICTIONARY`, nén `UNCOMPRESSED`/`SNAPPY`/`GZIP`; `zstd`/`brotli` báo "chưa hỗ trợ" kèm tên); tệp mẫu: dùng công cụ chuẩn trên máy nếu có, hoặc tệp Parquet thật do bạn cung cấp; nếu không có thì tự dựng bằng bộ ghi tối giản trong test và GHI RÕ giới hạn: đối chứng yếu vì chỉ so với mã tự viết, không thay được golden thật; ánh xạ kiểu như T086; `Tests/ConnectorsTests/ParquetSourceTests.swift`
-- [ ] T090 [US7] [LEAD] Test lớn (1 triệu dòng) Navigator và xem trước < 3 s (SC-003); bấm thử và gate Desktop `docs/phase-f-evidence/vm-f7/CHECKLIST-KET-QUA.md`
+- [X] T086 [US7] [VM] **VM-F7a**: Desktop nạp `orders.json` (mảng lồng) và `sales_2026.parquet` (nếu có tệp từ T089); ghi biểu thức M (`Json.Document`, `Table.FromRecords`, `Table.ExpandRecordColumn`, `Table.ExpandListColumn`, `Parquet.Document`), kiểu ánh xạ; `docs/phase-f-evidence/vm-f7/QUAN-SAT.md`
+- [X] T087 [US7] [LEAD] `Sources/MEngine/Library/Json.swift` (`Json.Document`, `Table.FromRecords`, `Table.ExpandRecordColumn`, `Table.ExpandListColumn`, `Record.*`, `List.*` còn thiếu) + test golden T086
+- [X] T088 [US7] [LEAD] `Sources/Connectors/JSON/JSONSource.swift` nối Navigator, bước "Expand" trong Query Editor; test `GetDataJSONTests.swift`
+- [X] T089 [US7] [LEAD] `Sources/Connectors/Parquet/ParquetSource.swift`: tập con (footer Thrift compact, trang `PLAIN`/`RLE_DICTIONARY`, nén `UNCOMPRESSED`/`SNAPPY`/`GZIP`; `zstd`/`brotli` báo "chưa hỗ trợ" kèm tên); tệp mẫu: dùng công cụ chuẩn trên máy nếu có, hoặc tệp Parquet thật do bạn cung cấp; nếu không có thì tự dựng bằng bộ ghi tối giản trong test và GHI RÕ giới hạn: đối chứng yếu vì chỉ so với mã tự viết, không thay được golden thật; ánh xạ kiểu như T086; `Tests/ConnectorsTests/ParquetSourceTests.swift`
+- [X] T090 [US7] [LEAD] Test lớn (1 triệu dòng) Navigator và xem trước < 3 s (SC-003); bấm thử và gate Desktop `docs/phase-f-evidence/vm-f7/CHECKLIST-KET-QUA.md`
 
 ## Giai đoạn 10: US8, SQLite và PostgreSQL trong Get Data (P3, làm sau cùng, cắt được)
 
