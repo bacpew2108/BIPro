@@ -33,3 +33,46 @@ Dòng `Column`: `Type = 2`, `Expression` = DAX, `State = 1`, `ExplicitDataType` 
 
 - Bảng tính toán do Desktop 2.159 mới tạo có `SystemFlags = 2` không (chỉ có một mẫu, từ phiên bản cũ hơn).
 - Desktop có chấp nhận file BI Pro ghi cột/bảng tính toán kèm dữ liệu VertiPaq mà không cần Refresh.
+
+## 5. VM-F9 (T115, 2026-11-17): Desktop sửa công thức, xoá cột tính toán, xoá bảng tính toán
+
+Power BI Desktop 2.159, Claude lái VM. Nền: bản sao `Nhom6_f4.pbix` (gate T085, có bảng tính toán `Lịch 2026` và cột tính toán `Dim_District[Nhãn đầy đủ]` do BI Pro ghi, cùng 7 cột tính toán gốc của Nhom6). Thao tác trong Table view, lưu đè, chép về `f9calc-desktop.pbix` (cùng thư mục, ngoài git). So `metadata.sqlitedb` và danh sách tệp ABF trước/sau.
+
+**Giao diện.**
+- Sửa công thức: chọn cột ở lưới, sửa ở thanh công thức `branch_label = Dim_District[city] & " - " & Dim_District[state_abbrev]`, Enter. Hộp "Working on it" rồi lưới hiện giá trị mới (`c1-sua-cong-thuc.png`).
+- Xoá cột: Data pane, chuột phải cột ▸ "Delete from model" ▸ hộp **"Delete column — Are you sure you want to delete 'Nhãn đầy đủ'?"** Yes/Cancel (`c2-xoa-cot-hoi.png`).
+- Xoá bảng: chuột phải bảng ▸ "Delete from model" ▸ hộp **"Delete table — Are you sure you want to delete 'Lịch 2026'?"** Yes/Cancel (`c3-xoa-bang-hoi.png`, sau khi xoá `c4-sau-khi-xoa.png`).
+- Desktop không kiểm nơi dùng trước khi xoá trong lần này (cột và bảng không có ai dùng). [SUY ĐOÁN] xoá cột đang dùng thì visual hỏng, không bị chặn; BI Pro giữ quy tắc chặn của Phase E.
+
+**Sửa công thức (cột `branch_label`, ID 7767), những gì đổi.**
+- `Column`: cùng ID, chỉ đổi `Expression`, `ModifiedTime`, `RefreshedTime`. Không đổi kiểu, thuộc tính, `LineageTag`.
+- Dữ liệu cột ghi lại:
+  - `DataVersion` của `ColumnPartitionStorage` và `DictionaryStorage` tăng 7 → 8.
+  - Tên tệp trong `StorageFile` đổi tiền tố theo `DataVersion` (`7.Dim District (28).branch label (7767).dictionary` → `8.…`). ID dòng `StorageFile` giữ nguyên.
+  - `DictionaryStorage.Size` đổi theo từ điển mới.
+- Bảng `H$` của cột được dựng lại với **ID mới**:
+  - Bảng `H$` có `Table`, `Column`, `Partition` mới, `SystemFlags = 1`.
+  - `AttributeHierarchyStorage` đổi `SystemTableID` sang bảng `H$` mới, `DataVersion` 3 → 5, và cập nhật `MinValue`, `MaxValue`, `StringValueMaxLength`.
+  - `AttributeHierarchy` đổi `ModifiedTime` và `RefreshedTime`.
+- Bảng `U$` của phân cấp người dùng "Địa lý" cũng được dựng lại với ID mới, vì cột là cấp "Chi nhánh" của phân cấp đó.
+  - `HierarchyStorage.SystemTableID` đổi; `Hierarchy` đổi `ModifiedTime` và `RefreshedTime`.
+- `TableStorage` của bảng: `Version` 7 → 9, `Settings` 4353 → 4097.
+- `Table.StructureModifiedTime`, `Model.StructureModifiedTime` và 4 dòng `DBPROPERTIES` (LAST…) cập nhật; `MAXID` tăng.
+- `Culture` và `LinguisticMetadata` được thay dòng mới. Đây là việc dọn dẹp riêng của Desktop, không phụ thuộc thao tác.
+
+**Xoá cột tính toán (`Nhãn đầy đủ`, ID 11891).**
+- Bỏ các dòng `Column`, `ColumnStorage`, `AttributeHierarchy`, `AttributeHierarchyStorage`, `ColumnPartitionStorage`, `DictionaryStorage`, `SegmentStorage`, `StorageFile` của cột.
+- Bỏ cả bảng `H$` của cột (`Table`, `Column`, `Partition`, `PartitionStorage`, `SegmentMapStorage`, `StorageFolder`…).
+- Bỏ 7 tệp ABF: `.dictionary`, `.0.idf`, `.0.idfmeta`, và `ID_TO_POS`/`POS_TO_ID` của `H$`.
+- Không đụng cột khác.
+
+**Xoá bảng tính toán (`Lịch 2026`, ID 11953).**
+- Như xoá bảng thường: bỏ `Table`, các cột (RowNumber và `Date`), `Partition` kiểu 2 (`QueryDefinition` là biểu thức DAX), kho lưu trữ, bảng `H$` của cột `Date`, và 9 tệp ABF.
+
+**Các tệp ABF khác giữ nguyên byte và cỡ.**
+
+**Áp vào BI Pro (T116).**
+- Xoá cột hoặc bảng tính toán: bỏ dòng và tệp như trên. Xoá bảng tính toán dùng lại đường `dropTable`.
+- Sửa công thức cột: giữ ID cột, ghi lại dữ liệu cột (`DataVersion` + 1, tên tệp đổi tiền tố, `StorageFile` giữ ID), dựng lại `H$` của cột và `U$` của phân cấp có cột làm cấp, cập nhật `Expression`.
+- Sửa công thức bảng tính toán: chưa quan sát. [SUY ĐOÁN] như thay dữ liệu bảng (giữ ID bảng, cột cùng tên giữ ID).
+- Còn dùng ở visual, measure, quan hệ, sắp xếp hay phân cấp thì chặn xoá, như Phase E.

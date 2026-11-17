@@ -223,7 +223,11 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - Nhom6 nén ở độ sâu 4: Desktop mở được.
 - **Thư mục VM:** đã dọn `C:\Users\bacpew\m3` và `f7db`.
 - **Số test:** `swift test` 2228 qua; golden nặng 113 qua.
-- **Việc kế:** T115 (VM) → T116, rồi T102 báo cáo. Phase F chưa push.
+- **Commit `d6c6d9d`** (Giai đoạn 11–13 đến T101, chưa push).
+- **T115 xong** (VM-F9, `vm-f6/QUAN-SAT.md` mục 5):
+  - Desktop sửa công thức cột tính toán thì giữ ID cột, ghi lại dữ liệu (`DataVersion` + 1, tên tệp đổi tiền tố) và dựng lại `H$` của cột cùng `U$` của phân cấp có cột làm cấp.
+  - Xoá cột hoặc bảng tính toán thì bỏ dòng và tệp; Desktop hỏi xác nhận Yes/Cancel.
+- **Việc kế:** T116 (sửa, xoá cột và bảng tính toán trong BI Pro, gate Desktop), rồi T102 báo cáo. Phase F chưa push.
 
 ## Việc tiếp theo
 
