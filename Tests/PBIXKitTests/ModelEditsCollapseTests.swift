@@ -31,4 +31,69 @@ import Testing
         let edits = ModelEdits([.addTable(a), .addMeasure(NewMeasure(table: "A", name: "m", expression: "1"))])
         #expect(edits.collapsingTableEdits().items == edits.items)
     }
+
+    // T116: sửa và xoá cột, bảng tính toán trong cùng đợt lưu.
+
+    @Test func calculatedColumnAddedThenEditedBecomesOneAdd() {
+        let edits = ModelEdits([
+            .addCalculatedColumn(table: "Sales", name: "c", expression: "1", dataType: .int64),
+            .updateColumn(table: "Sales", name: "c", patch: ColumnPatch(isHidden: true)),
+            .updateCalculatedColumn(table: "Sales", name: "c", expression: "\"a\"", dataType: .string),
+        ])
+        #expect(edits.collapsingTableEdits().items == [
+            .addCalculatedColumn(table: "Sales", name: "c", expression: "\"a\"", dataType: .string),
+            .updateColumn(table: "Sales", name: "c", patch: ColumnPatch(isHidden: true)),
+        ])
+    }
+
+    @Test func calculatedColumnAddedThenDeletedLeavesNothing() {
+        let keep = ModelEdit.updateColumn(table: "Sales", name: "k", patch: ColumnPatch(isHidden: true))
+        let edits = ModelEdits([
+            .addCalculatedColumn(table: "Sales", name: "c", expression: "1", dataType: .int64),
+            .updateColumn(table: "Sales", name: "c", patch: ColumnPatch(isHidden: true)),
+            keep,
+            .deleteCalculatedColumn(table: "Sales", name: "c"),
+        ])
+        #expect(edits.collapsingTableEdits().items == [keep])
+    }
+
+    @Test func existingCalculatedColumnKeepsOnlyTheLastEditOrTheDelete() {
+        let edits = ModelEdits([
+            .updateCalculatedColumn(table: "Sales", name: "c", expression: "1", dataType: .int64),
+            .updateCalculatedColumn(table: "Sales", name: "c", expression: "2", dataType: .int64),
+        ])
+        #expect(edits.collapsingTableEdits().items == [.updateCalculatedColumn(table: "Sales", name: "c", expression: "2", dataType: .int64)])
+        let deleted = ModelEdits(edits.items + [.deleteCalculatedColumn(table: "Sales", name: "c")])
+        #expect(deleted.collapsingTableEdits().items == [.deleteCalculatedColumn(table: "Sales", name: "c")])
+    }
+
+    @Test func renamedAddedColumnStillCollapses() {
+        let edits = ModelEdits([
+            .addCalculatedColumn(table: "Sales", name: "c", expression: "1", dataType: .int64),
+            .updateColumn(table: "Sales", name: "c", patch: ColumnPatch(name: "d")),
+            .deleteCalculatedColumn(table: "Sales", name: "d"),
+        ])
+        #expect(edits.collapsingTableEdits().items.isEmpty)
+    }
+
+    @Test func calculatedTableAddedEditedOrDropped() {
+        let columns = [ColumnSignature(name: "Region", dataType: .string)]
+        let edited = ModelEdits([
+            .addCalculatedTable(name: "V", expression: "DISTINCT(Sales[Region])", columns: columns),
+            .updateCalculatedTable(name: "V", expression: "VALUES(Sales[Region])", columns: columns),
+        ])
+        #expect(edited.collapsingTableEdits().items == [.addCalculatedTable(name: "V", expression: "VALUES(Sales[Region])", columns: columns)])
+        let dropped = ModelEdits(edited.items + [
+            .addCalculatedColumn(table: "V", name: "w", expression: "1", dataType: .int64),
+            .dropTable(name: "V"),
+        ])
+        #expect(dropped.collapsingTableEdits().items.isEmpty)
+        // Bảng có sẵn trong file: sửa công thức rồi xoá thì chỉ còn xoá.
+        let existing = ModelEdits([
+            .updateCalculatedTable(name: "W", expression: "VALUES(Sales[Region])", columns: columns),
+            .updateCalculatedColumn(table: "W", name: "x", expression: "1", dataType: .int64),
+            .dropTable(name: "W"),
+        ])
+        #expect(existing.collapsingTableEdits().items == [.dropTable(name: "W")])
+    }
 }

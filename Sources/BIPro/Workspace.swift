@@ -117,16 +117,10 @@ final class Workspace: @unchecked Sendable {
         }
     }
 
-    /// Bảng có cột hoặc là bảng tính toán thêm trong phiên (T083): dữ liệu đọc từ kho cột của engine, nơi giá trị đã được tính.
+    /// Bảng có cột hoặc là bảng tính toán thêm, sửa hay phải tính lại trong phiên (T083, T116): dữ liệu đọc từ kho cột của engine, nơi giá trị đã được tính.
     func hasSessionCalculation(_ table: String) -> Bool {
-        guard let runtime, runtime.edits.hasCalculatedEdits else { return false }
-        return runtime.edits.items.contains {
-            switch $0 {
-            case .addCalculatedTable(let name, _, _): name == table
-            case .addCalculatedColumn(let owner, _, _, _): owner == table
-            default: false
-            }
-        }
+        guard let runtime else { return false }
+        return runtime.calculationPlan.all.contains { $0.table == table }
     }
 
     /// Cột của bảng `name` lấy từ kho cột của engine (mô hình hiệu lực), theo thứ tự cột của mô hình.

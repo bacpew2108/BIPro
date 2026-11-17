@@ -187,7 +187,7 @@ Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md).
 
 ### Phase F: Get Data, Power Query + lưu T3 (8–10 tuần) → **M3**
 - [x] Connector tự viết (không DuckDB): CSV, Excel (đợt 1, P1); JSON, SQLite; Parquet và PostgreSQL tập con (P3).
-> **Gate M3 ĐẠT (2026-11-17)**: Spec Kit `specs/010-f-get-data-power-query-t3/`, bằng chứng `docs/phase-f-evidence/` (`CHECKLIST-M3.md`). Còn mở: sửa/xoá cột và bảng tính toán (FR-060, T115–T116), nén RLE (T111).
+> **Gate M3 ĐẠT (2026-11-17)**: Spec Kit `specs/010-f-get-data-power-query-t3/`, bằng chứng `docs/phase-f-evidence/` (`CHECKLIST-M3.md`). Sửa/xoá cột và bảng tính toán (FR-060) xong, gate Desktop ĐẠT (`vm-f9/KET-QUA.md`, 2026-11-17). Còn mở: nén RLE (T111).
 - [x] Get Data → Navigator → Query Editor (Applied Steps, formula bar, column profile, ribbon) → Close & Apply.
 - [x] M engine (khoảng 30 hàm `Table.*`), các hộp thoại Advanced Editor, Custom Column, Merge, Append, Group By, cửa sổ Query Dependencies.
 - [x] **Lưu tầng T3** (dữ liệu mới vào VertiPaq), tạo `.pbix` mới từ đầu.

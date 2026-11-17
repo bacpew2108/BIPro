@@ -169,6 +169,8 @@ final class DocumentState {
         modelEditor = ModelEditor(layout: layout) { [weak workspace] edits in
             guard let runtime else { throw ModelEditError("File không có mô hình dữ liệu để sửa") }
             try runtime.validate(edits)
+            // Cột/bảng tính toán phải tính lại: không vòng phụ thuộc, cột có sẵn trong file lưu lại được (T116).
+            try runtime.validateCalculations(edits)
             // Gỡ bảng đã nạp (tắt "Enable load", T098 FR-004) mà báo cáo còn dùng trường của nó: chặn kèm nơi dùng.
             func drops(_ list: ModelEdits) -> Set<String> {
                 Set(list.items.compactMap { if case .dropTable(let name) = $0 { name } else { nil } })
@@ -189,6 +191,11 @@ final class DocumentState {
         layout.calculatedValues = { edits in
             guard let runtime else { return [:] }
             return try runtime.calculatedValues(for: edits)
+        }
+        // Cột/bảng tính toán có sẵn trong file phụ thuộc phần đổi của lần lưu: ghi lại dữ liệu của chúng (T116).
+        layout.recalculationEdits = { edits in
+            guard let runtime else { return [] }
+            return CalculationPlan.recalculationEdits(for: edits, metadata: runtime.metadata)
         }
         layout.diagramSelected = { [weak self] in self?.currentDiagram }
         layout.diagramFileNames = { [weak self] in self?.workspace.diagramLayout?.diagrams.map(\.name) ?? [] }
@@ -310,8 +317,20 @@ final class DocumentState {
         self.table = table
         self.column = column
         measure = nil
-        measureDraft = nil
+        measureDraft = calculatedDraft(table: table, column: column)
         if mode == .table { ribbonTab = column == nil ? .tableTools : .columnTools }
+    }
+
+    /// Thanh công thức sửa được khi chọn cột hoặc bảng tính toán (T116, như Desktop); nil khi không sửa được mô hình hay là cột dữ liệu.
+    private func calculatedDraft(table: String, column: String?) -> MeasureDraft? {
+        guard modelEditingBlocker == nil else { return nil }
+        if let column {
+            guard let c = workspace.column(table: table, name: column), c.kind == .calculated, let expression = c.expression else { return nil }
+            return MeasureDraft(mode: .editColumn(table: table, name: column), text: "\(column) = \(expression)")
+        }
+        guard workspace.userTables.contains(where: { $0.name == table && $0.isCalculatedUserTable }),
+              let expression = workspace.metadata?.calculatedTableExpressions[table] else { return nil }
+        return MeasureDraft(mode: .editTable(name: table), text: "\(table) = \(expression)")
     }
 
     func zoomIn() { zoom = min(4, (zoom ?? 1) + 0.1) }

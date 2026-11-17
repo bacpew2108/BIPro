@@ -69,11 +69,122 @@ extension ModelMetadata {
             return Column(id: nextID, tableID: tableID, tableName: name, name: columnName, kind: .calculatedTableColumn,
                           dataType: column.dataType, isHidden: false, expression: nil, formatString: nil, sortByColumnID: nil,
                           summarizeBy: Int(TableMetadataWriter.summarizeBy(column.dataType, name: columnName, isRowNumber: false)),
-                          dataCategory: nil, displayFolder: nil, isKey: false, sourceColumn: "[\(columnName)]", description: nil, lineageTag: nil)
+                          dataCategory: nil, displayFolder: nil, isKey: false, sourceColumn: column.sourceColumn ?? "[\(columnName)]",
+                          description: nil, lineageTag: nil)
         }
         var expressions = calculatedTableExpressions
         expressions[name] = body
         return ModelMetadata(copying: self, columns: columns + added, tables: tables + [table], calculatedTableExpressions: expressions)
+    }
+
+    // MARK: Sửa và xoá cột, bảng tính toán (T116, VM-F9)
+
+    /// Sửa công thức cột tính toán: giữ ID, tên và thuộc tính (Desktop chỉ đổi `Expression` và dữ liệu). Kiểu đổi thì định dạng và cách
+    /// tổng hợp về mặc định của kiểu mới, như cột mới của bộ ghi. Cột nằm trong quan hệ, là cấp của phân cấp hay là cột sắp xếp của cột
+    /// khác thì chặn: Desktop dựng lại chỉ mục `R$`/`U$` theo dữ liệu mới, BI Pro chưa dựng lại được.
+    func updatingCalculatedColumn(table: String, name: String, expression: String, dataType: DataType) throws -> ModelMetadata {
+        guard let index = columns.firstIndex(where: { $0.tableName == table && $0.name == name }) else {
+            throw ModelEditError("Không có cột \(table)[\(name)]")
+        }
+        let old = columns[index]
+        guard old.kind == .calculated else { throw ModelEditError("Cột \(table)[\(name)] không phải cột tính toán") }
+        let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { throw ModelEditError("Biểu thức của cột \(name) không được để trống") }
+        guard !body.contains("\0") else { throw ModelEditError("Biểu thức chứa ký tự NUL") }
+        guard [.int64, .double, .decimal, .string, .dateTime, .boolean].contains(dataType) else {
+            throw ModelEditError("Cột tính toán \(name) không có kiểu dữ liệu xác định")
+        }
+        let blockers = indexUses(of: old)
+        if !blockers.isEmpty {
+            throw ModelEditError("Chưa sửa được công thức cột \(table)[\(name)]: " + blockers.joined(separator: "; ")
+                                 + " (BI Pro chưa dựng lại chỉ mục theo dữ liệu mới)")
+        }
+        let sameType = old.dataType == dataType
+        var all = columns
+        all[index] = Column(id: old.id, tableID: old.tableID, tableName: old.tableName, name: old.name, kind: .calculated, dataType: dataType,
+                            isHidden: old.isHidden, expression: body,
+                            formatString: sameType ? old.formatString : TableMetadataWriter.formatString(dataType),
+                            sortByColumnID: old.sortByColumnID,
+                            summarizeBy: sameType ? old.summarizeBy : Int(TableMetadataWriter.summarizeBy(dataType, name: old.name, isRowNumber: false)),
+                            dataCategory: old.dataCategory, displayFolder: old.displayFolder, isKey: old.isKey, sourceColumn: old.sourceColumn,
+                            description: old.description, lineageTag: old.lineageTag)
+        return ModelMetadata(copying: self, columns: all, storage: storage.filter { !($0.tableName == table && $0.columnName == name) })
+    }
+
+    /// Xoá cột tính toán. Chặn khi còn quan hệ, phân cấp, cột sắp xếp, measure, cột hoặc bảng tính toán dùng cột (FR-004); nơi dùng trong
+    /// báo cáo do ứng dụng kiểm.
+    func deletingCalculatedColumn(table: String, name: String) throws -> ModelMetadata {
+        guard let column = columns.first(where: { $0.tableName == table && $0.name == name }) else {
+            throw ModelEditError("Không có cột \(table)[\(name)]")
+        }
+        guard column.kind == .calculated else { throw ModelEditError("Cột \(table)[\(name)] không phải cột tính toán, chưa xoá được") }
+        var blockers = usesOfRemovedColumns([column], in: table, survivingIDs: Set(columns.map(\.id)).subtracting([column.id]))
+        let tablesUsing = calculatedTableExpressions.filter { Self.mentionsColumn($0.value, table: table, column: name) }.keys.sorted()
+        if !tablesUsing.isEmpty { blockers.append("bảng tính toán " + tablesUsing.joined(separator: ", ") + " dùng cột") }
+        if !blockers.isEmpty { throw ModelEditError("Không thể xoá cột \(table)[\(name)]: " + blockers.joined(separator: "; ")) }
+        return ModelMetadata(copying: self, columns: columns.filter { $0.id != column.id },
+                             storage: storage.filter { !($0.tableName == table && $0.columnName == name) })
+    }
+
+    /// Sửa công thức bảng tính toán: cột kết quả theo biểu thức mới; cột cùng tên giữ ID và thuộc tính (định dạng, tổng hợp nếu cùng
+    /// kiểu), cột mới cấp ID mới, cột mất thì chặn nếu còn được dùng. Cột tính toán thêm trên bảng giữ nguyên (ứng dụng tính lại).
+    /// [SUY ĐOÁN] chưa quan sát Desktop sửa công thức bảng tính toán; làm như thay dữ liệu bảng (VM-F9, mục 5).
+    func updatingCalculatedTable(name: String, expression: String, columns list: [ColumnSignature]) throws -> ModelMetadata {
+        guard let table = tables.first(where: { $0.name == name && $0.isUserTable }) else { throw ModelEditError("Không có bảng \(name)") }
+        guard table.isCalculatedUserTable else { throw ModelEditError("Bảng \(name) không phải bảng tính toán") }
+        try validateNewColumns(list.map { NewTableColumn(name: $0.name, dataType: $0.dataType) }, table: name)
+        let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty, !body.contains("\0") else { throw ModelEditError("Biểu thức của bảng \(name) trống hoặc chứa NUL") }
+        let own = columns.filter { $0.tableID == table.id }
+        let results = own.filter { $0.kind == .calculatedTableColumn }
+        let byName = Dictionary(results.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+        let kept = Set(list.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+        let removed = results.filter { !kept.contains($0.name.lowercased()) }
+        let survivors = Set(columns.map(\.id)).subtracting(removed.map(\.id))
+        let blockers = usesOfRemovedColumns(removed, in: name, survivingIDs: survivors)
+        if !blockers.isEmpty { throw ModelEditError("Không thể sửa bảng \(name): " + blockers.joined(separator: "; ")) }
+        if let clash = list.first(where: { column in
+            let key = column.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return own.contains { $0.kind == .calculated && $0.name.lowercased() == key } || measures.contains { $0.name.lowercased() == key }
+        }) {
+            throw ModelEditError("Cột kết quả \(clash.name) trùng tên một cột tính toán hoặc measure của bảng \(name)")
+        }
+        var nextID = (columns.map(\.id).max() ?? 0) + 1
+        let rebuilt = list.map { signature -> Column in
+            let columnName = signature.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let previous = byName[columnName.lowercased()]
+            let id = previous?.id ?? nextID
+            if previous == nil { nextID += 1 }
+            let sameType = previous?.dataType == signature.dataType
+            return Column(id: id, tableID: table.id, tableName: name, name: columnName, kind: .calculatedTableColumn, dataType: signature.dataType,
+                          isHidden: previous?.isHidden ?? false, expression: nil, formatString: sameType ? previous?.formatString : nil,
+                          sortByColumnID: previous?.sortByColumnID.flatMap { survivors.contains($0) ? $0 : nil },
+                          summarizeBy: sameType ? (previous?.summarizeBy ?? 2)
+                              : Int(TableMetadataWriter.summarizeBy(signature.dataType, name: columnName, isRowNumber: false)),
+                          dataCategory: previous?.dataCategory, displayFolder: previous?.displayFolder, isKey: previous?.isKey ?? false,
+                          sourceColumn: signature.sourceColumn ?? "[\(columnName)]", description: previous?.description, lineageTag: previous?.lineageTag)
+        }
+        let others = own.filter { $0.kind != .calculatedTableColumn }
+        var all = columns.filter { $0.tableID != table.id }
+        let position = columns.firstIndex { $0.tableID == table.id }.map { min($0, all.count) } ?? all.count
+        all.insert(contentsOf: others.filter { $0.kind == .rowNumber } + rebuilt + others.filter { $0.kind != .rowNumber }, at: position)
+        var expressions = calculatedTableExpressions
+        expressions[name] = body
+        return ModelMetadata(copying: self, columns: all, storage: storage.filter { $0.tableName != name }, calculatedTableExpressions: expressions)
+    }
+
+    /// Chỉ mục phải dựng lại khi dữ liệu cột đổi: quan hệ (`R$`), phân cấp (`U$`), cột khác sắp xếp theo cột này.
+    public func indexUses(of column: Column) -> [String] {
+        var uses: [String] = []
+        let rels = relationships.filter {
+            ($0.fromTable == column.tableName && $0.fromColumn == column.name) || ($0.toTable == column.tableName && $0.toColumn == column.name)
+        }.map(\.name)
+        if !rels.isEmpty { uses.append("cột nằm trong quan hệ " + rels.joined(separator: ", ")) }
+        let hier = hierarchies.filter { $0.tableName == column.tableName && $0.levels.contains { $0.columnName == column.name } }.map(\.name)
+        if !hier.isEmpty { uses.append("cột là cấp của phân cấp " + hier.joined(separator: ", ")) }
+        let sorted = columns.filter { $0.sortByColumnID == column.id && $0.id != column.id }.map(\.name)
+        if !sorted.isEmpty { uses.append("cột " + sorted.joined(separator: ", ") + " sắp xếp theo cột này") }
+        return uses
     }
 
     // MARK: replaceTable

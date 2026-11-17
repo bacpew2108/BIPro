@@ -63,13 +63,25 @@ public final class DAXEngine: Sendable {
     /// Bảng tính toán: kết quả đầy đủ của biểu thức bảng `expression`, bộ lọc rỗng (Phase F, T081). Tên cột bỏ phần bảng
     /// (`'T'[Date]` → `Date`) như cột của bảng tính toán Desktop.
     public func calculatedTable(expression: String) throws(DAXError) -> ResultTable {
+        try calculatedTableWithSources(expression: expression).table
+    }
+
+    /// Như `calculatedTable`, kèm tên đầy đủ của từng cột kết quả (`Bảng[Cột]` khi giữ nguồn gốc cột mô hình, `[Tên]` khi là cột mới):
+    /// Desktop ghi tên này vào `Column.SourceColumn` của bảng tính toán và khớp cột kết quả theo nó (VM-F9b, T116).
+    public func calculatedTableWithSources(expression: String) throws(DAXError) -> (table: ResultTable, sources: [String]) {
         let bound = try Binder.bind(try parseExpression(expression), catalog: catalog)
         let table = try Evaluator(store: store, catalog: catalog).table(bound, in: EvalContext())
         let names = table.columns.map { name -> String in
             guard name.hasSuffix("]"), let open = name.lastIndex(of: "[") else { return name }
             return String(name[name.index(after: open)..<name.index(before: name.endIndex)])
         }
-        return ResultTable(columns: names, rows: table.rows)
+        let sources = zip(names, table.lineage).map { name, lineage -> String in
+            guard let lineage, let column = store.schema.column(lineage), let owner = store.schema.table(lineage.table) else { return "[\(name)]" }
+            let bare = owner.name.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" } && !(owner.name.first?.isNumber ?? true)
+            let table = bare ? owner.name : "'" + owner.name.replacingOccurrences(of: "'", with: "''") + "'"
+            return "\(table)[\(column.name)]"
+        }
+        return (ResultTable(columns: names, rows: table.rows), sources)
     }
 
     /// Lỗi của một truy vấn cho editor (gạch chân): cú pháp, rồi lỗi tên và bind (cột, bảng, measure, hàm,

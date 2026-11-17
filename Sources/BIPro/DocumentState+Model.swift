@@ -99,9 +99,21 @@ extension DocumentState {
         switch draft.mode {
         case .newColumn(let table): reason = await addCalculatedColumn(table: table, formula: draft.text)
         case .newTable: reason = await addCalculatedTable(formula: draft.text)
+        case .editColumn(let table, let old): reason = await updateCalculatedColumn(table: table, name: old, formula: draft.text)
+        case .editTable(let old): reason = await updateCalculatedTable(name: old, formula: draft.text)
         default: return
         }
         if let reason { draft.message = reason; return }
+        switch draft.mode {
+        case .editColumn(let table, _):
+            // Sửa xong vẫn ở cột đó (tên có thể đã đổi), như Desktop giữ thanh công thức của cột đang chọn.
+            if let name { draft.didApply(mode: .editColumn(table: table, name: name)); column = name }
+            return
+        case .editTable:
+            draft.didApply(mode: draft.mode)
+            return
+        default: break
+        }
         measureDraft = nil
         if case .newTable = draft.mode, let name { table = name; column = nil } else { column = name }
     }
@@ -110,10 +122,7 @@ extension DocumentState {
     func applyMeasureDraft() async {
         guard let draft = measureDraft, !draft.isApplying else { return }
         if let blocker = modelEditingBlocker { draft.message = blocker; return }
-        switch draft.mode {
-        case .newColumn, .newTable: return await applyCalculatedDraft(draft)
-        default: break
-        }
+        if draft.mode.isCalculated { return await applyCalculatedDraft(draft) }
         guard let parts = MeasureFormula.parse(draft.text), !parts.name.isEmpty else {
             draft.message = "Nhập công thức theo dạng Tên = biểu thức."
             return
@@ -147,7 +156,7 @@ extension DocumentState {
         let table = draft.mode.table
         let edit: ModelEdit
         switch draft.mode {
-        case .new, .newColumn, .newTable:
+        case .new, .newColumn, .newTable, .editColumn, .editTable:
             edit = .addMeasure(NewMeasure(table: table, name: parts.name, expression: parts.expression,
                                           formatString: info.formatString, dataType: info.dataType.rawValue))
         case .edit(_, let old):

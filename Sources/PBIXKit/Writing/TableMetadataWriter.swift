@@ -153,14 +153,40 @@ public struct TableMetadataWriter {
     /// dữ liệu. Trả các tệp cần thêm vào ABF (kể cả `systemFiles` mới).
     public mutating func addCalculatedColumn(table: String, columnID: Int, columnName: String, expression: String,
                                              values: VertiPaqWriter.Values) throws -> [VertiPaqWriter.EncodedFile] {
-        let db = database
         guard columnID == maxID + 1 else { throw WriteError.invalid("ID cột tính toán phải là MAXID + 1 (\(maxID + 1))") }
-        guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
-            throw WriteError.invalid("không có bảng «\(table)» để thêm cột tính toán")
-        }
-        guard try db.int("SELECT COUNT(*) FROM [Column] WHERE TableID = ? AND COALESCE(ExplicitName, InferredName) = ? COLLATE NOCASE",
-                         [.int(tableID), .text(columnName)]) == 0 else {
+        guard try database.int("""
+            SELECT COUNT(*) FROM [Column] c JOIN [Table] t ON t.ID = c.TableID
+            WHERE t.Name = ? COLLATE NOCASE AND COALESCE(c.ExplicitName, c.InferredName) = ? COLLATE NOCASE
+            """, [.text(table), .text(columnName)]) == 0 else {
             throw WriteError.invalid("bảng «\(table)» đã có cột «\(columnName)»")
+        }
+        return try writeCalculatedColumn(table: table, columnID: columnID, columnName: columnName, expression: expression,
+                                         values: values, existing: nil)
+    }
+
+    /// Ghi lại dữ liệu của cột tính toán có sẵn `columnID` (T116, sửa công thức như Desktop ở VM-F9): dòng `Column` giữ ID và thuộc tính,
+    /// đổi `Expression`, kiểu, `ColumnStorageID`, `AttributeHierarchyID`, `ModifiedTime`, `RefreshedTime`; dữ liệu lưu trữ và bảng `H$` mới
+    /// được cấp ID mới ở vị trí lưu `storagePosition`. Bên gọi đã xoá dữ liệu lưu trữ cũ của cột. Trả các tệp cần thêm vào ABF.
+    public mutating func rewriteCalculatedColumn(table: String, columnID: Int, storagePosition: Int, expression: String,
+                                                 values: VertiPaqWriter.Values) throws -> [VertiPaqWriter.EncodedFile] {
+        let db = database
+        guard let name = try db.strings("SELECT COALESCE(ExplicitName, InferredName) FROM [Column] WHERE ID = ? AND Type = 2",
+                                        [.int(Int64(columnID))]).first else {
+            throw WriteError.invalid("không có cột tính toán mã \(columnID) để ghi lại")
+        }
+        guard (try db.int("SELECT COUNT(*) FROM ColumnStorage WHERE ColumnID = ?", [.int(Int64(columnID))]) ?? 0) == 0 else {
+            throw WriteError.invalid("cột «\(name)» còn dữ liệu lưu trữ cũ")
+        }
+        return try writeCalculatedColumn(table: table, columnID: columnID, columnName: name, expression: expression, values: values,
+                                         existing: Int64(storagePosition))
+    }
+
+    /// `existing`: nil khi thêm cột mới (ID `MAXID + 1`), hoặc vị trí lưu của cột có sẵn đang ghi lại.
+    private mutating func writeCalculatedColumn(table: String, columnID: Int, columnName: String, expression: String,
+                                                values: VertiPaqWriter.Values, existing: Int64?) throws -> [VertiPaqWriter.EncodedFile] {
+        let db = database
+        guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
+            throw WriteError.invalid("không có bảng «\(table)» để ghi cột tính toán")
         }
         let partitions = try db.strings("SELECT ID FROM Partition WHERE TableID = ?", [.int(tableID)])
         guard partitions.count == 1, let partitionID = Int64(partitions[0]),
@@ -182,9 +208,9 @@ public struct TableMetadataWriter {
         guard Int64(values.count) == records else {
             throw WriteError.invalid("cột tính toán «\(columnName)» có \(values.count) dòng, bảng «\(table)» có \(records)")
         }
-        let position = (try db.int("""
+        let position = try existing ?? ((db.int("""
             SELECT MAX(cs.StoragePosition) FROM ColumnStorage cs JOIN [Column] c ON c.ColumnStorageID = cs.ID WHERE c.TableID = ?
-            """, [.int(tableID)]) ?? 0) + 1
+            """, [.int(tableID)]) ?? 0) + 1)
 
         // Tên bảng trong tên tệp như Desktop (`TableStorage.Name` bỏ đuôi " (ID)").
         let suffix = " (\(tableID))"
@@ -205,7 +231,7 @@ public struct TableMetadataWriter {
             minValueText: raw.minValueText, maxValueText: raw.maxValueText, stringValueMaxLength: raw.stringValueMaxLength,
             hierarchy: raw.hierarchy)
 
-        var next = columnID + 1
+        var next = existing == nil ? columnID + 1 : maxID + 1
         func allocate() -> Int64 {
             defer { next += 1 }
             return Int64(next)
@@ -216,11 +242,17 @@ public struct TableMetadataWriter {
         do {
             try insertColumn(column, table: encodedTable, tableID: tableID, now: now, refreshedNever: 31_240_512_000_000_000,
                              tableFolderID: tableFolderID, partitionFolderID: partitionFolderID,
-                             partitionStorageID: partitionStorageID, allocate: allocate)
-            try db.run("""
-                UPDATE [Column] SET Type = 2, Expression = ?, SourceColumn = NULL, InferredDataType = ExplicitDataType, ExpressionContext = 1
-                WHERE ID = ?
-                """, [.text(expression), .int(Int64(columnID))])
+                             partitionStorageID: partitionStorageID, existingRow: existing != nil, allocate: allocate)
+            if existing == nil {
+                try db.run("""
+                    UPDATE [Column] SET Type = 2, Expression = ?, SourceColumn = NULL, InferredDataType = ExplicitDataType, ExpressionContext = 1
+                    WHERE ID = ?
+                    """, [.text(expression), .int(Int64(columnID))])
+            } else {
+                try db.run("UPDATE [Column] SET Expression = ?, InferredDataType = ExplicitDataType WHERE ID = ?",
+                           [.text(expression), .int(Int64(columnID))])
+                try db.run("UPDATE [Table] SET StructureModifiedTime = ? WHERE ID = ?", [.int(now), .int(tableID)])
+            }
             try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(Int64(next - 1))])
             try db.exec("COMMIT")
         } catch {
@@ -234,7 +266,9 @@ public struct TableMetadataWriter {
 
     /// Đổi bảng vừa thêm (`addTable`) thành bảng tính toán như Desktop (w8.3): `SystemFlags = 2`, phân vùng `Type = 2` với biểu thức DAX,
     /// cột dữ liệu thành cột của bảng tính toán (`Type = 4`, tên ở `InferredName`, `SourceColumn = [tên]`, kiểu tự động).
-    public mutating func markCalculatedTable(_ table: String, expression: String) throws {
+    /// `sources`: tên cột → `SourceColumn` như Desktop (`Bảng[Cột]` thì `ColumnOriginID` là ID cột nguồn, VM-F9b); cột không có ở đây
+    /// ghi `[tên]`.
+    public mutating func markCalculatedTable(_ table: String, expression: String, sources: [String: String] = [:]) throws {
         let db = database
         guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
             throw WriteError.invalid("không có bảng «\(table)»")
@@ -248,6 +282,20 @@ public struct TableMetadataWriter {
                     InferredDataType = ExplicitDataType, ExplicitDataType = 1
                 WHERE TableID = ? AND Type = 1
                 """, [.int(tableID)])
+            for (column, source) in sources {
+                var origin: Int64 = 0
+                if !source.hasPrefix("["), let open = source.lastIndex(of: "["), source.hasSuffix("]") {
+                    var owner = String(source[..<open])
+                    if owner.hasPrefix("'") && owner.hasSuffix("'") && owner.count >= 2 { owner = String(owner.dropFirst().dropLast()).replacingOccurrences(of: "''", with: "'") }
+                    let name = String(source[source.index(after: open)..<source.index(before: source.endIndex)])
+                    origin = try db.int("""
+                        SELECT c.ID FROM [Column] c JOIN [Table] t ON t.ID = c.TableID
+                        WHERE t.Name = ? COLLATE NOCASE AND COALESCE(c.ExplicitName, c.InferredName) = ? COLLATE NOCASE AND c.TableID <> ?
+                        """, [.text(owner), .text(name), .int(tableID)]) ?? 0
+                }
+                try db.run("UPDATE [Column] SET SourceColumn = ?, ColumnOriginID = ? WHERE TableID = ? AND InferredName = ? AND Type = 4",
+                           [.text(source), .int(origin), .int(tableID), .text(column)])
+            }
             try db.exec("COMMIT")
         } catch {
             db.rollbackIfOpen()
@@ -264,7 +312,7 @@ public struct TableMetadataWriter {
 
     private mutating func insertColumn(_ column: VertiPaqWriter.EncodedColumn, table: VertiPaqWriter.EncodedTable,
                               tableID: Int64, now: Int64, refreshedNever: Int64, tableFolderID: Int64,
-                              partitionFolderID: Int64, partitionStorageID: Int64,
+                              partitionFolderID: Int64, partitionStorageID: Int64, existingRow: Bool = false,
                               allocate: () -> Int64) throws {
         let db = database
         let columnStorageID = allocate()
@@ -362,6 +410,20 @@ public struct TableMetadataWriter {
 
         // The Column row last, so it can refer to the storage IDs above.
         let isData = !isRowNumber
+        if existingRow {
+            // Cột tính toán có sẵn (T116): giữ dòng và thuộc tính; kiểu đổi thì định dạng và tổng hợp về mặc định của kiểu mới.
+            let oldType = try db.int("SELECT ExplicitDataType FROM [Column] WHERE ID = ?", [.int(columnID)])
+            try db.run("""
+                UPDATE [Column] SET ExplicitDataType = ?, ColumnStorageID = ?, AttributeHierarchyID = ?, ModifiedTime = ?, RefreshedTime = ?,
+                    ErrorMessage = NULL WHERE ID = ?
+                """, [.int(dataType), .int(columnStorageID), .int(attributeID), .int(now), .int(now), .int(columnID)])
+            if oldType != dataType {
+                try db.run("UPDATE [Column] SET FormatString = ?, SummarizeBy = ? WHERE ID = ?",
+                           [Self.optionalText(Self.formatString(column.dataType)),
+                            .int(Self.summarizeBy(column.dataType, name: column.explicitName, isRowNumber: false)), .int(columnID)])
+            }
+            return
+        }
         try db.run("""
             INSERT INTO [Column] (ID, TableID, ExplicitName, InferredName, ExplicitDataType, InferredDataType,
                 DataCategory, Description, IsHidden, State, IsUnique, IsKey, IsNullable, Alignment,

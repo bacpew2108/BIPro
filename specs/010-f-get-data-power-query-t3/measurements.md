@@ -45,3 +45,10 @@ Trước khi sửa, lưu Nhom6 chỉ T2 mất 3,03 đến 3,78 s (trượt nhẹ
 2. Bộ nén XPress9 tìm khớp với độ sâu 4 thay vì 9 (`cxpress9.c`). Trên ABF 90 MB của Nhom6, thời gian nén 1,8 s còn 1,3 s, luồng nén to hơn 12 KB (53 946 150 so với 53 934 517 byte; Desktop tự ghi 54 180 916). Độ sâu chỉ ảnh hưởng cách bộ nén tìm khớp, không đổi định dạng luồng. Desktop mở tệp Nhom6 do BI Pro lưu sau thay đổi này: kiểm ở gate T100.
 
 Định dạng nén của Desktop với Nhom6 là XPress9 đơn luồng: mọi khối dùng chung cửa sổ lịch sử, nên không nén song song theo khối mà vẫn giữ định dạng ấy.
+
+## T116: sửa và xoá cột, bảng tính toán trên Nhom6 (2026-11-17, release)
+
+`T116Nhom6Tests`, `DocumentSaver.save` đầy đủ (dựng, kiểm sau ghi, ghi tạm, thay):
+- Lần 1, thêm 3 cột tính toán và 2 bảng tính toán: 2,6 s.
+- Lần 2, sửa công thức 3 cột (gồm `Fact_Transaction[trans_hour]` 1 056 320 dòng) cùng 1 cột phụ thuộc ghi lại, xoá 1 cột, sửa và xoá 1 bảng: 3,4 s.
+

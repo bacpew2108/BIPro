@@ -77,7 +77,7 @@ struct FormulaBar: View {
         .padding(.horizontal, 10)
         .frame(height: 36)
         .hairline(.bottom)
-        .help(column?.kind == .calculated ? "Cột tính toán: chỉ xem (thêm cột mới bằng nút Cột mới; sửa cột đã có chưa làm)" : "Cột dữ liệu nạp từ nguồn")
+        .help(column?.kind == .calculated ? "Cột tính toán: \(state.modelEditingBlocker ?? "chọn lại cột để sửa công thức")" : "Cột dữ liệu nạp từ nguồn")
     }
 
     private func formula(_ column: ModelMetadata.Column?) -> String {
@@ -157,6 +157,12 @@ struct MeasureFormulaBar: View {
         case .newColumn(let table): return "Cột tính toán mới của bảng \(table): gõ Tên = biểu thức DAX (tính theo từng dòng) rồi bấm ✓ (⌘↩)."
         case .newTable: return "Bảng tính toán mới: gõ Tên = biểu thức bảng DAX (ví dụ CALENDAR, DISTINCT) rồi bấm ✓ (⌘↩)."
         case .edit: break
+        case .editColumn(let table, let name):
+            if let error = state.workspace.runtime?.calculationErrors["\(table)[\(name)]"] { return "Cột đang lỗi: \(error)" }
+            if draft.isChanged { return "Bấm ✓ (⌘↩) để áp dụng; cột và bảng tính toán dùng cột này được tính lại." }
+        case .editTable(let name):
+            if let error = state.workspace.runtime?.calculationErrors[name] { return "Bảng đang lỗi: \(error)" }
+            if draft.isChanged { return "Bấm ✓ (⌘↩) để áp dụng; bảng được tính lại theo công thức mới." }
         }
         return nil
     }
@@ -189,6 +195,9 @@ struct TableGridView: View {
     /// Lọc lưới theo cột đang chọn (chỉ để xem, không đụng mô hình).
     @State private var filterText = ""
     @State private var visibleRows: Int?
+    /// Tăng mỗi lần nạp xong: lưới (NSTableView giữ dữ liệu trong `Coordinator`) dựng lại khi dữ liệu đổi mà tên cột giữ nguyên
+    /// (sửa công thức cột tính toán, T116; nạp lại bảng cùng cột).
+    @State private var loads = 0
 
     /// Khoá nạp lại lưới: đọc `modelVersion` để SwiftUI tính lại khi mô hình đổi (cột/bảng tính toán thêm, bảng nạp lại).
     private var gridKey: String {
@@ -226,7 +235,7 @@ struct TableGridView: View {
                 DataGrid(columns: columns, titles: titles, metadata: state.workspace.metadata, table: table,
                          selectedColumn: state.column, filterText: filterText,
                          onRowsChanged: { visibleRows = $0 }) { name in state.select(table: table, column: name) }
-                    .id(titles)   // đổi tên cột thì dựng lại lưới (giữ nguyên dữ liệu đã giải mã)
+                    .id(titles + ["\(loads)"])   // đổi tên cột hoặc nạp dữ liệu mới thì dựng lại lưới
             } else if let error {
                 ContentUnavailableView("Không giải mã được bảng", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
@@ -243,6 +252,7 @@ struct TableGridView: View {
             switch result {
             case .success(let decoded):
                 columns = decoded
+                loads += 1
                 elapsed = ContinuousClock.now - start
             case .failure(let failure):
                 error = String(describing: failure)

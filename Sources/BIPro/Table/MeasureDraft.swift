@@ -11,18 +11,31 @@ final class MeasureDraft {
         /// Phase F (T083): "Cột mới" (cột tính toán của `table`) và "Bảng mới" (bảng tính toán).
         case newColumn(table: String)
         case newTable
+        /// Phase F (T116): sửa công thức cột tính toán `table[name]` và bảng tính toán `name` đã có.
+        case editColumn(table: String, name: String)
+        case editTable(name: String)
 
         var table: String {
             switch self {
-            case .new(let table), .edit(let table, _), .newColumn(let table): table
+            case .new(let table), .edit(let table, _), .newColumn(let table), .editColumn(let table, _), .editTable(let table): table
             case .newTable: ""
             }
         }
 
         /// Bản nháp chưa có trong mô hình (✗ đóng hẳn).
         var isNew: Bool {
-            if case .edit = self { return false }
-            return true
+            switch self {
+            case .edit, .editColumn, .editTable: false
+            default: true
+            }
+        }
+
+        /// Bản nháp cột hoặc bảng tính toán (áp dụng qua `CalculatedEditor`).
+        var isCalculated: Bool {
+            switch self {
+            case .newColumn, .newTable, .editColumn, .editTable: true
+            default: false
+            }
         }
     }
 
@@ -48,6 +61,13 @@ final class MeasureDraft {
     /// Sau khi áp dụng thành công: coi văn bản hiện tại là bản gốc và chuyển sang chế độ sửa measure vừa lưu.
     func didApply(table: String, name: String) {
         mode = .edit(table: table, name: name)
+        original = text
+        message = nil
+    }
+
+    /// Sau khi sửa công thức cột/bảng tính toán thành công: văn bản hiện tại là bản gốc của `mode` mới (tên có thể đã đổi).
+    func didApply(mode: Mode) {
+        self.mode = mode
         original = text
         message = nil
     }

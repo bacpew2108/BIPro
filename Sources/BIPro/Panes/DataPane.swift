@@ -15,6 +15,17 @@ struct DataPane: View {
     @State private var selectedTab: DataTab = .tables
     @State private var search = ""
     @State private var expanded: Set<String> = ["model:root"]
+    /// Cột hoặc bảng tính toán chờ xác nhận xoá (T116; Desktop hỏi "Are you sure you want to delete '…'?" Yes/Cancel).
+    @State private var deleting: PendingDeletion?
+    /// Lý do không xoá được (còn được dùng…), hiện thành hộp báo.
+    @State private var refusal: String?
+
+    private struct PendingDeletion {
+        let table: String
+        let column: String?
+        var title: String { column == nil ? "Xoá bảng" : "Xoá cột" }
+        var name: String { column ?? table }
+    }
 
     var body: some View {
         let _ = state.modelVersion   // vẽ lại khi mô hình đổi (Phase E)
@@ -54,6 +65,24 @@ struct DataPane: View {
             PaneFooter(text: "\(tables.count) bảng · \(state.workspace.metadata?.measures.count ?? 0) measure")
         }
         .background(DS.Palette.chrome)
+        .alert(deleting?.title ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button("Có", role: .destructive) {
+                if let target = deleting {
+                    let reason = target.column.map { state.deleteCalculatedColumn(table: target.table, name: $0) }
+                        ?? state.deleteCalculatedTable(name: target.table)
+                    refusal = reason
+                }
+                deleting = nil
+            }
+            Button("Huỷ", role: .cancel) { deleting = nil }
+        } message: {
+            Text("Bạn có chắc muốn xoá '\(deleting?.name ?? "")'? Có thể hoàn tác bằng ⌘Z.")
+        }
+        .alert("Không xoá được", isPresented: Binding(get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
+            Button("OK", role: .cancel) { refusal = nil }
+        } message: {
+            Text(refusal ?? "")
+        }
         .onAppear {
             if let table = state.table, purpose != .report { expanded.insert(table) }
             if purpose == .query { expanded.insert("model:root") }
@@ -206,7 +235,9 @@ struct DataPane: View {
                     onCollapseAll: { collapseAll() },
                     onExpandAll: { expandAll() },
                     onNewMeasure: purpose != .query && state.modelEditingBlocker == nil
-                        ? { purpose == .table ? state.beginNewMeasure(table: table.name) : state.newMeasureInTableView(table: table.name) } : nil
+                        ? { purpose == .table ? state.beginNewMeasure(table: table.name) : state.newMeasureInTableView(table: table.name) } : nil,
+                    onDelete: purpose != .query && state.modelEditingBlocker == nil && table.isCalculatedUserTable
+                        ? { deleting = PendingDeletion(table: table.name, column: nil) } : nil
                 )
             }
             if isOpen {
@@ -314,7 +345,9 @@ struct DataPane: View {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(expr, forType: .string)
                         }
-                    }
+                    },
+                    onDelete: purpose != .query && state.modelEditingBlocker == nil && c.kind == .calculated
+                        ? { deleting = PendingDeletion(table: table, column: c.name) } : nil
                 )
             })
         case .hierarchy(let h):

@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-17 (Phase F: gate M3 đạt, còn FR-060 sửa/xoá cột tính toán; xem mục "Phase F, Giai đoạn 11–13"). Trước đó: 2026-11-15. **Phase D xong (D1 đến D7, VM-D1 đến VM-D21); Phase E (mô hình hoá + lưu T2, `specs/009-e-mo-hinh-hoa-luu-t2/`) xong code, kiểm Desktop (VM-E1 đến VM-E7) và tài liệu.** Phase E đã commit và push ngày 2026-11-15 (xem `git log`); commit trước đó `37f07bc` (đến VM-D21). `swift test` 1665 qua; test nặng Phase E 38 qua (`DiagramSaveTests` 5); golden release 137 qua (2026-11-14, trước VM-E7). `build/BI Pro.app` là bản đã đóng gói sau VM-E7. Mọi mục tồn đọng của Phase E đã làm xong (VM-E7, bên dưới). Việc tiếp: xem "Việc tiếp theo" ở cuối.
+Cập nhật: 2026-11-17 (Phase F: gate M3 và T116 đạt, còn T102; xem mục "Phase F, Giai đoạn 11–13"). Trước đó: 2026-11-15. **Phase D xong (D1 đến D7, VM-D1 đến VM-D21); Phase E (mô hình hoá + lưu T2, `specs/009-e-mo-hinh-hoa-luu-t2/`) xong code, kiểm Desktop (VM-E1 đến VM-E7) và tài liệu.** Phase E đã commit và push ngày 2026-11-15 (xem `git log`); commit trước đó `37f07bc` (đến VM-D21). `swift test` 1665 qua; test nặng Phase E 38 qua (`DiagramSaveTests` 5); golden release 137 qua (2026-11-14, trước VM-E7). `build/BI Pro.app` là bản đã đóng gói sau VM-E7. Mọi mục tồn đọng của Phase E đã làm xong (VM-E7, bên dưới). Việc tiếp: xem "Việc tiếp theo" ở cuối.
 
 ## Mục tiêu và tiến độ
 
@@ -227,7 +227,15 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - **T115 xong** (VM-F9, `vm-f6/QUAN-SAT.md` mục 5):
   - Desktop sửa công thức cột tính toán thì giữ ID cột, ghi lại dữ liệu (`DataVersion` + 1, tên tệp đổi tiền tố) và dựng lại `H$` của cột cùng `U$` của phân cấp có cột làm cấp.
   - Xoá cột hoặc bảng tính toán thì bỏ dòng và tệp; Desktop hỏi xác nhận Yes/Cancel.
-- **Việc kế:** T116 (sửa, xoá cột và bảng tính toán trong BI Pro, gate Desktop), rồi T102 báo cáo. Phase F chưa push.
+- **Commit `7206e15`** (T115).
+- **T116 xong, gate Desktop ĐẠT** (`docs/phase-f-evidence/vm-f9/KET-QUA.md`):
+  - Sửa công thức cột tính toán (thanh công thức khi chọn cột, đổi tên cùng bước), xoá cột tính toán và bảng tính toán (chuột phải ▸ "Xoá khỏi mô hình", hỏi xác nhận như Desktop), sửa công thức bảng tính toán; hoàn tác chung.
+  - `CalculationPlan`: cột/bảng phụ thuộc (qua tham chiếu cột, measure, tên bảng) tính lại trong phiên và được ghi lại khi lưu; chặn vòng phụ thuộc và tự tham chiếu.
+  - Ghi T3 theo VM-F9: giữ ID và thuộc tính cột, bỏ dữ liệu cũ cùng `H$`, ghi dữ liệu mới. Chặn sửa/xoá cột nằm trong quan hệ, là cấp phân cấp hay cột sắp xếp của cột khác (chưa dựng lại `R$`/`U$`).
+  - Lỗi có sẵn từ T084 lộ ở gate: cột bảng tính toán lấy từ cột mô hình cần `SourceColumn = Bảng[Cột]` và `ColumnOriginID` (VM-F9b), không thì Desktop báo "Unable to execute DAX". Đã sửa.
+  - Nhom6 lưu lần 2 (sửa 3 cột gồm cột 1 triệu dòng, 1 cột phụ thuộc, xoá cột, sửa và xoá bảng): 3,4 s.
+  - `swift test` 2241 qua; golden nặng 114 qua.
+- **Việc kế:** T102 báo cáo. Phase F chưa push.
 
 ## Việc tiếp theo
 

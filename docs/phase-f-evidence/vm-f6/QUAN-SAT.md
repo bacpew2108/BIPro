@@ -76,3 +76,13 @@ Power BI Desktop 2.159, Claude lái VM. Nền: bản sao `Nhom6_f4.pbix` (gate T
 - Sửa công thức cột: giữ ID cột, ghi lại dữ liệu cột (`DataVersion` + 1, tên tệp đổi tiền tố, `StorageFile` giữ ID), dựng lại `H$` của cột và `U$` của phân cấp có cột làm cấp, cập nhật `Expression`.
 - Sửa công thức bảng tính toán: chưa quan sát. [SUY ĐOÁN] như thay dữ liệu bảng (giữ ID bảng, cột cùng tên giữ ID).
 - Còn dùng ở visual, measure, quan hệ, sắp xếp hay phân cấp thì chặn xoá, như Phase E.
+
+## 6. VM-F9b (T116, 2026-11-17): cột của bảng tính toán lấy từ cột mô hình
+
+Gate T116 lần đầu trượt: Desktop mở `Nhom6_t116.pbix` báo **"Unable to execute DAX — An unexpected error occurred (file 'TMProcessJob.cpp', line 1356, function 'TMProcessPartitionJob::CreateReaderFromExpression')"**, báo cáo trống. File nền chỉ có thao tác thêm (đường T082–T085, chưa có sửa/xoá) cũng lỗi y hệt; gate T085 lọt vì bảng `CALENDAR` không có cột lấy từ mô hình.
+
+Quan sát: Claude lái VM, mở Nhom6 gốc, Table view ▸ New table `T116X = DISTINCT(Fact_Loan[age_group_at_loan])`, lưu, so `metadata.sqlitedb` với bảng BI Pro ghi cùng biểu thức.
+- Cột kết quả (`Type = 4`): Desktop ghi `SourceColumn = Fact_Loan[age_group_at_loan]` (tên đủ bảng của cột nguồn) và `ColumnOriginID = 11655` (ID cột nguồn). BI Pro ghi `[age_group_at_loan]` và 0. Cột mới không có nguồn gốc (như `Date` của `CALENDAR`) là `[Tên]`.
+- Khác nữa, chưa thấy cần: `Partition.SystemFlags = 2`, `Column.SystemFlags = 2`, `TableStorage.Version = 1`, chú thích `PBI_Id` và `SummarizationSetBy`.
+
+Áp vào BI Pro: engine trả tên nguồn theo lineage cột kết quả (`calculatedTableWithSources`), `ColumnSignature.sourceColumn`, bộ ghi đặt `SourceColumn` và `ColumnOriginID` (tra theo tên bảng và cột). Golden `docs/phase-f-evidence/vm-f9/obs-desktop.pbix` để ngoài git.

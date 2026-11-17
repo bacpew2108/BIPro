@@ -158,7 +158,8 @@ public enum LeftMenuBuilder {
         onDefineNewMeasure: @escaping () -> Void = {},
         onCollapseAll: @escaping () -> Void = {},
         onExpandAll: @escaping () -> Void = {},
-        onNewMeasure: (() -> Void)? = nil
+        onNewMeasure: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
     ) -> [LeftMenuItem] {
         (onNewMeasure.map { [LeftMenuItem.action("Measure mới", isEnabled: true, $0), .separator] } ?? []) + [
             .submenu("Truy vấn nhanh", [
@@ -167,7 +168,7 @@ public enum LeftMenuBuilder {
                 .action("Định nghĩa measure mới", isEnabled: true, onDefineNewMeasure)
             ]),
             .action("Đổi tên", isEnabled: false, {}),
-            .action("Xoá khỏi mô hình", isEnabled: false, {}),
+            .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
             .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
             .separator,
             .action("Thu gọn tất cả", isEnabled: true, onCollapseAll),
@@ -217,14 +218,15 @@ public enum LeftMenuBuilder {
         onPreviewData: @escaping () -> Void,
         onCollapseAll: @escaping () -> Void = {},
         onExpandAll: @escaping () -> Void = {},
-        onCopyFormula: (() -> Void)? = nil
+        onCopyFormula: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
     ) -> [LeftMenuItem] {
         var items: [LeftMenuItem] = [
             .submenu("Truy vấn nhanh", [
                 .action("Xem trước dữ liệu", isEnabled: true, onPreviewData)
             ]),
             .action("Đổi tên", isEnabled: false, {}),
-            .action("Xoá khỏi mô hình", isEnabled: false, {}),
+            .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
             .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
             .separator,
             .action("Thu gọn tất cả", isEnabled: true, onCollapseAll),

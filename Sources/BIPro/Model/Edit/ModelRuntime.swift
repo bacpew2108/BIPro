@@ -22,6 +22,7 @@ final class ModelRuntime: @unchecked Sendable {
     private var overlayCache: [TableID: TableData] = [:]
     private var overlayVersion = -1
     private var calculationErrorsValue: [String: String] = [:]
+    private var planValue = CalculationPlan.empty
 
     init(metadata: ModelMetadata, abf: ABFBackup) {
         base = metadata
@@ -64,14 +65,50 @@ final class ModelRuntime: @unchecked Sendable {
         _ = try base.applying(edits)
     }
 
+    /// Kiểm việc tính lại cột/bảng tính toán của `edits` (T116): không có vòng phụ thuộc, và cột/bảng có sẵn trong file phải tính lại thì
+    /// lưu được (không nằm trong quan hệ, phân cấp…). Ném `ModelEditError` kèm lý do.
+    func validateCalculations(_ edits: ModelEdits) throws {
+        let metadata = try base.applying(edits)
+        let plan = Self.plan(for: edits, metadata: metadata, base: base)
+        if !plan.cyclic.isEmpty {
+            throw ModelEditError("Phụ thuộc vòng giữa " + plan.cyclic.map(\.description).joined(separator: ", "))
+        }
+        let inFile = plan.order.filter { node in
+            switch node {
+            case .column(let table, let name):
+                guard let column = metadata.columns.first(where: { $0.tableName == table && $0.name == name }) else { return false }
+                return base.columns.contains { $0.id == column.id }
+            case .table(let name):
+                guard let table = metadata.tables.first(where: { $0.name == name }) else { return false }
+                return base.tables.contains { $0.id == table.id }
+            }
+        }
+        let blockers = CalculationPlan.saveBlockers(inFile, metadata: metadata)
+        if !blockers.isEmpty {
+            throw ModelEditError("Chưa tính lại và lưu được cột/bảng tính toán có sẵn: " + blockers.joined(separator: "; ")
+                                 + " (BI Pro chưa dựng lại chỉ mục theo dữ liệu mới)")
+        }
+    }
+
+    /// Cột và bảng tính toán engine của phiên tính (thứ tự phụ thuộc), theo mô hình hiệu lực.
+    var calculationPlan: CalculationPlan { lock.withLock { planValue } }
+
+    private static func plan(for edits: ModelEdits, metadata: ModelMetadata, base: ModelMetadata) -> CalculationPlan {
+        guard edits.hasCalculatedEdits || edits.hasTableEdits else { return .empty }
+        let reloaded = Set(edits.tableData(in: metadata).keys.compactMap { id in metadata.tables.first { $0.id == id.raw }?.name })
+        return CalculationPlan.make(seeds: CalculationPlan.sessionSeeds(metadata: metadata, base: base, reloadedTables: reloaded), metadata: metadata)
+    }
+
     /// Đặt danh sách thao tác (đầy đủ, không cộng dồn). Ném `ModelEditError` thì mô hình giữ nguyên.
     func setEdits(_ edits: ModelEdits) throws {
         let isSame = lock.withLock { edits == currentEdits }
         if isSame { return }
         let result = try base.applying(edits)
+        let plan = Self.plan(for: edits, metadata: result, base: base)
         lock.withLock {
             currentEdits = edits
             effective = result
+            planValue = plan
             cachedEngine = nil
             tmdl = nil
             versionValue += 1
@@ -86,7 +123,7 @@ final class ModelRuntime: @unchecked Sendable {
     /// để không bao giờ cất engine của phiên bản đã lỗi thời.
     func engine() throws -> DAXEngine {
         while true {
-            let (cached, metadata, edits, builtVersion) = lock.withLock { (cachedEngine, effective, currentEdits, versionValue) }
+            let (cached, metadata, edits, builtVersion, plan) = lock.withLock { (cachedEngine, effective, currentEdits, versionValue, planValue) }
             if let cached { return cached }
             var store: ColumnStore
             if edits.hasTableEdits {
@@ -109,11 +146,11 @@ final class ModelRuntime: @unchecked Sendable {
             }
             var errors: [String: String] = [:]
             let engine: DAXEngine
-            if edits.hasCalculatedEdits {
+            if !plan.all.isEmpty {
                 let computed = ComputedColumnSource(base: store, schema: ModelSchema(metadata: metadata))
                 store = ColumnStore(source: computed)
                 engine = DAXEngine(store: store, catalog: Catalog(metadata: metadata))
-                errors = Self.compute(edits, metadata: metadata, engine: engine, into: computed)
+                errors = Self.compute(plan, metadata: metadata, engine: engine, into: computed)
             } else {
                 engine = DAXEngine(store: store, catalog: Catalog(metadata: metadata))
             }
@@ -128,16 +165,33 @@ final class ModelRuntime: @unchecked Sendable {
         }
     }
 
-    /// Tính cột và bảng tính toán của phiên theo thứ tự thao tác (thứ tự tạo cũng là thứ tự phụ thuộc: biểu thức chỉ tham chiếu được
-    /// cột đã có lúc tạo). Lỗi của một mục không chặn mục khác: cột lỗi để trống, bảng lỗi không có dòng.
-    private static func compute(_ edits: ModelEdits, metadata: ModelMetadata, engine: DAXEngine, into source: ComputedColumnSource) -> [String: String] {
+    /// Tính cột và bảng tính toán theo `plan` (thứ tự phụ thuộc, T116). Lỗi của một mục không chặn mục khác: cột lỗi để trống, bảng lỗi
+    /// không có dòng; mục trong vòng phụ thuộc cũng vậy.
+    private static func compute(_ plan: CalculationPlan, metadata: ModelMetadata, engine: DAXEngine, into source: ComputedColumnSource) -> [String: String] {
         var errors: [String: String] = [:]
         let schema = source.schema
-        for edit in edits.items {
-            switch edit {
-            case .addCalculatedTable(let name, let expression, _):
+        func key(_ node: CalculationPlan.Node) -> String {
+            switch node {
+            case .column(let table, let name): "\(table)[\(name)]"
+            case .table(let name): name
+            }
+        }
+        for node in plan.cyclic {
+            errors[key(node)] = "phụ thuộc vòng"
+            switch node {
+            case .table(let name):
                 guard let table = schema.table(named: name) else { continue }
-                // Chỉ các cột kết quả của biểu thức (`Type = 4`); cột tính toán thêm trên bảng này tính sau, ở thao tác riêng.
+                source.setTable(table.id, rowCount: 0, columns: Dictionary(uniqueKeysWithValues: table.columns.map { ($0.name, Self.blankColumn(type: $0.type, count: 0)) }))
+            case .column(let tableName, let name):
+                guard let column = schema.column(table: tableName, name: name) else { continue }
+                source.setColumn(column.id, Self.blankColumn(type: column.type, count: (try? engine.store.rowCount(column.id.table)) ?? 0))
+            }
+        }
+        for node in plan.order {
+            switch node {
+            case .table(let name):
+                guard let table = schema.table(named: name), let expression = metadata.calculatedTableExpressions[name] else { continue }
+                // Chỉ các cột kết quả của biểu thức (`Type = 4`); cột tính toán trên bảng này là nút riêng, tính sau.
                 let resultNames = Set(metadata.columns.filter { $0.tableName == name && $0.kind == .calculatedTableColumn }.map(\.name))
                 let resultColumns = table.columns.filter { resultNames.contains($0.name) }
                 var columns: [String: ColumnData] = [:], rowCount = 0
@@ -156,8 +210,9 @@ final class ModelRuntime: @unchecked Sendable {
                     columns = Dictionary(uniqueKeysWithValues: resultColumns.map { ($0.name, Self.blankColumn(type: $0.type, count: 0)) })
                 }
                 source.setTable(table.id, rowCount: rowCount, columns: columns)
-            case .addCalculatedColumn(let tableName, let name, let expression, _):
-                guard let column = schema.column(table: tableName, name: name.trimmingCharacters(in: .whitespacesAndNewlines)) else { continue }
+            case .column(let tableName, let name):
+                guard let column = schema.column(table: tableName, name: name),
+                      let expression = metadata.columns.first(where: { $0.tableName == tableName && $0.name == name })?.expression else { continue }
                 let count = (try? engine.store.rowCount(column.id.table)) ?? 0
                 do {
                     let values = try engine.calculatedColumn(table: tableName, expression: expression)
@@ -166,8 +221,6 @@ final class ModelRuntime: @unchecked Sendable {
                     errors["\(tableName)[\(column.name)]"] = (error as? DAXError)?.message ?? "\(error)"
                     source.setColumn(column.id, Self.blankColumn(type: column.type, count: count))
                 }
-            default:
-                continue
             }
         }
         return errors
@@ -195,7 +248,8 @@ extension ModelEdits {
         items.contains {
             switch $0 {
             case .updateRelationship, .updateColumn, .addRelationship, .deleteRelationship, .updateTable,
-                 .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: true
+                 .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable,
+                 .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable: true
             case .addMeasure, .updateMeasure, .deleteMeasure, .setQuery, .dropQuery: false
             }
         }
@@ -203,11 +257,11 @@ extension ModelEdits {
 }
 
 extension ModelEdits {
-    /// Có cột hoặc bảng tính toán thêm trong phiên (engine phải tính giá trị).
+    /// Có cột hoặc bảng tính toán thêm, sửa hay xoá trong phiên (engine phải tính giá trị).
     var hasCalculatedEdits: Bool {
         items.contains {
             switch $0 {
-            case .addCalculatedColumn, .addCalculatedTable: true
+            case .addCalculatedColumn, .addCalculatedTable, .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable: true
             default: false
             }
         }

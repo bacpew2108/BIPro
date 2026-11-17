@@ -207,6 +207,8 @@ enum DocumentSaver {
         // Bảng thay dữ liệu (T063b) cũng vậy: cột mới được cấp ID mới, cột cũ giữ ID và thuộc tính (so theo tên, kiểu, ẩn, tổng hợp).
         var replacedNames = Set<String>()
         for case .replaceTable(_, let table) in editor.modelEdits.items { replacedNames.insert(table.name) }
+        // Bảng tính toán sửa công thức (T116): ghi lại như thay dữ liệu.
+        for case .updateCalculatedTable(let name, _, _) in editor.modelEdits.items { replacedNames.insert(name) }
         let newNames = Set(expected.tables.map(\.name)).subtracting(base.tables.map(\.name)).union(replacedNames)
         // Cột tính toán thêm vào bảng đã có (T084): ID do bộ ghi cấp, so theo tên, kiểu, loại và biểu thức.
         var calculatedKeys = Set<String>()
@@ -220,7 +222,9 @@ enum DocumentSaver {
                 .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)|\($0.kind)|\($0.expression ?? "")" }.sorted()
         }
         guard userColumns(written) == userColumns(expected), newColumns(written) == newColumns(expected) else {
-            throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa")
+            let odd = Set(userColumns(written)).symmetricDifference(userColumns(expected)).map { "\($0.tableName)[\($0.name)]" }
+                + Set(newColumns(written)).symmetricDifference(newColumns(expected))
+            throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa (\(Set(odd).sorted().prefix(4).joined(separator: ", ")))")
         }
     }
 

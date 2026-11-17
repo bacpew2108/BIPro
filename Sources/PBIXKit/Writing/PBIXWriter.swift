@@ -359,6 +359,8 @@ public enum PBIXWriter {
             var replacedNames = Set<String>(), goneNames = Set<String>()
             for case .replaceTable(let old, let new) in changes.allModelEdits.items { replacedNames.insert(new.name); goneNames.insert(old) }
             for case .dropTable(let dropped) in changes.allModelEdits.items { goneNames.insert(dropped) }
+            // Bảng tính toán sửa công thức (T116): ghi lại như thay dữ liệu.
+            for case .updateCalculatedTable(let name, _, _) in changes.allModelEdits.items { replacedNames.insert(name); goneNames.insert(name) }
             let newTableNames = Set(expected.tables.map(\.name)).subtracting(sourceTables).union(replacedNames)
             // Cột tính toán thêm vào bảng đã có (T084): ID do bộ ghi cấp; so theo tên, kiểu, ẩn, cách tổng hợp và biểu thức.
             var calculatedKeys = Set<String>()
@@ -379,7 +381,9 @@ public enum PBIXWriter {
                     .map { "\($0.tableName)|\($0.name)|\($0.dataType.rawValue)|\($0.isHidden)|\($0.summarizeBy)" }.sorted()
             }
             guard userColumns(model) == userColumns(expected), newColumns(model) == newColumns(expected) else {
-                throw WriteError.verificationFailed("columns read back differ from the edited model")
+                let read = Set(userColumns(model)), wanted = Set(userColumns(expected))
+                let odd = read.symmetricDifference(wanted).map { "\($0.tableName)[\($0.name)]" } + Set(newColumns(model)).symmetricDifference(newColumns(expected))
+                throw WriteError.verificationFailed("columns read back differ from the edited model (\(Set(odd).sorted().prefix(4).joined(separator: ", ")))")
             }
             // Mọi tệp ABF khác metadata.sqlitedb giữ nguyên byte; chỉ có thêm hoặc bớt tệp chỉ mục quan hệ (2 tệp mỗi quan hệ).
             let compareStart = Date()
@@ -401,16 +405,23 @@ public enum PBIXWriter {
             let newPrefixes = Self.tableFilePrefixes(model.tables.filter { newTableNames.contains($0.name) }.map { ($0.name, $0.id) })
             let gonePrefixes = Self.tableFilePrefixes(oldModel.tables.filter { goneNames.contains($0.name) }.map { ($0.name, $0.id) })
             // Cột tính toán thêm vào bảng đã có (T084): tệp mới của cột trong thư mục bảng, phân vùng và bảng `H$` của cột.
+            // Cột tính toán sửa công thức hoặc xoá (T116): tệp cũ của cột bỏ, tệp mới (cùng hoặc khác tên) thêm.
             let calculatedFiles: [(table: [String], column: String)] = changes.allModelEdits.items.compactMap { edit in
-                guard case .addCalculatedColumn(let table, let name, _, _) = edit else { return nil }
-                return (Self.tableFilePrefixes(model.tables.filter { $0.name == table }.map { ($0.name, $0.id) }), flat("\(name) ("))
+                switch edit {
+                case .addCalculatedColumn(let table, let name, _, _), .updateCalculatedColumn(let table, let name, _, _),
+                     .deleteCalculatedColumn(let table, let name):
+                    let ids = (model.tables + oldModel.tables).filter { $0.name == table }.map { ($0.name, $0.id) }
+                    return (Self.tableFilePrefixes(ids), flat("\(name) ("))
+                default:
+                    return nil
+                }
             }
             let isCalculatedFile: (String) -> Bool = { path in
                 let f = flat(path)
                 return calculatedFiles.contains { item in item.table.contains { f.hasPrefix($0) } && f.contains(item.column) }
             }
             let isNewTableFile: (String) -> Bool = { path in let f = flat(path); return newPrefixes.contains { f.hasPrefix($0) } || isCalculatedFile(path) }
-            let isGoneTableFile: (String) -> Bool = { path in let f = flat(path); return gonePrefixes.contains { f.hasPrefix($0) } }
+            let isGoneTableFile: (String) -> Bool = { path in let f = flat(path); return gonePrefixes.contains { f.hasPrefix($0) } || isCalculatedFile(path) }
             let isTouchedTableFile: (String) -> Bool = { isNewTableFile($0) || isGoneTableFile($0) }
             guard addedPaths.allSatisfy({ isIndex($0) || isNewTableFile($0) }), removedPaths.allSatisfy({ isIndex($0) || isGoneTableFile($0) }),
                   addedPaths.filter(isIndex).count <= 2 * adds, removedPaths.filter(isIndex).count <= 2 * deletes else {

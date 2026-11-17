@@ -32,3 +32,28 @@ extension DAXEngine {
         return found
     }
 }
+
+extension DAXEngine {
+    /// Tên bảng mà `expression` nhắc tới như một bảng (T116, tìm cột/bảng tính toán phụ thuộc): `'Bảng'` có nháy hoặc tên trần, không đứng
+    /// trước `(` (hàm) và không sát `[` (đó là `Bảng[Cột]`, đã có ở `references`). Chữ thường. Thận trọng: từ khoá như `TRUE`, `VAR` cũng có
+    /// trong kết quả; người gọi chỉ so với tên bảng có thật. Văn bản không phân tích được thì trả nil.
+    public static func tableNames(in expression: String) -> Set<String>? {
+        guard let tokens = try? DAXLexer.tokenize(expression) else { return nil }
+        var found = Set<String>()
+        for (index, token) in tokens.enumerated() {
+            let next = index + 1 < tokens.count ? tokens[index + 1] : nil
+            let isQuoted: Bool = if case .quoted = token.kind { true } else { false }
+            if let next, case .bracket = next.kind, isQuoted || next.range.start == token.range.end { continue }
+            switch token.kind {
+            case .quoted(let name):
+                found.insert(name.lowercased())
+            case .identifier(let word):
+                if let next, case .symbol("(") = next.kind { continue }
+                found.insert(word.lowercased())
+            default:
+                continue
+            }
+        }
+        return found
+    }
+}

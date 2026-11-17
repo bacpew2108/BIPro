@@ -149,6 +149,12 @@ extension ModelMetadata {
             return try addingCalculatedColumn(table: table, name: name, expression: expression, dataType: dataType)
         case .addCalculatedTable(let name, let expression, let columns):
             return try addingCalculatedTable(name: name, expression: expression, columns: columns)
+        case .updateCalculatedColumn(let table, let name, let expression, let dataType):
+            return try updatingCalculatedColumn(table: table, name: name, expression: expression, dataType: dataType)
+        case .deleteCalculatedColumn(let table, let name):
+            return try deletingCalculatedColumn(table: table, name: name)
+        case .updateCalculatedTable(let name, let expression, let columns):
+            return try updatingCalculatedTable(name: name, expression: expression, columns: columns)
 
         case .deleteRelationship(let name):
             guard relationships.contains(where: { $0.name == name }) else { throw ModelEditError("Không có quan hệ \(name)") }

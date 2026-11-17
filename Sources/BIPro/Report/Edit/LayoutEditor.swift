@@ -94,6 +94,8 @@ final class LayoutEditor {
     @ObservationIgnored var modelBase: ModelMetadata?
     /// Giá trị đã tính của cột/bảng tính toán trong các thao tác sắp lưu, khoá `Bảng[Cột]` (T084). `DocumentState` gắn vào engine của phiên.
     @ObservationIgnored var calculatedValues: (ModelEdits) throws -> [String: VertiPaqWriter.Values] = { _ in [:] }
+    /// T116: thao tác ghi lại cột/bảng tính toán có sẵn trong file phụ thuộc phần đổi của lần lưu (`CalculationPlan.recalculationEdits`).
+    @ObservationIgnored var recalculationEdits: (ModelEdits) -> [ModelEdit] = { _ in [] }
     /// Gọi mỗi khi `modelEdits` đổi (sửa, hoàn tác, làm lại) để nơi giữ mô hình hiệu lực và engine cập nhật theo.
     @ObservationIgnored var modelEditsChanged: (ModelEdits) -> Void = { _ in }
     /// Phần bookmark và bộ lọc bị bỏ qua ở lần dựng gói lưu gần nhất vì chưa lưu được vào file (kèm lý do).
@@ -1263,6 +1265,13 @@ final class LayoutEditor {
     /// Mọi thay đổi trang so với file trên đĩa nên lưu lần hai không ghi lại gì.
     /// Thao tác mô hình cần ghi vào file trên đĩa: lần lưu đầu là cả `modelEdits`; các lần sau là phần đưa mô hình đã lưu
     /// (`savedModelEdits`, đang nằm trong file) tới mô hình hiện tại.
+    /// `modelDelta` đã gộp (thêm rồi sửa/xoá trong cùng đợt) và kèm thao tác ghi lại cột/bảng tính toán phụ thuộc có sẵn trong file (T116).
+    func writableModelDelta() throws -> ModelEdits {
+        var edits = try modelDelta().collapsingTableEdits()
+        for edit in recalculationEdits(edits) { edits.append(edit) }
+        return edits
+    }
+
     func modelDelta() throws -> ModelEdits {
         if savedModelEdits.isEmpty { return try TableLoader.writable(modelEdits) }
         guard let base = modelBase else { throw ModelEditError("Thiếu mô hình gốc để tính phần đổi của lần lưu này") }
@@ -1280,7 +1289,9 @@ final class LayoutEditor {
         var delta = ModelEdits(diff.filter(isDeletion))
         for edit in modelEdits.items {
             switch edit {
-            case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: if !saved.contains(edit) { delta.append(edit) }
+            case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable,
+                 .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable:
+                if !saved.contains(edit) { delta.append(edit) }
             default: break
             }
         }
@@ -1291,7 +1302,7 @@ final class LayoutEditor {
     func makeChanges(archive: ZipArchive) throws -> PBIXChanges {
         if isLegacy {
             var legacy = try makeLegacyChanges(archive: archive)
-            legacy.modelEdits = try modelDelta()
+            legacy.modelEdits = try writableModelDelta()
             if legacy.modelEdits.hasCalculatedEdits { legacy.calculatedData = try calculatedValues(legacy.modelEdits) }
             if diagramEdits != savedDiagramEdits, let source = diagramSource() {
                 let (moves, zoom) = diagramMoves()
@@ -1472,7 +1483,7 @@ final class LayoutEditor {
             }
         }
         saveNotes = try addReportChanges(to: &changes, archive: archive)
-        changes.modelEdits = try modelDelta()
+        changes.modelEdits = try writableModelDelta()
         if changes.modelEdits.hasCalculatedEdits { changes.calculatedData = try calculatedValues(changes.modelEdits) }
         if diagramEdits != savedDiagramEdits, let source = diagramSource() {
             let (moves, zoom) = diagramMoves()

@@ -131,7 +131,12 @@ public struct NewTableColumn: Sendable, Equatable {
 public struct ColumnSignature: Sendable, Hashable {
     public var name: String
     public var dataType: ModelMetadata.DataType
-    public init(name: String, dataType: ModelMetadata.DataType) { self.name = name; self.dataType = dataType }
+    /// Tên cột kết quả trong biểu thức như Desktop ghi ở `Column.SourceColumn` của bảng tính toán (VM-F9b): `Bảng[Cột]` khi cột giữ
+    /// nguồn gốc một cột của mô hình (`DISTINCT(Fact_Loan[x])`), `[Tên]` khi là cột mới (`CALENDAR`, `ADDCOLUMNS`). Nil thì `[name]`.
+    public var sourceColumn: String?
+    public init(name: String, dataType: ModelMetadata.DataType, sourceColumn: String? = nil) {
+        self.name = name; self.dataType = dataType; self.sourceColumn = sourceColumn
+    }
 }
 
 /// Bảng nạp từ truy vấn (Phase F, T3). Là lớp tham chiếu: dữ liệu có thể hàng triệu dòng nên `ModelEdit` so sánh và băm
@@ -184,23 +189,32 @@ public enum ModelEdit: Sendable, Hashable {
     case addCalculatedColumn(table: String, name: String, expression: String, dataType: ModelMetadata.DataType)
     /// Bảng tính toán (T082): `columns` là tên và kiểu các cột kết quả.
     case addCalculatedTable(name: String, expression: String, columns: [ColumnSignature])
+    /// Sửa công thức cột tính toán (T116, VM-F9): giữ ID và thuộc tính cột, giá trị tính lại; `dataType` suy lại từ biểu thức mới.
+    case updateCalculatedColumn(table: String, name: String, expression: String, dataType: ModelMetadata.DataType)
+    /// Xoá cột tính toán (T116): bỏ cột cùng dữ liệu lưu trữ. Bảng tính toán xoá bằng `dropTable`.
+    case deleteCalculatedColumn(table: String, name: String)
+    /// Sửa công thức bảng tính toán (T116): cột kết quả mới; cột cùng tên giữ ID và thuộc tính.
+    case updateCalculatedTable(name: String, expression: String, columns: [ColumnSignature])
 
     /// Thao tác thuộc Phase F cần tầng T3.
     /// Thao tác nhắm vào bảng `lowercasedName` (thêm/sửa/xoá measure, cột, bảng, cột tính toán của nó).
     func mentionsTable(_ lowercasedName: String) -> Bool {
         switch self {
         case .addMeasure(let m): m.table.lowercased() == lowercasedName
-        case .updateMeasure(let t, _, _), .deleteMeasure(let t, _), .updateColumn(let t, _, _), .addCalculatedColumn(let t, _, _, _):
+        case .updateMeasure(let t, _, _), .deleteMeasure(let t, _), .updateColumn(let t, _, _), .addCalculatedColumn(let t, _, _, _),
+             .updateCalculatedColumn(let t, _, _, _), .deleteCalculatedColumn(let t, _):
             t.lowercased() == lowercasedName
-        case .updateTable(let t, _), .replaceTable(let t, _), .dropTable(let t): t.lowercased() == lowercasedName
+        case .updateTable(let t, _), .replaceTable(let t, _), .dropTable(let t), .updateCalculatedTable(let t, _, _): t.lowercased() == lowercasedName
         case .addTable(let t): t.name.lowercased() == lowercasedName
+        case .addCalculatedTable(let t, _, _): t.lowercased() == lowercasedName
         default: false
         }
     }
 
     var needsData: Bool {
         switch self {
-        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable: true
+        case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable,
+             .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable: true
         default: false
         }
     }
@@ -227,22 +241,89 @@ public struct ModelEdits: Sendable, Hashable {
     /// bỏ cả hai. Thay hoặc xoá bảng đã có trong file thì giữ nguyên (bộ ghi từ chối, chưa hỗ trợ). Dùng khi ghi, vì file chỉ cần kết quả cuối.
     public func collapsingTableEdits() -> ModelEdits {
         var out: [ModelEdit?] = []
-        var added: [String: Int] = [:]   // tên (chữ thường) → vị trí addTable trong `out`
+        var added: [String: Int] = [:]   // tên (chữ thường) → vị trí addTable/addCalculatedTable trong `out`
+        var updatedTables: [String: Int] = [:]   // bảng tính toán có sẵn → vị trí updateCalculatedTable gần nhất
+        // Cột tính toán (T116), khoá "bảng\0cột" chữ thường: vị trí thêm trong đợt, hoặc vị trí sửa công thức gần nhất (cột có sẵn).
+        var addedColumns: [String: Int] = [:], updatedColumns: [String: Int] = [:]
+        var formerNames: [String: Set<String>] = [:]   // cột thêm trong đợt: khoá hiện tại → mọi khoá cũ (đổi tên)
+        func columnKey(_ table: String, _ name: String) -> String { table.lowercased() + "\u{0}" + name.lowercased() }
         for edit in items {
             switch edit {
             case .addTable(let table):
                 added[table.name.lowercased()] = out.count
+                out.append(edit)
+            case .addCalculatedTable(let name, _, _):
+                added[name.lowercased()] = out.count
                 out.append(edit)
             case .replaceTable(let name, let table):
                 if let at = added.removeValue(forKey: name.lowercased()) {
                     out[at] = .addTable(table)
                     added[table.name.lowercased()] = at
                 } else { out.append(edit) }
+            case .updateCalculatedTable(let name, let expression, let columns):
+                // Bảng thêm trong đợt: thành bảng thêm với công thức mới. Bảng có sẵn: chỉ cần lần sửa cuối.
+                if let at = added[name.lowercased()], case .addCalculatedTable = out[at] {
+                    out[at] = .addCalculatedTable(name: name, expression: expression, columns: columns)
+                } else {
+                    if let previous = updatedTables[name.lowercased()] { out[previous] = nil }
+                    updatedTables[name.lowercased()] = out.count
+                    out.append(edit)
+                }
+            case .addCalculatedColumn(let table, let name, _, _):
+                addedColumns[columnKey(table, name)] = out.count
+                out.append(edit)
+            case .updateCalculatedColumn(let table, let name, let expression, let dataType):
+                let key = columnKey(table, name)
+                if let at = addedColumns[key] {
+                    out[at] = .addCalculatedColumn(table: table, name: name, expression: expression, dataType: dataType)
+                } else {
+                    if let previous = updatedColumns[key] { out[previous] = nil }
+                    updatedColumns[key] = out.count
+                    out.append(edit)
+                }
+            case .deleteCalculatedColumn(let table, let name):
+                let key = columnKey(table, name)
+                if let previous = updatedColumns.removeValue(forKey: key) { out[previous] = nil }
+                guard let at = addedColumns.removeValue(forKey: key) else { out.append(edit); continue }
+                // Cột chưa từng có trong file: bỏ lần thêm và mọi sửa thuộc tính (kể cả đổi tên) của nó ở giữa.
+                let names = (formerNames.removeValue(forKey: key) ?? []).union([key])
+                for index in at..<out.count {
+                    guard let item = out[index] else { continue }
+                    if case .updateColumn(let t, let c, _) = item, names.contains(columnKey(t, c)) { out[index] = nil }
+                }
+                out[at] = nil
+            case .updateColumn(let table, let name, let patch):
+                out.append(edit)
+                // Đổi tên cột tính toán: các khoá theo tên mới.
+                if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
+                    let old = columnKey(table, name), new = columnKey(table, renamed)
+                    if let at = addedColumns.removeValue(forKey: old) {
+                        addedColumns[new] = at
+                        formerNames[new] = (formerNames.removeValue(forKey: old) ?? []).union([old])
+                    }
+                    if let at = updatedColumns.removeValue(forKey: old) { updatedColumns[new] = at }
+                }
             case .dropTable(let name):
-                guard let at = added.removeValue(forKey: name.lowercased()) else { out.append(edit); continue }
+                let key = name.lowercased()
+                guard let at = added.removeValue(forKey: key) else {
+                    // Bảng có sẵn: sửa công thức trước đó không còn nghĩa (và giá trị của chúng không còn trong mô hình hiệu lực).
+                    for index in 0..<out.count {
+                        guard let item = out[index] else { continue }
+                        switch item {
+                        case .updateCalculatedTable(let t, _, _) where t.lowercased() == key: out[index] = nil
+                        case .updateCalculatedColumn(let t, _, _, _) where t.lowercased() == key: out[index] = nil
+                        case .addCalculatedColumn(let t, _, _, _) where t.lowercased() == key: out[index] = nil
+                        default: break
+                        }
+                    }
+                    updatedTables[key] = nil
+                    addedColumns = addedColumns.filter { !$0.key.hasPrefix(key + "\u{0}") }
+                    updatedColumns = updatedColumns.filter { !$0.key.hasPrefix(key + "\u{0}") }
+                    out.append(edit)
+                    continue
+                }
                 // Bảng chưa từng có trong file: bỏ cả mọi thao tác nhắc tới nó ở giữa (measure, cột, quan hệ…), không thì bộ ghi
                 // áp chúng lên bảng không tồn tại (lỗi T096).
-                let key = name.lowercased()
                 var relationships = Set<String>()
                 for index in at..<out.count {
                     guard let item = out[index] else { continue }
@@ -257,6 +338,8 @@ public struct ModelEdits: Sendable, Hashable {
                         out[index] = nil
                     }
                 }
+                addedColumns = addedColumns.filter { !$0.key.hasPrefix(key + "\u{0}") }
+                updatedColumns = updatedColumns.filter { !$0.key.hasPrefix(key + "\u{0}") }
             default:
                 out.append(edit)
             }
