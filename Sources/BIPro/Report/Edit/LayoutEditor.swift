@@ -1285,6 +1285,29 @@ final class LayoutEditor {
 
     // MARK: Gói thay đổi để lưu
 
+    /// Tuỳ chọn "Tự phát hiện quan hệ" của file lúc mở (part `Settings`); file không có part thì bật.
+    var openedAutodetectRelationships: Bool {
+        openedParts(FileSettings.path).first { $0.path == FileSettings.path }.map { FileSettings.autodetectRelationships(in: $0.data) } ?? true
+    }
+
+    /// Tuỳ chọn hiệu lực: phần đã đặt trong phiên, hoặc như lúc mở.
+    var autodetectRelationships: Bool { reportEdits.autodetectRelationships ?? openedAutodetectRelationships }
+
+    /// Đặt tuỳ chọn "Tự phát hiện quan hệ" (một bước hoàn tác). Về giá trị lúc mở thì bỏ phần đặt.
+    @discardableResult
+    func setAutodetectRelationships(_ enabled: Bool) -> Bool {
+        guard enabled != autodetectRelationships else { return false }
+        return commitReport { $0.autodetectRelationships = enabled == openedAutodetectRelationships ? nil : enabled }
+    }
+
+    /// Ghi `Settings` khi tuỳ chọn hiệu lực khác file trên đĩa (cả khi hoàn tác sau lần lưu trước).
+    private func addSettingsChanges(to changes: inout PBIXChanges, archive: ZipArchive) throws {
+        guard let entry = archive.entry(FileSettings.path) else { return }
+        let onDisk = try archive.read(entry)
+        guard FileSettings.autodetectRelationships(in: onDisk) != autodetectRelationships else { return }
+        changes.reportParts[FileSettings.path] = try FileSettings.setting(autodetectRelationships: autodetectRelationships, in: onDisk)
+    }
+
     nonisolated static func visualPath(page: String, id: String) -> String {
         "Report/definition/pages/\(page)/visuals/\(id)/visual.json"
     }
@@ -1334,21 +1357,43 @@ final class LayoutEditor {
             }
         }
         var delta = ModelEdits(diff.filter(isDeletion))
+        // Auto date/time (T032): phép so mô hình không thấy variation, phân cấp, chú thích, cột và quan hệ của bảng ngày nên các thao tác
+        // này lấy thẳng từ danh sách, giữ thứ tự cùng thao tác bảng.
+        let savedModel = try base.applying(savedModelEdits)
+        var dateRelationships = Set(savedModel.dateTableRelationships.map(\.name))
+        func isAutoDate(_ table: String) -> Bool { AutoDateTime.isLocalTable(table) || AutoDateTime.isTemplateTable(table) }
         for edit in modelEdits.items {
             switch edit {
             case .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable,
-                 .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable:
+                 .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable,
+                 .addHierarchy, .dropHierarchy, .addVariation, .dropVariation:
                 if !saved.contains(edit) { delta.append(edit) }
+            case .updateColumn(let table, _, _), .updateTable(let table, _):
+                if isAutoDate(table), !saved.contains(edit) { delta.append(edit) }
+            case .addRelationship(let r):
+                guard isAutoDate(r.toTable) || isAutoDate(r.fromTable) else { break }
+                dateRelationships.insert(r.name)
+                if !saved.contains(edit) { delta.append(edit) }
+            case .deleteRelationship(let name):
+                if dateRelationships.contains(name), !saved.contains(edit) { delta.append(edit) }
             default: break
             }
         }
         for edit in diff where !isDeletion(edit) { delta.append(edit) }
+        // Chú thích mô hình: giá trị cuối khác lần lưu trước (bật rồi tắt rồi bật lại vẫn đúng).
+        let current = try base.applying(modelEdits).modelAnnotations
+        var names: [String] = []
+        for case .setModelAnnotation(let name, _) in modelEdits.items where !names.contains(name) { names.append(name) }
+        for name in names where current[name] != savedModel.modelAnnotations[name] {
+            if let value = current[name] { delta.append(.setModelAnnotation(name: name, value: value)) }
+        }
         return try TableLoader.writable(delta)
     }
 
     func makeChanges(archive: ZipArchive) throws -> PBIXChanges {
         if isLegacy {
             var legacy = try makeLegacyChanges(archive: archive)
+            try addSettingsChanges(to: &legacy, archive: archive)
             legacy.modelEdits = try writableModelDelta()
             if legacy.modelEdits.hasCalculatedEdits { legacy.calculatedData = try calculatedValues(legacy.modelEdits) }
             if diagramEdits != savedDiagramEdits, let source = diagramSource() {
@@ -1530,6 +1575,7 @@ final class LayoutEditor {
             }
         }
         saveNotes = try addReportChanges(to: &changes, archive: archive)
+        try addSettingsChanges(to: &changes, archive: archive)
         changes.modelEdits = try writableModelDelta()
         if changes.modelEdits.hasCalculatedEdits { changes.calculatedData = try calculatedValues(changes.modelEdits) }
         if diagramEdits != savedDiagramEdits, let source = diagramSource() {

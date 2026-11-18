@@ -112,8 +112,9 @@ struct F3Nhom6Tests {
         let state = try state(url)
         try await load(state, .csv, "sales_2026.csv", pick: ["sales_2026"])
         try await load(state, .excel, "sales_2026.xlsx", pick: ["Customers"])
-        let relationship = NewRelationship(fromTable: "sales_2026", fromColumn: "CustomerID", toTable: "Customers", toColumn: "CustomerID")
-        #expect(state.modelEditor.apply(.addRelationship(relationship)) == nil)
+        // Tự phát hiện quan hệ (T035): nạp Customers thì quan hệ sales_2026[CustomerID] → Customers[CustomerID] tự có.
+        let detected = state.workspace.metadata?.relationships.filter { $0.fromTable == "sales_2026" && $0.toTable == "Customers" } ?? []
+        #expect(detected.map(\.fromColumn) == ["CustomerID"] && detected.allSatisfy { $0.isActive && $0.name.hasPrefix("AutoDetected_") })
         state.beginNewMeasure(table: "sales_2026")
         state.measureDraft?.text = "Tong Amount = SUM(sales_2026[Amount])"
         await state.applyMeasureDraft()

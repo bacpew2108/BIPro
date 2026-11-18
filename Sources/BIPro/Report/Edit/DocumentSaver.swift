@@ -214,7 +214,7 @@ enum DocumentSaver {
         var calculatedKeys = Set<String>()
         for case .addCalculatedColumn(let table, let name, _, _) in editor.modelEdits.items { calculatedKeys.insert("\(table)|\(name)") }
         func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
-            m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newNames.contains($0.tableName)
+            m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !$0.tableName.hasPrefix("U$") && !newNames.contains($0.tableName)
                 && !calculatedKeys.contains("\($0.tableName)|\($0.name)") }
         }
         func newColumns(_ m: ModelMetadata) -> [String] {

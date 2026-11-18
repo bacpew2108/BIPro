@@ -1,3 +1,4 @@
+import ColumnStore
 import AppKit
 import Observation
 import PBIXKit
@@ -128,6 +129,8 @@ final class DocumentState {
     var queryEditorState: QueryEditorState?
     /// Hộp "Tạo bảng" (Enter Data) đang mở (đợt tồn đọng sau Phase F, T028); nil khi đóng.
     var enterData: EnterDataTable?
+    /// Hộp "Tuỳ chọn tệp" đang mở (T033).
+    var showFileOptions = false
     /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 
@@ -185,6 +188,15 @@ final class DocumentState {
                 let usages = ModelReferences.documentUsages(ofTable: name, documents: documents)
                 if !usages.isEmpty { throw ModelEditError("Không thể gỡ bảng \(name): " + ModelReferences.message(usages, what: "bảng \(name)")) }
             }
+        } expand: { current, new in
+            // Auto date/time (T032): bảng ngày cục bộ theo cột ngày thêm, đổi hay bỏ khi tuỳ chọn của file bật.
+            guard let runtime, let model = try? runtime.base.applying(current) else { return new }
+            let dated = AutoDateTime.expand(new, model: model)
+            // Tự phát hiện quan hệ (T035) sau khi nạp bảng mới, khi tuỳ chọn của file bật; cùng bước ⌘Z với lần nạp.
+            guard layout.autodetectRelationships else { return dated }
+            return RelationshipDetector.expand(dated, before: model, isUnique: { ref in
+                Self.isUnique(ref, runtime: runtime, workspace: workspace)
+            })
         }
         layout.diagramSource = { [weak workspace] in
             guard let archive = workspace?.pbix.archive, let entry = archive.entry("DiagramLayout") else { return nil }
@@ -230,6 +242,14 @@ final class DocumentState {
     }
 
     /// Trang đang xem, với bố cục đã sửa (nếu có). Mọi nơi cần bố cục hiện tại phải đọc qua đây.
+    /// Cột của bảng đã có không có giá trị trùng: bảng nạp trong phiên đọc từ dữ liệu phiên, bảng của file so số giá trị khác nhau với
+    /// số dòng (như hộp tạo quan hệ).
+    nonisolated static func isUnique(_ ref: RelationshipDraft.ColumnRef, runtime: ModelRuntime, workspace: Workspace) -> Bool {
+        if let table = runtime.overlay(named: ref.table) { return RelationshipDetector.isUnique(table, column: ref.column) }
+        guard let storage = runtime.base.storage(table: ref.table, column: ref.column) else { return false }
+        return storage.cardinality >= workspace.rowCount(ref.table)
+    }
+
     var page: ReportPage? { pageID.flatMap(layout.page(_:)) }
 
     /// Các trang theo thứ tự tab, với thêm, xoá, đổi tên, đổi thứ tự và bố cục đã sửa (D5). Mọi nơi liệt kê trang đọc qua đây.

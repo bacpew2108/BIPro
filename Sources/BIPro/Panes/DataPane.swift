@@ -323,15 +323,24 @@ struct DataPane: View {
                 )
             })
         case .column(let c):
-            return AnyView(TreeRow(level: level, symbol: columnSymbol(c), tint: c.kind == .calculated ? DS.Palette.indigo : DS.Palette.secondaryLabel,
-                                   title: c.name, isHidden: c.isHidden, checkbox: checkbox(table, c.name),
-                                   isSelected: purpose == .table && state.table == table && state.column == c.name,
-                                   help: c.expression,
-                                   dragField: purpose == .report ? FieldRef(column: c) : nil,
-                                   onCheck: purpose == .report ? { toggleUsage(FieldRef(column: c)) } : nil) {
+            // Cột ngày có bảng ngày Auto date/time (VM-F11b ảnh b5): biểu tượng lịch, mở ra "Date Hierarchy"; tick hay kéo thì thêm cả
+            // phân cấp như Desktop.
+            let dateHierarchy = state.workspace.dateHierarchy(table: table, column: c.name)
+            let dateKey = "\(table)/d/\(c.name)"
+            let ref = dateHierarchy ?? FieldRef(column: c)
+            let row = TreeRow(level: level, isExpanded: dateHierarchy != nil && expanded.contains(dateKey), hasChildren: dateHierarchy != nil,
+                              symbol: dateHierarchy != nil ? "calendar.day.timeline.leading" : columnSymbol(c),
+                              tint: c.kind == .calculated ? DS.Palette.indigo : DS.Palette.secondaryLabel,
+                              title: c.name, isHidden: c.isHidden,
+                              checkbox: dateHierarchy.map { fieldChecked($0) } ?? checkbox(table, c.name),
+                              isSelected: purpose == .table && state.table == table && state.column == c.name,
+                              help: c.expression,
+                              dragField: purpose == .report ? ref : nil,
+                              onCheck: purpose == .report ? { toggleUsage(ref) } : nil) {
+                if dateHierarchy != nil { toggle(dateKey) }
                 if purpose == .table { state.select(table: table, column: c.name) }
             }
-            .leftContextMenu {
+            let menu = row.leftContextMenu {
                 LeftMenuBuilder.columnMenuItems(
                     isCalculated: c.kind == .calculated,
                     hasExpression: !(c.expression?.isEmpty ?? true),
@@ -349,6 +358,21 @@ struct DataPane: View {
                     onDelete: purpose != .query && state.modelEditingBlocker == nil && c.kind == .calculated
                         ? { deleting = PendingDeletion(table: table, column: c.name) } : nil
                 )
+            }
+            guard let dateHierarchy, expanded.contains(dateKey) else { return AnyView(menu) }
+            let hierarchyKey = dateKey + "/h"
+            return AnyView(VStack(alignment: .leading, spacing: 0) {
+                menu
+                TreeRow(level: level + 1, isExpanded: expanded.contains(hierarchyKey), hasChildren: true, symbol: "list.bullet.indent",
+                        tint: DS.Palette.secondaryLabel, title: dateHierarchy.property, checkbox: fieldChecked(dateHierarchy),
+                        dragField: purpose == .report ? dateHierarchy : nil,
+                        onCheck: purpose == .report ? { toggleUsage(dateHierarchy) } : nil) { toggle(hierarchyKey) }
+                if expanded.contains(hierarchyKey) {
+                    ForEach(dateHierarchy.levels, id: \.self) { name in
+                        TreeRow(level: level + 2, symbol: "smallcircle.filled.circle", tint: DS.Palette.tertiaryLabel, title: name,
+                                checkbox: purpose == .report ? state.visual?.fields.contains { $0.queryRef == dateHierarchy.queryRef + "." + name } ?? false : nil) {}
+                    }
+                }
             })
         case .hierarchy(let h):
             let key = "\(table)/h/\(h.name)"
@@ -408,6 +432,13 @@ struct DataPane: View {
     private func checkbox(_ table: String, _ field: String) -> Bool? {
         guard purpose == .report else { return nil }
         return state.usedFields.contains("\(table).\(field)")
+    }
+
+    /// Phân cấp (kể cả phân cấp ngày) đang dùng trong visual đã chọn: có cấp nào của nó trong các ô.
+    private func fieldChecked(_ ref: FieldRef) -> Bool? {
+        guard purpose == .report else { return nil }
+        let prefix = ref.queryRef + "."
+        return state.visual?.fields.contains { $0.kind == .hierarchyLevel && $0.queryRef.hasPrefix(prefix) } ?? false
     }
 
     /// Phân cấp đang dùng trong visual đã chọn: có cấp nào của nó trong các ô.

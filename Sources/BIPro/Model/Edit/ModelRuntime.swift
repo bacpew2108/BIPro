@@ -187,10 +187,19 @@ final class ModelRuntime: @unchecked Sendable {
                 source.setColumn(column.id, Self.blankColumn(type: column.type, count: (try? engine.store.rowCount(column.id.table)) ?? 0))
             }
         }
+        // Bảng ngày của Auto date/time (T032) tính trên lược đồ không có quan hệ ngày: quan hệ `T[c]` → bảng cục bộ làm engine đọc chính bảng
+        // đang tính. Biểu thức chỉ dùng cột nguồn (MIN, MAX) nên kết quả như Desktop.
+        let autoDate = metadata.autoDateTables
+        let withoutDateRelationships: DAXEngine? = autoDate.isEmpty ? nil : {
+            let reduced = ModelSchema(culture: schema.culture, tables: schema.tables, relationships: schema.relationships.filter { !$0.joinsOnDatePart })
+            let store = ColumnStore(source: SchemaOverrideSource(schema: reduced, base: source))
+            return DAXEngine(store: store, catalog: Catalog(schema: reduced, measures: []))
+        }()
         for node in plan.order {
             switch node {
             case .table(let name):
                 guard let table = schema.table(named: name), let expression = metadata.calculatedTableExpressions[name] else { continue }
+                let engine = autoDate.contains(name) ? (withoutDateRelationships ?? engine) : engine
                 // Chỉ các cột kết quả của biểu thức (`Type = 4`); cột tính toán trên bảng này là nút riêng, tính sau.
                 let resultNames = Set(metadata.columns.filter { $0.tableName == name && $0.kind == .calculatedTableColumn }.map(\.name))
                 let resultColumns = table.columns.filter { resultNames.contains($0.name) }
@@ -302,4 +311,12 @@ extension ModelEdits {
         }
         return result
     }
+}
+
+/// Nguồn cột mang lược đồ khác (bớt quan hệ) nhưng đọc dữ liệu từ nguồn gốc: tính bảng ngày của Auto date/time (T032).
+private struct SchemaOverrideSource: ColumnSource {
+    let schema: ModelSchema
+    let base: any ColumnSource
+    func rowCount(_ table: TableID) throws -> Int { try base.rowCount(table) }
+    func loadColumn(_ id: ColumnID) throws -> ColumnData { try base.loadColumn(id) }
 }

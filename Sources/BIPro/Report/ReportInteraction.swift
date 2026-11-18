@@ -176,9 +176,7 @@ final class ReportInteraction {
             switch field.kind {
             case .column: return QueryColumn(table: field.entity, column: field.property)
             case .hierarchyLevel:
-                let level = workspace.metadata?.hierarchies.lazy.filter { $0.tableName == field.entity }
-                    .compactMap { $0.levels.first { $0.name == field.property }?.columnName }.first
-                return level.map { QueryColumn(table: field.entity, column: $0) }
+                return workspace.levelColumn(field)
             default: return nil
             }
         }

@@ -48,6 +48,11 @@ struct ShellView: View {
                     .interactiveDismissDisabled()
             }
         }
+        .sheet(isPresented: Binding(get: { state.showFileOptions }, set: { state.showFileOptions = $0 })) {
+            FileOptionsView(options: state.fileOptions, autoDateTimeBlocker: state.autoDateTimeBlocker,
+                            onCommit: { state.applyFileOptions($0) }, onCancel: { state.showFileOptions = false })
+                .environment(\.colorScheme, .light)
+        }
         .sheet(isPresented: Binding(get: { state.queryEditorState != nil }, set: { if !$0 { state.closeQueryEditor() } })) {
             if let editor = state.queryEditorState {
                 QueryEditorWindow(state: editor, existingTableNames: state.existingTableNames,

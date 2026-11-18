@@ -37,7 +37,15 @@ enum FieldEditor {
         if field.kind == .hierarchy {
             // Phân cấp: một phần tử mỗi cấp, `active: true` cả (VM-D11 mục 1). Ô một trường thì thay các trường cũ.
             guard !field.levels.isEmpty else { return .refused("Phân cấp \"\(field.property)\" không có cấp nào.") }
-            let elements = field.levels.map { PBIRQueryPatch.newHierarchyLevel(entity: field.entity, hierarchy: field.property, level: $0, role: role) }
+            // Phân cấp ngày Auto date/time: chỉ cấp đầu `active` [SUY ĐOÁN, kiểm ở gate T037; file Desktop đã drill có đúng một cấp
+            // `active`], để visual hiện theo Năm như Desktop vừa thả.
+            let elements = field.levels.enumerated().map { offset, level in
+                if let column = field.variationColumn {
+                    return PBIRQueryPatch.newVariationLevel(entity: field.entity, column: column, variation: field.variationName ?? "Variation",
+                                                            hierarchy: field.property, level: level, role: role, active: offset == 0)
+                }
+                return PBIRQueryPatch.newHierarchyLevel(entity: field.entity, hierarchy: field.property, level: level, role: role)
+            }
             var result = wells
             if let index = result.firstIndex(where: { $0.role == role }) {
                 if rule.isSingle { result[index].elements = elements } else { result[index].elements += elements }

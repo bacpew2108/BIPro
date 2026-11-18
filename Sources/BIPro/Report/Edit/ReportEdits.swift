@@ -50,6 +50,9 @@ struct BookmarkEdits: Equatable {
 struct ReportEdits: Equatable {
     var bookmarks = BookmarkEdits()
     var filters: [UserFilterKey: FilterChange] = [:]
+    /// Tuỳ chọn của file "Tự phát hiện quan hệ mới sau khi nạp" (T033, part `Settings`); nil = như lúc mở file. Không tính vào
+    /// `isEmpty` (chỉ bookmark và bộ lọc).
+    var autodetectRelationships: Bool?
 
     var isEmpty: Bool { bookmarks.isEmpty && filters.isEmpty }
 

@@ -74,7 +74,11 @@ struct CalculationPlan: Equatable {
         var users: [Node: Set<Node>] = [:]
 
         init(metadata: ModelMetadata) {
-            let tables = metadata.tables.filter { $0.isUserTable && $0.isCalculatedUserTable && metadata.calculatedTableExpressions[$0.name] != nil }
+            // Bảng tính toán của người dùng, và bảng ngày cục bộ của Auto date/time (T032: engine tính trong phiên, giá trị lưu cùng file).
+            let localDate = metadata.autoDateTables
+            let tables = metadata.tables.filter {
+                (($0.isUserTable && $0.isCalculatedUserTable) || localDate.contains($0.name)) && metadata.calculatedTableExpressions[$0.name] != nil
+            }
             let calculatedTables = Set(tables.map(\.name))
             let columns = metadata.columns.filter { $0.kind == .calculated && $0.expression != nil }
             let tableNodes = tables.map { Node.table($0.name) }
@@ -99,6 +103,8 @@ struct CalculationPlan: Equatable {
                 resultColumns[column.tableName.lowercased() + "\u{0}" + column.name.lowercased()] = .table(column.tableName)
             }
             let measures = Dictionary(metadata.measures.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
+            var ownColumns: [String: Set<String>] = [:]
+            for column in metadata.columns { ownColumns[column.tableName.lowercased(), default: []].insert(column.name.lowercased()) }
 
             for node in nodes {
                 guard let expression = expressions[node] else { continue }
@@ -117,8 +123,17 @@ struct CalculationPlan: Equatable {
                     }
                 }
                 var strongSet = Set<Node>(), weakSet = Set<Node>()
+                // Cột tính toán: `[Cột]` không ghi bảng mà bảng của chính nó có cột tên đó thì là cột ấy (ngữ cảnh dòng), không phải mọi cột
+                // cùng tên ở bảng khác (bảng ngày cục bộ nào cũng có `[Date]`, T066). Tên không có ở bảng mình thì vẫn xét mọi bảng.
+                var ownTable: String?
+                if case .column(let table, _) = node { ownTable = table.lowercased() }
                 for reference in references {
                     let name = reference.name.lowercased()
+                    if reference.table == nil, let own = ownTable, ownColumns[own]?.contains(name) == true {
+                        if let target = byQualified[own + "\u{0}" + name] { strongSet.insert(target) }
+                        if let target = resultColumns[own + "\u{0}" + name] { strongSet.insert(target) }
+                        continue
+                    }
                     if let table = reference.table?.lowercased() {
                         if let target = byQualified[table + "\u{0}" + name] { strongSet.insert(target) }
                         if let target = resultColumns[table + "\u{0}" + name] { strongSet.insert(target) }
@@ -163,6 +178,11 @@ extension CalculationPlan {
             if before == nil || before?.isCalculatedUserTable != true || base.calculatedTableExpressions[before?.name ?? ""] != expression {
                 seeds.insert(.table(table.name))
             }
+        }
+        // Bảng ngày của Auto date/time thêm trong phiên (T032).
+        for name in metadata.autoDateTables {
+            guard let table = metadata.tables.first(where: { $0.name == name }), let expression = metadata.calculatedTableExpressions[name] else { continue }
+            if baseTables[table.id] == nil || base.calculatedTableExpressions[name] != expression { seeds.insert(.table(name)) }
         }
         return seeds
     }

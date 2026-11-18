@@ -171,9 +171,22 @@ struct VisualQuerySpecReader {
         }
         if let level = field?["HierarchyLevel"], let levelName = level["Level"]?.string {
             let hierarchy = level["Expression"]?["Hierarchy"]
-            let source = hierarchy?["Expression"]?["PropertyVariationSource"]?["Expression"] ?? hierarchy?["Expression"]
-            guard let table = source?["SourceRef"]?["Entity"]?.string else { return nil }
             let hierarchyName = hierarchy?["Hierarchy"]?.string
+            // Phân cấp ngày của Auto date/time (VM-F11b): `PropertyVariationSource` trỏ cột ngày; `Variation` của cột đó dẫn tới bảng ngày
+            // cục bộ, mỗi cấp là cột cùng tên của bảng ấy (mẫu `AutoDateTime.hierarchyLevels`).
+            if let variation = hierarchy?["Expression"]?["PropertyVariationSource"] {
+                guard let table = variation["Expression"]?["SourceRef"]?["Entity"]?.string, let property = variation["Property"]?.string,
+                      let target = metadata.variations.first(where: {
+                          $0.table == table && $0.column == property && $0.name == (variation["Name"]?.string ?? $0.name)
+                              && (hierarchyName == nil || $0.hierarchy.name == hierarchyName)
+                      }) else { return nil }
+                let local = target.hierarchy.table
+                let h = metadata.hierarchies.first { $0.tableName == local && $0.name == target.hierarchy.name }
+                let columnName = h?.levels.first(where: { $0.name == levelName })?.columnName ?? levelName
+                guard metadataColumn(local, columnName) != nil else { return nil }
+                return QueryColumn(table: local, column: columnName)
+            }
+            guard let table = hierarchy?["Expression"]?["SourceRef"]?["Entity"]?.string else { return nil }
             let h = metadata.hierarchies.first { $0.tableName == table && (hierarchyName == nil || $0.name == hierarchyName) }
             guard let columnName = h?.levels.first(where: { $0.name == levelName })?.columnName else { return nil }
             return QueryColumn(table: table, column: columnName)

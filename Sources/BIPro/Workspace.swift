@@ -85,6 +85,30 @@ final class Workspace: @unchecked Sendable {
         metadata?.hierarchies.filter { $0.tableName == table } ?? []
     }
 
+    /// Phân cấp ngày Auto date/time của cột (T034): cột có `Variation` thì có "Date Hierarchy" với các cấp của bảng ngày cục bộ.
+    /// `hierarchies` chỉ có bảng người dùng, nên cấp lấy theo mẫu `AutoDateTime.hierarchyLevels` (mọi bảng ngày cục bộ giống nhau).
+    func dateHierarchy(table: String, column: String) -> FieldRef? {
+        guard let variation = metadata?.variations.first(where: { $0.table == table && $0.column == column }) else { return nil }
+        let levels = metadata?.hierarchies.first { $0.tableName == variation.hierarchy.table && $0.name == variation.hierarchy.name }?
+            .levels.map(\.name) ?? AutoDateTime.hierarchyLevels
+        return FieldRef(variation: variation, levels: levels)
+    }
+
+    /// Cột của một cấp phân cấp trong visual: phân cấp thường (cột của cấp trong bảng), hay phân cấp ngày (cột cùng tên cấp của bảng
+    /// ngày cục bộ qua `Variation`).
+    func levelColumn(_ field: ReportField) -> QueryColumn? {
+        guard field.kind == .hierarchyLevel, let metadata else { return nil }
+        if let column = field.variationColumn {
+            guard let variation = metadata.variations.first(where: {
+                $0.table == field.entity && $0.column == column && $0.name == (field.variationName ?? $0.name)
+            }) else { return nil }
+            return QueryColumn(table: variation.hierarchy.table, column: field.property)
+        }
+        let level = metadata.hierarchies.lazy.filter { $0.tableName == field.entity }
+            .compactMap { $0.levels.first { $0.name == field.property }?.columnName }.first
+        return level.map { QueryColumn(table: field.entity, column: $0) }
+    }
+
     func measure(table: String, name: String) -> ModelMetadata.Measure? {
         metadata?.measures.first { $0.name == name && ($0.tableName == table || table.isEmpty) }
             ?? metadata?.measures.first { $0.name == name }

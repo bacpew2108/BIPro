@@ -253,6 +253,9 @@ struct SaveCommands: Commands {
                 .keyboardShortcut("s", modifiers: .command)
             Button("Lưu thành…") { state?.saveAs() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
+            Divider()
+            Button("Tuỳ chọn tệp…") { state?.showFileOptionsDialog() }
+                .disabled(state == nil)
         }
     }
 }

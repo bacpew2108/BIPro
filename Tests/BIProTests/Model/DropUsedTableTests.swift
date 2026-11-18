@@ -13,6 +13,8 @@ struct DropUsedTableTests {
         let sample = try #require(FFixtures.sample("sales_2026.sqlite"))
         let untitled = try UntitledDocuments.create(root: root)
         let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: untitled)), fileName: untitled.lastPathComponent, fileURL: untitled)
+        // Test chặn theo nơi dùng: tắt tự phát hiện quan hệ (T035), nếu không Sales→Customers tự tạo cũng chặn việc gỡ Customers.
+        state.layout.setAutodetectRelationships(false)
         state.showGetData(kind: .sqlite, pickFile: { _ in sample.path })
         let navigator = try #require(state.getDataState)
         for _ in 0..<400 where navigator.phase == .listingItems || navigator.phase == .choosingSource { try await Task.sleep(for: .milliseconds(25)) }

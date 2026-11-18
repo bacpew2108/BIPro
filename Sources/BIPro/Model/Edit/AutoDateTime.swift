@@ -83,3 +83,160 @@ enum AutoDateTime {
 
     static let variationName = "Variation"
 }
+
+// MARK: - T032: sinh `ModelEdit` theo vòng đời (`specs/011-ton-dong-sau-phase-f/data-model.md`, "Bảng ngày cục bộ")
+
+extension AutoDateTime {
+    /// Tuỳ chọn của file đang bật.
+    static func isEnabled(_ model: ModelMetadata) -> Bool { model.modelAnnotations[modelAnnotation] == "1" }
+
+    static func isLocalTable(_ name: String) -> Bool { name.hasPrefix(localTablePrefix) }
+    static func isTemplateTable(_ name: String) -> Bool { name.hasPrefix(templateTablePrefix) }
+
+    /// Cột được sinh bảng ngày: cột ngày (kiểu `dateTime`, cả Date lẫn DateTime) không ẩn của bảng người dùng, trừ bảng đã đánh dấu
+    /// là bảng ngày (`DataCategory = Time`) và cột ở phía nhiều của một quan hệ (tài liệu Power BI "Auto date/time": cột không phải phía
+    /// "many" của quan hệ; `w8.3.pbix`: các cột ngày nối tới bảng `Ngày` không có bảng ngày cục bộ, T066).
+    static func wantsLocalTable(_ column: ModelMetadata.Column, in model: ModelMetadata) -> Bool {
+        guard column.dataType == .dateTime, !column.isHidden, column.kind != .rowNumber,
+              let table = model.tables.first(where: { $0.name == column.tableName }), table.isUserTable, table.dataCategory != "Time" else { return false }
+        if isManySide(table: column.tableName, column: column.name, in: model) { return false }
+        return !isLocalTable(table.name) && !isTemplateTable(table.name)
+    }
+
+    /// Cột là đầu nhiều của một quan hệ thường (không tính quan hệ tới bảng ngày cục bộ).
+    static func isManySide(table: String, column: String, in model: ModelMetadata) -> Bool {
+        model.relationships.contains {
+            ($0.fromTable == table && $0.fromColumn == column && $0.cardinality.hasPrefix("M"))
+                || ($0.toTable == table && $0.toColumn == column && $0.cardinality.hasSuffix("M"))
+        }
+    }
+
+    /// Thao tác dựng một bảng ngày (cột, cờ, phân cấp). Thứ tự theo `AutoDateWriteTests.localDateEdits` (T031): bảng và cột trước, cờ bảng sau
+    /// cùng vì bộ ghi đặt `SystemFlags = 2` cho mọi cột đã có.
+    private static func tableEdits(name: String, expression: String, template: Bool) -> [ModelEdit] {
+        var edits: [ModelEdit] = [.addCalculatedTable(name: name, expression: expression,
+                                                      columns: [ColumnSignature(name: "Date", dataType: .dateTime, sourceColumn: "[Date]")])]
+        for column in columns {
+            guard let expression = column.expression else { continue }
+            edits.append(.addCalculatedColumn(table: name, name: column.name, expression: expression, dataType: column.dataType))
+        }
+        for column in columns {
+            var annotations = columnAnnotations.mapValues { Assignment.set($0) }
+            if let id = column.templateId { annotations["TemplateId"] = .set(id) }
+            edits.append(.updateColumn(table: name, name: column.name, patch: ColumnPatch(
+                isHidden: true, formatString: column.formatString.map { .set($0) }, summarizeBy: 2,
+                dataCategory: .set(column.dataCategory), sortBy: column.sortBy.map { .set($0) }, annotations: annotations)))
+        }
+        let notes = (template ? templateTableAnnotations : localTableAnnotations).mapValues { Assignment.set($0) }
+        edits.append(.updateTable(name: name, patch: template ? TablePatch(isHidden: true, isPrivate: true, annotations: notes)
+                                                              : TablePatch(isHidden: true, showAsVariationsOnly: true, annotations: notes)))
+        edits.append(.addHierarchy(NewHierarchy(table: name, name: hierarchyName,
+                                                levels: hierarchyLevels.map { HierarchyLevel(name: $0, column: $0) },
+                                                annotations: hierarchyAnnotations)))
+        return edits
+    }
+
+    /// Bộ bảng ngày cục bộ cho `table[column]`: bảng, quan hệ chỉ so phần ngày, variation.
+    static func addEdits(table: String, column: String, id: () -> UUID = UUID.init) -> [ModelEdit] {
+        let local = tableName(prefix: localTablePrefix, id: id()), relationship = relationshipName(id: id())
+        return tableEdits(name: local, expression: localExpression(table: table, column: column), template: false) + [
+            .addRelationship(NewRelationship(name: relationship, fromTable: table, fromColumn: column, toTable: local, toColumn: "Date",
+                                             crossFilteringBehavior: crossFilteringBehavior, joinOnDateBehavior: joinOnDateBehavior)),
+            .addVariation(table: table, column: column, relationship: relationship, hierarchy: HierarchyRef(table: local, name: hierarchyName)),
+        ]
+    }
+
+    static func templateEdits(id: () -> UUID = UUID.init) -> [ModelEdit] {
+        tableEdits(name: tableName(prefix: templateTablePrefix, id: id()), expression: templateExpression, template: true)
+    }
+
+    /// Bỏ bộ bảng ngày của một variation: variation, quan hệ, phân cấp, bảng cục bộ (thứ tự bộ ghi cần).
+    static func dropEdits(_ variation: ModelMetadata.Variation) -> [ModelEdit] {
+        [.dropVariation(table: variation.table, column: variation.column), .deleteRelationship(name: variation.relationship),
+         .dropHierarchy(table: variation.hierarchy.table, name: variation.hierarchy.name), .dropTable(name: variation.hierarchy.table)]
+    }
+
+    private static func templateDropEdits(_ model: ModelMetadata) -> [ModelEdit] {
+        model.tables.filter { isTemplateTable($0.name) }.flatMap { table -> [ModelEdit] in
+            let hierarchies = model.hierarchyNames(table.name)
+            return hierarchies.map { .dropHierarchy(table: table.name, name: $0) } + [.dropTable(name: table.name)]
+        }
+    }
+
+    /// Bật hoặc tắt tuỳ chọn trên mô hình hiệu lực `model`. Tắt: bỏ mọi bộ bảng ngày và bảng mẫu, chú thích về 0. Bật: chú thích 1, bảng mẫu,
+    /// bộ bảng cho mọi cột ngày chưa có (GUID mới, như Desktop bật lại).
+    static func toggle(enabled: Bool, model: ModelMetadata, id: () -> UUID = UUID.init) -> [ModelEdit] {
+        if !enabled {
+            return model.variations.flatMap(dropEdits) + templateDropEdits(model) + [.setModelAnnotation(name: modelAnnotation, value: "0")]
+        }
+        let covered = Set(model.variations.map { "\($0.table)\u{0}\($0.column)" })
+        let wanted = model.columns.filter { wantsLocalTable($0, in: model) && !covered.contains("\($0.tableName)\u{0}\($0.name)") }
+        var edits: [ModelEdit] = [.setModelAnnotation(name: modelAnnotation, value: "1")]
+        if !wanted.isEmpty || !model.variations.isEmpty, !model.tables.contains(where: { isTemplateTable($0.name) }) { edits += templateEdits(id: id) }
+        for column in wanted { edits += addEdits(table: column.tableName, column: column.name, id: id) }
+        return edits
+    }
+
+    /// Thao tác của người dùng `edits` trên mô hình hiệu lực `model`, kèm thao tác Auto date/time khi tuỳ chọn bật:
+    /// - trước: bỏ bộ bảng ngày của cột sắp mất, đổi tên, đổi dữ liệu hay công thức (bảng xoá hoặc thay, cột tính toán sửa hoặc xoá);
+    /// - sau: thêm bộ bảng ngày cho cột ngày vừa có (bảng nạp, thay, bảng hay cột tính toán mới), bảng mẫu khi chưa có, bỏ bảng mẫu khi
+    ///   không còn bảng cục bộ nào.
+    /// Bảng thay dữ liệu thì bộ bảng dựng lại (GUID mới) vì khoảng năm theo dữ liệu mới. Mô hình không áp được thì trả nguyên `edits`
+    /// để bước kiểm báo lý do.
+    static func expand(_ edits: [ModelEdit], model: ModelMetadata, id: () -> UUID = UUID.init) -> [ModelEdit] {
+        guard isEnabled(model), !edits.isEmpty else { return edits }
+        // Đổi tuỳ chọn ngay trong lô: để `toggle` lo.
+        if edits.contains(where: { if case .setModelAnnotation(modelAnnotation, _) = $0 { true } else { false } }) { return edits }
+        var dropped: [String: ModelMetadata.Variation] = [:]   // "bảng\0cột" → variation bỏ trước
+        func drop(_ test: (ModelMetadata.Variation) -> Bool) {
+            for v in model.variations where test(v) { dropped["\(v.table)\u{0}\(v.column)"] = v }
+        }
+        var touched = Set<String>()   // bảng có cột cần xét sau (chữ thường) hoặc "bảng\0cột"
+        for edit in edits {
+            switch edit {
+            case .dropTable(let t): drop { $0.table == t }
+            case .replaceTable(let t, let new): drop { $0.table == t }; touched.insert(new.name)
+            case .updateCalculatedTable(let t, _, _): drop { $0.table == t }; touched.insert(t)
+            case .addTable(let new): touched.insert(new.name)
+            case .addCalculatedTable(let t, _, _): touched.insert(t)
+            case .deleteCalculatedColumn(let t, let c): drop { $0.table == t && $0.column == c }
+            case .updateCalculatedColumn(let t, let c, _, _): drop { $0.table == t && $0.column == c }; touched.insert("\(t)\u{0}\(c)")
+            case .addCalculatedColumn(let t, let c, _, _): touched.insert("\(t)\u{0}\(c)")
+            case .addRelationship(let r):
+                // Cột thành phía nhiều thì bỏ bảng ngày của nó (Desktop chỉ có bảng ngày cho cột không ở phía nhiều).
+                if r.fromMany { drop { $0.table == r.fromTable && $0.column == r.fromColumn } }
+                if r.toMany { drop { $0.table == r.toTable && $0.column == r.toColumn } }
+            case .deleteRelationship(let name):
+                if let r = model.relationships.first(where: { $0.name == name }) {
+                    touched.insert("\(r.fromTable)\u{0}\(r.fromColumn)"); touched.insert("\(r.toTable)\u{0}\(r.toColumn)")
+                }
+            case .updateColumn(let t, let c, let patch):
+                if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != c {
+                    drop { $0.table == t && $0.column == c }; touched.insert("\(t)\u{0}\(renamed)")
+                }
+            default: break
+            }
+        }
+        let before = dropped.values.sorted { ($0.table, $0.column) < ($1.table, $1.column) }.flatMap(dropEdits)
+        guard let after = try? model.applying(ModelEdits(before + edits)) else { return edits }
+        let covered = Set(after.variations.map { "\($0.table)\u{0}\($0.column)" })
+        let added = after.columns.filter {
+            (touched.contains($0.tableName) || touched.contains("\($0.tableName)\u{0}\($0.name)")) && wantsLocalTable($0, in: after)
+                && !covered.contains("\($0.tableName)\u{0}\($0.name)")
+        }
+        var trailing: [ModelEdit] = []
+        let hasTemplate = after.tables.contains { isTemplateTable($0.name) }
+        if !added.isEmpty, !hasTemplate { trailing += templateEdits(id: id) }
+        for column in added { trailing += addEdits(table: column.tableName, column: column.name, id: id) }
+        if added.isEmpty, after.variations.isEmpty, hasTemplate { trailing += templateDropEdits(after) }
+        return before + edits + trailing
+    }
+}
+
+private extension ModelMetadata {
+    /// Tên phân cấp của bảng, kể cả bảng hệ thống (`hierarchies` chỉ có bảng thường): bảng ngày luôn có "Date Hierarchy".
+    func hierarchyNames(_ table: String) -> [String] {
+        let listed = hierarchies.filter { $0.tableName == table }.map(\.name)
+        return listed.isEmpty ? [AutoDateTime.hierarchyName] : listed
+    }
+}

@@ -24,7 +24,12 @@ extension LayoutEditor {
     /// Editor cho báo cáo định dạng cũ (D7): chỉ bố cục. `sourceJSON` là byte của container trong `Report/Layout`.
     static func readingLegacy(archive: ZipArchive, report: ReportDefinition) -> LayoutEditor {
         let cache = LegacyContainerCache(archive)
-        return LayoutEditor(report: report, sourceJSON: { page, id in cache.json(page: page, id: id) }, isLegacy: true)
+        // Chỉ part `Settings` (tuỳ chọn của file, T033): báo cáo cũ không có part PBIR nào để dựng lại.
+        return LayoutEditor(report: report, sourceJSON: { page, id in cache.json(page: page, id: id) },
+                            openedParts: { prefix in
+                                guard prefix == FileSettings.path, let entry = archive.entry(prefix), let data = try? archive.read(entry) else { return [] }
+                                return [(prefix, data)]
+                            }, isLegacy: true)
     }
 
     /// Thay đổi cần ghi vào `Report/Layout` của `archive` (file trên đĩa): vị trí đổi, container thêm và xoá, chỉ so với file

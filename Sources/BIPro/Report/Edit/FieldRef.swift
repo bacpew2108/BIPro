@@ -18,8 +18,14 @@ struct FieldRef: Codable, Hashable, Sendable {
     var summarizeBy: Int?
     /// Tên các cấp (theo thứ tự) của phân cấp; rỗng với cột và measure.
     var levels: [String] = []
+    /// Phân cấp ngày Auto date/time (T034): cột ngày nguồn và tên variation; `entity` là bảng của cột, `property` tên phân cấp.
+    var variationColumn: String?
+    var variationName: String?
 
-    var queryRef: String { "\(entity).\(property)" }
+    var queryRef: String {
+        if let variationColumn { return "\(entity).\(variationColumn).\(variationName ?? "Variation").\(property)" }
+        return "\(entity).\(property)"
+    }
 
     init(kind: Kind, entity: String, property: String, family: Family = .other, summarizeBy: Int? = nil, levels: [String] = []) {
         self.kind = kind; self.entity = entity; self.property = property; self.family = family; self.summarizeBy = summarizeBy
@@ -29,6 +35,13 @@ struct FieldRef: Codable, Hashable, Sendable {
     /// Phân cấp của mô hình (ví dụ "Thời gian": Năm, Quý, Tháng, Ngày): thả vào ô thì thêm đủ các cấp (VM-D11).
     init(hierarchy: ModelMetadata.Hierarchy) {
         self.init(kind: .hierarchy, entity: hierarchy.tableName, property: hierarchy.name, family: .date, levels: hierarchy.levels.map(\.name))
+    }
+
+    /// Phân cấp ngày của cột ngày có `Variation` (VM-F11b): tick hay kéo cột ngày thì thêm "Date Hierarchy" (Year, Quarter, Month, Day).
+    init(variation: ModelMetadata.Variation, levels: [String]) {
+        self.init(kind: .hierarchy, entity: variation.table, property: variation.hierarchy.name, family: .date, levels: levels)
+        variationColumn = variation.column
+        variationName = variation.name
     }
 
     init(column: ModelMetadata.Column) {
