@@ -115,7 +115,7 @@ struct EnterDataView: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: indexWidth, height: 24)
             ForEach(table.columns.indices, id: \.self) { column in
-                TextField("", text: Binding(get: { table.columns[column] }, set: { table.renameColumn(column, to: $0) }))
+                TextField("", text: Binding(get: { table.columns[column] }, set: { edit($0, row: nil, column: column) }))
                     .textFieldStyle(.plain)
                     .font(DS.Typeface.headlineSmall)
                     .padding(.horizontal, 6)
@@ -142,7 +142,7 @@ struct EnterDataView: View {
                 .contextMenu { Button("Xoá dòng") { table.removeRow(row) } }
             ForEach(table.columns.indices, id: \.self) { column in
                 TextField("", text: Binding(get: { table.rows.indices.contains(row) ? table.rows[row][column] : "" },
-                                            set: { table.set(row: row, column: column, to: $0) }))
+                                            set: { edit($0, row: row, column: column) }))
                     .textFieldStyle(.plain)
                     .font(DS.Typeface.body)
                     .padding(.horizontal, 6)
@@ -150,6 +150,24 @@ struct EnterDataView: View {
                     .background(Color.white)
                     .border(DS.Palette.separator, width: 0.5)
             }
+        }
+    }
+
+    /// Ô vừa nhận chữ: khối nhiều ô (⌘V khi đang sửa ô) thì dán vào lưới từ ô đó và thôi sửa ô, để lưới vẽ lại; còn lại ghi vào ô.
+    private func edit(_ value: String, row: Int?, column: Int) {
+        guard EnterDataTable.isMultiCell(value) else {
+            if let row { table.set(row: row, column: column, to: value) } else { table.renameColumn(column, to: value) }
+            return
+        }
+        // Ô nhận "chữ cũ + khối dán": lấy khối từ clipboard khi có, không thì dùng cả chuỗi.
+        let clipboard = NSPasteboard.general.string(forType: .string)
+        let text = clipboard.map { value.contains($0) } == true ? clipboard! : value
+        NSApp.keyWindow?.makeFirstResponder(nil)
+        do {
+            promotedBanner = try table.pasteIntoCell(text, row: row, column: column) || promotedBanner
+            message = nil
+        } catch {
+            message = error.message
         }
     }
 

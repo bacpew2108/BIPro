@@ -112,4 +112,22 @@ import Testing
         try table.paste("N\tD\tS\r\n1\t1.5\ta\r\n2\t\tb\r\n")
         #expect(table.m.contains(#"Table.TransformColumnTypes(Source,{{"N", Int64.Type}, {"D", type number}, {"S", type text}})"#))
     }
+
+    /// T038 (bấm thử app): ⌘V khi đang sửa một ô làm ô nhận cả khối TSV. Chuỗi có tab/xuống dòng trong ô thì dán vào lưới từ ô đó.
+    @Test func danNhieuOVaoMotOThiTraiRaLuoi() throws {
+        let tsv = "Mã KH\tTên\n1\tAn\n2\tBình\n"
+        var empty = EnterDataTable(name: "Table")
+        #expect(EnterDataTable.isMultiCell(tsv) && !EnterDataTable.isMultiCell("An"))
+        // Lưới trống: như dán cả lưới, dòng đầu thành tiêu đề (từ ô dữ liệu hay ô tiêu đề đều vậy).
+        #expect(try empty.pasteIntoCell(tsv, row: 0, column: 0))
+        #expect(empty.columns == ["Mã KH", "Tên"] && empty.rows == [["1", "An"], ["2", "Bình"]])
+        var header = EnterDataTable(name: "Table")
+        #expect(try header.pasteIntoCell(tsv, row: nil, column: 0))
+        #expect(header.columns == ["Mã KH", "Tên"])
+        // Lưới có dữ liệu: ghi đè từ ô đang sửa, thiếu thì thêm dòng/cột.
+        var filled = empty
+        #expect(try !filled.pasteIntoCell("x\ty\nz\tw", row: 1, column: 1))
+        #expect(filled.columns.count == 3)
+        #expect(filled.rows == [["1", "An", ""], ["2", "x", "y"], ["", "z", "w"]])
+    }
 }

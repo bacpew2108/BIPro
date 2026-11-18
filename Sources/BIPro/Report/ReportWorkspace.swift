@@ -25,6 +25,7 @@ struct ReportWorkspace: View {
                         .overlay {
                             // T029: tài liệu chưa có bảng thì giữa khung trang là màn "Thêm dữ liệu vào báo cáo" (VM-F11a).
                             if AddDataPanel.isShown(for: state) { AddDataPanel(state: state) }
+                            else if CanvasHint.isShown(for: state) { CanvasHint() }
                         }
                         .overlay(alignment: .topTrailing) { EditModeSwitch(state: state) }
                 } else {

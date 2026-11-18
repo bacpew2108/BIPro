@@ -93,7 +93,8 @@ struct BuildWells: View {
     private func row(_ field: ReportField, index: Int, count: Int, rule: WellRule, editable: Bool, rules: [WellRule]) -> some View {
         ZStack(alignment: .trailing) {
             FieldChip(symbol: fieldSymbol(field), tint: field.kind == .measure ? DS.Palette.measure : DS.Palette.secondaryLabel,
-                      title: title(field), subtitle: title(field) == field.property ? field.entity : "\(field.entity)[\(field.property)]")
+                      title: title(field), subtitle: field.variationColumn.map { "\(field.entity)[\($0)]" }
+                          ?? (title(field) == field.property ? field.entity : "\(field.entity)[\(field.property)]"))
             if editable {
                 Button { layout.removeField(role: rule.role, index: index, visual: visual.id) } label: {
                     Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(DS.Palette.tertiaryLabel)

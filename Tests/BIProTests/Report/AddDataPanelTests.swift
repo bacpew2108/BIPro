@@ -46,4 +46,17 @@ import Testing
         state.layout.undo()
         #expect(AddDataPanel.isShown(for: state))
     }
+
+    /// T038: có bảng mà trang chưa có visual thì giữa khung là gợi ý "Dựng visual từ dữ liệu" (Desktop: "Build visuals with your
+    /// data", ảnh a6), không có nút; có visual đầu tiên thì gợi ý biến mất.
+    @Test func goiYDungVisualKhiCoBangMaTrangTrong() async throws {
+        let (state, root) = try newDocument(); defer { try? FileManager.default.removeItem(at: root) }
+        #expect(!CanvasHint.isShown(for: state))   // chưa có bảng: màn thêm dữ liệu
+        state.showEnterData()
+        try state.enterData?.paste("k\n1")
+        #expect(await state.loadEnterData(try #require(state.enterData)) == nil)
+        #expect(CanvasHint.isShown(for: state))
+        #expect(state.layout.insertVisual(type: "clusteredColumnChart", visibleRect: nil) != nil, "\(state.layout.fieldRefusal ?? "")")
+        #expect(!CanvasHint.isShown(for: state))
+    }
 }

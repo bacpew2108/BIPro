@@ -73,6 +73,17 @@ struct EnterDataTable: Equatable {
         return false
     }
 
+    /// Chuỗi vừa vào một ô có tab hoặc xuống dòng: là khối nhiều ô dán từ bảng tính, không phải chữ gõ vào ô.
+    static func isMultiCell(_ text: String) -> Bool { text.contains { $0 == "\t" || $0 == "\n" || $0 == "\r" || $0 == "\r\n" } }
+
+    /// Dán khối nhiều ô khi đang sửa ô (`row` nil là ô tiêu đề): lưới trống thì như dán cả lưới (dòng đầu thành tiêu đề), còn lại ghi
+    /// đè từ ô đó (ô tiêu đề thì từ dòng đầu của cột đó). Trả `true` khi dòng đầu thành tiêu đề.
+    @discardableResult
+    mutating func pasteIntoCell(_ text: String, row: Int?, column: Int) throws(PasteError) -> Bool {
+        if isEmpty { return try paste(text) }
+        return try paste(text, row: row ?? 0, column: column)
+    }
+
     /// "Undo Headers" của Desktop: tiêu đề trở lại thành dòng đầu, cột đặt lại "Column1…".
     mutating func demoteHeaders() {
         rows.insert(columns, at: 0)

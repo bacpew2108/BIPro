@@ -116,6 +116,20 @@ import Testing
                                measures: [measure], values: [rows], highlights: nil, isReduced: false)
     }
 
+    /// T038 (bấm thử app): tích cột ngày vào biểu đồ cột xếp chồng mới (chỉ có trục X, chưa có Y) làm app sập (`roleYIndices[0]` khi
+    /// rỗng). Mọi loại biểu đồ trục với danh mục mà chưa có measure phải dựng được, không có cột/điểm nào.
+    @Test func coTrucXMaChuaCoYKhongSap() {
+        let data = CategoricalData(categoryLevels: [FieldInfo(queryRef: "T.Year", displayName: "Year", role: "Category", formatString: nil, isMeasure: false)],
+                                   categories: ["2025", "2026"].map { CategoryKey(values: [.string($0)]) },
+                                   seriesField: nil, series: [], measures: [], values: [], highlights: nil, isReduced: false)
+        let kinds: [CartesianKind] = [.clusteredBar, .clusteredColumn, .stackedColumn, .hundredPercentStackedColumn, .line, .comboClustered,
+                                      .comboStacked, .area, .stackedArea, .hundredPercentStackedArea]
+        for kind in kinds {
+            let layout = PreparedChartLayout(data: data, kind: kind, context: VisualRenderContext())
+            #expect(layout.bars.isEmpty, "\(kind)")
+        }
+    }
+
     @Test func vungBatDauTuKhongVaVungXepChongCongDonCacLop() {
         let area = PreparedChartLayout(data: areaData(series: 2), kind: .area, context: VisualRenderContext())
         #expect(area.columnYDomain.lowerBound == 0, "vùng luôn bắt đầu từ 0")

@@ -228,13 +228,19 @@ struct VisualContainerView: View {
                      alignment: HorizontalAlignment(reportAlignment: container.string("title", "alignment")))
     }
 
-    /// Power BI's automatic title: "<values> theo <categories>".
-    private var defaultTitle: String {
+    private var defaultTitle: String { Self.defaultTitle(visual.fields) }
+
+    /// Power BI's automatic title: "<values> theo <categories>". Trường danh mục có cờ `active` (phân cấp, drill) thì chỉ kể cấp đang
+    /// hiện, như Desktop ghi "Sum of Amount by Year" cho phân cấp ngày vừa thả (VM-F11b, ảnh b6; T038).
+    static func defaultTitle(_ fields: [ReportField]) -> String {
         let categoryRoles: Set = ["Category", "Rows", "Axis", "Legend", "Series", "Group"]
-        let values = visual.fields.filter { !categoryRoles.contains($0.role) && $0.role != "Tooltips" }.map(\.label)
-        let categories = visual.fields.filter { categoryRoles.contains($0.role) }.map(\.label)
+        let values = fields.filter { !categoryRoles.contains($0.role) && $0.role != "Tooltips" }.map(\.label)
+        var categories = fields.filter { categoryRoles.contains($0.role) }
+        for role in Set(categories.map(\.role)) where categories.contains(where: { $0.role == role && $0.active != nil }) {
+            categories.removeAll { $0.role == role && $0.active != true }
+        }
         let v = values.joined(separator: " và ")
-        return categories.isEmpty ? v : "\(v) theo \(categories.joined(separator: " và "))"
+        return categories.isEmpty ? v : "\(v) theo \(categories.map(\.label).joined(separator: " và "))"
     }
 }
 

@@ -49,6 +49,12 @@ struct FiltersPane: View {
         return count(w.reportFilters, .report, "") + count(page, .page, pageID) + added
     }
 
+    /// Tiêu đề thẻ lọc: cấp phân cấp ngày Auto date/time ghi kèm cột ngày, như "OrderDate - Year" của Desktop (VM-F11b, T038).
+    private func cardTitle(_ field: ReportField) -> String {
+        let label = state.layout.label(of: field)
+        return field.variationColumn.map { "\($0) - \(label)" } ?? label
+    }
+
     private func key(_ filter: ReportFilter, _ level: ReportFilter.Level, _ scope: String) -> UserFilterKey {
         UserFilterKey(level: level, scope: scope, filterID: filter.id)
     }
@@ -83,13 +89,13 @@ struct FiltersPane: View {
     @ViewBuilder private func section(_ title: String, filters: [ReportFilter], scope: String, level: ReportFilter.Level,
                                       empty: String) -> some View {
         let shown = cards(filters, scope: scope, level: level)
-            .filter { search.isEmpty || ($0.field.map(state.layout.label(of:)) ?? $0.id).localizedCaseInsensitiveContains(search) }
+            .filter { search.isEmpty || ($0.field.map(cardTitle) ?? $0.id).localizedCaseInsensitiveContains(search) }
         Text(title).font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
             .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.top, 14).padding(.bottom, 6)
         VStack(spacing: 6) {
             ForEach(shown) { filter in
                 FilterCard(filter: filter, key: key(filter, level, scope), interaction: state.interaction,
-                           title: filter.field.map(state.layout.label(of:)) ?? filter.id,
+                           title: filter.field.map(cardTitle) ?? filter.id,
                            removable: !filter.id.hasPrefix("implicit-"))
             }
             AddFieldMenu(interaction: state.interaction, level: level, scope: scope)

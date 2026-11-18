@@ -601,9 +601,10 @@ struct PreparedChartLayout: Sendable {
             let isNorm = (kind == .hundredPercentStackedColumn)
             let mIdx = roleYIndices.first ?? 0
             let mField = data.measures.indices.contains(mIdx) ? data.measures[mIdx] : FieldInfo(queryRef: "", displayName: "", role: "Y", formatString: nil, isMeasure: true)
-            let seriesCount = hasSeries ? numSeries : Swift.max(1, roleYIndices.count)
+            // Chưa có measure ở Y (vừa thả trục X trước) thì không có chuỗi nào để xếp chồng (T038: trước đây đọc `roleYIndices[0]` khi rỗng).
+            let seriesCount = hasSeries ? (roleYIndices.isEmpty ? 0 : numSeries) : roleYIndices.count
             
-            for cIdx in 0..<numCats {
+            for cIdx in 0..<numCats where seriesCount > 0 {
                 var cellVals: [Double?] = []
                 var cells: [DataCell] = []
                 for sIdx in 0..<seriesCount {
