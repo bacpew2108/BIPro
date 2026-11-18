@@ -48,7 +48,7 @@ Cập nhật: 2026-11-17 (Phase F xong, T102 đã báo cáo; chờ bạn quyết
 
 ## Worktree / worker
 
-**F2-DAXTEXT (agy, T020) XONG, review T021 ĐẠT sau một lần giao lại (2026-11-18), chưa merge (chờ bạn):**
+**F2-DAXTEXT (agy, T020) XONG, review T021 ĐẠT sau một lần giao lại, ĐÃ MERGE vào `main` (2026-11-18, commit worktree `943e397`, merge `e82beb9`, theo lệnh bạn; worktree giữ nguyên, chưa xoá):**
 - Vòng 1: golden 1 194/1 198 (4 ô miễn), 2 273 test qua; lead thấy `FIXED` sập (tràn `Int64`) khi `decimals` ≥ 19. Phản hồi `build/f2-out/agy/f2-daxtext-fix.md`, nhật ký vòng 2 `build/f2-out/agy/f2-daxtext-r2.jsonl`.
 - Vòng 2: `FIXED` dùng `DecimalText` (của FORMAT), test `decimals` 19/20/127 và 1E±300; `upperBody` gọi `daxUpperString`. Lead chạy lại trong worktree: `swift build` sạch, `swift test` 2 274 qua, golden nặng 122/122.
 - Còn ghi nhận (báo cáo mục "Đề xuất cho lead"): `UPPER`/`LOWER`/`SEARCH` dùng ánh xạ hoa thường đầy đủ, chỉ vá "ß", "İ" (ký tự như "ﬁ", "ŉ" có thể lệch Desktop); `REPT` chưa chặn kết quả quá lớn; `COMBINEVALUES` nhận delimiter không hằng; `Binder.bind` chưa có row context ngoài.
@@ -279,7 +279,7 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - `swift test` 2271 qua.
   - Brief `docs/tasks/f2-daxtext.md`: 18 hàm (`CONCATENATEX` lead đã làm), golden 100% trừ 4 ô `UNICODE` của surrogate lẻ.
 - Đã commit `c8779a0`.
-- **T020, T021 xong (2026-11-18):** F2-DAXTEXT đạt review, chờ bạn cho merge (xem mục "Worktree / worker"). Sau merge: T022, T023.
+- **T020, T021 xong, đã merge (2026-11-18, `e82beb9`):** xem mục "Worktree / worker". Việc kế của US3: T022 (`F2TextCalcTests`), T023 (gate Desktop VM-F12).
 
 ## US2 (tài liệu mới giống Desktop), 2026-11-18
 
@@ -297,7 +297,7 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
 - **T029 xong:** `Sources/BIPro/Report/AddDataPanel.swift` gắn ở `ReportWorkspace` (overlay trang). 4 ô + "Lấy dữ liệu từ nguồn khác →"; SQL Server và dữ liệu mẫu xám kèm lý do; biến mất khi có bảng, ⌘Z trả lại.
   - Desktop sau khi có bảng hiện gợi ý "Build visuals with your data"; BI Pro chưa có (nhỏ, chưa giao task).
 - Đã bấm thử trong app (ảnh chỉ cửa sổ app, đã xoá): dán, Tải, Query Editor bánh răng, màn trống. Hai lỗi giao diện tìm ra đã sửa: lưới canh giữa thay vì góc trên trái; Huỷ ở chế độ sửa hỏi xác nhận dù chưa đổi.
-- `swift test` 2 296 qua. Chưa commit.
+- Commit `27c7f1c` (US2 T024–T029). Sau merge F2-DAXTEXT: `swift test` 2 299 qua, golden nặng 123/123 (thêm `F2AutoDateGoldenTests`).
 - **Việc kế:** T030 (bộ ghi `U$`), T031 (variation, chú thích), T032 (`AutoDateTime` sinh lệnh), T033–T036, T066; rồi gate VM T037, bấm thử T038.
 
 ## Việc tiếp theo
