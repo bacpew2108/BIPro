@@ -41,6 +41,8 @@ Chỉ ghi phần mới hoặc đổi. Kiểu hiện có (`ModelMetadata`, `Model
   - Bảng mẫu bị xoá khi không còn bảng ngày cục bộ nào.
   - Tắt tuỳ chọn: xoá tất cả và đặt chú thích về 0. Bật lại: dựng lại.
 - **Chú thích mô hình**: `__PBI_TimeIntelligenceEnabled` bằng 1 khi bật, 0 khi tắt.
+- **Dòng lưu trữ** (f11, T031): bảng, phân vùng và mọi cột của bảng ngày có `SystemFlags = 2`; cột `Date` có `ExplicitDataType` = `InferredDataType` = 9; `RelationshipStorage.DefinitionType` 2 cho quan hệ chỉ so phần ngày (0 cho quan hệ thường); `Variation.DefaultColumnID` 0, `Description` NULL.
+- **Thứ tự thao tác** (T031, dùng ở T032): `addCalculatedTable` (cột `Date`) → `addCalculatedColumn` × 6 → `updateColumn` × 7 (ẩn, định dạng, tổng hợp 2, DataCategory, sắp theo, chú thích) → `updateTable` (ẩn, cờ, chú thích) → `addHierarchy` → `addRelationship` (`joinOnDateBehavior` 2) → `addVariation`. Bỏ: `dropVariation` → `deleteRelationship` → `dropHierarchy` → `dropTable`.
 
 ## Quan hệ tự phát hiện (US2)
 
@@ -51,6 +53,12 @@ Dùng lại `NewRelationship`, với tên `AutoDetected_<guid>` (theo `w8.3.pbix
 - **`NewHierarchy`** gồm `table`, `name`, `levels: [(name, column)]`, `isHidden`. Phần `HierarchyStorage` và tệp `U$` do bộ ghi dựng từ dữ liệu các cột cấp.
 - **`ModelEdit` mới**: `addHierarchy(NewHierarchy)`, `dropHierarchy(table:name:)`, `addVariation(table:column:relationship:hierarchy:)`, `dropVariation(table:column:)`.
 - **Khi lưu lại**: sửa giá trị một cột là cấp phân cấp thì `U$` của phân cấp đó được dựng lại (US4).
+- **Định dạng `U$`** (T030, đọc từ f11, Nhom6, `w8.3`; bộ ghi trùng từng byte):
+  - Mỗi nút một dòng, xếp theo tầng; con của một nút xếp theo thứ tự `H$` của cột cấp, hoặc của cột "sắp theo".
+  - Bốn cột nén bit 32 như `R$`: `MULTI_LEVEL_ID` = mã dữ liệu giá trị cấp; `PARENT_POS`, `FIRST_CHILD_POS` = vị trí + 1 (0 = không có); `CHILD_COUNT` = số con + 1 (0 = lá).
+  - `LevelDefinition` = `$<tên lưu trữ cột>$<vị trí đầu tầng>$…`.
+  - `StructureType` 1 khi mỗi giá trị cấp chỉ có một cha, còn lại 2.
+  - Phân cấp có chú thích (`NewHierarchy.annotations`, ObjectType 9) cho `TemplateId = DateHierarchy`.
 
 ## Cột tính toán còn được dùng (US4)
 

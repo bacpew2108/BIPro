@@ -156,49 +156,49 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - các ô Excel, "Dán dữ liệu vào bảng trống", nguồn khác; SQL Server và dữ liệu mẫu hiện xám kèm lý do;
   - biến mất theo quan sát VM-F11a.
   Test hiển thị và nối nút ở `Tests/BIProTests/Report/AddDataPanelTests.swift`.
-- [ ] T030 [US2] [LEAD] Bộ ghi phân cấp:
+- [x] T030 [US2] [LEAD] Bộ ghi phân cấp:
   - `Sources/PBIXKit/Writing/HierarchyIndexWriter.swift` (mới): dựng `U$` và `HierarchyStorage` từ dữ liệu các cấp, định dạng đọc từ `w8.3.pbix` và Nhom6;
   - `MetadataWriter`: `addHierarchy`, `dropHierarchy` (`Hierarchy`, `Level`).
   - Test `Tests/PBIXKitTests/Write/HierarchyIndexWriterTests.swift`: dựng lại `U$` của Date Hierarchy trong `w8.3.pbix` từ dữ liệu cột, so byte (hoặc so từng ô khi giải mã nếu Desktop có phần thay đổi theo thời điểm). Phân cấp Nhom6 cũng vậy.
-- [ ] T031 [US2] [LEAD] `MetadataWriter` + `TableMetadataWriter`:
+- [x] T031 [US2] [LEAD] `MetadataWriter` + `TableMetadataWriter`:
   - `addVariation`, `dropVariation`, `setModelAnnotation`;
   - `NewRelationship.joinOnDateBehavior`;
   - `NewTable.isPrivate`, `showAsVariationsOnly`, `annotations`.
   Test `Tests/PBIXKitTests/Write/AutoDateWriteTests.swift`: ghi bộ bảng ngày cục bộ cho một cột, đọc lại bằng `ModelMetadata` thấy đúng như `w8.3.pbix`.
-- [ ] T032 [US2] [LEAD] `Sources/BIPro/Model/Edit/AutoDateTime.swift` (+ `Tests/BIProTests/Model/AutoDateTimeTests.swift`), sinh `ModelEdit` theo vòng đời ở `data-model.md`:
+- [x] T032 [US2] [LEAD] `Sources/BIPro/Model/Edit/AutoDateTime.swift` (+ `Tests/BIProTests/Model/AutoDateTimeTests.swift`), sinh `ModelEdit` theo vòng đời ở `data-model.md`:
   - cột ngày thêm, thay hay bỏ; bảng xoá; tắt hay bật tuỳ chọn;
   - GUID mới mỗi bảng; bảng mẫu một lần;
   - dùng `collapsingTableEdits` cho thêm rồi bỏ trong phiên;
   - ca biên: ngày năm 1900 và 9999, cột toàn BLANK, cột ngày giờ (phần giờ bỏ khi so với `Date`), cột ngày ẩn.
   `ModelRuntime` tính bảng ngày cục bộ (bảng tính toán `Calendar`) trong phiên.
-- [ ] T033 [US2] [LEAD] `Sources/PBIXKit/Writing/NewDocument.swift`: tài liệu mới đặt `__PBI_TimeIntelligenceEnabled = 1`. Nối Tệp ▸ "Tuỳ chọn tệp" (`Sources/BIPro/Shell/`), gồm Auto date/time và "Tự phát hiện quan hệ mới sau khi nạp" như Desktop, hoàn tác được.
-- [ ] T034 [US2] [LEAD] Field list và visual:
+- [x] T033 [US2] [LEAD] `Sources/PBIXKit/Writing/NewDocument.swift`: tài liệu mới đặt `__PBI_TimeIntelligenceEnabled = 1`. Nối Tệp ▸ "Tuỳ chọn tệp" (`Sources/BIPro/Shell/`), gồm Auto date/time và "Tự phát hiện quan hệ mới sau khi nạp" như Desktop, hoàn tác được.
+- [x] T034 [US2] [LEAD] Field list và visual:
   - `Sources/BIPro/Panes/DataPane.swift` hiện "Date Hierarchy" dưới cột ngày qua `variations`;
   - `VisualQuerySpecReader` và `DAXQueryBuilder` hiểu `HierarchyLevel` có `PropertyVariationSource`, văn bản truy vấn theo Performance Analyzer VM-F11b;
   - kéo cột ngày vào trục dùng phân cấp như Desktop.
   Test ở `Tests/BIProTests/VisualQuery/VariationQueryTests.swift`, golden trên `w8.3.pbix` và `f11-desktop.pbix`.
-- [ ] T035 [US2] [LEAD] `Sources/BIPro/Model/Edit/RelationshipDetector.swift` (+ `Tests/BIProTests/Model/RelationshipDetectorTests.swift`):
+- [x] T035 [US2] [LEAD] `Sources/BIPro/Model/Edit/RelationshipDetector.swift` (+ `Tests/BIProTests/Model/RelationshipDetectorTests.swift`):
   - quy tắc theo VM-F11c; tên `AutoDetected_<guid>`; thứ tự ổn định;
   - chạy sau Get Data ▸ Tải và Close & Apply, cùng bước ⌘Z;
   - tôn trọng tuỳ chọn tắt;
   - các ca biên của spec: khác kiểu, cả hai phía không duy nhất, đường thứ hai.
-- [ ] T066 [US2] [LEAD] FR-015, file Desktop đã bật Auto date/time (bản sao `w8.3.pbix` ở `build/f2-out/`):
+- [x] T066 [US2] [LEAD] FR-015, file Desktop đã bật Auto date/time (bản sao `w8.3.pbix` ở `build/f2-out/`):
   - `MetadataWriter.relationshipsToRebuild`, `requireReplaceable`: cho thay và xoá bảng có quan hệ ngày của Auto date/time (`JoinOnDateBehavior = 2`) và có `Variation`; khi thay thì bảng ngày cục bộ tính lại theo dữ liệu mới, khi xoá thì bỏ kèm;
   - `AutoDateTime.swift` sinh lệnh cho file có sẵn cũng như tài liệu mới;
   - test `Tests/BIProTests/Model/F2AutoDateExistingTests.swift`: nạp thêm bảng có cột ngày, thay `Thông tin nhân viên` (Close & Apply), xoá một bảng có cột ngày → lưu → mở lại, bảng ngày cục bộ đúng khoảng năm mới;
   - để lại `build/f2-out/f11/w83_f2.pbix` cho gate T037.
-- [ ] T036 [US2] [LEAD] Test đầu-cuối `Tests/BIProTests/Model/F2NewDocFlowTests.swift`:
+- [x] T036 [US2] [LEAD] Test đầu-cuối `Tests/BIProTests/Model/F2NewDocFlowTests.swift`:
   - tài liệu mới → Enter Data 3×5 → Get Data `sales_2026.xlsx` + `customers.xlsx` → quan hệ tự tạo → biểu đồ cột theo Năm của `OrderDate` → lưu → mở lại;
   - cấu trúc bằng `f11-desktop.pbix` (số bảng ngày cục bộ, phân cấp, quan hệ, variation); số liệu đúng.
   - Để lại `build/f2-out/f11/bipro-f11.pbix`.
-- [ ] T037 [US2] [VM] Gate VM-F11: Desktop mở `bipro-f11.pbix` không lỗi.
+- [x] T037 [US2] [VM] Gate VM-F11: Desktop mở `bipro-f11.pbix` không lỗi.
   - Field list có Date Hierarchy; biểu đồ theo Năm ra cùng số.
   - Quan hệ giống file Desktop tự làm.
   - Refresh bảng Enter Data ra cùng dữ liệu.
   - Thêm một visual theo Quý trong Desktop chạy được.
   - Desktop mở `w83_f2.pbix` (T066) không lỗi, phân cấp ngày của bảng thay và bảng mới đúng khoảng năm.
   Ghi `vm-f11/KET-QUA.md`.
-- [ ] T038 [US2] [LEAD] Bấm thử app: màn thêm dữ liệu, dán từ Numbers, tắt/bật Auto date/time, ⌘Z quan hệ tự tạo. Ảnh chỉ cửa sổ app. Cập nhật `docs/STATE.md`.
+- [x] T038 [US2] [LEAD] Bấm thử app: màn thêm dữ liệu, dán từ Numbers, tắt/bật Auto date/time, ⌘Z quan hệ tự tạo. Ảnh chỉ cửa sổ app. Cập nhật `docs/STATE.md`.
 
 ## Giai đoạn 5: US6, nguồn (P3, gói agy chạy song song với US2)
 

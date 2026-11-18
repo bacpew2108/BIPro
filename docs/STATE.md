@@ -298,7 +298,87 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - Desktop sau khi có bảng hiện gợi ý "Build visuals with your data"; BI Pro chưa có (nhỏ, chưa giao task).
 - Đã bấm thử trong app (ảnh chỉ cửa sổ app, đã xoá): dán, Tải, Query Editor bánh răng, màn trống. Hai lỗi giao diện tìm ra đã sửa: lưới canh giữa thay vì góc trên trái; Huỷ ở chế độ sửa hỏi xác nhận dù chưa đổi.
 - Commit `27c7f1c` (US2 T024–T029). Sau merge F2-DAXTEXT: `swift test` 2 299 qua, golden nặng 123/123 (thêm `F2AutoDateGoldenTests`).
-- **Việc kế:** T030 (bộ ghi `U$`), T031 (variation, chú thích), T032 (`AutoDateTime` sinh lệnh), T033–T036, T066; rồi gate VM T037, bấm thử T038.
+- **T030 xong (2026-11-18, chưa commit):** `Sources/PBIXKit/Writing/HierarchyIndexWriter.swift` (`HierarchyIndex`: dựng cây, mã hoá bốn cột `U$`, cấp từ giá trị trong bộ nhớ hoặc từ ABF qua `H$`).
+  - `MetadataWriter.addHierarchy/dropHierarchy` (`hierarchyLevelsProvider`, cột tính toán lấy từ `calculatedValues`), `PBIXWriter` nối nguồn cấp và cho phép tệp `U$` đổi; `ModelMetadata.applying` hiểu hai thao tác.
+  - Test `HierarchyIndexWriterTests`: 4 phân cấp f11, 6 Nhom6, 3 `w8.3` trùng từng byte; xoá rồi thêm lại "Địa lý KH" của Nhom6 qua `PBIXWriter` ra tệp `U$` trùng Desktop.
+  - Định dạng ghi ở `data-model.md`. `swift test` 2 306 qua, golden nặng 123/123.
+- **T031 xong (2026-11-18, chưa commit):** `MetadataWriter` ghi `addVariation/dropVariation/setModelAnnotation`; `TablePatch` có `isPrivate`, `showAsVariationsOnly`, `annotations` (bộ ghi đặt `SystemFlags = 2` cho phân vùng và cột, `Date` kiểu tường minh 9 như f11); `ColumnPatch.annotations`; `NewTable` cờ và chú thích được ghi; quan hệ `joinOnDateBehavior` 2 ghi `RelationshipStorage.DefinitionType` 2, chỉ mục so phần ngày và lấy giá trị bảng tính toán trong đợt.
+  - Quan hệ còn variation dùng thì không xoá được; bảng ngày tự động xoá được bằng `dropTable` sau khi bỏ variation, quan hệ, phân cấp.
+  - `ModelMetadata.applying` hiểu variation, chú thích mô hình, quan hệ tới bảng ngày (`dateTableRelationships`); `PBIXWriter.verify` so cả ba.
+  - Sửa kèm: chỉ mục `R$` ghi cứng `FullTextIndexStorageID` (lỗi trên lược đồ f11); `droppingTable` bỏ cả biểu thức bảng tính toán.
+  - Test `AutoDateWriteTests` (f11): bỏ bộ bảng ngày của Customers rồi dựng lại từ cùng dữ liệu theo đúng mẫu Desktop (`F2AutoDateGoldenTests.checkStructure`), `R$` và `U$` mới trùng từng byte; tắt hẳn Auto date/time xoá sạch; từ chối variation sai. Thứ tự thao tác cho T032 ở `AutoDateWriteTests.localDateEdits`.
+  - `swift test` 2 309 qua, golden nặng 129/129.
+- **T032 xong (2026-11-18, chưa commit):** `AutoDateTime.expand` (gắn ở `ModelEditor`, mỗi thao tác của người dùng kèm phần Auto date/time trong cùng bước ⌘Z) và `AutoDateTime.toggle` (bật/tắt, T033 nối giao diện).
+  - Trước thao tác: bỏ bộ bảng ngày của cột sắp mất, đổi tên hay đổi dữ liệu (xoá/thay bảng, sửa/xoá cột hay bảng tính toán). Sau: thêm bộ cho cột ngày không ẩn vừa có, bảng mẫu khi chưa có, bỏ bảng mẫu khi hết bảng cục bộ. Thay bảng thì dựng lại (GUID mới).
+  - `collapsingTableEdits` bỏ cả variation khi bảng cục bộ thêm rồi xoá trong phiên; `modelDelta` (lưu lần hai) lấy thẳng thao tác Auto date/time từ danh sách.
+  - Engine trong phiên: `ModelSchema` có bảng ngày tự động (ẩn) và quan hệ ngày (`joinsOnDatePart`, bỏ phần giờ khi khớp); `CalculationPlan` tính chúng; bảng ngày tính trên lược đồ không có quan hệ ngày (tránh đọc chính nó).
+  - Sửa kèm engine: cột tính toán nhận `[Cột]` không ghi bảng (`Binder.bind(rowTable:)`); `FORMAT` có mẫu ngày tuỳ biến en-US (`d…dddd`, `M…MMMM`, `yy`, `yyyy`); `DocumentSaver` bỏ qua bảng `U$` khi so cột.
+  - Test `AutoDateTimeTests` (f11: thêm, ẩn, xoá, đổi tên, tắt/bật, gộp về không) và luồng tài liệu mới (tính lịch, lọc qua ngày có giờ, lưu, mở lại, lưu lần hai, ⌘Z); ca 1900–9999 (2,96 triệu dòng) chạy 43 s bản debug, chỉ chạy khi `BIPRO_HEAVY=1`.
+  - `[SUY ĐOÁN]` chờ gate T037: cột ngày toàn BLANK cho lịch năm 3799 (`DATE` cộng 1900 cho năm dưới 1900); `FORMAT` mẫu ngày theo en-US.
+  - `swift test` 2 319 qua, golden nặng 137/137.
+- **T033 xong (2026-11-18, chưa commit):** tài liệu mới bật Auto date/time (`NewDocument`, chú thích `__PBI_TimeIntelligenceEnabled = 1`). Tệp ▸ "Tuỳ chọn tệp…" (`FileOptionsView`, `DocumentState+FileOptions.swift`): "Tự động ngày/giờ" (`AutoDateTime.toggle` qua `ModelEditor`) và "Tự phát hiện quan hệ mới sau khi nạp dữ liệu"; mỗi tuỳ chọn đổi là một bước ⌘Z.
+  - Tự phát hiện quan hệ lưu ở part `Settings`, khoá `ReportSettings.IsRelationshipAutodetectionEnabled` (sửa theo gate T037: tắt ghi `false`, bật thì xoá khoá; `PBIXKit/FileSettings.swift`, sửa ở mức văn bản giữ nguyên phần còn lại; thiếu khoá là bật). Trong phiên nằm ở `ReportEdits.autodetectRelationships`; `LayoutEditor.makeChanges` ghi `Settings` khi khác file trên đĩa (cả hoàn tác sau lưu).
+  - Test `FileSettingsTests`, `FileOptionsTests` (mặc định, tắt rồi ⌘Z, lưu `Settings`, mở lại, hoàn tác sau lưu). `swift test` 2 324 qua, golden nặng 141/141.
+- **T034 xong (2026-11-18, chưa commit):** phân cấp ngày Auto date/time trong visual và Data pane.
+  - `VisualQuerySpecReader`: `HierarchyLevel` trên `PropertyVariationSource` quy về cột cùng tên cấp của bảng ngày cục bộ qua `Variation`. Văn bản truy vấn trùng Performance Analyzer VM-F11b (`pa-year.dax` SAMPLE 3502, `pa-quarter.dax` TOPN 1001 kèm `QuarterNo`); luật SAMPLE/TOPN và cột sắp theo đã có sẵn.
+  - `ReportField.variationColumn/variationName`; `PBIRQueryPatch.newVariationLevel` ghi phần tử trùng từng byte Desktop (`visual-theo-nam.json`). `FieldRef(variation:)`, `Workspace.dateHierarchy`, `Workspace.levelColumn` (slicer theo cấp ngày).
+  - Data pane: cột ngày có variation hiện biểu tượng lịch, mở ra "Date Hierarchy" với Year/Quarter/Month/Day; tick hay kéo cột ngày thêm cả phân cấp. `[SUY ĐOÁN]` chờ T037: khi thả, chỉ cấp Year `active` (file Desktop đã drill có đúng một cấp `active`).
+  - Test `VariationQueryTests` (golden f11, byte phần tử, tick cột ngày, tài liệu mới → biểu đồ theo Năm → lưu → mở lại). `swift test` 2 329 qua, golden nặng 147/147.
+  - Còn tồn đọng: tắt Auto date/time chưa viết lại visual đang dùng phân cấp ngày thành `Column` như Desktop (VM-F11b step4), visual đó sẽ báo lỗi; card mới (`cardVisual` ô Rows) có phân cấp ngày của f10 (`a0e188ab…`, SUMMARIZE + TOPN 21) chưa làm.
+- **T035 xong (2026-11-18, chưa commit):** `RelationshipDetector` (tự phát hiện quan hệ sau khi nạp), gắn ở `expand` của `ModelEditor` sau Auto date/time: Get Data ▸ Tải, Enter Data, Close & Apply đều đi qua, cùng bước ⌘Z với lần nạp; tuỳ chọn của file tắt thì không chạy.
+  - Luật (VM-F11c): cột cùng tên, cùng kiểu, đúng một phía duy nhất → nhiều–một, một chiều, tên `AutoDetected_<guid>`; tạo đường thứ hai thì không hoạt động (dùng lại `RelationshipDraft.propose`). Giá trị duy nhất: bảng vừa nạp đọc từ `TableData` (`NewTable.attachment`), bảng phiên từ overlay, bảng của file so cardinality với số dòng.
+  - `[SUY ĐOÁN]` chờ T037: tên không phân biệt hoa thường; bỏ cột số thực và logic; một quan hệ mỗi cặp bảng; chỉ xét bảng mới (`addTable`, không xét bảng thay dữ liệu); thứ tự theo thứ tự bảng trong mô hình.
+  - Golden: dựng lại đúng ba quan hệ `AutoDetected_` của `f11-desktop.pbix` theo hai lần nạp (gồm `Customers[Region]→Table (2)` không hoạt động). Test `RelationshipDetectorTests`; `F3Nhom6Tests.f3` nay kiểm quan hệ tự có; `DropUsedTableTests` tắt tự phát hiện (test chặn theo nơi dùng). `swift test` 2 334 qua, golden nặng 152/152.
+  - Hệ quả cần biết: bảng có quan hệ tự tạo thì tắt Enable load hay xoá bảng bị chặn vì còn quan hệ (Desktop xoá luôn quan hệ); chưa đổi.
+- **T036 xong (2026-11-18, chưa commit):** `F2NewDocFlowTests` đi đúng các bước buổi VM-F11 (Enter Data `Table` bằng M nguyên văn của Desktop, nạp Sales + Customers + products cùng lúc, biểu đồ cột theo phân cấp ngày OrderDate, Enter Data `Table (2)`), lưu, mở lại. Cấu trúc trùng `f11-desktop.pbix`: bảng, cột và kiểu, số dòng, số bảng ngày cục bộ, variation, quan hệ ngày, ba quan hệ `AutoDetected_` (gồm cái không hoạt động); biểu đồ theo Năm bằng tổng tính thẳng. Để lại `build/f2-out/f11/bipro-f11.pbix`.
+- **T066 xong (2026-11-18, chưa commit):** file Desktop có sẵn Auto date/time (`F2AutoDateExistingTests` trên bản sao `w8.3.pbix`, để lại `build/f2-out/f11/w83_f2.pbix`): nạp hai bảng có cột ngày, thay `Thông tin nhân viên` (ngày sinh dời 10 năm), lưu, mở lại thì bảng ngày cục bộ theo khoảng năm mới; xoá bảng có cột ngày thì bộ bảng ngày đi theo, bảng mẫu còn.
+  - Luật mới (tài liệu Power BI, khớp `w8.3`): cột ngày ở phía nhiều của quan hệ không có bảng ngày cục bộ; thêm quan hệ từ cột đó thì bỏ bộ bảng ngày của nó, xoá quan hệ thì xét lại (`AutoDateTime.isManySide`).
+  - `CalculationPlan`: `[Cột]` không ghi bảng trong cột tính toán chỉ trỏ cột cùng tên của bảng mình (trước đây nối mọi `[Date]` của mọi bảng ngày, nạp bảng mới đòi tính lại bảng ngày có sẵn và bị chặn).
+  - Bộ ghi: quan hệ một–một (hai bộ lưu trữ, `RelationshipStorage2ID`, mỗi chiều một bảng `R$`), dựng lại được khi thay bảng; chỉ mục cho cột mã hoá theo giá trị (mã dữ liệu = giá trị × magnitude − baseID); tên lưu trữ đổi cả `_` thành khoảng trắng như Desktop (`AutoDetected_…` → `R$…$AutoDetected …`, trước đây sai với quan hệ tự tạo). Golden `OneToOneRelationshipWriteTests`: xoá rồi ghi lại quan hệ 1:1 của `w8.3`, hai chỉ mục trùng từng byte Desktop.
+  - `swift test` 2 337 qua, golden nặng 155/155.
+- **T037 gate VM-F11 ĐẠT (2026-11-18 tối, Claude lái VM, `docs/phase-f2-evidence/vm-f11/KET-QUA.md`, ảnh `d1`–`d10`):**
+  - **`bipro-f11.pbix`:**
+    - Desktop mở không lỗi; Data pane có Date Hierarchy; biểu đồ theo Năm cùng số (2025: 93 742,69; 2026: 92 988,54).
+    - Năm × Quý 8 ô khớp engine BI Pro.
+    - Ba quan hệ `AutoDetected_` trùng file Desktop.
+    - Refresh `Table` ra cùng 5 dòng. Tên cột thành `\uFEFFTên` do M của Desktop có U+FEFF từ buổi VM-F11; file Desktop tự làm cũng vậy.
+    - Visual theo Quý tạo trong Desktop chạy được.
+  - **`w83_f2.pbix`:** mở không lỗi. `Ngày sinh` ra 1996–2009, `Dự án[Ngày bắt đầu]` ra 2030–2031; measure khớp engine.
+  - **`[SUY ĐOÁN]` sai, đã sửa:**
+    - Khoá Autodetect là `ReportSettings.IsRelationshipAutodetectionEnabled` (`RunBackgroundAnalysis` là ô "Allow data previews…"); `bipro-noauto.pbix` mở ra ô bỏ tích.
+    - Cột số thực vẫn làm khoá quan hệ tự phát hiện.
+  - **`[SUY ĐOÁN]` đúng:**
+    - so tên không phân biệt hoa thường;
+    - bỏ cột logic;
+    - mỗi cặp bảng một quan hệ theo thứ tự cột;
+    - chỉ cấp đầu `active` khi thả phân cấp ngày.
+  - **Test:** `RelationshipDetectorFlowTests.gateF11…` lặp lại thí nghiệm sáu bảng.
+  - **Chưa kiểm:** năm 3799 cho cột ngày toàn BLANK; `FORMAT` en-US.
+  - **Tồn đọng mới:** engine BI Pro chưa có `TODAY` (measure `[Mức lương trung bình < 35 tuổi]` của w8.3).
+  - `swift test` 2 338 qua; golden nặng 158 (D7 `< 1 s` trượt khi chạy cả bộ lúc VM chạy, chạy riêng thì qua).
+- **T038 xong (2026-11-18 đêm, bấm thử app thật, ảnh chỉ cửa sổ app ở `build/f2-out/t038/`, ngoài git):**
+  - **Chạy đúng:**
+    - Tài liệu mới hiện màn "Thêm dữ liệu vào báo cáo".
+    - Dán TSV vào Tạo bảng, dòng đầu thành tiêu đề.
+    - Nạp xong, cột ngày có phân cấp.
+    - Tuỳ chọn tệp tắt/bật Auto date/time, mỗi lần một bước ⌘Z.
+    - Bảng thứ hai mặc định tên "Table (2)" và tự tạo quan hệ \*:1. Một lần ⌘Z bỏ cả bảng lẫn quan hệ; Làm lại trả về.
+    - Tích cột ngày + `Số tiền` ra biểu đồ theo Năm đúng số.
+  - **Lỗi tìm ra và đã sửa:**
+    1. ⌘V khi đang sửa một ô dán cả khối TSV vào ô đó. Nay trải ra lưới từ ô đó (`EnterDataTable.isMultiCell/pasteIntoCell`).
+    2. Sau khi nạp, khung trang trắng trơn. Thêm gợi ý "Dựng visual từ dữ liệu" như "Build visuals with your data" của Desktop (`CanvasHint`).
+    3. Hộp Tuỳ chọn tệp có nền tối, chữ tối, không đọc được. Nay nền trắng, nút theo kiểu app.
+    4. **App sập (SIGTRAP)** khi biểu đồ cột xếp chồng có trục X mà chưa có Y, ví dụ tích cột ngày trước: `CartesianChart` đọc `roleYIndices[0]` khi rỗng. Lỗi có từ trước ở mọi biểu đồ xếp chồng.
+    5. Tiêu đề tự động kể cả bốn cấp ngày. Nay chỉ kể cấp `active` ("… theo Year" như Desktop).
+    6. Thẻ lọc ghi "Ngày mua - Year" như "OrderDate - Year" của Desktop. Ô trục X ghi `Table[Ngày mua]`. Cột có phân cấp ngày có biểu tượng riêng.
+    7. Tắt Auto date/time khi visual còn dùng phân cấp ngày: visual ra một cột "Blank" mang tổng, sai mà không báo. Nay chặn kèm tên visual (`variationUsers`). Desktop thì viết lại visual thành cột ngày thường, chưa làm.
+  - **Không làm được bằng công cụ:**
+    - Máy không có Numbers: giả lập bằng clipboard TSV.
+    - Gõ tên bảng có dấu qua AppleScript bị mất dấu.
+    - Lưu qua hộp Save không thử (đã có test và gate).
+  - **Test mới:** `EnterDataStateTests.danNhieuOVaoMotOThiTraiRaLuoi`, `AddDataPanelTests.goiYDung…`, `coTrucXMaChuaCoYKhongSap`, `VariationTitleTests`, `VariationToggleGuardTests`.
+  - `swift test` 2 343 qua; golden nặng 160/160.
+- **Việc kế:** US2 xong (T024–T038, T066), chưa commit. Tiếp: US3 còn T022 (`F2TextCalcTests`), T023 (gate VM-F12); rồi US6, US4, US5, Polish. Tồn đọng US2: viết lại visual khi tắt Auto date/time như Desktop; card mới có phân cấp ngày; engine chưa có `TODAY`; xoá bảng hay tắt Enable load khi còn quan hệ tự tạo vẫn bị chặn.
 
 ## Việc tiếp theo
 
