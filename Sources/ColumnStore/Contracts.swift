@@ -229,15 +229,18 @@ public struct RelationshipSchema: Sendable, Hashable {
     public let oneColumn: ColumnID
     public let isActive: Bool
     public let crossFilter: CrossFilterBehavior
+    /// `JoinOnDateBehavior` 2: hai đầu so theo ngày, bỏ phần giờ (quan hệ tới bảng ngày cục bộ của Auto date/time).
+    public let joinsOnDatePart: Bool
 
     public init(id: RelationshipID, name: String, manyColumn: ColumnID, oneColumn: ColumnID,
-                isActive: Bool, crossFilter: CrossFilterBehavior) {
+                isActive: Bool, crossFilter: CrossFilterBehavior, joinsOnDatePart: Bool = false) {
         self.id = id
         self.name = name
         self.manyColumn = manyColumn
         self.oneColumn = oneColumn
         self.isActive = isActive
         self.crossFilter = crossFilter
+        self.joinsOnDatePart = joinsOnDatePart
     }
 }
 

@@ -27,21 +27,39 @@ public enum RelationshipIndex {
     /// Các giá trị của cột `INDEX`: ba số 0 rồi, với mỗi mục từ điển của cột phía nhiều, số thứ tự dòng (từ 1) trong cột phía một.
     /// Ném `WriteError.invalid` khi cột phía nhiều không mã hoá bằng từ điển (chưa hỗ trợ), hoặc cột phía một có giá trị trùng.
     public static func values(from: ModelMetadata.ColumnStorage, to: ModelMetadata.ColumnStorage, abf: ABFBackup) throws -> [Int] {
-        let many = try VertiPaq.decodeColumn(from, abf: abf)
-        guard case .dictionary(_, let dictionary) = many.storage else {
-            throw WriteError.invalid("cột \(from.tableName)[\(from.columnName)] không mã hoá bằng từ điển, chưa tạo được chỉ mục quan hệ")
-        }
         let one = try VertiPaq.decodeColumn(to, abf: abf)
-        var row: [CellValue: Int] = [:]
-        row.reserveCapacity(one.count)
-        for r in 0..<one.count {
-            let value = one[r]
-            if case .null = value { continue }
-            guard row.updateValue(r + 1, forKey: value) == nil else {
-                throw WriteError.invalid("cột \(to.tableName)[\(to.columnName)] có giá trị trùng (\(value)), không làm phía một của quan hệ được")
+        return try values(from: from, abf: abf, oneCells: (0..<one.count).map { one[$0] }, oneName: "\(to.tableName)[\(to.columnName)]")
+    }
+
+    /// Chỉ mục khi cột phía nhiều nằm trong ABF và phía một là các ô `one` (theo thứ tự dòng): cột từ điển theo mục từ điển; cột mã hoá theo
+    /// giá trị (T066, `w8.3.pbix` một–một trên `ID nhân viên`) theo mã dữ liệu = giá trị × magnitude − baseID, mỗi mã từ 0 tới mã lớn nhất
+    /// một mục (ba mã đầu dành riêng).
+    public static func values(from: ModelMetadata.ColumnStorage, abf: ABFBackup, oneCells one: [CellValue], oneName: String) throws -> [Int] {
+        let many = try VertiPaq.decodeColumn(from, abf: abf)
+        switch many.storage {
+        case .dictionary(_, let dictionary):
+            return try values(manyDictionary: dictionary, oneCells: one, oneName: oneName)
+        case .values(let numbers):
+            var byValue: [Double: Int] = [:]
+            for (r, cell) in one.enumerated() {
+                let value: Double?
+                switch cell {
+                case .int(let i): value = Double(i)
+                case .double(let d), .decimal(let d), .dateTime(let d): value = d
+                default: value = nil
+                }
+                guard let value else { continue }
+                guard byValue.updateValue(r + 1, forKey: value) == nil else {
+                    throw WriteError.invalid("cột \(oneName) có giá trị trùng (\(value)), không làm phía một của quan hệ được")
+                }
             }
+            let magnitude = from.magnitude == 0 ? 1 : from.magnitude
+            let ids = numbers.filter { !$0.isNaN }.map { Int(($0 * magnitude).rounded()) - from.baseID }
+            let top = max(reservedIDs - 1, ids.max() ?? 0)
+            return (0...top).map { id in id < reservedIDs ? 0 : byValue[Double(id + from.baseID) / magnitude] ?? 0 }
+        case .empty:
+            throw WriteError.invalid("cột \(from.tableName)[\(from.columnName)] không có dữ liệu, chưa tạo được chỉ mục quan hệ")
         }
-        return Array(repeating: 0, count: reservedIDs) + dictionary.map { row[$0] ?? 0 }
     }
 
     /// Mục từ điển của một cột trong bộ nhớ (bảng mới chưa vào ABF): giá trị khác nhau theo thứ tự xuất hiện, như bộ ghi VertiPaq.

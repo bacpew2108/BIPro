@@ -131,13 +131,25 @@ import Testing
     }
 
     @Test func mauChuaHoTroBaoRuntimeRo() {
-        // Mẫu ngày, E+0, định dạng đặt tên, nhiều hơn 3 phần, ký tự lạ, và culture khác en-US đều báo .runtime.
-        let mauLoi = ["yyyy", "d mmm", "0E+0", "General Number", "Fixed", "0;0;0;0", "0.0.0", "\"abc", "0 ;\"x", "abc", "0;;0"]
+        // Mẫu ngày có phần giờ hoặc chữ thường, E+0, định dạng đặt tên, nhiều hơn 3 phần, ký tự lạ, và culture khác en-US đều báo .runtime.
+        let mauLoi = ["d mmm", "yyy", "0E+0", "General Number", "Fixed", "0;0;0;0", "0.0.0", "\"abc", "0 ;\"x", "abc", "0;;0"]
         for mau in mauLoi {
             let loi = loiDAX { _ = try FormatString.format(.double(1), pattern: mau, culture: "en-US"); return .blank }
             #expect(loi?.kind == .runtime, "mẫu \(mau) phải báo .runtime")
         }
         let loiVi = loiDAX { _ = try FormatString.format(.double(1), pattern: "0.0", culture: "vi-VN"); return .blank }
         #expect(loiVi?.kind == .runtime)
+    }
+
+    /// Mẫu ngày tuỳ biến en-US (T032, Auto date/time: cột `Month` = FORMAT([Date], "MMMM") như w8.3, f11).
+    @Test func mauNgayTuyBien() throws {
+        let day = Value.dateTime(45_356)   // 5/3/2024, thứ ba
+        let cases: [(String, String)] = [("MMMM", "March"), ("MMM", "Mar"), ("MM", "03"), ("M", "3"), ("dddd", "Tuesday"), ("ddd", "Tue"),
+                                         ("dd/MM/yyyy", "05/03/2024"), ("d-M-yy", "5-3-24"), ("yyyy \"Q\"", "2024 Q")]
+        for (pattern, expected) in cases {
+            #expect(try FormatString.format(day, pattern: pattern, culture: "en-US") == expected, "\(pattern)")
+        }
+        #expect(try FormatString.format(.dateTime(0), pattern: "dddd d MMMM yyyy", culture: "en-US") == "Saturday 30 December 1899")
+        #expect(try FormatString.format(.blank, pattern: "MMMM", culture: "en-US") == "")
     }
 }

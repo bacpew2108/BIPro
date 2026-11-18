@@ -22,6 +22,9 @@ public struct MetadataWriter {
     /// Cho `addRelationship` biết các giá trị `INDEX` và số dòng bảng phía một (đọc từ dữ liệu cột trong ABF). Bắt buộc khi thêm
     /// quan hệ: Desktop không mở được file có quan hệ thiếu chỉ mục (VM-E3).
     public var relationshipIndexProvider: ((NewRelationship) throws -> (values: [Int], toRowCount: Int))?
+    /// Cho `addHierarchy` dữ liệu các cột cấp (mã dữ liệu và thứ tự sắp, `HierarchyIndex.level`) của bảng `table`; mỗi cấp kèm tên cột
+    /// "sắp theo" nếu có. Cột tính toán có giá trị trong `calculatedValues` thì không cần. Chỉ mục `U$` dựng từ dữ liệu.
+    public var hierarchyLevelsProvider: ((_ table: String, _ levels: [(column: String, sortBy: String?)]) throws -> [HierarchyIndex.Level])?
     /// Tệp ABF mới do các thao tác đã áp (chỉ mục quan hệ): để `PBIXWriter` thêm vào ABF.
     public private(set) var addedFiles: [ABFPayload] = []
     /// Đường dẫn tệp ABF mà các thao tác đã áp muốn xoá (chỉ mục của quan hệ bị xoá).
@@ -169,6 +172,11 @@ public struct MetadataWriter {
         database = try MetadataDatabase(bytes: try writer.serialize())
         addedFiles += (encoded.files + writer.systemFiles).map { ABFPayload(path: $0.path, data: $0.data) }
         try transaction { db, now in
+            if table.isPrivate || table.showAsVariationsOnly || !table.annotations.isEmpty {
+                try Self.setTableFlags(db, tableID: Int64(try db.userTableID(named: table.name)),
+                                       isPrivate: table.isPrivate ? true : nil, showAsVariationsOnly: table.showAsVariationsOnly ? true : nil,
+                                       annotations: table.annotations.mapValues { .set($0) }, now: now)
+            }
             try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
             try Self.bumpProperties(db, now)
         }
@@ -179,6 +187,27 @@ public struct MetadataWriter {
     /// Giá trị đã tính của cột tính toán và cột của bảng tính toán, khoá `Bảng[Cột]` (ứng dụng tính bằng engine rồi đưa qua
     /// `PBIXChanges.calculatedData`). Desktop lưu sẵn dữ liệu VertiPaq của chúng nên file mở không cần làm mới (VM-F6).
     public var calculatedValues: [String: VertiPaqWriter.Values] = [:]
+
+    /// Dữ liệu các cấp của phân cấp mới: cột sắp theo đọc từ cơ sở dữ liệu đang sửa; giá trị từ `calculatedValues` khi mọi cột cần đều có,
+    /// không thì qua `hierarchyLevelsProvider`.
+    private func hierarchyLevels(_ hierarchy: NewHierarchy) throws -> [HierarchyIndex.Level] {
+        let db = database
+        let tableID = Int64(try db.userTableID(named: hierarchy.table))
+        let levels = try hierarchy.levels.map { level -> (column: String, sortBy: String?) in
+            let id = try Self.columnID(db, table: hierarchy.table, name: level.column)
+            let sortBy = try db.strings("""
+                SELECT COALESCE(s.ExplicitName, s.InferredName) FROM [Column] c JOIN [Column] s ON s.ID = c.SortByColumnID
+                WHERE c.ID = ? AND s.TableID = ?
+                """, [.int(Int64(id)), .int(tableID)]).first
+            return (level.column, sortBy)
+        }
+        let key = { (column: String) in "\(hierarchy.table)[\(column)]" }
+        if levels.allSatisfy({ calculatedValues[key($0.column)] != nil && ($0.sortBy.map { calculatedValues[key($0)] != nil } ?? true) }) {
+            return try levels.map { try HierarchyIndex.level(calculatedValues[key($0.column)]!, sortBy: $0.sortBy.map { calculatedValues[key($0)]! }) }
+        }
+        guard let provider = hierarchyLevelsProvider else { throw WriteError.invalid("thiếu nguồn dữ liệu cấp cho phân cấp \(hierarchy.name)") }
+        return try provider(hierarchy.table, levels)
+    }
 
     private func calculated(_ table: String, _ column: String) throws -> VertiPaqWriter.Values {
         guard let values = calculatedValues["\(table)[\(column)]"] else {
@@ -514,7 +543,7 @@ public struct MetadataWriter {
 
     /// Các quan hệ đang nối với bảng `name` (phía nào cũng được) để xoá rồi thêm lại quanh `replaceTable`: chỉ mục quan hệ `R$` phụ thuộc dữ liệu
     /// hai cột nên phải dựng lại theo bảng mới. Chỉ dựng lại được quan hệ nhiều-một mặc định (đúng loại `addRelationship` ghi); quan hệ có thuộc tính
-    /// khác (tuỳ chỉnh ngày, tin cậy toàn vẹn tham chiếu, bảo mật dòng…) thì ném lỗi, không đoán.
+    /// khác (tuỳ chỉnh ngày, tin cậy toàn vẹn tham chiếu, bảo mật dòng…) thì ném lỗi, không đoán. Một–một (T066) dựng lại được.
     public func relationshipsToRebuild(touching name: String) throws -> [NewRelationship] {
         let db = database
         guard let tableID = try? db.userTableID(named: name) else { return [] }
@@ -523,7 +552,8 @@ public struct MetadataWriter {
             func text(_ sql: String) throws -> String { try db.strings(sql, [.int(id)]).first ?? "" }
             func number(_ field: String) throws -> Int64 { try db.int("SELECT \(field) FROM Relationship WHERE ID = ?", [.int(id)]) ?? 0 }
             let relName = try text("SELECT Name FROM Relationship WHERE ID = ?")
-            guard try number("Type") == 1, try number("FromCardinality") == 2, try number("ToCardinality") == 1, try number("JoinOnDateBehavior") == 1,
+            let fromCardinality = try number("FromCardinality")
+            guard try number("Type") == 1, fromCardinality == 2 || fromCardinality == 1, try number("ToCardinality") == 1, try number("JoinOnDateBehavior") == 1,
                   try number("RelyOnReferentialIntegrity") == 0, try number("SecurityFilteringBehavior") == 1, try number("State") == 1 else {
                 throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)»: quan hệ \(relName) có thuộc tính khác mặc định, chỉ mục quan hệ chưa dựng lại được")
             }
@@ -533,6 +563,7 @@ public struct MetadataWriter {
             }
             let (fromTable, fromColumn) = try column("From"), (toTable, toColumn) = try column("To")
             return NewRelationship(name: relName, fromTable: fromTable, fromColumn: fromColumn, toTable: toTable, toColumn: toColumn,
+                                   fromMany: fromCardinality == 2, toMany: false,
                                    isActive: try number("IsActive") == 1, crossFilteringBehavior: Int(try number("CrossFilteringBehavior")))
         }
     }
@@ -661,17 +692,30 @@ extension MetadataWriter {
         case .updateTable(let name, let patch):
             try transaction { db, now in
                 let id = try db.userTableID(named: name)
-                guard let hidden = patch.isHidden else { return }
-                try db.run("UPDATE [Table] SET IsHidden = ?, ModifiedTime = ? WHERE ID = ?", [.int(hidden ? 1 : 0), .int(now), .int(Int64(id))])
+                if let hidden = patch.isHidden {
+                    try db.run("UPDATE [Table] SET IsHidden = ?, ModifiedTime = ? WHERE ID = ?", [.int(hidden ? 1 : 0), .int(now), .int(Int64(id))])
+                }
+                try Self.setTableFlags(db, tableID: Int64(id), isPrivate: patch.isPrivate, showAsVariationsOnly: patch.showAsVariationsOnly,
+                                       annotations: patch.annotations, now: now)
+                guard patch != TablePatch() else { return }
                 try Self.bumpProperties(db, now)
             }
         case .addRelationship(let relationship):
             guard let provider = relationshipIndexProvider else { throw WriteError.invalid("thiếu nguồn chỉ mục cho quan hệ mới") }
-            let index = try provider(relationship)
-            let files = try RelationshipIndex.encode(values: index.values, toRowCount: index.toRowCount)
+            // Một–một: thêm chỉ mục ngược (phía "đến" → dòng phía "từ").
+            var directions = [relationship]
+            if !relationship.fromMany && !relationship.toMany {
+                var reverse = relationship
+                (reverse.fromTable, reverse.fromColumn, reverse.toTable, reverse.toColumn) = (relationship.toTable, relationship.toColumn, relationship.fromTable, relationship.fromColumn)
+                directions.append(reverse)
+            }
+            let indexes = try directions.map { direction in
+                let index = try provider(direction)
+                return RelationshipIndexFiles(records: index.values.count, files: try RelationshipIndex.encode(values: index.values, toRowCount: index.toRowCount))
+            }
             var payloads: [ABFPayload] = []
             try transaction { db, now in
-                payloads = try Self.addRelationship(db, relationship, records: index.values.count, files: files, now: now)
+                payloads = try Self.addRelationship(db, relationship, indexes: indexes, now: now)
             }
             addedFiles += payloads
         case .addTable(let table):
@@ -694,8 +738,25 @@ extension MetadataWriter {
             try deleteCalculatedColumn(table: table, name: name)
         case .updateCalculatedTable(let name, let expression, let columns):
             try updateCalculatedTable(name: name, expression: expression, columns: columns)
-        case .addHierarchy, .dropHierarchy, .addVariation, .dropVariation, .setModelAnnotation:
-            throw WriteError.invalid("chưa lưu được phân cấp, variation và chú thích mô hình (đợt tồn đọng sau Phase F, US2)")
+        case .addHierarchy(let hierarchy):
+            let nodes = try HierarchyIndex.build(try hierarchyLevels(hierarchy))
+            var payloads: [ABFPayload] = []
+            try transaction { db, now in payloads = try Self.addHierarchy(db, hierarchy, nodes: nodes, now: now) }
+            addedFiles += payloads
+        case .dropHierarchy(let table, let name):
+            var removed: [String] = []
+            try transaction { db, now in removed = try Self.dropHierarchy(db, table: table, name: name, now: now) }
+            let alreadyAdded = Set(addedFiles.map(\.path))
+            addedFiles.removeAll { removed.contains($0.path) }
+            removedFiles += removed.filter { !alreadyAdded.contains($0) }
+        case .addVariation(let table, let column, let relationship, let hierarchy):
+            try transaction { db, now in
+                try Self.addVariation(db, table: table, column: column, relationship: relationship, hierarchy: hierarchy, now: now)
+            }
+        case .dropVariation(let table, let column):
+            try transaction { db, now in try Self.dropVariation(db, table: table, column: column, now: now) }
+        case .setModelAnnotation(let name, let value):
+            try setModelAnnotation(name: name, value: value)
         case .deleteRelationship(let name):
             var removed: [String] = []
             try transaction { db, now in removed = try Self.deleteRelationship(db, name: name, now: now) }
@@ -817,12 +878,21 @@ extension MetadataWriter {
         try bumpProperties(db, now)
     }
 
-    /// Thêm quan hệ nhiều-một đúng như Desktop ghi (QUAN-SAT VM-E3): dòng `Relationship`, `RelationshipStorage`,
-    /// `RelationshipIndexStorage`, bảng hệ thống ẩn `R$…` cùng mọi dòng lưu trữ của nó, và hai tệp ABF `.idf`/`.idfmeta`.
-    /// Trả hai tệp ABF mới. `records` là số mục của cột `INDEX` (ba mã dành riêng cộng số mục từ điển cột phía nhiều).
-    private static func addRelationship(_ db: MetadataDatabase, _ new: NewRelationship, records: Int,
-                                        files: (idf: Data, meta: Data), now: Int64) throws -> [ABFPayload] {
-        guard new.fromMany, !new.toMany else { throw WriteError.invalid("chỉ ghi được quan hệ nhiều-một") }
+    /// Chỉ mục một chiều của quan hệ: số mục cột `INDEX` (ba mã dành riêng cộng số mục từ điển cột được chỉ mục) và hai tệp.
+    struct RelationshipIndexFiles {
+        var records: Int
+        var files: (idf: Data, meta: Data)
+    }
+
+    /// Thêm quan hệ đúng như Desktop ghi (QUAN-SAT VM-E3): dòng `Relationship`, `RelationshipStorage`, `RelationshipIndexStorage`, bảng hệ
+    /// thống ẩn `R$…` cùng mọi dòng lưu trữ của nó, và hai tệp ABF `.idf`/`.idfmeta`. Nhiều–một: một chỉ mục (cột phía nhiều → dòng phía
+    /// một). Một–một (T066, `w8.3.pbix`): thêm chỉ mục ngược (cột phía "đến" → dòng phía "từ") ở `RelationshipStorage2ID`, mỗi chỉ mục một
+    /// bảng `R$<bảng được chỉ mục>$…`. Trả các tệp ABF mới.
+    private static func addRelationship(_ db: MetadataDatabase, _ new: NewRelationship, indexes: [RelationshipIndexFiles],
+                                        now: Int64) throws -> [ABFPayload] {
+        let oneToOne = !new.fromMany && !new.toMany
+        guard (new.fromMany && !new.toMany) || oneToOne else { throw WriteError.invalid("chỉ ghi được quan hệ nhiều-một hoặc một-một") }
+        guard indexes.count == (oneToOne ? 2 : 1) else { throw WriteError.invalid("số chỉ mục quan hệ không đúng") }
         let fromTable = try db.userTableID(named: new.fromTable), toTable = try db.userTableID(named: new.toTable)
         let fromColumn = try columnID(db, table: new.fromTable, name: new.fromColumn)
         let toColumn = try columnID(db, table: new.toTable, name: new.toColumn)
@@ -831,110 +901,131 @@ extension MetadataWriter {
         }
         let stored = try db.storedMaxID(), actual = try db.actualMaxID()
         guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
-        guard let tableStorageName = try db.strings("SELECT Name FROM TableStorage WHERE TableID = ?", [.int(Int64(fromTable))]).first else {
-            throw WriteError.invalid("bảng \(new.fromTable) không có TableStorage")
+        func storageName(_ table: Int, _ name: String) throws -> String {
+            guard let value = try db.strings("SELECT Name FROM TableStorage WHERE TableID = ?", [.int(Int64(table))]).first else {
+                throw WriteError.invalid("bảng \(name) không có TableStorage")
+            }
+            return value
         }
+        let indexedTables = [(fromTable, new.fromTable)] + (oneToOne ? [(toTable, new.toTable)] : [])
+        let storageNames = try indexedTables.map { try storageName($0.0, $0.1) }
         guard let modelID = try db.int("SELECT MIN(ID) FROM Model") else { throw WriteError.invalid("không có dòng Model") }
 
-        // Thứ tự cấp ID: quan hệ, lưu trữ quan hệ, bảng R$ rồi các dòng lưu trữ của nó (mỗi ID một giá trị mới).
+        // Thứ tự cấp ID: quan hệ, từng cặp lưu trữ quan hệ + lưu trữ chỉ mục, rồi mỗi bảng R$ với các dòng lưu trữ của nó.
         var next = stored + 1
         func take() -> Int64 { defer { next += 1 }; return Int64(next) }
-        let relID = take(), relStorageID = take(), indexStorageID = take()
-        let tableID = take(), tableStorageID = take(), tableFolderID = take(), partitionID = take(), partitionStorageID = take()
-        let partitionFolderID = take(), segmentMapID = take(), columnID = take(), columnStorageID = take(), dictionaryID = take()
-        let columnPartitionID = take(), segmentID = take(), idfFileID = take(), metaFileID = take()
-
-        let guidSpaces = new.name.replacingOccurrences(of: "-", with: " ")
-        let tableName = "R$\(tableStorageName)$\(guidSpaces) (\(relID))"
-        let tableFolder = "\(tableName)$(\(tableID)).tbl"
-        let partitionFolder = "\(tableFolder)\\\(partitionID).prt"
-        let fileBase = "0.\(tableName).INDEX.0"
+        let relID = take()
+        let storageIDs = indexes.map { _ in (relStorageID: take(), indexStorageID: take()) }
+        // Desktop thay cả `-` và `_` bằng khoảng trắng (`AutoDetected_…` → `AutoDetected …`, `w8.3.pbix`).
+        let guidSpaces = new.name.replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ")
         let refreshedNever: Int64 = 31_240_512_000_000_000
 
         try db.run("""
             INSERT INTO Relationship (ID, ModelID, Name, IsActive, Type, CrossFilteringBehavior, JoinOnDateBehavior,
                 RelyOnReferentialIntegrity, FromTableID, FromColumnID, FromCardinality, ToTableID, ToColumnID, ToCardinality,
                 State, RelationshipStorageID, RelationshipStorage2ID, ModifiedTime, RefreshedTime, SecurityFilteringBehavior)
-            VALUES (?, ?, ?, ?, 1, ?, 1, 0, ?, ?, 2, ?, ?, 1, 1, ?, 0, ?, ?, 1)
+            VALUES (?, ?, ?, ?, 1, ?, ?, 0, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?, ?, 1)
             """, [.int(relID), .int(Int64(modelID)), .text(new.name), .int(new.isActive ? 1 : 0), .int(Int64(new.crossFilteringBehavior)),
-                  .int(Int64(fromTable)), .int(Int64(fromColumn)), .int(Int64(toTable)), .int(Int64(toColumn)), .int(relStorageID),
+                  .int(Int64(new.joinOnDateBehavior)),
+                  .int(Int64(fromTable)), .int(Int64(fromColumn)), .int(new.fromMany ? 2 : 1), .int(Int64(toTable)), .int(Int64(toColumn)),
+                  .int(storageIDs[0].relStorageID), .int(storageIDs.count > 1 ? storageIDs[1].relStorageID : 0),
                   .int(now), .int(now)])
-        try db.run("INSERT INTO RelationshipStorage (ID, RelationshipID, Name, DefinitionType, Cardinality, Flags, RelationshipIndexStorageID) VALUES (?, ?, ?, 0, 0, 0, ?)",
-                   [.int(relStorageID), .int(relID), .text("\(guidSpaces) (\(relID))"), .int(indexStorageID)])
-        try db.run("INSERT INTO RelationshipIndexStorage (ID, RelationshipStorageID, IndexType, Flags, RecordCount, SecondaryRecordCount, StorageFolderID, StorageFileID, SystemTableID, SecondarySystemTableID) VALUES (?, ?, 1, 0, ?, 0, 0, 0, ?, 0)",
-                   [.int(indexStorageID), .int(relStorageID), .int(Int64(records)), .int(tableID)])
+        var payloads: [ABFPayload] = []
+        for (k, index) in indexes.enumerated() {
+            let (relStorageID, indexStorageID) = storageIDs[k]
+            let records = index.records
+            // Quan hệ chỉ so phần ngày (bảng ngày cục bộ) có `DefinitionType` 2, quan hệ thường 0 (f11).
+            try db.run("INSERT INTO RelationshipStorage (ID, RelationshipID, Name, DefinitionType, Cardinality, Flags, RelationshipIndexStorageID) VALUES (?, ?, ?, ?, 0, 0, ?)",
+                       [.int(relStorageID), .int(relID), .text("\(guidSpaces) (\(relID))"), .int(new.joinOnDateBehavior == 2 ? 2 : 0), .int(indexStorageID)])
+            let tableID = take(), tableStorageID = take(), tableFolderID = take(), partitionID = take(), partitionStorageID = take()
+            let partitionFolderID = take(), segmentMapID = take(), columnID = take(), columnStorageID = take(), dictionaryID = take()
+            let columnPartitionID = take(), segmentID = take(), idfFileID = take(), metaFileID = take()
+            try db.run("INSERT INTO RelationshipIndexStorage (ID, RelationshipStorageID, IndexType, Flags, RecordCount, SecondaryRecordCount, StorageFolderID, StorageFileID, SystemTableID, SecondarySystemTableID) VALUES (?, ?, 1, 0, ?, 0, 0, 0, ?, 0)",
+                       [.int(indexStorageID), .int(relStorageID), .int(Int64(records)), .int(tableID)])
+            let tableName = "R$\(storageNames[k])$\(guidSpaces) (\(relID))"
+            let tableFolder = "\(tableName)$(\(tableID)).tbl"
+            let partitionFolder = "\(tableFolder)\\\(partitionID).prt"
+            let fileBase = "0.\(tableName).INDEX.0"
 
-        // Bảng hệ thống ẩn R$ (SystemFlags 1, IsHidden 1, ModelID 0) và cột INDEX.
-        try db.run("""
-            INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 18, ?)
-            """, [.int(tableFolderID), .int(tableStorageID), .text(tableFolder)])
-        try db.run("INSERT INTO TableStorage (ID, TableID, Name, Version, Settings, RIViolationCount, StorageFolderID) VALUES (?, ?, ?, 0, 2, 0, ?)",
-                   [.int(tableStorageID), .int(tableID), .text(tableName), .int(tableFolderID)])
-        try db.run("""
-            INSERT INTO [Table] (ID, ModelID, Name, DataCategory, Description, IsHidden, TableStorageID, ModifiedTime,
-                StructureModifiedTime, SystemFlags, ShowAsVariationsOnly, IsPrivate, DefaultDetailRowsDefinitionID,
-                AlternateSourcePrecedence, RefreshPolicyID, CalculationGroupID, ExcludeFromModelRefresh, LineageTag,
-                SourceLineageTag, SystemManaged, ExcludeFromAutomaticAggregations, DirectLakeIndexingBehavior)
-            VALUES (?, 0, ?, NULL, NULL, 1, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, 0, 3)
-            """, [.int(tableID), .text(tableName), .int(tableStorageID), .int(now), .int(now)])
-        try db.run("""
-            INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 20, ?)
-            """, [.int(partitionFolderID), .int(partitionStorageID), .text(partitionFolder)])
-        try db.run("INSERT INTO PartitionStorage (ID, PartitionID, Name, StoragePosition, SegmentMapStorageID, DataObjectId, StorageFolderID, DeltaTableMetadataStorageID) VALUES (?, ?, ?, 0, ?, 0, ?, 0)",
-                   [.int(partitionStorageID), .int(partitionID), .text(tableName), .int(segmentMapID), .int(partitionFolderID)])
-        try db.run("INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment) VALUES (?, ?, 3, ?, 1, ?)",
-                   [.int(segmentMapID), .int(partitionStorageID), .int(Int64(records)), .int(Int64(records))])
-        try db.run("""
-            INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type, PartitionStorageID,
-                Mode, DataView, ModifiedTime, RefreshedTime, SystemFlags, ErrorMessage, RetainDataTillForceCalculate, RangeStart,
-                RangeEnd, RangeGranularity, RefreshBookmark, QueryGroupID, ExpressionSourceID, MAttributes,
-                DataCoverageDefinitionID, SchemaName)
-            VALUES (?, ?, ?, NULL, 0, NULL, 1, 3, ?, 2, 3, ?, ?, 1, NULL, 0, 0.0, 0.0, -1, NULL, 0, 0, NULL, 0, NULL)
-            """, [.int(partitionID), .int(tableID), .text(tableName), .int(partitionStorageID), .int(now), .int(refreshedNever)])
-        try db.run("""
-            INSERT INTO [Column] (ID, TableID, ExplicitName, InferredName, ExplicitDataType, InferredDataType, DataCategory, Description,
-                IsHidden, State, IsUnique, IsKey, IsNullable, Alignment, TableDetailPosition, IsDefaultLabel, IsDefaultImage, SummarizeBy,
-                ColumnStorageID, Type, SourceColumn, ColumnOriginID, Expression, FormatString, IsAvailableInMDX, SortByColumnID,
-                AttributeHierarchyID, ModifiedTime, StructureModifiedTime, RefreshedTime, SystemFlags, KeepUniqueRows, DisplayOrdinal,
-                ErrorMessage, SourceProviderType, DisplayFolder, EncodingHint, RelatedColumnDetailsID, AlternateOfID, LineageTag,
-                SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior, StringIndexID, FullTextIndexID)
-            VALUES (?, ?, 'INDEX', NULL, 6, 19, NULL, NULL, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, ?, 1, NULL, 0, NULL, NULL, 1, 0, 0, ?, ?, ?,
-                    1, 0, 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, 1, 1, 0, 0, 0)
-            """, [.int(columnID), .int(tableID), .int(columnStorageID), .int(now), .int(now), .int(refreshedNever)])
-        try db.run("""
-            INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags, Collation, OrderByColumn,
-                Locale, BinaryCharacters, Statistics_DistinctStates, Statistics_MinDataID, Statistics_MaxDataID,
-                Statistics_OriginalMinSegmentDataID, Statistics_RLESortOrder, Statistics_RowCount, Statistics_HasNulls, Statistics_RLERuns,
-                Statistics_OthersRLERuns, Statistics_Usage, Statistics_DBType, Statistics_XMType, Statistics_CompressionType,
-                Statistics_CompressionParam, Statistics_EncodingHint, IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName,
-                DeltaColumnMappingId, FramedSourceColumn, DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID,
-                ColumnIndexStorageID, FullTextIndexStorageID)
-            VALUES (?, ?, 'INDEX', 0, ?, 3, 0, NULL, NULL, 0, 0, 1, 2, 2, 2, -1, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, NULL, -1, NULL, 0, 0, 0, 0, NULL)
-            """, [.int(columnStorageID), .int(columnID), .int(dictionaryID)])
-        try db.run("INSERT INTO DictionaryStorage (ID, ColumnStorageID, Type, DataType, DataVersion, BaseId, Magnitude, LastId, IsNullable, IsUnique, IsOperatingOn32, DictionaryFlags, StorageFileID, Size) VALUES (?, ?, 0, 19, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0)",
-                   [.int(dictionaryID), .int(columnStorageID)])
-        try db.run("INSERT INTO ColumnPartitionStorage (ID, ColumnStorageID, PartitionStorageID, DataVersion, State, SegmentStorageID, StorageFileID) VALUES (?, ?, ?, 0, 3, ?, ?)",
-                   [.int(columnPartitionID), .int(columnStorageID), .int(partitionStorageID), .int(segmentID), .int(idfFileID)])
-        try db.run("INSERT INTO SegmentStorage (ID, ColumnPartitionStorageID, SegmentCount, StorageFileID) VALUES (?, ?, 1, ?)",
-                   [.int(segmentID), .int(columnPartitionID), .int(metaFileID)])
-        try db.run("INSERT INTO StorageFile (ID, OwnerID, OwnerType, StorageFolderID, FileName) VALUES (?, ?, 23, ?, ?)",
-                   [.int(idfFileID), .int(columnPartitionID), .int(partitionFolderID), .text("\(fileBase).idf")])
-        try db.run("INSERT INTO StorageFile (ID, OwnerID, OwnerType, StorageFolderID, FileName) VALUES (?, ?, 24, ?, ?)",
-                   [.int(metaFileID), .int(segmentID), .int(partitionFolderID), .text("\(fileBase).idfmeta")])
+            // Bảng hệ thống ẩn R$ (SystemFlags 1, IsHidden 1, ModelID 0) và cột INDEX.
+            try db.run("""
+                INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 18, ?)
+                """, [.int(tableFolderID), .int(tableStorageID), .text(tableFolder)])
+            try db.run("INSERT INTO TableStorage (ID, TableID, Name, Version, Settings, RIViolationCount, StorageFolderID) VALUES (?, ?, ?, 0, 2, 0, ?)",
+                       [.int(tableStorageID), .int(tableID), .text(tableName), .int(tableFolderID)])
+            try db.run("""
+                INSERT INTO [Table] (ID, ModelID, Name, DataCategory, Description, IsHidden, TableStorageID, ModifiedTime,
+                    StructureModifiedTime, SystemFlags, ShowAsVariationsOnly, IsPrivate, DefaultDetailRowsDefinitionID,
+                    AlternateSourcePrecedence, RefreshPolicyID, CalculationGroupID, ExcludeFromModelRefresh, LineageTag,
+                    SourceLineageTag, SystemManaged, ExcludeFromAutomaticAggregations, DirectLakeIndexingBehavior)
+                VALUES (?, 0, ?, NULL, NULL, 1, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, 0, 3)
+                """, [.int(tableID), .text(tableName), .int(tableStorageID), .int(now), .int(now)])
+            try db.run("""
+                INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 20, ?)
+                """, [.int(partitionFolderID), .int(partitionStorageID), .text(partitionFolder)])
+            try db.run("INSERT INTO PartitionStorage (ID, PartitionID, Name, StoragePosition, SegmentMapStorageID, DataObjectId, StorageFolderID, DeltaTableMetadataStorageID) VALUES (?, ?, ?, 0, ?, 0, ?, 0)",
+                       [.int(partitionStorageID), .int(partitionID), .text(tableName), .int(segmentMapID), .int(partitionFolderID)])
+            try db.run("INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment) VALUES (?, ?, 3, ?, 1, ?)",
+                       [.int(segmentMapID), .int(partitionStorageID), .int(Int64(records)), .int(Int64(records))])
+            try db.run("""
+                INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type, PartitionStorageID,
+                    Mode, DataView, ModifiedTime, RefreshedTime, SystemFlags, ErrorMessage, RetainDataTillForceCalculate, RangeStart,
+                    RangeEnd, RangeGranularity, RefreshBookmark, QueryGroupID, ExpressionSourceID, MAttributes,
+                    DataCoverageDefinitionID, SchemaName)
+                VALUES (?, ?, ?, NULL, 0, NULL, 1, 3, ?, 2, 3, ?, ?, 1, NULL, 0, 0.0, 0.0, -1, NULL, 0, 0, NULL, 0, NULL)
+                """, [.int(partitionID), .int(tableID), .text(tableName), .int(partitionStorageID), .int(now), .int(refreshedNever)])
+            try db.run("""
+                INSERT INTO [Column] (ID, TableID, ExplicitName, InferredName, ExplicitDataType, InferredDataType, DataCategory, Description,
+                    IsHidden, State, IsUnique, IsKey, IsNullable, Alignment, TableDetailPosition, IsDefaultLabel, IsDefaultImage, SummarizeBy,
+                    ColumnStorageID, Type, SourceColumn, ColumnOriginID, Expression, FormatString, IsAvailableInMDX, SortByColumnID,
+                    AttributeHierarchyID, ModifiedTime, StructureModifiedTime, RefreshedTime, SystemFlags, KeepUniqueRows, DisplayOrdinal,
+                    ErrorMessage, SourceProviderType, DisplayFolder, EncodingHint, RelatedColumnDetailsID, AlternateOfID, LineageTag,
+                    SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior, StringIndexID, FullTextIndexID)
+                VALUES (?, ?, 'INDEX', NULL, 6, 19, NULL, NULL, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, ?, 1, NULL, 0, NULL, NULL, 1, 0, 0, ?, ?, ?,
+                        1, 0, 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, 1, 1, 0, 0, 0)
+                """, [.int(columnID), .int(tableID), .int(columnStorageID), .int(now), .int(now), .int(refreshedNever)])
+            try db.run("""
+                INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags, Collation, OrderByColumn,
+                    Locale, BinaryCharacters, Statistics_DistinctStates, Statistics_MinDataID, Statistics_MaxDataID,
+                    Statistics_OriginalMinSegmentDataID, Statistics_RLESortOrder, Statistics_RowCount, Statistics_HasNulls, Statistics_RLERuns,
+                    Statistics_OthersRLERuns, Statistics_Usage, Statistics_DBType, Statistics_XMType, Statistics_CompressionType,
+                    Statistics_CompressionParam, Statistics_EncodingHint, IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName,
+                    DeltaColumnMappingId, FramedSourceColumn, DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID,
+                    ColumnIndexStorageID\(db.fullTextColumn))
+                VALUES (?, ?, 'INDEX', 0, ?, 3, 0, NULL, NULL, 0, 0, 1, 2, 2, 2, -1, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, NULL, -1, NULL, 0, 0, 0, 0\(db.fullTextValue("NULL")))
+                """, [.int(columnStorageID), .int(columnID), .int(dictionaryID)])
+            try db.run("INSERT INTO DictionaryStorage (ID, ColumnStorageID, Type, DataType, DataVersion, BaseId, Magnitude, LastId, IsNullable, IsUnique, IsOperatingOn32, DictionaryFlags, StorageFileID, Size) VALUES (?, ?, 0, 19, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0)",
+                       [.int(dictionaryID), .int(columnStorageID)])
+            try db.run("INSERT INTO ColumnPartitionStorage (ID, ColumnStorageID, PartitionStorageID, DataVersion, State, SegmentStorageID, StorageFileID) VALUES (?, ?, ?, 0, 3, ?, ?)",
+                       [.int(columnPartitionID), .int(columnStorageID), .int(partitionStorageID), .int(segmentID), .int(idfFileID)])
+            try db.run("INSERT INTO SegmentStorage (ID, ColumnPartitionStorageID, SegmentCount, StorageFileID) VALUES (?, ?, 1, ?)",
+                       [.int(segmentID), .int(columnPartitionID), .int(metaFileID)])
+            try db.run("INSERT INTO StorageFile (ID, OwnerID, OwnerType, StorageFolderID, FileName) VALUES (?, ?, 23, ?, ?)",
+                       [.int(idfFileID), .int(columnPartitionID), .int(partitionFolderID), .text("\(fileBase).idf")])
+            try db.run("INSERT INTO StorageFile (ID, OwnerID, OwnerType, StorageFolderID, FileName) VALUES (?, ?, 24, ?, ?)",
+                       [.int(metaFileID), .int(segmentID), .int(partitionFolderID), .text("\(fileBase).idfmeta")])
 
-        // Bảng nguồn tăng phiên bản lưu trữ (Desktop: Version 9 → 10), mô hình và bốn DBPROPERTIES đổi thời gian.
-        try db.run("UPDATE TableStorage SET Version = Version + 1 WHERE TableID = ?", [.int(Int64(fromTable))])
+            payloads += [ABFPayload(path: "\(partitionFolder)\\\(fileBase).idf", data: index.files.idf),
+                         ABFPayload(path: "\(partitionFolder)\\\(fileBase).idfmeta", data: index.files.meta)]
+        }
+
+        // Bảng được chỉ mục tăng phiên bản lưu trữ (Desktop: Version 9 → 10), mô hình và bốn DBPROPERTIES đổi thời gian.
+        for (table, _) in indexedTables {
+            try db.run("UPDATE TableStorage SET Version = Version + 1 WHERE TableID = ?", [.int(Int64(table))])
+        }
         try db.run("UPDATE Model SET ModifiedTime = ?", [.int(now)])
         try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(Int64(next - 1))])
         try bumpProperties(db, now)
-        return [ABFPayload(path: "\(partitionFolder)\\\(fileBase).idf", data: files.idf),
-                ABFPayload(path: "\(partitionFolder)\\\(fileBase).idfmeta", data: files.meta)]
+        return payloads
     }
 
     /// Xoá quan hệ cùng bảng `R$` của nó (mọi dòng lưu trữ). Trả đường dẫn các tệp ABF cần xoá.
     private static func deleteRelationship(_ db: MetadataDatabase, name: String, now: Int64) throws -> [String] {
         let ids = try db.strings("SELECT ID FROM Relationship WHERE Name = ?", [.text(name)])
         guard ids.count == 1, let id = Int64(ids[0]) else { throw WriteError.invalid("không có quan hệ \(name)") }
+        if db.tableExists("Variation"), (try db.int("SELECT COUNT(*) FROM Variation WHERE RelationshipID = ?", [.int(id)]) ?? 0) > 0 {
+            throw WriteError.invalid("quan hệ \(name) đang được một variation dùng; bỏ variation trước")
+        }
         var files: [String] = []
         for storage in try db.strings("SELECT ID FROM RelationshipStorage WHERE RelationshipID = ?", [.int(id)]) {
             guard let storageID = Int64(storage) else { continue }
@@ -948,6 +1039,170 @@ extension MetadataWriter {
             try db.run("DELETE FROM [\(dependent)] WHERE ObjectID = ?", [.int(id)])
         }
         try db.run("DELETE FROM Relationship WHERE ID = ?", [.int(id)])
+        try bumpProperties(db, now)
+        return files
+    }
+
+    /// Thêm phân cấp người dùng như Desktop 2.159 ghi (T030; `vm-f11/f11-desktop.pbix`, Nhom6): dòng `Hierarchy`, các `Level`,
+    /// `HierarchyStorage` (LevelDefinition, StructureType), chú thích (ObjectType 9), bảng hệ thống ẩn `U$…` với bốn cột và tệp của chúng.
+    private static func addHierarchy(_ db: MetadataDatabase, _ new: NewHierarchy, nodes: HierarchyIndex.Nodes, now: Int64) throws -> [ABFPayload] {
+        guard !new.levels.isEmpty, nodes.levelStarts.count == new.levels.count else { throw WriteError.invalid("phân cấp \(new.name) không có cấp") }
+        guard !new.name.trimmingCharacters(in: .whitespaces).isEmpty else { throw WriteError.invalid("tên phân cấp trống") }
+        let tableID = Int64(try db.userTableID(named: new.table))
+        guard (try db.int("SELECT COUNT(*) FROM Hierarchy WHERE TableID = ? AND Name = ? COLLATE NOCASE", [.int(tableID), .text(new.name)]) ?? 0) == 0 else {
+            throw WriteError.invalid("bảng \(new.table) đã có phân cấp \(new.name)")
+        }
+        let levelColumns = try new.levels.map { Int64(try columnID(db, table: new.table, name: $0.column)) }
+        let storageNames = try levelColumns.map { id in
+            guard let name = try db.strings("SELECT Name FROM ColumnStorage WHERE ColumnID = ?", [.int(id)]).first else {
+                throw WriteError.invalid("cột cấp \(id) của \(new.table) không có ColumnStorage")
+            }
+            return name
+        }
+        guard let tableStorageName = try db.strings("SELECT Name FROM TableStorage WHERE TableID = ?", [.int(tableID)]).first else {
+            throw WriteError.invalid("bảng \(new.table) không có TableStorage")
+        }
+        let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+        guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+
+        var next = stored + 1
+        func take() -> Int64 { defer { next += 1 }; return Int64(next) }
+        let hierarchyID = take()
+        let levelIDs = new.levels.map { _ in take() }
+        let storageID = take()
+        let annotationIDs = new.annotations.keys.sorted().map { ($0, take()) }
+        let systemID = take(), tableStorageID = take(), tableFolderID = take(), partitionID = take(), partitionStorageID = take()
+        let partitionFolderID = take(), segmentMapID = take()
+
+        // [SUY ĐOÁN] tên lưu trữ của phân cấp đổi `-`, `_` thành dấu cách như tên bảng và cột.
+        let storageName = new.name.replacingOccurrences(of: "-", with: " ").replacingOccurrences(of: "_", with: " ") + " (\(hierarchyID))"
+        let systemName = "U$\(tableStorageName)$\(storageName)"
+        let tableFolder = "\(systemName)$(\(systemID)).tbl"
+        let partitionFolder = "\(tableFolder)\\\(partitionID).prt"
+        let refreshedNever: Int64 = 31_240_512_000_000_000
+
+        try db.run("""
+            INSERT INTO Hierarchy (ID, TableID, Name, Description, IsHidden, State, HierarchyStorageID, ModifiedTime, StructureModifiedTime,
+                RefreshedTime, DisplayFolder, HideMembers, LineageTag, SourceLineageTag)
+            VALUES (?, ?, ?, NULL, ?, 1, ?, ?, ?, ?, NULL, 0, ?, NULL)
+            """, [.int(hierarchyID), .int(tableID), .text(new.name), .int(new.isHidden ? 1 : 0), .int(storageID), .int(now), .int(now), .int(now),
+                  .text(UUID().uuidString.lowercased())])
+        for (ordinal, (level, id)) in zip(new.levels, levelIDs).enumerated() {
+            try db.run("""
+                INSERT INTO Level (ID, HierarchyID, Ordinal, Name, Description, ColumnID, ModifiedTime, LineageTag, SourceLineageTag)
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, NULL)
+                """, [.int(id), .int(hierarchyID), .int(Int64(ordinal)), .text(level.name), .int(levelColumns[ordinal]), .int(now),
+                      .text(UUID().uuidString.lowercased())])
+        }
+        try db.run("""
+            INSERT INTO HierarchyStorage (ID, HierarchyID, Name, LevelDefinition, MaterializationType, StructureType, SystemTableID)
+            VALUES (?, ?, ?, ?, 0, ?, ?)
+            """, [.int(storageID), .int(hierarchyID), .text(storageName),
+                  .text(HierarchyIndex.levelDefinition(storageNames, starts: nodes.levelStarts)), .int(Int64(nodes.structureType)), .int(systemID)])
+        for (name, id) in annotationIDs {
+            try db.run("INSERT INTO Annotation (ID, ObjectID, ObjectType, Name, Value, ModifiedTime) VALUES (?, ?, 9, ?, ?, ?)",
+                       [.int(id), .int(hierarchyID), .text(name), .text(new.annotations[name] ?? ""), .int(now)])
+        }
+
+        // Bảng hệ thống ẩn U$ (TableStorage Version 0, Settings 5; phân vùng một đoạn, SegmentMapStorage Type 3).
+        try db.run("INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 18, ?)",
+                   [.int(tableFolderID), .int(tableStorageID), .text(tableFolder)])
+        try db.run("INSERT INTO TableStorage (ID, TableID, Name, Version, Settings, RIViolationCount, StorageFolderID) VALUES (?, ?, ?, 0, 5, 0, ?)",
+                   [.int(tableStorageID), .int(systemID), .text(systemName), .int(tableFolderID)])
+        try db.run("""
+            INSERT INTO [Table] (ID, ModelID, Name, DataCategory, Description, IsHidden, TableStorageID, ModifiedTime,
+                StructureModifiedTime, SystemFlags, ShowAsVariationsOnly, IsPrivate, DefaultDetailRowsDefinitionID,
+                AlternateSourcePrecedence, RefreshPolicyID, CalculationGroupID, ExcludeFromModelRefresh, LineageTag,
+                SourceLineageTag, SystemManaged, ExcludeFromAutomaticAggregations, DirectLakeIndexingBehavior)
+            VALUES (?, 0, ?, NULL, NULL, 1, ?, ?, ?, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, 0, 3)
+            """, [.int(systemID), .text(systemName), .int(tableStorageID), .int(now), .int(now)])
+        try db.run("INSERT INTO StorageFolder (ID, OwnerID, OwnerType, Path) VALUES (?, ?, 20, ?)",
+                   [.int(partitionFolderID), .int(partitionStorageID), .text(partitionFolder)])
+        try db.run("INSERT INTO PartitionStorage (ID, PartitionID, Name, StoragePosition, SegmentMapStorageID, DataObjectId, StorageFolderID, DeltaTableMetadataStorageID) VALUES (?, ?, ?, 0, ?, 0, ?, 0)",
+                   [.int(partitionStorageID), .int(partitionID), .text(systemName), .int(segmentMapID), .int(partitionFolderID)])
+        try db.run("INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment) VALUES (?, ?, 3, ?, 1, ?)",
+                   [.int(segmentMapID), .int(partitionStorageID), .int(Int64(nodes.count)), .int(Int64(nodes.count))])
+        try db.run("""
+            INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type, PartitionStorageID,
+                Mode, DataView, ModifiedTime, RefreshedTime, SystemFlags, ErrorMessage, RetainDataTillForceCalculate, RangeStart,
+                RangeEnd, RangeGranularity, RefreshBookmark, QueryGroupID, ExpressionSourceID, MAttributes,
+                DataCoverageDefinitionID, SchemaName)
+            VALUES (?, ?, ?, NULL, 0, NULL, 1, 3, ?, 2, 3, ?, ?, 1, NULL, 0, 0.0, 0.0, -1, NULL, 0, 0, NULL, 0, NULL)
+            """, [.int(partitionID), .int(systemID), .text(systemName), .int(partitionStorageID), .int(now), .int(refreshedNever)])
+
+        var payloads: [ABFPayload] = []
+        for (position, file) in HierarchyIndex.encode(nodes).enumerated() {
+            let columnID = take(), columnStorageID = take(), dictionaryID = take(), columnPartitionID = take(), segmentID = take()
+            let idfFileID = take(), metaFileID = take()
+            let settings = HierarchyIndex.columns[position].settings
+            let fileBase = "0.\(systemName).\(file.column).0"
+            try db.run("""
+                INSERT INTO [Column] (ID, TableID, ExplicitName, InferredName, ExplicitDataType, InferredDataType, DataCategory, Description,
+                    IsHidden, State, IsUnique, IsKey, IsNullable, Alignment, TableDetailPosition, IsDefaultLabel, IsDefaultImage, SummarizeBy,
+                    ColumnStorageID, Type, SourceColumn, ColumnOriginID, Expression, FormatString, IsAvailableInMDX, SortByColumnID,
+                    AttributeHierarchyID, ModifiedTime, StructureModifiedTime, RefreshedTime, SystemFlags, KeepUniqueRows, DisplayOrdinal,
+                    ErrorMessage, SourceProviderType, DisplayFolder, EncodingHint, RelatedColumnDetailsID, AlternateOfID, LineageTag,
+                    SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior\(db.columnIndexColumns))
+                VALUES (?, ?, ?, NULL, 6, 19, NULL, NULL, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, ?, 1, NULL, 0, NULL, NULL, 1, 0, 0, ?, ?, ?,
+                        1, 0, 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, 1, 1, 0\(db.columnIndexValues))
+                """, [.int(columnID), .int(systemID), .text(file.column), .int(columnStorageID), .int(now), .int(now), .int(refreshedNever)])
+            try db.run("""
+                INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags, Collation, OrderByColumn,
+                    Locale, BinaryCharacters, Statistics_DistinctStates, Statistics_MinDataID, Statistics_MaxDataID,
+                    Statistics_OriginalMinSegmentDataID, Statistics_RLESortOrder, Statistics_RowCount, Statistics_HasNulls, Statistics_RLERuns,
+                    Statistics_OthersRLERuns, Statistics_Usage, Statistics_DBType, Statistics_XMType, Statistics_CompressionType,
+                    Statistics_CompressionParam, Statistics_EncodingHint, IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName,
+                    DeltaColumnMappingId, FramedSourceColumn, DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID,
+                    ColumnIndexStorageID\(db.fullTextColumn))
+                VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, 0, 10240, 1, 2, 2, 2, -1, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, NULL, -1, NULL, 0, 0, 0, 0\(db.fullTextValue("0")))
+                """, [.int(columnStorageID), .int(columnID), .text(file.column), .int(Int64(position)), .int(dictionaryID), .int(settings)])
+            try db.run("INSERT INTO DictionaryStorage (ID, ColumnStorageID, Type, DataType, DataVersion, BaseId, Magnitude, LastId, IsNullable, IsUnique, IsOperatingOn32, DictionaryFlags, StorageFileID, Size) VALUES (?, ?, 0, 19, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0)",
+                       [.int(dictionaryID), .int(columnStorageID)])
+            try db.run("INSERT INTO ColumnPartitionStorage (ID, ColumnStorageID, PartitionStorageID, DataVersion, State, SegmentStorageID, StorageFileID) VALUES (?, ?, ?, 0, 3, ?, ?)",
+                       [.int(columnPartitionID), .int(columnStorageID), .int(partitionStorageID), .int(segmentID), .int(idfFileID)])
+            try db.run("INSERT INTO SegmentStorage (ID, ColumnPartitionStorageID, SegmentCount, StorageFileID) VALUES (?, ?, 1, ?)",
+                       [.int(segmentID), .int(columnPartitionID), .int(metaFileID)])
+            try db.run("INSERT INTO StorageFile (ID, OwnerID, OwnerType, StorageFolderID, FileName) VALUES (?, ?, 23, ?, ?)",
+                       [.int(idfFileID), .int(columnPartitionID), .int(partitionFolderID), .text("\(fileBase).idf")])
+            try db.run("INSERT INTO StorageFile (ID, OwnerID, OwnerType, StorageFolderID, FileName) VALUES (?, ?, 24, ?, ?)",
+                       [.int(metaFileID), .int(segmentID), .int(partitionFolderID), .text("\(fileBase).idfmeta")])
+            payloads.append(ABFPayload(path: "\(partitionFolder)\\\(fileBase).idf", data: file.idf))
+            payloads.append(ABFPayload(path: "\(partitionFolder)\\\(fileBase).idfmeta", data: file.meta))
+        }
+
+        try db.run("UPDATE [Table] SET ModifiedTime = ?, StructureModifiedTime = ? WHERE ID = ?", [.int(now), .int(now), .int(tableID)])
+        try db.run("UPDATE Model SET ModifiedTime = ?", [.int(now)])
+        try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(Int64(next - 1))])
+        try bumpProperties(db, now)
+        return payloads
+    }
+
+    /// Xoá phân cấp cùng các `Level`, `HierarchyStorage`, chú thích và bảng `U$`. Phân cấp còn được `Variation` dùng thì từ chối (bỏ variation trước).
+    /// Trả đường dẫn ABF các tệp của `U$`.
+    private static func dropHierarchy(_ db: MetadataDatabase, table: String, name: String, now: Int64) throws -> [String] {
+        let tableID = Int64(try db.userTableID(named: table))
+        let ids = try db.strings("SELECT ID FROM Hierarchy WHERE TableID = ? AND Name = ? COLLATE NOCASE", [.int(tableID), .text(name)])
+        guard ids.count == 1, let id = Int64(ids[0]) else { throw WriteError.invalid("bảng \(table) không có phân cấp \(name)") }
+        if db.tableExists("Variation"), (try db.int("SELECT COUNT(*) FROM Variation WHERE DefaultHierarchyID = ?", [.int(id)]) ?? 0) > 0 {
+            throw WriteError.invalid("phân cấp \(table)/\(name) đang được variation dùng, bỏ variation trước")
+        }
+        var files: [String] = []
+        for storage in try db.strings("SELECT ID FROM HierarchyStorage WHERE HierarchyID = ?", [.int(id)]).compactMap(Int64.init) {
+            if let system = try db.int("SELECT SystemTableID FROM HierarchyStorage WHERE ID = ?", [.int(storage)]), system != 0 {
+                files += try removeSystemTable(db, tableID: system)
+            }
+            try db.run("DELETE FROM HierarchyStorage WHERE ID = ?", [.int(storage)])
+        }
+        let levelIDs = try db.strings("SELECT ID FROM Level WHERE HierarchyID = ?", [.int(id)]).compactMap(Int64.init)
+        for object in [id] + levelIDs {
+            for dependent in ["Annotation", "ExtendedProperty"] where db.tableExists(dependent) {
+                try db.run("DELETE FROM [\(dependent)] WHERE ObjectID = ?", [.int(object)])
+            }
+        }
+        try db.run("DELETE FROM Level WHERE HierarchyID = ?", [.int(id)])
+        try db.run("DELETE FROM Hierarchy WHERE ID = ?", [.int(id)])
+        try db.run("UPDATE [Table] SET ModifiedTime = ?, StructureModifiedTime = ? WHERE ID = ?", [.int(now), .int(now), .int(tableID)])
+        try db.run("UPDATE Model SET ModifiedTime = ?", [.int(now)])
         try bumpProperties(db, now)
         return files
     }
@@ -1066,10 +1321,107 @@ extension MetadataWriter {
             guard sortID != id else { throw WriteError.invalid("cột không thể sắp xếp theo chính nó") }
             sets.append("SortByColumnID = ?"); values.append(.int(Int64(sortID)))
         }
-        guard !sets.isEmpty else { return }
+        try setAnnotations(db, objectID: Int64(id), objectType: 4, patch.annotations, now: now)
+        guard !sets.isEmpty || !patch.annotations.isEmpty else { return }
         sets.append("ModifiedTime = ?"); values.append(.int(now))
         values.append(.int(Int64(id)))
         try db.run("UPDATE [Column] SET \(sets.joined(separator: ", ")) WHERE ID = ?", values)
+        try bumpProperties(db, now)
+    }
+
+    /// Đặt hoặc xoá chú thích (`Annotation`) của một đối tượng: có rồi thì sửa giá trị, chưa có thì thêm dòng với ID `MAXID + 1`.
+    /// Thứ tự thêm theo tên để kết quả ổn định.
+    fileprivate static func setAnnotations(_ db: MetadataDatabase, objectID: Int64, objectType: Int64, _ changes: [String: Assignment<String>], now: Int64) throws {
+        guard !changes.isEmpty else { return }
+        for (name, change) in changes.sorted(by: { $0.key < $1.key }) {
+            let existing = try db.int("SELECT ID FROM Annotation WHERE ObjectID = ? AND ObjectType = ? AND Name = ?",
+                                      [.int(objectID), .int(objectType), .text(name)])
+            switch change {
+            case .clear:
+                if let existing { try db.run("DELETE FROM Annotation WHERE ID = ?", [.int(existing)]) }
+            case .set(let value):
+                if let existing {
+                    try db.run("UPDATE Annotation SET Value = ?, ModifiedTime = ? WHERE ID = ?", [.text(value), .int(now), .int(existing)])
+                } else {
+                    let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+                    guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+                    let id = Int64(stored + 1)
+                    try db.run("INSERT INTO Annotation (ID, ObjectID, ObjectType, Name, Value, ModifiedTime) VALUES (?, ?, ?, ?, ?, ?)",
+                               [.int(id), .int(objectID), .int(objectType), .text(name), .text(value), .int(now)])
+                    try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(id)])
+                }
+            }
+        }
+    }
+
+    /// Cờ bảng của Auto date/time (`IsPrivate`, `ShowAsVariationsOnly`) và chú thích bảng. Bảng có một trong hai cờ thì phân vùng và mọi
+    /// cột mang `SystemFlags = 2` như Desktop ghi cho `LocalDateTable_…`, `DateTableTemplate_…` (f11, w8.3).
+    fileprivate static func setTableFlags(_ db: MetadataDatabase, tableID: Int64, isPrivate: Bool?, showAsVariationsOnly: Bool?,
+                              annotations: [String: Assignment<String>], now: Int64) throws {
+        var sets: [String] = [], values: [MetadataDatabase.Value] = []
+        if let isPrivate { sets.append("IsPrivate = ?"); values.append(.int(isPrivate ? 1 : 0)) }
+        if let showAsVariationsOnly { sets.append("ShowAsVariationsOnly = ?"); values.append(.int(showAsVariationsOnly ? 1 : 0)) }
+        try setAnnotations(db, objectID: tableID, objectType: 3, annotations, now: now)
+        guard !sets.isEmpty else { return }
+        try db.run("UPDATE [Table] SET \(sets.joined(separator: ", ")), ModifiedTime = ? WHERE ID = ?", values + [.int(now), .int(tableID)])
+        let flagged = (try db.int("SELECT COUNT(*) FROM [Table] WHERE ID = ? AND (IsPrivate = 1 OR ShowAsVariationsOnly = 1)", [.int(tableID)]) ?? 0) > 0
+        guard flagged else { return }
+        try db.run("UPDATE Partition SET SystemFlags = 2 WHERE TableID = ?", [.int(tableID)])
+        try db.run("UPDATE [Column] SET SystemFlags = 2 WHERE TableID = ?", [.int(tableID)])
+        // Cột kết quả của bảng ngày (`Date`) mang kiểu tường minh bằng kiểu suy ra (f11: 9, 9), khác bảng tính toán của người dùng (1).
+        try db.run("UPDATE [Column] SET ExplicitDataType = InferredDataType WHERE TableID = ? AND Type = 4", [.int(tableID)])
+    }
+
+    // MARK: Variation (Auto date/time)
+
+    /// Thêm dòng `Variation` "Variation" như Desktop (f11): cột ngày trỏ quan hệ tới bảng ngày cục bộ và phân cấp mặc định của bảng đó.
+    fileprivate static func addVariation(_ db: MetadataDatabase, table: String, column: String, relationship: String, hierarchy: HierarchyRef, now: Int64) throws {
+        guard db.tableExists("Variation") else { throw WriteError.invalid("metadata.sqlitedb không có bảng Variation") }
+        let columnID = try columnID(db, table: table, name: column)
+        guard (try db.int("SELECT COUNT(*) FROM Variation WHERE ColumnID = ?", [.int(Int64(columnID))]) ?? 0) == 0 else {
+            throw WriteError.invalid("cột \(table)[\(column)] đã có variation")
+        }
+        guard let relID = try db.int("SELECT ID FROM Relationship WHERE Name = ?", [.text(relationship)]) else {
+            throw WriteError.invalid("không có quan hệ \(relationship)")
+        }
+        guard try db.int("SELECT FromColumnID FROM Relationship WHERE ID = ?", [.int(relID)]) == Int64(columnID) else {
+            throw WriteError.invalid("quan hệ \(relationship) không đi từ cột \(table)[\(column)]")
+        }
+        let hierarchyTable = try db.userTableID(named: hierarchy.table)
+        guard let hierarchyID = try db.int("SELECT ID FROM Hierarchy WHERE TableID = ? AND Name = ? COLLATE NOCASE",
+                                           [.int(Int64(hierarchyTable)), .text(hierarchy.name)]) else {
+            throw WriteError.invalid("bảng \(hierarchy.table) không có phân cấp \(hierarchy.name)")
+        }
+        guard try db.int("SELECT ToTableID FROM Relationship WHERE ID = ?", [.int(relID)]) == Int64(hierarchyTable) else {
+            throw WriteError.invalid("quan hệ \(relationship) không tới bảng \(hierarchy.table)")
+        }
+        let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+        guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+        let id = Int64(stored + 1)
+        try db.run("""
+            INSERT INTO Variation (ID, ColumnID, Name, Description, RelationshipID, DefaultHierarchyID, DefaultColumnID, IsDefault)
+            VALUES (?, ?, 'Variation', NULL, ?, ?, 0, 1)
+            """, [.int(id), .int(Int64(columnID)), .int(relID), .int(hierarchyID)])
+        try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(id)])
+        try db.run("UPDATE [Column] SET ModifiedTime = ? WHERE ID = ?", [.int(now), .int(Int64(columnID))])
+        try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
+        try bumpProperties(db, now)
+    }
+
+    fileprivate static func dropVariation(_ db: MetadataDatabase, table: String, column: String, now: Int64) throws {
+        let columnID = try columnID(db, table: table, name: column)
+        guard db.tableExists("Variation"),
+              (try db.int("SELECT COUNT(*) FROM Variation WHERE ColumnID = ?", [.int(Int64(columnID))]) ?? 0) > 0 else {
+            throw WriteError.invalid("cột \(table)[\(column)] không có variation")
+        }
+        for id in try db.strings("SELECT ID FROM Variation WHERE ColumnID = ?", [.int(Int64(columnID))]).compactMap(Int64.init) {
+            for dependent in ["Annotation", "ExtendedProperty"] where db.tableExists(dependent) {
+                try db.run("DELETE FROM [\(dependent)] WHERE ObjectID = ?", [.int(id)])
+            }
+            try db.run("DELETE FROM Variation WHERE ID = ?", [.int(id)])
+        }
+        try db.run("UPDATE [Column] SET ModifiedTime = ? WHERE ID = ?", [.int(now), .int(Int64(columnID))])
+        try db.run("UPDATE Model SET ModifiedTime = ?, StructureModifiedTime = ?", [.int(now), .int(now)])
         try bumpProperties(db, now)
     }
 }
@@ -1172,6 +1524,19 @@ private final class MetadataDatabase {
             throw WriteError.invalid("PRAGMA integrity_check: \(results.prefix(3).joined(separator: "; "))")
         }
     }
+
+    func hasColumn(_ table: String, _ column: String) -> Bool {
+        ((try? strings("SELECT name FROM pragma_table_info('\(table)')")) ?? []).contains(column)
+    }
+
+    /// `ColumnStorage.FullTextIndexStorageID` không có ở mọi lược đồ (file trống Desktop 2.159, VM-F5): chỉ ghi khi bảng có.
+    var fullTextColumn: String { hasColumn("ColumnStorage", "FullTextIndexStorageID") ? ", FullTextIndexStorageID" : "" }
+    func fullTextValue(_ value: String) -> String { fullTextColumn.isEmpty ? "" : ", \(value)" }
+    /// `Column.StringIndexID`, `FullTextIndexID` (cùng lý do).
+    var columnIndexColumns: String {
+        ["StringIndexID", "FullTextIndexID"].filter { hasColumn("Column", $0) }.map { ", " + $0 }.joined()
+    }
+    var columnIndexValues: String { String(repeating: ", 0", count: columnIndexColumns.filter { $0 == "," }.count) }
 
     func tableExists(_ name: String) -> Bool {
         ((try? int("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", [.text(name)])) ?? 0) == 1

@@ -19,6 +19,13 @@ public enum Binder {
         return try scope.bind(expr)
     }
 
+    /// Bind biểu thức cột tính toán của bảng `rowTable`: `[Cột]` không ghi bảng là cột của dòng đang tính (như Desktop, `YEAR([Date])`).
+    public static func bind(_ expr: Expr, catalog: Catalog, rowTable: TableID) throws(DAXError) -> BoundExpr {
+        var scope = BindScope(catalog: catalog, nextSlot: 0)
+        scope.pushRowTable(rowTable)
+        return try scope.bind(expr)
+    }
+
     /// Bind thân của một measure theo ID trong catalog.
     public static func bindMeasure(_ id: MeasureID, catalog: Catalog) throws(DAXError) -> BoundExpr {
         guard let measure = catalog.measure(id) else {
@@ -121,6 +128,8 @@ struct BindScope {
     private var slotTables: [Int: TableID] = [:]
     /// Cột ảo của slot VAR (bảng ảo).
     private var slotVirtualColumns: [Int: Set<String>] = [:]
+
+    mutating func pushRowTable(_ table: TableID) { rowTables.append(table) }
 
     init(catalog: Catalog, nextSlot: Int) {
         self.catalog = catalog

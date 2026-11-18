@@ -48,7 +48,7 @@ public final class DAXEngine: Sendable {
         guard let schemaTable = store.schema.table(named: table) else {
             throw DAXError(.unknownName, "không tìm thấy bảng \"\(table)\"")
         }
-        let bound = try Binder.bind(try parseExpression(expression), catalog: catalog)
+        let bound = try Binder.bind(try parseExpression(expression), catalog: catalog, rowTable: schemaTable.id)
         let evaluator = Evaluator(store: store, catalog: catalog)
         let rows: RowSet
         do { rows = try store.allRows(schemaTable.id) } catch { throw DAXError(.runtime, "không đọc được bảng \"\(table)\": \(error)") }

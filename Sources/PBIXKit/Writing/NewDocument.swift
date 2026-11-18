@@ -5,8 +5,8 @@ import Foundation
 /// Theo file Desktop 2.159 tạo bằng Blank report rồi lưu (VM-F5): 10 phần, không có `DataMashup` (truy vấn M nằm ở
 /// `Partition.QueryDefinition`/`Expression` của mô hình), báo cáo PBIR một trang "Page 1" 1920×1080. `DataModel` lấy từ mẫu
 /// Desktop (`NewDocumentTemplate`) vì `metadata.sqlitedb` trống có 73 bảng lược đồ; chỉ sửa hai chú thích mô hình:
-/// - `__PBI_TimeIntelligenceEnabled = 0` (tắt Auto date/time của file): khi bật, Desktop sinh `DateTableTemplate` và
-///   `LocalDateTable` kèm quan hệ và phân cấp cho mỗi cột ngày, mà bộ ghi của BI Pro chưa dựng (giống Nhom6, cũng tắt).
+/// - `__PBI_TimeIntelligenceEnabled = 1` (bật Auto date/time của file, mặc định của Desktop cho tài liệu mới, VM-F11b, T033):
+///   BI Pro sinh `DateTableTemplate` và `LocalDateTable` cho mỗi cột ngày khi nạp (`AutoDateTime.expand`).
 /// - `PBI_QueryOrder = []`: Desktop thêm chú thích này ngay khi có truy vấn đầu tiên; có sẵn thì `addTable` nối tên vào.
 /// Bỏ `SecurityBindings` (khoá DPAPI theo máy, BI Pro vẫn bỏ khi lưu báo cáo).
 public enum NewDocument {
@@ -42,7 +42,7 @@ public enum NewDocument {
             throw WriteError.invalid("mẫu tài liệu trống không có \(PBIXWriter.metadataPath)")
         }
         var metadata = try MetadataWriter(sqlite: try abf.contents(of: metadataFile))
-        try metadata.setModelAnnotation(name: "__PBI_TimeIntelligenceEnabled", value: "0")
+        try metadata.setModelAnnotation(name: "__PBI_TimeIntelligenceEnabled", value: "1")
         try metadata.setModelAnnotation(name: "PBI_QueryOrder", value: "[]")
         let rebuilt = try ABFWriter.rebuild(abf, replacing: [ABFPayload(path: metadataFile.path, data: try metadata.serialize())])
         return try DataModelStream.compress(abf: rebuilt)

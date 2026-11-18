@@ -73,7 +73,11 @@ import Testing
 
     @Test(.enabled(if: !files.isEmpty), arguments: files)
     func autoDateStructureMatchesDesktop(_ url: URL) throws {
-        let bytes = try Self.metadata(url)
+        try Self.checkStructure(try Self.metadata(url))
+    }
+
+    /// Mẫu Auto date/time của Desktop trên một `metadata.sqlitedb` (dùng lại cho file BI Pro ghi, `AutoDateWriteTests`).
+    static func checkStructure(_ bytes: Data) throws {
         let db = try SQLiteReader(bytes: bytes)
         let model = try ModelMetadata(sqlite: bytes)
         #expect(model.modelAnnotations["__PBI_TimeIntelligenceEnabled"] == "1")

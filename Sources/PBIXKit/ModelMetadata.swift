@@ -191,6 +191,11 @@ public struct ModelMetadata: Sendable {
 
     public var userTables: [Table] { tables.filter(\.isUserTable) }
 
+    /// Bảng ngày của Auto date/time (bảng mẫu và bảng cục bộ): bảng tính toán `SystemFlags = 2` không phải bảng người dùng.
+    public var autoDateTables: Set<String> {
+        Set(tables.filter { $0.systemFlags == 2 && !$0.isCalculatedUserTable && calculatedTableExpressions[$0.name] != nil }.map(\.name))
+    }
+
     public init(sqlite bytes: Data) throws {
         let db = try SQLiteReader(bytes: bytes)
         // Older schemas lack some columns; select NULL for those instead of failing.

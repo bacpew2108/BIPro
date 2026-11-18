@@ -218,8 +218,11 @@ public enum PBIXWriter {
             default: break
             }
         }
+        // Bảng và cột tính toán thêm trong đợt: giá trị đã tính theo khoá `Bảng[Cột]` (bảng ngày cục bộ của Auto date/time, T031).
+        let calculatedByKey = Dictionary(calculated.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { a, _ in a })
         func cells(_ table: String, _ column: String) -> [CellValue]? {
-            guard let values = inMemory[table.lowercased()]?.columns.first(where: { $0.name == column })?.values else { return nil }
+            guard let values = inMemory[table.lowercased()]?.columns.first(where: { $0.name == column })?.values
+                    ?? calculatedByKey["\(table)[\(column)]".lowercased()] else { return nil }
             switch values {
             case .int64(let v): return v.map { $0.map { .int($0) } ?? .null }
             case .currency(let v): return v.map { $0.map { .decimal(Double($0) / 10_000) } ?? .null }
@@ -230,8 +233,13 @@ public enum PBIXWriter {
             }
         }
         metadata.relationshipIndexProvider = { new in
+            // Quan hệ chỉ so phần ngày (`JoinOnDateBehavior` 2): hai phía so theo ngày, bỏ phần giờ.
+            func datePart(_ list: [CellValue]) -> [CellValue] {
+                guard new.joinOnDateBehavior == 2 else { return list }
+                return list.map { if case .dateTime(let d) = $0 { .dateTime(d.rounded(.down)) } else { $0 } }
+            }
             let fromCells = cells(new.fromTable, new.fromColumn), toCells = cells(new.toTable, new.toColumn)
-            if fromCells != nil || toCells != nil {
+            if fromCells != nil || toCells != nil || new.joinOnDateBehavior == 2 {
                 // Phía nào nằm trong bộ nhớ thì dùng ô của nó, phía kia đọc từ ABF (phía nhiều theo từ điển của ABF).
                 func abfColumn(_ table: String, _ column: String) throws -> DecodedColumn {
                     guard let storage = sourceModel.storage(table: table, column: column) else {
@@ -239,22 +247,52 @@ public enum PBIXWriter {
                     }
                     return try VertiPaq.decodeColumn(storage, abf: abf)
                 }
-                let manyDictionary: [CellValue]
-                if let fromCells { manyDictionary = RelationshipIndex.dictionary(ofCells: fromCells) } else {
+                let one: [CellValue]
+                if let toCells { one = toCells } else { let c = try abfColumn(new.toTable, new.toColumn); one = (0..<c.count).map { c[$0] } }
+                let oneName = "\(new.toTable)[\(new.toColumn)]"
+                if let fromCells {
+                    return (try RelationshipIndex.values(manyDictionary: datePart(RelationshipIndex.dictionary(ofCells: fromCells)), oneCells: datePart(one), oneName: oneName), one.count)
+                }
+                guard let storage = sourceModel.storage(table: new.fromTable, column: new.fromColumn) else {
+                    throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] không có dữ liệu lưu trữ")
+                }
+                if new.joinOnDateBehavior == 2 {
                     guard case .dictionary(_, let dictionary) = try abfColumn(new.fromTable, new.fromColumn).storage else {
                         throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] không mã hoá bằng từ điển, chưa tạo được chỉ mục quan hệ")
                     }
-                    manyDictionary = dictionary
+                    return (try RelationshipIndex.values(manyDictionary: datePart(dictionary), oneCells: datePart(one), oneName: oneName), one.count)
                 }
-                let one: [CellValue]
-                if let toCells { one = toCells } else { let c = try abfColumn(new.toTable, new.toColumn); one = (0..<c.count).map { c[$0] } }
-                return (try RelationshipIndex.values(manyDictionary: manyDictionary, oneCells: one, oneName: "\(new.toTable)[\(new.toColumn)]"), one.count)
+                return (try RelationshipIndex.values(from: storage, abf: abf, oneCells: one, oneName: oneName), one.count)
             }
             guard let from = sourceModel.storage(table: new.fromTable, column: new.fromColumn),
                   let to = sourceModel.storage(table: new.toTable, column: new.toColumn) else {
                 throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] hoặc \(new.toTable)[\(new.toColumn)] không có dữ liệu lưu trữ")
             }
             return (try RelationshipIndex.values(from: from, to: to, abf: abf), try VertiPaq.rowCount(to, abf: abf))
+        }
+        // Phân cấp mới (T030): cột của bảng thêm trong cùng đợt lấy từ dữ liệu mã hoá, cột đã có trong ABF đọc mã dữ liệu và `H$`.
+        metadata.hierarchyLevelsProvider = { table, levels in
+            if let memory = inMemory[table.lowercased()] {
+                func values(_ column: String) throws -> VertiPaqWriter.Values {
+                    guard let v = memory.columns.first(where: { $0.name == column })?.values else {
+                        throw WriteError.invalid("bảng \(table) không có cột \(column)")
+                    }
+                    return v
+                }
+                return try levels.map { try HierarchyIndex.level(try values($0.column), sortBy: try $0.sortBy.map(values)) }
+            }
+            func stored(_ column: String) throws -> (ModelMetadata.ColumnStorage, Int) {
+                guard let storage = sourceModel.storage(table: table, column: column),
+                      let id = sourceModel.columns.first(where: { $0.tableName == table && $0.name == column })?.id else {
+                    throw WriteError.invalid("cột \(table)[\(column)] không có dữ liệu lưu trữ")
+                }
+                return (storage, id)
+            }
+            return try levels.map { level in
+                let (storage, id) = try stored(level.column)
+                let sortBy = try level.sortBy.map { try stored($0) }
+                return try HierarchyIndex.level(storage, columnID: id, sortBy: sortBy.map { (column: $0.0, id: $0.1) }, abf: abf)
+            }
         }
         // Thay dữ liệu bảng đang dính quan hệ: xoá quan hệ (kèm bảng `R$` và tệp chỉ mục), thay bảng, thêm lại quan hệ cùng tên với chỉ mục dựng từ
         // dữ liệu mới. Bảng xoá khỏi file mà còn quan hệ thì `dropTable` từ chối như trước.
@@ -352,6 +390,14 @@ public enum PBIXWriter {
             guard model.relationships.sorted(by: { $0.name < $1.name }) == expected.relationships.sorted(by: { $0.name < $1.name }) else {
                 throw WriteError.verificationFailed("relationships read back differ from the edited model")
             }
+            // Auto date/time (T031): quan hệ tới bảng ngày, variation và chú thích mô hình vừa đặt.
+            guard model.dateTableRelationships.sorted(by: { $0.name < $1.name }) == expected.dateTableRelationships.sorted(by: { $0.name < $1.name }),
+                  Set(model.variations) == Set(expected.variations) else {
+                throw WriteError.verificationFailed("date tables or variations read back differ from the edited model")
+            }
+            for case .setModelAnnotation(let name, _) in changes.allModelEdits.items where model.modelAnnotations[name] != expected.modelAnnotations[name] {
+                throw WriteError.verificationFailed("model annotation \(name) does not read back")
+            }
             // Cột `INDEX` của bảng hệ thống `R$` (chỉ mục quan hệ) không thuộc mô hình hiệu lực.
             // Bảng mới (T3): ID do bộ ghi cấp và có thêm cột RowNumber, bảng `H$`; so theo tên, kiểu, ẩn và cách tổng hợp.
             let sourceTables = Set(oldModel.tables.map(\.name))
@@ -366,7 +412,7 @@ public enum PBIXWriter {
             var calculatedKeys = Set<String>()
             for case .addCalculatedColumn(let table, let name, _, _) in changes.allModelEdits.items { calculatedKeys.insert("\(table)|\(name)") }
             func userColumns(_ m: ModelMetadata) -> [ModelMetadata.Column] {
-                m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !newTableNames.contains($0.tableName)
+                m.columns.filter { !$0.tableName.hasPrefix("R$") && !$0.tableName.hasPrefix("H$") && !$0.tableName.hasPrefix("U$") && !newTableNames.contains($0.tableName)
                     && !calculatedKeys.contains("\($0.tableName)|\($0.name)") }
             }
             func calculatedColumns(_ m: ModelMetadata) -> [String] {
@@ -395,9 +441,18 @@ public enum PBIXWriter {
             let replacedOldNames = Set(changes.allModelEdits.items.compactMap { edit -> String? in
                 if case .replaceTable(let old, let new) = edit, new.enableLoad { old } else { nil }
             })
-            let rebuilt = oldModel.relationships.filter { replacedOldNames.contains($0.fromTable) || replacedOldNames.contains($0.toTable) }.count
-            let adds = changes.allModelEdits.items.filter { if case .addRelationship = $0 { true } else { false } }.count + rebuilt
-            let deletes = changes.allModelEdits.items.filter { if case .deleteRelationship = $0 { true } else { false } }.count + rebuilt
+            // Một–một có hai chỉ mục (T066): tính là hai.
+            let weight: (String) -> Int = { $0 == "1:1" ? 2 : 1 }
+            let rebuilt = oldModel.relationships.filter { replacedOldNames.contains($0.fromTable) || replacedOldNames.contains($0.toTable) }
+                .reduce(0) { $0 + weight($1.cardinality) }
+            let adds = changes.allModelEdits.items.reduce(0) { total, edit in
+                if case .addRelationship(let r) = edit { total + (!r.fromMany && !r.toMany ? 2 : 1) } else { total }
+            } + rebuilt
+            let deletes = changes.allModelEdits.items.reduce(0) { total, edit in
+                if case .deleteRelationship(let name) = edit {
+                    total + ((oldModel.relationships + oldModel.dateTableRelationships).first { $0.name == name }.map { weight($0.cardinality) } ?? 1)
+                } else { total }
+            } + rebuilt
             // Bảng mới: tệp của bảng (`<Tên> (<id>).tbl…`) và của bảng hệ thống `H$<Tên> (<id>)$…`.
             // Tên tệp của bảng do Desktop ghi thay ký tự không phải chữ số bằng khoảng trắng ("Dim_Loan_Profile" thành "Dim Loan Profile (31).tbl").
             // Khớp cả mã bảng: tiền tố chỉ theo tên ("Sales (") còn trúng tệp của bảng "Sales (2)" và bỏ qua so byte của nó (lỗi T096/T104).
@@ -423,10 +478,16 @@ public enum PBIXWriter {
             let isNewTableFile: (String) -> Bool = { path in let f = flat(path); return newPrefixes.contains { f.hasPrefix($0) } || isCalculatedFile(path) }
             let isGoneTableFile: (String) -> Bool = { path in let f = flat(path); return gonePrefixes.contains { f.hasPrefix($0) } || isCalculatedFile(path) }
             let isTouchedTableFile: (String) -> Bool = { isNewTableFile($0) || isGoneTableFile($0) }
-            guard addedPaths.allSatisfy({ isIndex($0) || isNewTableFile($0) }), removedPaths.allSatisfy({ isIndex($0) || isGoneTableFile($0) }),
-                  addedPaths.filter(isIndex).count <= 2 * adds, removedPaths.filter(isIndex).count <= 2 * deletes else {
-                let strayAdded: [String] = addedPaths.filter { !(isIndex($0) || isNewTableFile($0)) }
-                let strayRemoved: [String] = removedPaths.filter { !(isIndex($0) || isGoneTableFile($0)) }
+            // Phân cấp thêm hay xoá (T030): bốn cột của bảng `U$`, mỗi cột `.idf` và `.idfmeta`.
+            let isHierarchyIndex: (String) -> Bool = { $0.hasPrefix("U$") }
+            let hierarchyAdds = changes.allModelEdits.items.filter { if case .addHierarchy = $0 { true } else { false } }.count
+            let hierarchyDrops = changes.allModelEdits.items.filter { if case .dropHierarchy = $0 { true } else { false } }.count
+            guard addedPaths.allSatisfy({ isIndex($0) || isHierarchyIndex($0) || isNewTableFile($0) }),
+                  removedPaths.allSatisfy({ isIndex($0) || isHierarchyIndex($0) || isGoneTableFile($0) }),
+                  addedPaths.filter(isIndex).count <= 2 * adds, removedPaths.filter(isIndex).count <= 2 * deletes,
+                  addedPaths.filter(isHierarchyIndex).count <= 8 * hierarchyAdds, removedPaths.filter(isHierarchyIndex).count <= 8 * hierarchyDrops else {
+                let strayAdded: [String] = addedPaths.filter { !(isIndex($0) || isHierarchyIndex($0) || isNewTableFile($0)) }
+                let strayRemoved: [String] = removedPaths.filter { !(isIndex($0) || isHierarchyIndex($0) || isGoneTableFile($0)) }
                 let strays = strayAdded + strayRemoved
                 throw WriteError.verificationFailed("the ABF file list changed unexpectedly (\(strays.prefix(3).joined(separator: "; ")); index +\(addedPaths.filter(isIndex).count)/-\(removedPaths.filter(isIndex).count), allowed \(2 * adds)/\(2 * deletes))")
             }

@@ -39,9 +39,9 @@ struct NewDocumentTests {
         #expect(try PBIXFile(data: try NewDocument.blank()).version == "1.32")
     }
 
-    @Test func moHinhTrongTatAutoDateTimeVaCoThuTuTruyVanRong() throws {
+    @Test func moHinhTrongBatAutoDateTimeVaCoThuTuTruyVanRong() throws {
         let metadata = try model(try NewDocument.blank())
-        #expect(metadata.modelAnnotations["__PBI_TimeIntelligenceEnabled"] == "0")
+        #expect(metadata.modelAnnotations["__PBI_TimeIntelligenceEnabled"] == "1")
         #expect(metadata.modelAnnotations["PBI_QueryOrder"] == "[]")
     }
 

@@ -24,6 +24,11 @@ enum RelJoinKey: Hashable, Sendable {
     case boolean(Bool)
     case date(UInt64)
 
+    /// Khoá của quan hệ: `datePart` (quan hệ `JoinOnDateBehavior` 2 tới bảng ngày cục bộ) bỏ phần giờ của ngày giờ.
+    init?(_ value: StoredValue, datePart: Bool) {
+        if datePart, case .dateTime(let d) = value { self.init(.dateTime(d.rounded(.down))) } else { self.init(value) }
+    }
+
     /// `nil` với BLANK, vì BLANK không khớp với gì.
     init?(_ value: StoredValue) {
         switch value {
@@ -188,8 +193,9 @@ public struct RelationshipIndex: Sendable {
         let manyColumn = try store.column(relationship.manyColumn)
         let oneColumn = try store.column(relationship.oneColumn)
         let blank = Int32(oneRowCount)
+        let datePart = relationship.joinsOnDatePart
 
-        let keyToPK = primaryKeyRows(oneColumn, rowCount: oneRowCount)
+        let keyToPK = primaryKeyRows(oneColumn, rowCount: oneRowCount, datePart: datePart)
         var fkToPK = [Int32](repeating: blank, count: manyRowCount)
         var codeToPK: [Int32]? = nil
         var manyIndex: ColumnIndex? = nil
@@ -200,7 +206,7 @@ public struct RelationshipIndex: Sendable {
             var table = [Int32](repeating: blank, count: k + 1)
             for code in stride(from: 1, through: k, by: 1) {
                 if let value = manyColumn.dictionaryValue(code: code),
-                   let key = RelJoinKey(value), let pk = keyToPK[key] {
+                   let key = RelJoinKey(value, datePart: datePart), let pk = keyToPK[key] {
                     table[code] = pk
                 }
             }
@@ -213,7 +219,7 @@ public struct RelationshipIndex: Sendable {
         } else {
             // Cột dense (số hoặc ngày mã hoá theo giá trị): so khớp từng dòng.
             for i in 0..<manyRowCount {
-                if let key = RelJoinKey(manyColumn.value(at: i)), let pk = keyToPK[key] {
+                if let key = RelJoinKey(manyColumn.value(at: i), datePart: datePart), let pk = keyToPK[key] {
                     fkToPK[i] = pk
                 }
             }
@@ -224,7 +230,7 @@ public struct RelationshipIndex: Sendable {
     }
 
     /// Khoá → dòng bên một. Khoá trùng thì giữ lần đầu gặp.
-    private static func primaryKeyRows(_ column: ColumnData, rowCount: Int) -> [RelJoinKey: Int32] {
+    private static func primaryKeyRows(_ column: ColumnData, rowCount: Int, datePart: Bool) -> [RelJoinKey: Int32] {
         var keyToPK: [RelJoinKey: Int32] = [:]
         if column.isEncoded {
             let k = column.dictionaryCount
@@ -236,14 +242,14 @@ public struct RelationshipIndex: Sendable {
                 }
             }
             for code in stride(from: 1, through: k, by: 1) where rowOfCode[code] >= 0 {
-                if let value = column.dictionaryValue(code: code), let key = RelJoinKey(value),
+                if let value = column.dictionaryValue(code: code), let key = RelJoinKey(value, datePart: datePart),
                    keyToPK[key] == nil {
                     keyToPK[key] = rowOfCode[code]
                 }
             }
         } else {
             for r in 0..<rowCount {
-                if let key = RelJoinKey(column.value(at: r)), keyToPK[key] == nil {
+                if let key = RelJoinKey(column.value(at: r), datePart: datePart), keyToPK[key] == nil {
                     keyToPK[key] = Int32(r)
                 }
             }

@@ -20,6 +20,9 @@ public enum FormatString {
         if let named = NamedDateFormat(rawValue: pattern.lowercased()) {
             return try named.render(value)
         }
+        if let custom = CustomDateFormat(pattern) {
+            return try custom.render(value)
+        }
         let spec = try FormatSpec(pattern: pattern)
         switch value {
         case .blank: return ""
@@ -84,6 +87,86 @@ private enum NamedDateFormat: String {
         let m = mp < 10 ? mp + 3 : mp - 9
         let y = yoe + era * 400 + (m <= 2 ? 1 : 0)
         return "\(m)/\(d)/\(y)"
+    }
+}
+
+// MARK: - Mẫu ngày tuỳ biến (en-US)
+
+/// Mẫu chỉ gồm phần ngày `d`, `dd`, `ddd`, `dddd`, `M`, `MM`, `MMM`, `MMMM`, `yy`, `yyyy` và ký tự literal (`/ - . , space`, chuỗi trong
+/// nháy kép): tên tháng, thứ tiếng Anh như culture en-US (Auto date/time: `FORMAT([Date], "MMMM")` ra "January", w8.3). Mẫu có phần giờ
+/// (`h`, `m`, `s`) hay chữ khác thì không nhận ở đây (vẫn báo chưa hỗ trợ).
+private struct CustomDateFormat {
+    enum Piece { case text(String), day(Int), month(Int), year(Int) }
+    let pieces: [Piece]
+
+    static let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    static let weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    init?(_ pattern: String) {
+        let chars = Array(pattern)
+        var pieces: [Piece] = [], i = 0, sawDate = false
+        while i < chars.count {
+            let c = chars[i]
+            var run = 1
+            while i + run < chars.count && chars[i + run] == c { run += 1 }
+            switch c {
+            case "d": guard run <= 4 else { return nil }; pieces.append(.day(run)); sawDate = true
+            case "M": guard run <= 4 else { return nil }; pieces.append(.month(run)); sawDate = true
+            case "y": guard run == 2 || run == 4 else { return nil }; pieces.append(.year(run)); sawDate = true
+            case "/", "-", ".", ",", " ": pieces.append(.text(String(repeating: String(c), count: run)))
+            case "\"" :
+                guard let close = chars[(i + 1)...].firstIndex(of: "\"") else { return nil }
+                pieces.append(.text(String(chars[(i + 1)..<close])))
+                i = close + 1
+                continue
+            default: return nil
+            }
+            i += run
+        }
+        guard sawDate else { return nil }
+        self.pieces = pieces
+    }
+
+    func render(_ value: Value) throws(DAXError) -> String {
+        let serial: Double
+        switch value {
+        case .blank: return ""
+        case .dateTime(let d), .double(let d): serial = d
+        case .integer(let i): serial = Double(i)
+        case .currency(let c): serial = Double(c) / 10_000
+        case .boolean, .string: throw DAXError(.typeMismatch, "FORMAT: định dạng ngày cần giá trị ngày hoặc số")
+        }
+        guard serial.isFinite, abs(serial) < 3_000_000 else { throw DAXError(.runtime, "FORMAT: ngày ngoài phạm vi hỗ trợ") }
+        let day = Int(serial.rounded(.down))
+        // civil_from_days như `NamedDateFormat.dateText`.
+        let z = day - 25_569 + 719_468
+        let era = (z >= 0 ? z : z - 146_096) / 146_097
+        let doe = z - era * 146_097
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+        let mp = (5 * doy + 2) / 153
+        let d = doy - (153 * mp + 2) / 5 + 1
+        let m = mp < 10 ? mp + 3 : mp - 9
+        let y = yoe + era * 400 + (m <= 2 ? 1 : 0)
+        // 30/12/1899 (serial 0) là thứ bảy.
+        let weekday = ((day % 7) + 7 + 6) % 7
+        var out = ""
+        for piece in pieces {
+            switch piece {
+            case .text(let t): out += t
+            case .day(1): out += "\(d)"
+            case .day(2): out += String(format: "%02d", d)
+            case .day(3): out += String(Self.weekdays[weekday].prefix(3))
+            case .day: out += Self.weekdays[weekday]
+            case .month(1): out += "\(m)"
+            case .month(2): out += String(format: "%02d", m)
+            case .month(3): out += String(Self.months[m - 1].prefix(3))
+            case .month: out += Self.months[m - 1]
+            case .year(2): out += String(format: "%02d", ((y % 100) + 100) % 100)
+            case .year: out += String(format: "%04d", y)
+            }
+        }
+        return out
     }
 }
 

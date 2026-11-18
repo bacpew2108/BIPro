@@ -127,6 +127,18 @@ public enum PBIRQueryPatch {
         return Element(field: field, source: nil)
     }
 
+    /// Một cấp của phân cấp ngày Auto date/time của cột `column` (VM-F11b, `visual-theo-nam.json`): `HierarchyLevel` trên
+    /// `PropertyVariationSource`, `queryRef` `Bảng.Cột.Variation.Date Hierarchy.Cấp`, `nativeQueryRef` `Cột Cấp`.
+    public static func newVariationLevel(entity: String, column: String, variation: String, hierarchy: String, level: String,
+                                         role: String, active: Bool) -> Element {
+        var field = ReportField(role: role, kind: .hierarchyLevel, entity: entity, property: level, displayName: nil,
+                                queryRef: "\(entity).\(column).\(variation).\(hierarchy).\(level)", nativeQueryRef: "\(column) \(level)",
+                                active: active)
+        field.variationColumn = column
+        field.variationName = variation
+        return Element(field: field, source: nil)
+    }
+
     // MARK: - Apply
 
     /// `json` with the wells replaced by `wells` (the final state of every well). A well whose elements are exactly
@@ -520,15 +532,22 @@ public enum PBIRQueryPatch {
     }
 
     private static func hierarchyLevelBytes(_ field: ReportField) throws -> [UInt8] {
-        // `queryRef` là `Bảng.Phân cấp.Cấp`: phần giữa là tên phân cấp.
-        let prefix = field.entity + ".", suffix = "." + field.property
+        // `queryRef` là `Bảng.Phân cấp.Cấp` (phân cấp ngày: `Bảng.Cột.Variation.Phân cấp.Cấp`): phần giữa là tên phân cấp.
+        let variation = field.variationColumn.map { ($0, field.variationName ?? "Variation") }
+        let prefix = field.entity + "." + (variation.map { "\($0.0).\($0.1)." } ?? ""), suffix = "." + field.property
         guard field.queryRef.hasPrefix(prefix), field.queryRef.hasSuffix(suffix), field.queryRef.count > prefix.count + suffix.count else {
             throw WriteError.invalid("a hierarchy level needs a queryRef of the form Table.Hierarchy.Level")
         }
         let hierarchy = String(field.queryRef.dropFirst(prefix.count).dropLast(suffix.count))
-        var out = Array(#"{"field":{"HierarchyLevel":{"Expression":{"Hierarchy":{"Expression":{"SourceRef":{"Entity":"#.utf8)
-        out += PBIRPatch.jsonStringToken(field.entity)
-        out += Array(#"}},"Hierarchy":"#.utf8) + PBIRPatch.jsonStringToken(hierarchy)
+        var out = Array(#"{"field":{"HierarchyLevel":{"Expression":{"Hierarchy":{"Expression":{"#.utf8)
+        if let (column, name) = variation {
+            out += Array(#""PropertyVariationSource":{"Expression":{"SourceRef":{"Entity":"#.utf8) + PBIRPatch.jsonStringToken(field.entity)
+            out += Array(#"}},"Name":"#.utf8) + PBIRPatch.jsonStringToken(name)
+            out += Array(#","Property":"#.utf8) + PBIRPatch.jsonStringToken(column) + Array("}".utf8)
+        } else {
+            out += Array(#""SourceRef":{"Entity":"#.utf8) + PBIRPatch.jsonStringToken(field.entity) + Array("}".utf8)
+        }
+        out += Array(#"},"Hierarchy":"#.utf8) + PBIRPatch.jsonStringToken(hierarchy)
         out += Array(#"}},"Level":"#.utf8) + PBIRPatch.jsonStringToken(field.property)
         out += Array(#"}},"queryRef":"#.utf8) + PBIRPatch.jsonStringToken(field.queryRef)
         let native = (field.displayName?.isEmpty ?? true) ? (field.nativeQueryRef ?? "\(hierarchy) \(field.property)") : field.displayName!

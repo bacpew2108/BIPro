@@ -56,10 +56,13 @@ public struct ColumnPatch: Sendable, Hashable {
     public var sortBy: Assignment<String>?
     public var displayFolder: Assignment<String>?
     public var description: Assignment<String>?
+    /// Chú thích của cột (`Annotation`, ObjectType 4), ví dụ `SummarizationSetBy`, `TemplateId` của cột bảng ngày.
+    public var annotations: [String: Assignment<String>]
 
     public init(name: String? = nil, isHidden: Bool? = nil, formatString: Assignment<String>? = nil,
                 summarizeBy: Int? = nil, dataCategory: Assignment<String>? = nil, sortBy: Assignment<String>? = nil,
-                displayFolder: Assignment<String>? = nil, description: Assignment<String>? = nil) {
+                displayFolder: Assignment<String>? = nil, description: Assignment<String>? = nil,
+                annotations: [String: Assignment<String>] = [:]) {
         self.name = name
         self.isHidden = isHidden
         self.formatString = formatString
@@ -68,14 +71,28 @@ public struct ColumnPatch: Sendable, Hashable {
         self.sortBy = sortBy
         self.displayFolder = displayFolder
         self.description = description
+        self.annotations = annotations
     }
 }
 
-/// Sửa thuộc tính của một bảng (chỉ ẩn/hiện). Trường `nil` giữ nguyên.
+/// Sửa thuộc tính của một bảng. Trường `nil` giữ nguyên.
 public struct TablePatch: Sendable, Hashable {
     public var isHidden: Bool?
+    /// `Table.IsPrivate` (bảng mẫu `DateTableTemplate_…`). Bật cờ này hoặc `showAsVariationsOnly` thì bộ ghi đặt `SystemFlags = 2` cho
+    /// phân vùng và các cột của bảng như Desktop (f11, w8.3), nên áp sau khi đã thêm đủ cột.
+    public var isPrivate: Bool?
+    /// `Table.ShowAsVariationsOnly` (bảng ngày cục bộ `LocalDateTable_…`).
+    public var showAsVariationsOnly: Bool?
+    /// Chú thích của bảng (`Annotation`, ObjectType 3), ví dụ `__PBI_LocalDateTable`.
+    public var annotations: [String: Assignment<String>]
 
-    public init(isHidden: Bool? = nil) { self.isHidden = isHidden }
+    public init(isHidden: Bool? = nil, isPrivate: Bool? = nil, showAsVariationsOnly: Bool? = nil,
+                annotations: [String: Assignment<String>] = [:]) {
+        self.isHidden = isHidden
+        self.isPrivate = isPrivate
+        self.showAsVariationsOnly = showAsVariationsOnly
+        self.annotations = annotations
+    }
 }
 
 /// Quan hệ mới (giai đoạn 2b). Hai đầu theo đúng thứ tự Desktop ghi: `from` là phía nhiều (hoặc một nếu 1:1).
@@ -125,8 +142,10 @@ public struct NewHierarchy: Sendable, Hashable {
     public var name: String
     public var levels: [HierarchyLevel]
     public var isHidden: Bool
-    public init(table: String, name: String, levels: [HierarchyLevel], isHidden: Bool = false) {
-        self.table = table; self.name = name; self.levels = levels; self.isHidden = isHidden
+    /// Chú thích của phân cấp (Auto date/time: `TemplateId = DateHierarchy`).
+    public var annotations: [String: String]
+    public init(table: String, name: String, levels: [HierarchyLevel], isHidden: Bool = false, annotations: [String: String] = [:]) {
+        self.table = table; self.name = name; self.levels = levels; self.isHidden = isHidden; self.annotations = annotations
     }
 }
 
@@ -376,10 +395,17 @@ public struct ModelEdits: Sendable, Hashable {
                 // Bảng chưa từng có trong file: bỏ cả mọi thao tác nhắc tới nó ở giữa (measure, cột, quan hệ…), không thì bộ ghi
                 // áp chúng lên bảng không tồn tại (lỗi T096).
                 var relationships = Set<String>()
+                var variations = Set<String>()   // "bảng\0cột" chữ thường của variation trỏ vào bảng này (bảng ngày cục bộ, T032)
                 for index in at..<out.count {
                     guard let item = out[index] else { continue }
                     if case .addRelationship(let r) = item, r.fromTable.lowercased() == key || r.toTable.lowercased() == key {
                         relationships.insert(r.name)
+                        out[index] = nil
+                    } else if case .addVariation(let t, let c, let r, let h) = item, relationships.contains(r) || h.table.lowercased() == key {
+                        variations.insert(columnKey(t, c))
+                        out[index] = nil
+                    } else if case .dropVariation(let t, let c) = item, variations.contains(columnKey(t, c)) {
+                        variations.remove(columnKey(t, c))
                         out[index] = nil
                     } else if item.mentionsTable(key) {
                         out[index] = nil

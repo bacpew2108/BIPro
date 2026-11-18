@@ -6,7 +6,8 @@ extension ModelMetadata {
          relationships: [Relationship]? = nil, tables: [Table]? = nil, hierarchies: [Hierarchy]? = nil,
          storage: [ColumnStorage]? = nil, partitionQueries: [String: String]? = nil,
          expressions: [String]? = nil, expressionBodies: [String: String]? = nil,
-         calculatedTableExpressions: [String: String]? = nil) {
+         calculatedTableExpressions: [String: String]? = nil, modelAnnotations: [String: String]? = nil,
+         dateTableRelationships: [Relationship]? = nil, variations: [Variation]? = nil) {
         self.tables = tables ?? other.tables
         self.columns = columns ?? other.columns
         self.measures = measures ?? other.measures
@@ -23,10 +24,10 @@ extension ModelMetadata {
         calculationGroups = other.calculationGroups
         functions = other.functions
         culture = other.culture
-        modelAnnotations = other.modelAnnotations
+        self.modelAnnotations = modelAnnotations ?? other.modelAnnotations
         discourageImplicitMeasures = other.discourageImplicitMeasures
-        dateTableRelationships = other.dateTableRelationships
-        variations = other.variations
+        self.dateTableRelationships = dateTableRelationships ?? other.dateTableRelationships
+        self.variations = variations ?? other.variations
     }
 
     /// Mô hình hiệu lực sau khi áp `edits` lên mô hình này. Không đụng ABF. Ném `ModelEditError` khi một thao tác không hợp lệ.
@@ -118,9 +119,12 @@ extension ModelMetadata {
             guard let index = tables.firstIndex(where: { $0.name == name && $0.isUserTable }) else { throw ModelEditError("Không có bảng \(name)") }
             let old = tables[index]
             var copy = tables
+            // Như bộ đọc: bảng tính toán có cờ hay chú thích của Auto date/time không còn là bảng người dùng.
+            let autoDate = patch.isPrivate == true || patch.showAsVariationsOnly == true
+                || ["__PBI_LocalDateTable", "__PBI_TemplateDateTable"].contains { if case .set = patch.annotations[$0] { true } else { false } }
             copy[index] = Table(id: old.id, name: old.name, isHidden: patch.isHidden ?? old.isHidden, systemFlags: old.systemFlags,
                                 description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory,
-                                isCalculatedUserTable: old.isCalculatedUserTable)
+                                isCalculatedUserTable: old.isCalculatedUserTable && !autoDate)
             return ModelMetadata(copying: self, tables: copy)
 
         case .addRelationship(let new):
@@ -129,6 +133,10 @@ extension ModelMetadata {
             let added = Relationship(name: new.name, fromTable: new.fromTable, fromColumn: new.fromColumn, toTable: new.toTable,
                                      toColumn: new.toColumn, isActive: new.isActive, cardinality: cardinality,
                                      crossFilteringBehavior: new.crossFilteringBehavior, joinOnDateBehavior: new.joinOnDateBehavior)
+            // Như bộ đọc: quan hệ tới bảng ngày tự động (không phải bảng người dùng, SystemFlags 2) nằm riêng.
+            if isAutoDateTable(new.fromTable) || isAutoDateTable(new.toTable) {
+                return ModelMetadata(copying: self, dateTableRelationships: dateTableRelationships + [added])
+            }
             return ModelMetadata(copying: self, relationships: relationships + [added])
 
         case .addTable(let new): return try addingTable(new)
@@ -159,12 +167,59 @@ extension ModelMetadata {
             return try deletingCalculatedColumn(table: table, name: name)
         case .updateCalculatedTable(let name, let expression, let columns):
             return try updatingCalculatedTable(name: name, expression: expression, columns: columns)
-        case .addHierarchy, .dropHierarchy, .addVariation, .dropVariation, .setModelAnnotation:
-            throw ModelEditError("Chưa hỗ trợ phân cấp, variation và chú thích mô hình (đợt tồn đọng sau Phase F, US2)")
+        case .addHierarchy(let new):
+            guard let table = tables.first(where: { $0.name.caseInsensitiveCompare(new.table) == .orderedSame }) else {
+                throw ModelEditError("Không có bảng \(new.table)")
+            }
+            guard !new.levels.isEmpty, !new.name.trimmingCharacters(in: .whitespaces).isEmpty else { throw ModelEditError("Phân cấp cần tên và ít nhất một cấp") }
+            for level in new.levels where !columns.contains(where: { $0.tableName == table.name && $0.name == level.column }) {
+                throw ModelEditError("Không có cột \(table.name)[\(level.column)]")
+            }
+            if hierarchies.contains(where: { $0.tableName == table.name && $0.name.caseInsensitiveCompare(new.name) == .orderedSame }) {
+                throw ModelEditError("Bảng \(table.name) đã có phân cấp \(new.name)")
+            }
+            // Như bộ đọc: chỉ phân cấp của bảng thường (SystemFlags 0) nằm trong `hierarchies`.
+            guard table.systemFlags == 0 else { return self }
+            let added = Hierarchy(tableName: table.name, name: new.name, isHidden: new.isHidden, displayFolder: nil, lineageTag: nil,
+                                  levels: new.levels.map { Hierarchy.Level(name: $0.name, columnName: $0.column, lineageTag: nil) })
+            return ModelMetadata(copying: self, hierarchies: hierarchies + [added])
+        case .dropHierarchy(let table, let name):
+            guard let owner = tables.first(where: { $0.name.caseInsensitiveCompare(table) == .orderedSame }) else { throw ModelEditError("Không có bảng \(table)") }
+            guard owner.systemFlags == 0 else { return self }
+            guard hierarchies.contains(where: { $0.tableName == owner.name && $0.name.caseInsensitiveCompare(name) == .orderedSame }) else {
+                throw ModelEditError("Bảng \(table) không có phân cấp \(name)")
+            }
+            return ModelMetadata(copying: self, hierarchies: hierarchies.filter { !($0.tableName == owner.name && $0.name.caseInsensitiveCompare(name) == .orderedSame) })
+        case .addVariation(let table, let column, let relationship, let hierarchy):
+            guard columns.contains(where: { $0.tableName == table && $0.name == column }) else { throw ModelEditError("Không có cột \(table)[\(column)]") }
+            guard !variations.contains(where: { $0.table == table && $0.column == column }) else {
+                throw ModelEditError("Cột \(table)[\(column)] đã có variation")
+            }
+            guard let rel = (relationships + dateTableRelationships).first(where: { $0.name == relationship }) else {
+                throw ModelEditError("Không có quan hệ \(relationship)")
+            }
+            guard rel.fromTable == table, rel.fromColumn == column, rel.toTable == hierarchy.table else {
+                throw ModelEditError("Quan hệ \(relationship) không nối \(table)[\(column)] với bảng \(hierarchy.table)")
+            }
+            let added = Variation(table: table, column: column, name: "Variation", relationship: relationship, hierarchy: hierarchy, isDefault: true)
+            return ModelMetadata(copying: self, variations: variations + [added])
+        case .dropVariation(let table, let column):
+            guard variations.contains(where: { $0.table == table && $0.column == column }) else {
+                throw ModelEditError("Cột \(table)[\(column)] không có variation")
+            }
+            return ModelMetadata(copying: self, variations: variations.filter { !($0.table == table && $0.column == column) })
+        case .setModelAnnotation(let name, let value):
+            var annotations = modelAnnotations
+            annotations[name] = value
+            return ModelMetadata(copying: self, modelAnnotations: annotations)
 
         case .deleteRelationship(let name):
-            guard relationships.contains(where: { $0.name == name }) else { throw ModelEditError("Không có quan hệ \(name)") }
-            return ModelMetadata(copying: self, relationships: relationships.filter { $0.name != name })
+            guard relationships.contains(where: { $0.name == name }) || dateTableRelationships.contains(where: { $0.name == name }) else {
+                throw ModelEditError("Không có quan hệ \(name)")
+            }
+            if variations.contains(where: { $0.relationship == name }) { throw ModelEditError("Quan hệ \(name) đang được một variation dùng") }
+            return ModelMetadata(copying: self, relationships: relationships.filter { $0.name != name },
+                                 dateTableRelationships: dateTableRelationships.filter { $0.name != name })
 
         case .updateColumn(let table, let name, let patch):
             guard let index = columns.firstIndex(where: { $0.tableName == table && $0.name == name }) else {
@@ -201,6 +256,11 @@ extension ModelMetadata {
                 lineageTag: old.lineageTag)
             return ModelMetadata(copying: self, columns: copy)
         }
+    }
+
+    /// Bảng ngày tự động của Auto date/time: bảng tính toán (SystemFlags 2) không còn là bảng người dùng.
+    private func isAutoDateTable(_ name: String) -> Bool {
+        tables.contains { $0.name == name && $0.systemFlags == 2 && !$0.isCalculatedUserTable }
     }
 
     /// Quan hệ mới: hai cột có thật, cùng kiểu, khác bảng, chưa có quan hệ nào nối đúng hai cột này, và không thêm quan hệ hoạt động

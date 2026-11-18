@@ -263,11 +263,12 @@ extension ModelMetadata {
     // MARK: dropTable
 
     func droppingTable(_ name: String) throws -> ModelMetadata {
-        guard let table = tables.first(where: { $0.name == name && $0.isUserTable }) else {
+        // Bảng ngày tự động (SystemFlags 2, không phải bảng người dùng) cũng xoá được, sau khi đã bỏ variation và quan hệ của nó (T031).
+        guard let table = tables.first(where: { $0.name == name && ($0.isUserTable || $0.systemFlags == 2) }) else {
             throw ModelEditError("Không có bảng \(name)")
         }
         var blockers: [String] = []
-        let related = relationships.filter { $0.fromTable == name || $0.toTable == name }.map(\.name)
+        let related = (relationships + dateTableRelationships).filter { $0.fromTable == name || $0.toTable == name }.map(\.name)
         if !related.isEmpty { blockers.append("còn quan hệ " + related.joined(separator: ", ")) }
         let hosted = measures.filter { $0.tableName == name }.map(\.name)
         if !hosted.isEmpty { blockers.append("còn chứa measure " + hosted.joined(separator: ", ")) }
@@ -280,12 +281,14 @@ extension ModelMetadata {
         let calculatedTables = calculatedTableExpressions.filter { $0.key != name && Self.mentionsTable($0.value, name) }.keys.sorted()
         if !calculatedTables.isEmpty { blockers.append("bảng tính toán " + calculatedTables.joined(separator: ", ") + " đang dùng bảng") }
         if !blockers.isEmpty { throw ModelEditError("Không thể xoá bảng \(name): " + blockers.joined(separator: "; ")) }
-        var queries = partitionQueries
+        var queries = partitionQueries, expressions = calculatedTableExpressions
         queries[name] = nil
+        expressions[name] = nil
         return ModelMetadata(copying: self, columns: columns.filter { $0.tableID != table.id },
                              tables: tables.filter { $0.id != table.id },
                              hierarchies: hierarchies.filter { $0.tableName != name },
-                             storage: storage.filter { $0.tableName != name }, partitionQueries: queries)
+                             storage: storage.filter { $0.tableName != name }, partitionQueries: queries,
+                             calculatedTableExpressions: expressions)
     }
 
     // MARK: Kiểm tra

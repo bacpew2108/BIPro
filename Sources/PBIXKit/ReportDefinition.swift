@@ -86,6 +86,10 @@ public struct ReportField: Sendable, Hashable {
     /// `nativeQueryRef` và `active` của phần tử `projections[]` (PBIR); nil khi file không có.
     public var nativeQueryRef: String?
     public var active: Bool?
+    /// Cấp phân cấp ngày của Auto date/time (`PropertyVariationSource`, VM-F11b): cột ngày nguồn (`entity` là bảng của nó) và tên
+    /// variation ("Variation"). nil với phân cấp thường.
+    public var variationColumn: String?
+    public var variationName: String?
 
     public init(role: String, kind: Kind, entity: String, property: String, function: String? = nil,
                 displayName: String? = nil, queryRef: String, nativeQueryRef: String? = nil, active: Bool? = nil,
@@ -340,9 +344,15 @@ extension PBIXFile {
         }
         if let level = json["HierarchyLevel"] {
             let hierarchy = level["Expression"]?["Hierarchy"]
-            let source = hierarchy?["Expression"]?["PropertyVariationSource"]?["Expression"] ?? hierarchy?["Expression"]
+            let variation = hierarchy?["Expression"]?["PropertyVariationSource"]
+            let source = variation?["Expression"] ?? hierarchy?["Expression"]
             let e = entity(source, aliases: aliases), l = level["Level"]?.string ?? ""
-            return ReportField(role: "", kind: .hierarchyLevel, entity: e, property: l, queryRef: "\(e).\(l)")
+            var field = ReportField(role: "", kind: .hierarchyLevel, entity: e, property: l, queryRef: "\(e).\(l)")
+            if let variation {
+                field.variationColumn = variation["Property"]?.string
+                field.variationName = variation["Name"]?.string
+            }
+            return field
         }
         return nil
     }

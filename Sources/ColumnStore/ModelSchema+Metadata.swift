@@ -21,12 +21,16 @@ extension ModelSchema {
             }
         }
 
+        // Bảng người dùng, cùng bảng ngày của Auto date/time (ẩn, không phải bảng người dùng): engine tính và
+        // lọc được qua quan hệ ngày (`dateTableRelationships`), như Desktop.
+        let localDateTables = metadata.autoDateTables
         let userTableIDs = Set(metadata.tables.filter(\.isUserTable).map(\.id))
+        let engineTableIDs = userTableIDs.union(metadata.tables.filter { localDateTables.contains($0.name) }.map(\.id))
 
         var columnsByTable: [Int: [ModelSchema.Column]] = [:]
         var columnLookup: [String: ColumnID] = [:]
         for c in metadata.columns where c.kind != .rowNumber && c.kind != .unknown {
-            guard userTableIDs.contains(c.tableID), let type = daxType(c.dataType) else { continue }
+            guard engineTableIDs.contains(c.tableID), let type = daxType(c.dataType) else { continue }
             let id = ColumnID(table: TableID(raw: c.tableID), index: c.id)
             let column = ModelSchema.Column(
                 id: id,
@@ -41,18 +45,18 @@ extension ModelSchema {
             columnLookup[Self.lookupKey(c.tableName, c.name)] = id
         }
 
-        let tables: [ModelSchema.Table] = metadata.tables.filter { userTableIDs.contains($0.id) }.map { t in
+        let tables: [ModelSchema.Table] = metadata.tables.filter { engineTableIDs.contains($0.id) }.map { t in
             ModelSchema.Table(
                 id: TableID(raw: t.id),
                 name: t.name,
                 isHidden: t.isHidden,
-                isUserTable: true,
+                isUserTable: userTableIDs.contains(t.id),
                 isDateTable: t.dataCategory == "Time",
                 columns: columnsByTable[t.id] ?? [])
         }
 
         var relationships: [RelationshipSchema] = []
-        for r in metadata.relationships {
+        for r in metadata.relationships + metadata.dateTableRelationships.filter({ localDateTables.contains($0.toTable) }) {
             guard let from = columnLookup[Self.lookupKey(r.fromTable, r.fromColumn)],
                   let to = columnLookup[Self.lookupKey(r.toTable, r.toColumn)] else { continue }
             let fromIsOne = r.cardinality.hasPrefix("1:")
@@ -70,7 +74,8 @@ extension ModelSchema {
                 manyColumn: many,
                 oneColumn: one,
                 isActive: r.isActive,
-                crossFilter: behavior))
+                crossFilter: behavior,
+                joinsOnDatePart: r.joinOnDateBehavior == 2))
         }
 
         self.init(culture: metadata.culture ?? "en-US", tables: tables, relationships: relationships)
