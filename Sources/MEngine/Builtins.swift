@@ -6,6 +6,7 @@ import ColumnStore
 enum MBuiltins {
     static func value(named name: String, interpreter: Interpreter) -> MValue? {
         if let type = MType.libraryConstants[name] { return .type(type) }
+        if let constant = BinaryLibrary.constant(named: name) { return constant }
         switch name {
         case "#table": return .function(table)
         case "#date": return .function(date)

@@ -168,7 +168,9 @@ enum JsonLibrary {
     static let jsonDocument = MFunction(
         name: "Json.Document", parameters: [MParameter(name: "jsonText"), MParameter(name: "encoding", isOptional: true)], observed: true
     ) { args in
-        try MJson.parse(Data(try args.text(0, "Json.Document").utf8))
+        // T026: Enter Data truyền nhị phân (UTF-8) thay vì văn bản.
+        if case .binary(let data) = args[0] { return try MJson.parse(data) }
+        return try MJson.parse(Data(try args.text(0, "Json.Document").utf8))
     }
 
     /// `Splitter.SplitByNothing()`: hàm trả `{giá trị}` (mỗi phần tử thành một cột).

@@ -99,7 +99,7 @@ import Testing
         #expect(try parse("1 // hết dòng\n + /* giữa */ 2") == .binary(.add, .number(1), .number(2)))
     }
 
-    @Test func syntaxErrorsCarryLineAndColumn() {
+    @Test func syntaxErrorsCarryLineAndColumn() throws {
         #expect(throws: MSyntaxError.self) { try MParser.parse("let a = in a") }
         do {
             _ = try MParser.parse("1 +\n  * 2")
@@ -109,7 +109,8 @@ import Testing
         } catch { Issue.record("sai loại lỗi") }
         #expect(throws: MSyntaxError.self) { try MParser.parse("\"chưa đóng") }
         #expect(throws: MSyntaxError.self) { try MParser.parse("1 2") }
-        #expect(throws: MSyntaxError.self) { try MParser.parse("x meta [a=1]") }   // meta chưa hỗ trợ
+        // T026: `meta` nay được hỗ trợ (M của Enter Data).
+        #expect(try MParser.parse("x meta [a=1]") == .binary(.meta, .identifier("x", line: 1), .record([MBinding(name: "a", value: .number(1))])))
         #expect(throws: MSyntaxError.self) { try MParser.parse("(1") }
     }
 }

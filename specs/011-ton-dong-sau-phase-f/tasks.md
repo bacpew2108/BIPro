@@ -108,8 +108,8 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - Lệnh `swift build`, `swift test --filter "F-TEXT|Text"`.
   - Tiêu chí: 100% ô khớp; golden DAX Phase B không đổi.
   - Báo cáo ở `docs/tasks/f2-daxtext-report.md`.
-- [ ] T020 [US3] [AGY:F2-DAXTEXT] `Sources/DAXEngine/Functions/Text.swift`, `TextMore.swift` đăng ký trong mảng `TextFunctions.functions` (đã được `Registry.swift` gộp sẵn, không sửa `Registry.swift`). Gồm `LEN`, `UPPER`, `LOWER`, `MID`, `RIGHT`, `TRIM`, `SUBSTITUTE`, `REPLACE`, `CONCATENATE`, `CONCATENATEX`, `SEARCH` (bổ sung), `FIND`, `REPT`, `VALUE`, `EXACT`, `UNICHAR`, `UNICODE`, `FIXED`, `COMBINEVALUES`, ngữ nghĩa theo `vm-f12`. Test `Tests/DAXEngineTests/F-TEXT/` xanh.
-- [ ] T021 [US3] [LEAD] Review gói F2-DAXTEXT (skill `agy-delegation`):
+- [x] T020 [US3] [AGY:F2-DAXTEXT] `Sources/DAXEngine/Functions/Text.swift`, `TextMore.swift` đăng ký trong mảng `TextFunctions.functions` (đã được `Registry.swift` gộp sẵn, không sửa `Registry.swift`). Gồm `LEN`, `UPPER`, `LOWER`, `MID`, `RIGHT`, `TRIM`, `SUBSTITUTE`, `REPLACE`, `CONCATENATE`, `CONCATENATEX`, `SEARCH` (bổ sung), `FIND`, `REPT`, `VALUE`, `EXACT`, `UNICHAR`, `UNICODE`, `FIXED`, `COMBINEVALUES`, ngữ nghĩa theo `vm-f12`. Test `Tests/DAXEngineTests/F-TEXT/` xanh.
+- [x] T021 [US3] [LEAD] Review gói F2-DAXTEXT (skill `agy-delegation`):
   - chỉ tệp trong phạm vi;
   - `swift test` qua; golden nặng DAX không đổi;
   - không hard-code.
@@ -123,7 +123,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 **Kiểm độc lập**: tài liệu mới → dán bảng 3×5, nạp `Sales` + `Customers` → quan hệ tự tạo, biểu đồ theo Năm → lưu → Desktop mở, cấu trúc như file Desktop tự làm.
 
-- [ ] T024 [US2] [VM] **VM-F11** gồm ba phần, ghi `docs/phase-f2-evidence/vm-f11/QUAN-SAT.md` cùng ảnh:
+- [x] T024 [US2] [VM] **VM-F11** gồm ba phần, ghi `docs/phase-f2-evidence/vm-f11/QUAN-SAT.md` cùng ảnh:
   - **(a) Màn trống và Enter Data**:
     - các ô của "Add data to your report", bấm từng ô mở hộp thoại nào, màn biến mất khi nào;
     - Enter Data 3 cột × 5 dòng (chữ Việt, số, ô trống): M nguyên văn, tên mặc định, giới hạn cỡ, kiểu sau `Changed Type`;
@@ -139,19 +139,19 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
     - vị trí tuỳ chọn "Autodetect new relationships".
   - Lưu `f11-desktop.pbix` (ngoài git).
   - Cập nhật `research.md` R2–R4.
-- [ ] T025 [US2] [LEAD] So `f11-desktop.pbix` với `w8.3.pbix` bằng PBIXKit (`Tests/PBIXKitTests/F2AutoDateGoldenTests.swift`, đọc thôi): danh sách cột và biểu thức của `DateTableTemplate_` và `LocalDateTable_`, chú thích, phân cấp, thuộc tính quan hệ và `Variation`. Chốt mẫu trong `Sources/BIPro/Model/Edit/AutoDateTime.swift` (chỉ hằng số và tài liệu, chưa logic).
-- [ ] T026 [US2] [LEAD] `Sources/MEngine/Library/Binary.swift` (mới), `TableRows.swift`, `Support.swift`, `Json.swift` + `Tests/MEngineTests/EnterDataMTests.swift`:
+- [x] T025 [US2] [LEAD] So `f11-desktop.pbix` với `w8.3.pbix` bằng PBIXKit (`Tests/PBIXKitTests/F2AutoDateGoldenTests.swift`, đọc thôi): danh sách cột và biểu thức của `DateTableTemplate_` và `LocalDateTable_`, chú thích, phân cấp, thuộc tính quan hệ và `Variation`. Chốt mẫu trong `Sources/BIPro/Model/Edit/AutoDateTime.swift` (chỉ hằng số và tài liệu, chưa logic).
+- [x] T026 [US2] [LEAD] `Sources/MEngine/Library/Binary.swift` (mới), `TableRows.swift`, `Support.swift`, `Json.swift` + `Tests/MEngineTests/EnterDataMTests.swift`:
   - `Binary.FromText` (Base64), `Binary.Decompress` (`Compression.Deflate` qua `Compression.framework`);
   - `Json.Document` nhận đầu vào nhị phân; `Table.FromRows`;
   - kiểu có `meta`, `type table [...]`.
   - Golden: M Enter Data của `f11-desktop.pbix` chạy ra đúng bảng Desktop lưu.
-- [ ] T027 [US2] [LEAD] `Sources/BIPro/Query/EnterDataState.swift` (+ `Tests/BIProTests/Query/EnterDataStateTests.swift`):
+- [x] T027 [US2] [LEAD] `Sources/BIPro/Query/EnterDataState.swift` (+ `Tests/BIProTests/Query/EnterDataStateTests.swift`):
   - lưới tên cột và ô; dán TSV; thêm và xoá dòng, cột; tên bảng mặc định và hậu tố khi trùng;
   - giới hạn cỡ theo VM-F11a;
   - sinh M giống nguyên văn Desktop (nén Deflate + Base64, thứ tự cột, `Changed Type`);
   - đọc ngược M thành lưới.
-- [ ] T028 [US2] [LEAD] `Sources/BIPro/Query/EnterDataView.swift` (hộp "Tạo bảng"), nối Ribbon Trang chủ ▸ "Nhập dữ liệu" và nối nút bước Source trong Query Editor. Nạp bảng qua đường `addTable` T3 sẵn có, một bước ⌘Z.
-- [ ] T029 [US2] [LEAD] `Sources/BIPro/Report/AddDataPanel.swift` + nối vào `ReportCanvas.swift`:
+- [x] T028 [US2] [LEAD] `Sources/BIPro/Query/EnterDataView.swift` (hộp "Tạo bảng"), nối Ribbon Trang chủ ▸ "Nhập dữ liệu" và nối nút bước Source trong Query Editor. Nạp bảng qua đường `addTable` T3 sẵn có, một bước ⌘Z.
+- [x] T029 [US2] [LEAD] `Sources/BIPro/Report/AddDataPanel.swift` + nối vào `ReportCanvas.swift`:
   - màn "Thêm dữ liệu vào báo cáo" khi tài liệu chưa có bảng người dùng;
   - các ô Excel, "Dán dữ liệu vào bảng trống", nguồn khác; SQL Server và dữ liệu mẫu hiện xám kèm lý do;
   - biến mất theo quan sát VM-F11a.

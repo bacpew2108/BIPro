@@ -199,6 +199,8 @@ enum SourceFunctions {
     static let jsonDocument = MFunction(
         name: "Json.Document", parameters: [MParameter(name: "jsonText"), MParameter(name: "encoding", isOptional: true)], observed: true
     ) { args in
+        // Enter Data (T028): `Json.Document(Binary.Decompress(…))` truyền nhị phân.
+        if case .binary(let data) = args[0] { return try MJson.parse(data) }
         guard case .text(let text) = args[0] else { throw MError.expression("Json.Document: nguồn phải là kết quả của File.Contents hoặc text") }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.hasPrefix("{"), !trimmed.hasPrefix("["), FileManager.default.fileExists(atPath: text) {

@@ -120,6 +120,14 @@ final class Interpreter: @unchecked Sendable {
         return scope
     }
 
+    /// Kiểu trong phạm vi: tên không phải kiểu nguyên thuỷ được tra như biến và phải là giá trị kiểu.
+    private func resolveType(_ type: MTypeExpr, in scope: MScope) throws -> MType {
+        try MType.resolve(type) { name in
+            guard case .type(let found)? = try? self.lookup(name, in: scope, line: 0) else { return nil }
+            return found
+        }
+    }
+
     // MARK: Tra tên
 
     func lookup(_ name: String, in scope: MScope, line: Int) throws -> MValue {
@@ -174,15 +182,15 @@ final class Interpreter: @unchecked Sendable {
                 return .logical(!b)
             }
         case .binary(let op, let left, let right): return try binary(op, left, right, in: scope)
-        case .isType(let value, let type): return .logical(try MType.resolve(type).accepts(try evaluate(value, in: scope)))
+        case .isType(let value, let type): return .logical(try resolveType(type, in: scope).accepts(try evaluate(value, in: scope)))
         case .asType(let value, let type):
             let v = try evaluate(value, in: scope)
-            let resolved = try MType.resolve(type)
+            let resolved = try resolveType(type, in: scope)
             guard resolved.accepts(v) else { throw MError.expression("Không thể chuyển đổi giá trị \(v.kindName) sang kiểu \(resolved.kind.rawValue)") }
             return v
         case .tryOtherwise(let protected, let otherwise): return try evaluateTry(protected, otherwise: otherwise, in: scope)
         case .error(let value): throw try makeError(try evaluate(value, in: scope))
-        case .type(let type): return .type(try MType.resolve(type))
+        case .type(let type): return .type(try resolveType(type, in: scope))
         }
     }
 
@@ -196,6 +204,10 @@ final class Interpreter: @unchecked Sendable {
             let r = try evaluate(right, in: scope)
             guard case .logical(let b) = r else { throw MOperators.invalid(op == .and ? "and" : "or", r) }
             return .logical(b)
+        case .meta:
+            let value = try evaluate(left, in: scope)
+            guard case .record = try evaluate(right, in: scope) else { throw MError.expression("Siêu dữ liệu sau meta phải là bản ghi") }
+            return value
         default:
             return try MOperators.apply(op, try evaluate(left, in: scope), try evaluate(right, in: scope))
         }
@@ -302,8 +314,8 @@ final class Interpreter: @unchecked Sendable {
     // MARK: Hàm
 
     private func closure(_ parameters: [MParameter], returnType: MTypeExpr?, body: MExpression, scope: MScope) throws -> MFunction {
-        let resolved = try parameters.map { p in try p.type.map(MType.resolve) }
-        let resultType = try returnType.map(MType.resolve)
+        let resolved = try parameters.map { p in try p.type.map { try resolveType($0, in: scope) } }
+        let resultType = try returnType.map { try resolveType($0, in: scope) }
         return MFunction(name: "(hàm)", parameters: parameters, observed: true) { [self] arguments in
             let inner = MScope(parent: scope)
             for (index, parameter) in parameters.enumerated() {

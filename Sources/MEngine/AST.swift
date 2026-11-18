@@ -9,6 +9,8 @@ public enum MBinaryOp: String, Sendable, Equatable {
     case or, and
     case equal = "=", notEqual = "<>", less = "<", greater = ">", lessOrEqual = "<=", greaterOrEqual = ">="
     case add = "+", subtract = "-", concat = "&", multiply = "*", divide = "/"
+    /// `x meta [ … ]`: giá trị kèm siêu dữ liệu. MEngine giữ giá trị, bỏ siêu dữ liệu (`[SUY ĐOÁN]` đủ cho M của Desktop: Enter Data).
+    case meta
 }
 
 /// `name = value` trong `let` hoặc bản ghi.

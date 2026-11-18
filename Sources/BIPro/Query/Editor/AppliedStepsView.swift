@@ -10,6 +10,8 @@ struct AppliedStepsView: View {
     @State private var noticeMessage: String? = nil
     @State private var renamingStepIndex: Int? = nil
     @State private var stepRenameText: String = ""
+    /// Lưới Enter Data đang sửa qua bánh răng bước Source (T028); nil khi hộp đóng.
+    @State private var editingEnterData: EnterDataTable?
 
     private var currentQuery: QueryModel? {
         state.selectedQuery
@@ -41,6 +43,17 @@ struct AppliedStepsView: View {
         }
         .frame(width: 290)
         .background(DS.Palette.chrome)
+        .sheet(isPresented: Binding(get: { editingEnterData != nil }, set: { if !$0 { editingEnterData = nil } })) {
+            if let table = editingEnterData {
+                EnterDataView(table: table, mode: .edit, onCommit: { edited in
+                    if let reason = state.setEnterData(edited) { return reason }
+                    editingEnterData = nil
+                    return nil
+                }, onCancel: { editingEnterData = nil })
+                .environment(\.colorScheme, .light)
+                .interactiveDismissDisabled()
+            }
+        }
         .onAppear {
             syncQueryName()
         }
@@ -167,6 +180,15 @@ struct AppliedStepsView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(isSelected ? Color.white.opacity(0.8) : DS.Palette.tertiaryLabel)
                     .help("Bước do nguồn tạo, chưa sửa được")
+            } else if scrollable, let enterData = state.enterDataSource(at: index) {
+                // Enter Data (VM-F11a, ảnh a7): bánh răng bước Source mở lại hộp "Tạo bảng" (OK / Huỷ, không có ô Tên).
+                Button { editingEnterData = enterData } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 11))
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.8) : DS.Palette.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Sửa bảng nhập tay")
             } else {
                 Image(systemName: "gearshape")
                     .font(.system(size: 11))

@@ -1,6 +1,7 @@
 // Phase F (T005): giá trị của ngôn ngữ M. Xem specs/010-f-get-data-power-query-t3/data-model.md, contracts/m-engine.md.
 
 import ColumnStore
+import Foundation
 
 /// Lỗi của M. Là giá trị (ô lỗi, `try … otherwise`), không phải ngoại lệ Swift.
 public struct MError: Error, Sendable, Equatable {
@@ -53,6 +54,8 @@ public enum MValue: Sendable {
     case table(TableData)
     case function(MFunction)
     case type(MType)
+    /// Giá trị nhị phân (`Binary.FromText`, `Binary.Decompress`; đợt tồn đọng sau Phase F, T026: M của Enter Data).
+    case binary(Data)
     /// Giá trị lỗi nằm trong danh sách/bản ghi (chỉ ném khi truy cập phần tử đó).
     case error(MError)
 }

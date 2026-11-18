@@ -126,6 +126,8 @@ final class DocumentState {
     var getDataState: NavigatorState?
     /// Cửa sổ Query Editor đang mở (Phase F, T060); nil khi đóng.
     var queryEditorState: QueryEditorState?
+    /// Hộp "Tạo bảng" (Enter Data) đang mở (đợt tồn đọng sau Phase F, T028); nil khi đóng.
+    var enterData: EnterDataTable?
     /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 

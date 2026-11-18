@@ -51,8 +51,8 @@ enum MOperators {
                 return .record(merged)
             default: throw invalid("&", a, b)
             }
-        case .and, .or:
-            throw MError.expression("Toán tử logic được xử lý ở bộ đánh giá")
+        case .and, .or, .meta:
+            throw MError.expression("Toán tử \(op.rawValue) được xử lý ở bộ đánh giá")
         }
     }
 

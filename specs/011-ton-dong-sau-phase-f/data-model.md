@@ -18,8 +18,8 @@ Chỉ ghi phần mới hoặc đổi. Kiểu hiện có (`ModelMetadata`, `Model
 
 `EnterDataTable` gồm `name` (mặc định "Table", tránh trùng tên bằng ` (2)`), `columns: [String]` và `rows: [[String?]]`.
 
-- **Giới hạn**: theo VM-F11a, `[SUY ĐOÁN]` 3 000 ô.
-- **Dữ liệu**: ô trống là `null`. Kiểu cột suy ra ở bước `Changed Type` theo quy tắc dò kiểu của Get Data.
+- **Giới hạn**: ≤ 3 000 ô trong clipboard, đếm cả dòng tiêu đề (VM-F11a).
+- **Dữ liệu**: mọi ô là chuỗi, ô trống là `""` (VM-F11a). Kiểu cột ở bước `Changed Type`: cột toàn số (bỏ qua ô trống) là `type number`, còn lại `type text`.
 - **Khi lưu**: thành `NewTable` (T3) với `QueryDefinition` là M Enter Data (R2).
 - **Khi đọc lại**: nhận ra M Enter Data, giải nén ra lưới để sửa.
 
@@ -27,7 +27,7 @@ Chỉ ghi phần mới hoặc đổi. Kiểu hiện có (`ModelMetadata`, `Model
 
 - **`DateTableTemplate_<guid>`**: một bảng cho mỗi mô hình khi có ít nhất một cột ngày.
   - Bảng tính toán ẩn, `IsPrivate = 1`, chú thích `__PBI_TemplateDateTable = true`.
-  - Cột và phân cấp chép theo `w8.3.pbix`.
+  - Cột và phân cấp chép theo `w8.3.pbix`, đã đối chiếu với VM-F11 (`F2AutoDateGoldenTests`). Chú thích bảng thêm `DefaultItem = DateHierarchy`.
 - **`LocalDateTable_<guid>`**: một bảng cho mỗi cột ngày hoặc ngày giờ không ẩn của bảng người dùng.
   - Bảng tính toán ẩn, `ShowAsVariationsOnly = 1`, chú thích `__PBI_LocalDateTable = true`.
   - Biểu thức: `Calendar(Date(Year(MIN('T'[c])), 1, 1), Date(Year(MAX('T'[c])), 12, 31))`.

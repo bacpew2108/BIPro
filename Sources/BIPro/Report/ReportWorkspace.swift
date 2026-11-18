@@ -22,6 +22,10 @@ struct ReportWorkspace: View {
                                    },
                                    editor: state.layout, editMode: state.editMode)
                         .id(page.id)
+                        .overlay {
+                            // T029: tài liệu chưa có bảng thì giữa khung trang là màn "Thêm dữ liệu vào báo cáo" (VM-F11a).
+                            if AddDataPanel.isShown(for: state) { AddDataPanel(state: state) }
+                        }
                         .overlay(alignment: .topTrailing) { EditModeSwitch(state: state) }
                 } else {
                     ContentUnavailableView("Báo cáo không có trang", systemImage: "doc.richtext")

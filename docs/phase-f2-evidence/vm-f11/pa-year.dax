@@ -1,0 +1,16 @@
+// DAX Query
+DEFINE
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[Year],
+			"SumAmount", CALCULATE(SUM('Sales'[Amount]))
+		)
+
+	VAR __DS0BodyLimited = 
+		SAMPLE(3502, __DS0Core, 'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[Year], 1)
+
+EVALUATE
+	__DS0BodyLimited
+
+ORDER BY
+	'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[Year]

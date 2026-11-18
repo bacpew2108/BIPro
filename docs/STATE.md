@@ -48,7 +48,16 @@ Cập nhật: 2026-11-17 (Phase F xong, T102 đã báo cáo; chờ bạn quyết
 
 ## Worktree / worker
 
-Không có worker nào đang chạy. Worktree `c2-r3`, `c2-i` đã merge và xoá (2026-11-04). Báo cáo của agy ở `docs/tasks/c2-r3-report.md`, `c2-i-report.md`.
+**F2-DAXTEXT (agy, T020) XONG, review T021 ĐẠT sau một lần giao lại (2026-11-18), chưa merge (chờ bạn):**
+- Vòng 1: golden 1 194/1 198 (4 ô miễn), 2 273 test qua; lead thấy `FIXED` sập (tràn `Int64`) khi `decimals` ≥ 19. Phản hồi `build/f2-out/agy/f2-daxtext-fix.md`, nhật ký vòng 2 `build/f2-out/agy/f2-daxtext-r2.jsonl`.
+- Vòng 2: `FIXED` dùng `DecimalText` (của FORMAT), test `decimals` 19/20/127 và 1E±300; `upperBody` gọi `daxUpperString`. Lead chạy lại trong worktree: `swift build` sạch, `swift test` 2 274 qua, golden nặng 122/122.
+- Còn ghi nhận (báo cáo mục "Đề xuất cho lead"): `UPPER`/`LOWER`/`SEARCH` dùng ánh xạ hoa thường đầy đủ, chỉ vá "ß", "İ" (ký tự như "ﬁ", "ŉ" có thể lệch Desktop); `REPT` chưa chặn kết quả quá lớn; `COMBINEVALUES` nhận delimiter không hằng; `Binder.bind` chưa có row context ngoài.
+- Thông tin worktree (giữ đến khi merge):
+- Worktree `/Users/macprom114/orca/workspaces/PowerBINative/f2-daxtext`, nhánh `bacpew2108/f2-daxtext`, nền `c8779a0`; `build/f-out`, `build/f2-out` là symlink về repo chính.
+- Brief `docs/tasks/f2-daxtext.md`; prompt (brief + lệnh được phép) `build/f2-out/agy/f2-daxtext-prompt.md`; allow-list `build/f2-out/agy/f2-daxtext-allow.json`; nhật ký `build/f2-out/agy/f2-daxtext.jsonl`; báo cáo kỳ vọng `docs/tasks/f2-daxtext-report.md`.
+- Review (T021): `git diff --stat` chỉ `Text.swift`, `TextMore.swift` (mới), `Tests/DAXEngineTests/F-TEXT/**`, `FKITTextTests.swift` (mỗi chỗ sửa phải có trong báo cáo), báo cáo; golden đọc từ tệp, không hard-code; đúng 4 ô miễn; `swift build`, `swift test`, heavy golden 122 qua; kiểm test COMBINEVALUES delimiter rỗng/BLANK; mục "Đề xuất cho lead".
+
+Worktree cũ `c2-r3`, `c2-i` đã merge và xoá (2026-11-04). Báo cáo của agy ở `docs/tasks/c2-r3-report.md`, `c2-i-report.md`.
 
 ## Quyết định đã chốt
 
@@ -269,7 +278,27 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
     - `CONCATENATEX`: delimiter tuỳ chọn, phần tử BLANK thành "", bảng rỗng ra BLANK. Test cũ (suy đoán Python) đã đổi theo golden. `[SUY ĐOÁN]` Desktop cũng lặp dòng trống ảo của bảng chiều.
   - `swift test` 2271 qua.
   - Brief `docs/tasks/f2-daxtext.md`: 18 hàm (`CONCATENATEX` lead đã làm), golden 100% trừ 4 ô `UNICODE` của surrogate lẻ.
-- **Việc kế:** bạn commit phần trên (cần `git status` sạch) rồi giao F2-DAXTEXT cho agy (T020); trong lúc chờ: US2 (VM-F11).
+- Đã commit `c8779a0`.
+- **T020, T021 xong (2026-11-18):** F2-DAXTEXT đạt review, chờ bạn cho merge (xem mục "Worktree / worker"). Sau merge: T022, T023.
+
+## US2 (tài liệu mới giống Desktop), 2026-11-18
+
+- **T024 VM-F11 xong** (Claude lái VM): `docs/phase-f2-evidence/vm-f11/QUAN-SAT.md` + ảnh, M Enter Data, truy vấn Performance Analyzer, PBIR visual; `f11-desktop.pbix` (ngoài git) và bản trung gian `build/f2-out/f11/f11-step{1..5}.pbix`. `research.md` R2–R4 và `data-model.md` đã cập nhật.
+  - Màn trống: 4 ô (Excel, SQL Server, Paste data into a blank table, Use sample data) + "Get data from another source →"; biến mất khi có bảng đầu tiên.
+  - Enter Data: JSON chuỗi, ô trống `""`, Deflate thô (zlib mặc định khớp từng byte); giới hạn ≤ 3 000 ô kể cả tiêu đề; tên "Table", "Table (2)"; Desktop bỏ U+FEFF đầu tên cột khi nạp.
+  - Auto date/time: mỗi cột Date **và** DateTime một `LocalDateTable_`; tắt thì xoá hết và viết lại visual thành cột thường; bật lại sinh GUID mới.
+  - Tự phát hiện quan hệ: trùng tên + cùng kiểu + đúng một phía duy nhất → nhiều–một; đường thứ hai → tạo nhưng không hoạt động.
+- **T025 xong:** `Tests/PBIXKitTests/F2AutoDateGoldenTests.swift` (w8.3 và f11 cùng mẫu), `Sources/BIPro/Model/Edit/AutoDateTime.swift` (hằng số), `Tests/BIProTests/Model/AutoDateTemplateTests.swift`.
+- **T026 xong:** MEngine `meta`, kiểu tra qua biến (`type table [A = _t]`), `MValue.binary`, `Binary.FromText`, `Binary.Decompress` (Deflate), `Json.Document` nhận nhị phân, `Table.FromRows`; `Tests/MEngineTests/EnterDataMTests.swift` chạy M của Desktop ra đúng dữ liệu Desktop lưu (`Table`, `Table (2)`). `MEngineTests` thêm phụ thuộc `PBIXKit`.
+- **T027 xong:** `Sources/BIPro/Query/EnterDataState.swift` (`EnterDataTable`: lưới, dán TSV, tiêu đề tự nâng và "Bỏ tiêu đề", giới hạn 3 000 ô, tên "Table (n)", sinh M, đọc ngược M). Dán đúng clipboard buổi VM thì M trùng từng byte với M Desktop của `Table` và `Table (2)`. MEngine thêm `MBinary.deflate/inflate` công khai.
+- **T028 xong:** `EnterDataView.swift` (hộp "Tạo bảng"; chế độ sửa OK/Huỷ), `DocumentState+EnterData.swift` (`showEnterData`, `loadEnterData`: chạy M bằng MEngine, bỏ U+FEFF đầu tên cột, nạp qua `TableLoader.apply` một bước ⌘Z), Ribbon "Nhập dữ liệu".
+  - Query Editor: truy vấn Enter Data đọc từ file không khoá; bánh răng bước Source mở lại hộp. `Json.Document` của `SourceFunctions` nhận nhị phân.
+  - Sửa kèm: thanh công thức gửi lại biểu thức không đổi khi mất tiêu điểm thì không còn bật "Đã sửa".
+- **T029 xong:** `Sources/BIPro/Report/AddDataPanel.swift` gắn ở `ReportWorkspace` (overlay trang). 4 ô + "Lấy dữ liệu từ nguồn khác →"; SQL Server và dữ liệu mẫu xám kèm lý do; biến mất khi có bảng, ⌘Z trả lại.
+  - Desktop sau khi có bảng hiện gợi ý "Build visuals with your data"; BI Pro chưa có (nhỏ, chưa giao task).
+- Đã bấm thử trong app (ảnh chỉ cửa sổ app, đã xoá): dán, Tải, Query Editor bánh răng, màn trống. Hai lỗi giao diện tìm ra đã sửa: lưới canh giữa thay vì góc trên trái; Huỷ ở chế độ sửa hỏi xác nhận dù chưa đổi.
+- `swift test` 2 296 qua. Chưa commit.
+- **Việc kế:** T030 (bộ ghi `U$`), T031 (variation, chú thích), T032 (`AutoDateTime` sinh lệnh), T033–T036, T066; rồi gate VM T037, bấm thử T038.
 
 ## Việc tiếp theo
 

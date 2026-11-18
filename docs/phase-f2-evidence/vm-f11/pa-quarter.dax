@@ -1,0 +1,25 @@
+// DAX Query
+DEFINE
+	VAR __DS0Core = 
+		SUMMARIZECOLUMNS(
+			'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[Quarter],
+			'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[QuarterNo],
+			"SumAmount", CALCULATE(SUM('Sales'[Amount]))
+		)
+
+	VAR __DS0PrimaryWindowed = 
+		TOPN(
+			1001,
+			__DS0Core,
+			'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[QuarterNo],
+			1,
+			'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[Quarter],
+			1
+		)
+
+EVALUATE
+	__DS0PrimaryWindowed
+
+ORDER BY
+	'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[QuarterNo],
+	'LocalDateTable_fb0e2a6f-b4ad-4cef-8dda-8e88dc9b733b'[Quarter]

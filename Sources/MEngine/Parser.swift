@@ -219,8 +219,8 @@ private struct Parser {
     }
 
     mutating func parseMetadata() throws -> MExpression {
-        let left = try parseUnary()
-        if isKeyword("meta") { throw fail("Chưa hỗ trợ: toán tử meta") }
+        var left = try parseUnary()
+        while accept(keyword: "meta") { left = .binary(.meta, left, try parseUnary()) }
         return left
     }
 

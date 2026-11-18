@@ -19,22 +19,27 @@ extension MType {
         "Function.Type": MType(.function), "Type.Type": MType(.type), "None.Type": MType(.none), "Null.Type": MType(.null),
     ]
 
-    static func resolve(_ expression: MTypeExpr) throws -> MType {
+    /// `variable`: tra tên không phải kiểu nguyên thuỷ thành giá trị kiểu trong phạm vi hiện tại, như `_t` trong
+    /// `let _t = (type nullable text) meta [...] in type table [A = _t]` (M của Enter Data, T026).
+    static func resolve(_ expression: MTypeExpr, variable: ((String) -> MType?)? = nil) throws -> MType {
         switch expression {
         case .primitive(let name):
             if let constant = libraryConstants[name] { return constant }   // `Int64.Type` đứng ở vị trí kiểu
-            guard let kind = primitiveKinds[name] else { throw MError.expression("Kiểu '\(name)' không tồn tại") }
-            return MType(kind)
-        case .nullable(let inner): return try resolve(inner).nullable
-        case .list(let item): return MType(.list, listItem: [try resolve(item)])
-        case .record(let fields): return MType(.record, fields: try resolveFields(fields))
-        case .table(let fields): return MType(.table, fields: try resolveFields(fields))
+            if let kind = primitiveKinds[name] { return MType(kind) }
+            if let type = variable?(name) { return type }
+            throw MError.expression("Kiểu '\(name)' không tồn tại")
+        case .nullable(let inner): return try resolve(inner, variable: variable).nullable
+        case .list(let item): return MType(.list, listItem: [try resolve(item, variable: variable)])
+        case .record(let fields): return MType(.record, fields: try resolveFields(fields, variable: variable))
+        case .table(let fields): return MType(.table, fields: try resolveFields(fields, variable: variable))
         case .function: return MType(.function)
         }
     }
 
-    private static func resolveFields(_ fields: [MTypeFieldExpr]) throws -> [MTypeField] {
-        try fields.map { MTypeField(name: $0.name, type: try $0.type.map(resolve) ?? MType(.any), isOptional: $0.isOptional) }
+    private static func resolveFields(_ fields: [MTypeFieldExpr], variable: ((String) -> MType?)?) throws -> [MTypeField] {
+        try fields.map {
+            MTypeField(name: $0.name, type: try $0.type.map { try resolve($0, variable: variable) } ?? MType(.any), isOptional: $0.isOptional)
+        }
     }
 
     /// Giá trị `value` có thuộc kiểu này không (kiểm nông: kiểu phần tử và cột chỉ kiểm tên khi nêu).
@@ -98,6 +103,7 @@ extension MValue {
         case .table: "table"
         case .function: "function"
         case .type: "type"
+        case .binary: "binary"
         case .error: "error"
         }
     }

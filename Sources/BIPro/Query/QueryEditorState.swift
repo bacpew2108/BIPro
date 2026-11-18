@@ -287,6 +287,8 @@ public final class QueryEditorState {
         var query = queries[queryIndex]
         if let reason = lockedReason(query, index) { return reason }
         let text = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Thanh công thức gửi lại khi mất tiêu điểm: không đổi chữ thì không phải thay đổi (không bật "Đã sửa").
+        if text == query.steps[index].expression { return nil }
         do { _ = try MParser.parse(text) } catch let error as MSyntaxError {
             return "Dòng \(error.line), cột \(error.column): \(error.message)"
         } catch { return "\(error)" }
@@ -294,6 +296,20 @@ public final class QueryEditorState {
         query.steps[index].kind = StepKind.custom
         commit(query, at: queryIndex, select: index)
         return nil
+    }
+
+    /// Lưới Enter Data của bước `index` nếu đó là bước Source của truy vấn Enter Data (bánh răng mở hộp "Tạo bảng" ở chế độ sửa).
+    func enterDataSource(at index: Int) -> EnterDataTable? {
+        guard let query = selectedQuery, query.steps.indices.contains(index), query.steps[index].name == "Source" else { return nil }
+        return EnterDataTable(name: query.name, m: query.source)
+    }
+
+    /// OK của hộp "Tạo bảng" ở chế độ sửa: thay biểu thức bước Source bằng M mới (các bước sau giữ nguyên, như Desktop).
+    @discardableResult
+    func setEnterData(_ table: EnterDataTable) -> String? {
+        guard let query = selectedQuery, let index = query.steps.firstIndex(where: { $0.name == "Source" }),
+              let source = (try? MQuery.parse(table.m))?.steps.first(where: { $0.name == "Source" }) else { return "Không có bước Source." }
+        return setExpression(at: index, source.expression)
     }
 
     /// Đổi chỗ bước với bước kế (`offset` -1 lên, +1 xuống). Không kiểm phụ thuộc: bước hỏng hiện lỗi ở Applied Steps.
@@ -631,6 +647,11 @@ extension QueryEditorState {
     func addQueries(from metadata: ModelMetadata, tableData: @escaping @Sendable (String) -> TableData?) {
         for table in metadata.userTables {
             guard let text = metadata.partitionQueries[table.name], !text.isEmpty else { continue }
+            // Enter Data (T028): M tự đủ dữ liệu nên MEngine tính được, không khoá, bánh răng bước Source mở lại lưới.
+            if EnterDataTable(name: table.name, m: text) != nil {
+                addQuery(Self.model(name: table.name, source: text, tableName: table.name, locked: false), base: nil)
+                continue
+            }
             let query = Self.model(name: table.name, source: text, tableName: table.name, locked: true)
             let name = table.name
             addQuery(query, baseLoader: { tableData(name) })

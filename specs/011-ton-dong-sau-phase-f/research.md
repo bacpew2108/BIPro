@@ -42,9 +42,20 @@ Mỗi mục gồm: quyết định, lý do, cách khác đã xét. "Quan sát" l
   - Sửa lại bảng: Query Editor mở bước Source thì hiện lại hộp Tạo bảng.
 - **Lý do**: dùng lại Get Data, T3 và MEngine; M giống Desktop nên Desktop Refresh được.
 - **Đã xét**: lưu dữ liệu chỉ ở VertiPaq, M rỗng. Bị loại: Desktop Refresh mất bảng.
-- **Quan sát VM-F11a**:
-  - Ghi lại các ô của màn trống.
-  - Enter Data 3 cột × 5 dòng có chữ Việt, số, ô trống: đọc M nguyên văn, giới hạn cỡ, tên mặc định "Table", kiểu sau `Changed Type`.
+- **Quan sát VM-F11a (xong 2026-11-18, `docs/phase-f2-evidence/vm-f11/QUAN-SAT.md` mục a)**:
+  - **Màn trống** có 4 ô: Excel (hộp Open lọc Excel), SQL Server, "Paste data into a blank table" (Create Table), "Use sample data", và liên kết "Get data from another source →" (Get Data).
+    - Màn biến mất khi có bảng đầu tiên.
+    - Quyết định trên giữ nguyên: SQL Server và dữ liệu mẫu hiện xám.
+  - **M** khớp phần `[SUY ĐOÁN]` ở trên (nay đã xác nhận):
+    - JSON mảng dòng, mọi ô là chuỗi, ô trống là `""`;
+    - Deflate thô mức mặc định của zlib cho đúng từng byte;
+    - `Changed Type`: cột toàn số thành `type number`, còn lại `type text`.
+  - **Hộp Create Table:**
+    - dòng đầu tự thành tiêu đề, có "Undo Headers";
+    - tên mặc định "Table", rồi "Table (2)";
+    - giới hạn ≤ 3 000 ô trong clipboard, đếm cả tiêu đề, kèm thông báo nguyên văn;
+    - Cancel khi có dữ liệu thì hỏi xác nhận;
+    - sửa lại qua bánh răng bước Source, khi đó hộp có OK/Cancel và không có ô Name.
 
 ## R3. Auto date/time (US2)
 
@@ -63,23 +74,35 @@ Mỗi mục gồm: quyết định, lý do, cách khác đã xét. "Quan sát" l
   - Visual dùng `HierarchyLevel` có `PropertyVariationSource`: reader dịch sang cột của bảng ngày cục bộ. Kiểm truy vấn so với Performance Analyzer ở VM-F11b.
 - **Lý do**: giữ cấu trúc giống Desktop thì Desktop mở được và tự làm mới bảng ngày được. Có golden đọc sẵn (`w8.3.pbix`).
 - **Đã xét**: tắt Auto date/time như hiện nay. Bị loại vì spec FR-011 đòi giống Desktop.
-- **Quan sát VM-F11b**: tài liệu mới, nạp bảng có cột Date và DateTime. Đọc cấu trúc file lưu; biểu đồ theo Năm, Quý; tắt rồi bật lại tuỳ chọn.
+- **Quan sát VM-F11b (xong 2026-11-18, QUAN-SAT mục b)**:
+  - Mỗi cột Date **và** DateTime có một `LocalDateTable_<guid>`; mỗi mô hình có một `DateTableTemplate_<guid>` (IsPrivate).
+  - Cột, biểu thức, chú thích, `Date Hierarchy`, quan hệ (tên là GUID trần, `JoinOnDateBehavior` 2) và `Variation` như bảng trong QUAN-SAT.
+  - **Truy vấn visual** dùng cột của bảng cục bộ: mức Year `SUMMARIZECOLUMNS(…[Year], …)` + `SAMPLE(3502, …)`; mức Quarter nhóm thêm cột sắp theo `[QuarterNo]` + `TOPN(1001, …)`.
+  - **Tắt tuỳ chọn:** xoá hết bảng ngày, quan hệ ngày, `Variation`, chú thích thành 0, và **viết lại visual** từ `HierarchyLevel` thành `Column`.
+  - **Bật lại:** sinh mới với GUID mới; visual không đổi lại.
+  - Tuỳ chọn ở Desktop: Options ▸ Current File ▸ Data Load ▸ Time intelligence. BI Pro đặt ở Tệp ▸ Tuỳ chọn tệp.
 
 ## R4. Tự phát hiện quan hệ (US2)
 
 - **Quyết định**:
   - `RelationshipDetector` (BIPro, thuần, test được) chạy sau Close & Apply và Get Data ▸ Tải. Đầu vào là mô hình và các bảng vừa nạp; đầu ra là danh sách `NewRelationship` tên `AutoDetected_<guid>`.
-  - Quy tắc `[SUY ĐOÁN]` chờ VM-F11c:
-    - tên cột trùng, không phân biệt hoa thường;
-    - kiểu tương thích;
-    - một phía có giá trị duy nhất thì thành nhiều–một, lọc một chiều;
-    - đã có đường giữa hai bảng thì quan hệ mới không hoạt động hoặc bỏ;
-    - bỏ qua cột số thực.
+  - Quy tắc (VM-F11c đã xác nhận phần không đánh dấu):
+    - tên cột trùng (`[SUY ĐOÁN]` không phân biệt hoa thường);
+    - cùng kiểu: số với chữ thì bỏ;
+    - đúng một phía có giá trị duy nhất thì thành nhiều–một, lọc một chiều, hoạt động. Cả hai phía lặp thì bỏ.
+    - Quan hệ mới làm xuất hiện đường thứ hai giữa hai bảng thì vẫn tạo nhưng **không hoạt động**.
+      - Ví dụ: `Sales[Region]→Table (2)` hoạt động, còn `Customers[Region]→Table (2)` tắt vì đã có Sales→Customers.
+      - `[SUY ĐOÁN]` thứ tự xét theo thứ tự bảng trong mô hình.
+    - `[SUY ĐOÁN]` bỏ qua cột số thực; hai phía cùng duy nhất.
+  - Desktop không có hoàn tác cho lần nạp; BI Pro gộp quan hệ tự tạo vào cùng bước ⌘Z với lần nạp (thêm của BI Pro).
   - Tuỳ chọn tắt nằm cùng chỗ với Auto date/time. Quan hệ tự tạo vào cùng bước hoàn tác với lần nạp.
 - **Lý do**: Desktop làm mặc định; tên `AutoDetected_` thấy trong `w8.3.pbix`.
-- **Quan sát VM-F11c**:
-  - Nạp `Sales`, `Customers`, `Products` cùng lúc: khoá trùng tên, một cặp trùng tên mà kiểu khác, một cặp cả hai phía không duy nhất.
-  - Nạp thêm một bảng vào mô hình đã có quan hệ.
+- **Quan sát VM-F11c (xong 2026-11-18, QUAN-SAT mục c)**:
+  - Nạp ba bảng cùng lúc: chỉ `Sales[CustomerID]→Customers[CustomerID]`.
+    - ProductID khác kiểu: bỏ.
+    - Region cả hai phía lặp: bỏ.
+  - Nạp thêm `Table (2)` có Region duy nhất: hai quan hệ, một hoạt động, một tắt.
+  - Tuỳ chọn "Autodetect new relationships after data is loaded" ở Current File ▸ Data Load ▸ Relationships, mặc định bật.
 
 ## R5. Hàm văn bản DAX (US3, gói agy F2-DAXTEXT)
 

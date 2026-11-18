@@ -565,6 +565,48 @@ public enum TableRowsLibrary {
                 if hasErr { kept.append(r) }
             }
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: kept))
+        },
+
+        // Đợt tồn đọng sau Phase F, T026: bước Source của Enter Data (VM-F11a): `Table.FromRows(Json.Document(…), type table [A = _t, …])`.
+        // `columns`: danh sách tên, số cột, kiểu bảng (lấy tên và kiểu trường) hoặc bỏ trống (`Column1…` theo hàng dài nhất). Hàng ngắn
+        // hơn số cột thì bù null, dài hơn thì báo lỗi (tài liệu M; `[SUY ĐOÁN]` thông điệp).
+        MFunction(
+            name: "Table.FromRows",
+            parameters: [MParameter(name: "rows"), MParameter(name: "columns", isOptional: true)],
+            observed: true
+        ) { args in
+            let rows = try args.list(0, "Table.FromRows").map { row -> [MValue] in
+                guard case .list(let values) = row else { throw MError.expression("Table.FromRows: mỗi hàng phải là danh sách, nhận \(row.kindName)") }
+                return values
+            }
+            var names: [String]
+            var types: [MType?]
+            switch args.optional(1) {
+            case .none:
+                names = (0..<(rows.map(\.count).max() ?? 0)).map { "Column\($0 + 1)" }
+                types = names.map { _ in nil }
+            case .number(let n)?:
+                names = (0..<max(try MInt.from(n, "Table.FromRows"), 0)).map { "Column\($0 + 1)" }
+                types = names.map { _ in nil }
+            case .list(let list)?:
+                names = try list.map { value in
+                    guard case .text(let name) = value else { throw MError.expression("Table.FromRows: tên cột phải là text") }
+                    return name
+                }
+                types = names.map { _ in nil }
+            case .type(let type)? where type.kind == .table:
+                names = type.fields.map(\.name)
+                types = type.fields.map { $0.type.kind == .any ? nil : $0.type }
+            default:
+                throw MError.expression("Table.FromRows: tham số columns không hợp lệ")
+            }
+            let filled = try rows.map { row -> [MValue] in
+                guard row.count <= names.count else {
+                    throw MError.expression("Table.FromRows: hàng có \(row.count) giá trị trong khi bảng có \(names.count) cột")
+                }
+                return row + Array(repeating: MValue.null, count: names.count - row.count)
+            }
+            return .table(try MTables.build(names: names, types: types, rows: filled))
         }
     ]
 }

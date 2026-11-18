@@ -41,6 +41,13 @@ struct ShellView: View {
                     .environment(\.colorScheme, .light)
             }
         }
+        .sheet(isPresented: Binding(get: { state.enterData != nil }, set: { if !$0 { state.closeEnterData() } })) {
+            if let table = state.enterData {
+                EnterDataView(table: table, onCommit: { await state.loadEnterData($0) }, onCancel: { state.closeEnterData() })
+                    .environment(\.colorScheme, .light)
+                    .interactiveDismissDisabled()
+            }
+        }
         .sheet(isPresented: Binding(get: { state.queryEditorState != nil }, set: { if !$0 { state.closeQueryEditor() } })) {
             if let editor = state.queryEditorState {
                 QueryEditorWindow(state: editor, existingTableNames: state.existingTableNames,

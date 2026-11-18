@@ -76,7 +76,8 @@ private struct DataSourceCommands: View {
             RibbonButton(title: "Excel", symbol: "tablecells.badge.ellipsis", tint: DS.Palette.success,
                          disabledReason: state.getDataBlocker) { state.showGetData(kind: .excel) }
             RibbonButton(title: "SQL", symbol: "server.rack", tint: DS.Palette.indigo, phase: "Phase F")
-            RibbonButton(title: "Nhập dữ liệu", symbol: "square.and.pencil", phase: "Phase F")
+            RibbonButton(title: "Nhập dữ liệu", symbol: "square.and.pencil",
+                         disabledReason: state.enterDataBlocker) { state.showEnterData() }
         }
         RibbonDivider()
         RibbonGroup(title: "Truy vấn") {
