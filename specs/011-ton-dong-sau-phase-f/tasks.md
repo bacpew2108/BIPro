@@ -221,7 +221,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 - [ ] T041 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Postgres/PostgresSource.swift`, `PostgresConnection.swift`: đọc timestamptz, time, interval, bytea, mảng theo VM-F15, có `sourceType`. Test `Tests/ConnectorsTests/PostgresTypesTests.swift` (máy chủ thử).
 - [ ] T042 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Parquet/ParquetSource.swift`, `ParquetCodec.swift`: dựng lại struct và list từ mức lặp và mức định nghĩa (Dremel), độ sâu đến 3; sâu hơn thì báo "Chưa hỗ trợ" kèm tên cột. `scripts/f-samples/make_parquet.py --nested`. Test `Tests/ConnectorsTests/ParquetNestedTests.swift`, golden bảng Desktop nạp.
 - [ ] T043 [US6] [LEAD] Review gói F2-CONN (skill `agy-delegation`); giao lại tối đa một lần; merge khi bạn bảo.
-- [ ] T044 [US6] [LEAD] Driver ODBC SQLite:
+- [x] T044 [US6] [LEAD] Driver ODBC SQLite:
   - `Sources/BIPro/Query/NavigatorState.swift`, `DatabaseConnectView.swift`, `SourceQuery.swift`: ô chọn driver (danh sách tên phổ biến và nhập tự do), nhớ ở `UserDefaults["bipro.sqlite.odbcDriver"]`, mặc định "Devart ODBC Driver for SQLite";
   - M dựng theo driver đã chọn, chuỗi kết nối theo VM-F15;
   - đọc lại M có driver lạ vẫn chạy được trong BI Pro, vì BI Pro đọc SQLite trực tiếp;
@@ -245,19 +245,19 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
     - cột tính toán làm khoá phía "một" của quan hệ: sửa vẫn duy nhất, sửa thành trùng (Desktop báo gì, quan hệ ra sao), xoá;
     - cột tính toán làm cột sắp xếp của cột khác: sửa giữ một–một, sửa phá một–một, xoá.
   - Đọc `R$`, `U$`, `H$` và `SortByColumnID` trước và sau bằng PBIXKit.
-- [ ] T048 [US4] [LEAD] Test trước (red) `Tests/PBIXKitTests/Write/CalculatedIndexRebuildTests.swift`: ba loại phụ thuộc × (sửa, xoá); đọc lại chỉ mục khớp dữ liệu mới; ca Desktop từ chối thì báo lỗi tương ứng.
-- [ ] T049 [US4] [LEAD] `Sources/PBIXKit/Writing/MetadataWriter.swift`: thay `requireNoIndexes` bằng dựng lại:
+- [x] T048 [US4] [LEAD] Test trước (red) `Tests/PBIXKitTests/Write/CalculatedIndexRebuildTests.swift`: ba loại phụ thuộc × (sửa, xoá); đọc lại chỉ mục khớp dữ liệu mới; ca Desktop từ chối thì báo lỗi tương ứng.
+- [x] T049 [US4] [LEAD] `Sources/PBIXKit/Writing/MetadataWriter.swift`: thay `requireNoIndexes` bằng dựng lại:
   - quan hệ: `relationshipsToRebuild`, xoá rồi thêm lại cùng tên, `R$` mới;
   - phân cấp: `HierarchyIndexWriter` (T030);
   - cột sắp xếp: `H$` của cột được sắp.
   Xoá cột thì xoá kèm theo VM-F13. Test T048 xanh.
-- [ ] T050 [US4] [LEAD] `Sources/PBIXKit/ModelMetadata+TableEdit.swift`, `Sources/BIPro/Model/Edit/CalculatedEditor.swift`, `CalculationPlan.swift`, `Sources/BIPro/Panes/DataPane.swift`:
+- [x] T050 [US4] [LEAD] `Sources/PBIXKit/ModelMetadata+TableEdit.swift`, `Sources/BIPro/Model/Edit/CalculatedEditor.swift`, `CalculationPlan.swift`, `Sources/BIPro/Panes/DataPane.swift`:
   - bỏ chặn của T116;
   - hộp xác nhận liệt kê mục bị bỏ kèm (lời như Desktop VM-F13);
   - ca từ chối báo đúng lời;
   - hoàn tác chung.
   Test ở `Tests/BIProTests/Model/CalculatedEditTests.swift`.
-- [ ] T051 [US4] [LEAD] Test nặng `Tests/BIProTests/Model/F2CalcIndexNhom6Tests.swift`:
+- [x] T051 [US4] [LEAD] Test nặng `Tests/BIProTests/Model/F2CalcIndexNhom6Tests.swift`:
   - bản sao Nhom6: sửa `branch_label`, sửa một cột tính toán khoá quan hệ trên tài liệu thử → lưu hai lần → mở lại;
   - đối chiếu từng dòng và số liệu visual dùng phân cấp;
   - để lại tệp gate trong `build/f2-out/f13/`.
@@ -276,19 +276,19 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - thống kê từng đoạn, `H$` và `R$` của bảng nhiều đoạn;
   - cỡ tệp làm mốc SC-006.
   Ghi `docs/phase-f2-evidence/vm-f14/QUAN-SAT.md` và cập nhật `research.md` R7.
-- [ ] T054 [US5] [LEAD] Test trước `Tests/PBIXKitTests/Write/VertiPaqSegmentTests.swift`:
+- [x] T054 [US5] [LEAD] Test trước `Tests/PBIXKitTests/Write/VertiPaqSegmentTests.swift`:
   - bảng 8 388 609 dòng và bảng chia đúng biên, giải mã từng ô trùng nguồn;
   - RLE: cột lặp được mã hoá đúng loại Desktop dùng, giải mã trùng, cỡ gần Desktop;
   - `WriterLimitTests` cập nhật (bỏ lỗi quá một đoạn).
-- [ ] T055 [US5] [LEAD] `Sources/PBIXKit/Writing/VertiPaqWriter.swift`, `TableMetadataWriter.swift`:
+- [x] T055 [US5] [LEAD] `Sources/PBIXKit/Writing/VertiPaqWriter.swift`, `TableMetadataWriter.swift`:
   - nhiều đoạn theo `RecordsPerSegment` của VM-F14, mã hoá từng đoạn để giữ bộ nhớ;
   - thống kê từng đoạn; `SegmentMapStorage`;
   - `H$` của bảng nhiều đoạn theo cách Desktop chia;
   - bảng nhiều đoạn bị thay dữ liệu (Close & Apply) hoặc bị xoá: tệp cũ của mọi đoạn được bỏ hết.
   Test T054 (phần nhiều đoạn) xanh.
-- [ ] T056 [US5] [LEAD] `VertiPaqWriter.swift`: RLE và lai RLE/bit-packing theo bố cục VM-F14, tiêu chí chọn như Desktop (hoặc `[SUY ĐOÁN]` chọn cách nhỏ hơn). Giữ thứ tự dòng như Desktop. Test T054 (phần RLE) xanh; `DesktopGoldenTests` khớp byte cũ không đổi, hoặc cập nhật kèm giải thích nếu Desktop cũng dùng RLE ở mẫu đó.
-- [ ] T057 [US5] [LEAD] `TableMetadataWriter.swift`: bỏ chặn `segments == 1` của cột tính toán; cột tính toán trên bảng nhiều đoạn ghi đúng từng đoạn. Đường ghi `R$` cho quan hệ trên bảng nhiều đoạn. Test ở `Tests/PBIXKitTests/Write/CalculatedWriteTests.swift`.
-- [ ] T058 [US5] [LEAD] Test nặng `Tests/BIProTests/Model/F2LargeSaveTests.swift` (release):
+- [x] T056 [US5] [LEAD] `VertiPaqWriter.swift`: RLE và lai RLE/bit-packing theo bố cục VM-F14, tiêu chí chọn như Desktop (hoặc `[SUY ĐOÁN]` chọn cách nhỏ hơn). Giữ thứ tự dòng như Desktop. Test T054 (phần RLE) xanh; `DesktopGoldenTests` khớp byte cũ không đổi, hoặc cập nhật kèm giải thích nếu Desktop cũng dùng RLE ở mẫu đó.
+- [x] T057 [US5] [LEAD] `TableMetadataWriter.swift`: bỏ chặn `segments == 1` của cột tính toán; cột tính toán trên bảng nhiều đoạn ghi đúng từng đoạn. Đường ghi `R$` cho quan hệ trên bảng nhiều đoạn. Test ở `Tests/PBIXKitTests/Write/CalculatedWriteTests.swift`.
+- [x] T058 [US5] [LEAD] Test nặng `Tests/BIProTests/Model/F2LargeSaveTests.swift` (release):
   - tài liệu mới + `big_10m.parquet` (10 cột) + cột tính toán + quan hệ tới bảng nhỏ → lưu < 2 phút, đỉnh bộ nhớ < 4 GB (đo `task_info`), đọc lại trùng nguồn;
   - `repeat_1m.csv`: cỡ tệp ≤ 125% `f14-rle-desktop.pbix`;
   - ghi số vào `specs/011-ton-dong-sau-phase-f/measurements.md`.

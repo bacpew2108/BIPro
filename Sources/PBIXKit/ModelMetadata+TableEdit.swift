@@ -81,7 +81,7 @@ extension ModelMetadata {
 
     /// Sửa công thức cột tính toán: giữ ID, tên và thuộc tính (Desktop chỉ đổi `Expression` và dữ liệu). Kiểu đổi thì định dạng và cách
     /// tổng hợp về mặc định của kiểu mới, như cột mới của bộ ghi. Cột nằm trong quan hệ, là cấp của phân cấp hay là cột sắp xếp của cột
-    /// khác thì chặn: Desktop dựng lại chỉ mục `R$`/`U$` theo dữ liệu mới, BI Pro chưa dựng lại được.
+    /// khác vẫn sửa được (US4): bộ ghi dựng lại chỉ mục `R$`/`U$` theo dữ liệu mới như Desktop.
     func updatingCalculatedColumn(table: String, name: String, expression: String, dataType: DataType) throws -> ModelMetadata {
         guard let index = columns.firstIndex(where: { $0.tableName == table && $0.name == name }) else {
             throw ModelEditError("Không có cột \(table)[\(name)]")
@@ -93,11 +93,6 @@ extension ModelMetadata {
         guard !body.contains("\0") else { throw ModelEditError("Biểu thức chứa ký tự NUL") }
         guard [.int64, .double, .decimal, .string, .dateTime, .boolean].contains(dataType) else {
             throw ModelEditError("Cột tính toán \(name) không có kiểu dữ liệu xác định")
-        }
-        let blockers = indexUses(of: old)
-        if !blockers.isEmpty {
-            throw ModelEditError("Chưa sửa được công thức cột \(table)[\(name)]: " + blockers.joined(separator: "; ")
-                                 + " (BI Pro chưa dựng lại chỉ mục theo dữ liệu mới)")
         }
         let sameType = old.dataType == dataType
         var all = columns
@@ -111,19 +106,48 @@ extension ModelMetadata {
         return ModelMetadata(copying: self, columns: all, storage: storage.filter { !($0.tableName == table && $0.columnName == name) })
     }
 
-    /// Xoá cột tính toán. Chặn khi còn quan hệ, phân cấp, cột sắp xếp, measure, cột hoặc bảng tính toán dùng cột (FR-004); nơi dùng trong
-    /// báo cáo do ứng dụng kiểm.
+    /// Xoá cột tính toán. Chặn khi measure, cột hoặc bảng tính toán còn dùng cột (FR-004); nơi dùng trong báo cáo do ứng dụng kiểm.
+    /// Quan hệ dùng cột bị bỏ, cột bỏ khỏi các phân cấp (phân cấp hết cấp thì bỏ), cột sắp theo cột này về sắp mặc định
+    /// (US4, `[SUY ĐOÁN]` như Desktop, VM-F13 chưa quan sát); danh sách ở `indexCascade(of:)`.
     func deletingCalculatedColumn(table: String, name: String) throws -> ModelMetadata {
         guard let column = columns.first(where: { $0.tableName == table && $0.name == name }) else {
             throw ModelEditError("Không có cột \(table)[\(name)]")
         }
         guard column.kind == .calculated else { throw ModelEditError("Cột \(table)[\(name)] không phải cột tính toán, chưa xoá được") }
-        var blockers = usesOfRemovedColumns([column], in: table, survivingIDs: Set(columns.map(\.id)).subtracting([column.id]))
+        var blockers: [String] = []
+        let measureUses = measures.filter { Self.mentionsColumn($0.expression, table: table, column: name) }.map(\.name)
+        if !measureUses.isEmpty { blockers.append("measure " + measureUses.joined(separator: ", ") + " dùng cột") }
+        let calculated = columns.filter { $0.id != column.id && ($0.expression.map { Self.mentionsColumn($0, table: table, column: name) } ?? false) }.map(\.name)
+        if !calculated.isEmpty { blockers.append("cột tính toán " + calculated.joined(separator: ", ") + " dùng cột") }
         let tablesUsing = calculatedTableExpressions.filter { Self.mentionsColumn($0.value, table: table, column: name) }.keys.sorted()
         if !tablesUsing.isEmpty { blockers.append("bảng tính toán " + tablesUsing.joined(separator: ", ") + " dùng cột") }
         if !blockers.isEmpty { throw ModelEditError("Không thể xoá cột \(table)[\(name)]: " + blockers.joined(separator: "; ")) }
-        return ModelMetadata(copying: self, columns: columns.filter { $0.id != column.id },
+        let uses = { (r: Relationship) in (r.fromTable == table && r.fromColumn == name) || (r.toTable == table && r.toColumn == name) }
+        let kept = hierarchies.compactMap { h -> Hierarchy? in
+            guard h.tableName == table, h.levels.contains(where: { $0.columnName == name }) else { return h }
+            let levels = h.levels.filter { $0.columnName != name }
+            return levels.isEmpty ? nil : Hierarchy(tableName: h.tableName, name: h.name, isHidden: h.isHidden, displayFolder: h.displayFolder,
+                                                     lineageTag: h.lineageTag, levels: levels)
+        }
+        let remaining = columns.filter { $0.id != column.id }.map { c in c.sortByColumnID == column.id ? Column.copy(c, sortByColumnID: .some(nil)) : c }
+        return ModelMetadata(copying: self, columns: remaining, relationships: relationships.filter { !uses($0) }, hierarchies: kept,
                              storage: storage.filter { !($0.tableName == table && $0.columnName == name) })
+    }
+
+    /// Những gì bị bỏ kèm khi xoá cột `table[name]` (lời cho hộp xác nhận): quan hệ, cấp phân cấp, cột sắp xếp theo cột này.
+    public func indexCascade(of table: String, name: String) -> [String] {
+        guard let column = columns.first(where: { $0.tableName == table && $0.name == name }) else { return [] }
+        var lines: [String] = []
+        for r in relationships where (r.fromTable == table && r.fromColumn == name) || (r.toTable == table && r.toColumn == name) {
+            lines.append("quan hệ \(r.fromTable)[\(r.fromColumn)] → \(r.toTable)[\(r.toColumn)]")
+        }
+        for h in hierarchies where h.tableName == table && h.levels.contains(where: { $0.columnName == name }) {
+            lines.append(h.levels.count == 1 ? "phân cấp \(h.name)" : "cấp \(name) của phân cấp \(h.name)")
+        }
+        for c in columns where c.sortByColumnID == column.id && c.id != column.id {
+            lines.append("cách sắp xếp của cột \(c.name) (về sắp theo chính nó)")
+        }
+        return lines
     }
 
     /// Sửa công thức bảng tính toán: cột kết quả theo biểu thức mới; cột cùng tên giữ ID và thuộc tính (định dạng, tổng hợp nếu cùng

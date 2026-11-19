@@ -132,6 +132,7 @@ public enum TableLoader {
         _ items: [any SourceItem],
         existingNames: Set<String>,
         source: (kind: SourceKind, location: String)? = nil,
+        odbcDriver: String? = nil,
         progress: SourceProgress? = nil
     ) async throws -> [LoadedTable] {
         var taken = existingNames
@@ -151,7 +152,8 @@ public enum TableLoader {
                     let parsed = PostgresLocation(source.location)
                     return LoadedOrigin(kind: .postgres, location: parsed.address.location, itemName: item.name, itemKind: item.kind, nativeQuery: parsed.sql)
                 }
-                return LoadedOrigin(kind: source.kind, location: source.location, itemName: item.name, itemKind: item.kind)
+                return LoadedOrigin(kind: source.kind, location: source.location, itemName: item.name, itemKind: item.kind,
+                                    odbcDriver: source.kind == .sqlite ? odbcDriver : nil)
             }
             result.append(LoadedTable(name: name, data: data, origin: origin))
         }

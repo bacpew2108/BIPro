@@ -117,8 +117,9 @@ public struct TableMetadataWriter {
                       .int(segmentMapID), .int(partitionFolderID)])
             try db.run("""
                 INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment)
-                VALUES (?, ?, 3, ?, 1, ?)
-                """, [.int(segmentMapID), .int(partitionStorageID), .int(Int64(table.rowCount)), .int(Int64(table.rowCount))])
+                VALUES (?, ?, 3, ?, ?, ?)
+                """, [.int(segmentMapID), .int(partitionStorageID), .int(Int64(table.rowCount)), .int(Int64(table.segmentCount)),
+                      .int(Int64(table.recordsPerSegment))])
             // The partition needs a valid M query: Desktop reports "Token Literal expected" for an empty one (gate F-T3, 2026-11-15).
             try db.run("""
                 INSERT INTO Partition (ID, TableID, Name, Description, DataSourceID, QueryDefinition, State, Type,
@@ -149,8 +150,8 @@ public struct TableMetadataWriter {
 
     /// Thêm cột tính toán `columnName` (ID `columnID`, phải bằng `MAXID + 1`) vào bảng đã có `table`: mã hoá `values` thành một cột của
     /// phân vùng hiện có (vị trí lưu kế tiếp, cùng thư mục bảng/phân vùng), kèm bảng `H$`, rồi ghi dòng `Column` như Desktop
-    /// (`Type = 2`, `Expression`, `SourceColumn` rỗng; Nhom6, `docs/phase-f-evidence/vm-f6/QUAN-SAT.md`). Chỉ bảng một phân vùng, một đoạn
-    /// dữ liệu. Trả các tệp cần thêm vào ABF (kể cả `systemFiles` mới).
+    /// (`Type = 2`, `Expression`, `SourceColumn` rỗng; Nhom6, `docs/phase-f-evidence/vm-f6/QUAN-SAT.md`). Chỉ bảng một phân vùng; bảng nhiều
+    /// đoạn thì cột mới cắt theo `RecordsPerSegment` của bảng (T057). Trả các tệp cần thêm vào ABF (kể cả `systemFiles` mới).
     public mutating func addCalculatedColumn(table: String, columnID: Int, columnName: String, expression: String,
                                              values: VertiPaqWriter.Values) throws -> [VertiPaqWriter.EncodedFile] {
         guard columnID == maxID + 1 else { throw WriteError.invalid("ID cột tính toán phải là MAXID + 1 (\(maxID + 1))") }
@@ -202,9 +203,8 @@ public struct TableMetadataWriter {
               let records = try db.int("SELECT RecordCount FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) else {
             throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có nhiều phân vùng hoặc thiếu dữ liệu lưu trữ")
         }
-        guard segments == 1 else {
-            throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có \(segments) đoạn dữ liệu (mới lưu được bảng một đoạn)")
-        }
+        // Bảng nhiều đoạn (T057): cột tính toán cắt đúng như các cột đã có (`RecordsPerSegment`).
+        let perSegment = try segments > 1 ? (db.int("SELECT RecordsPerSegment FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) ?? records) : records
         guard Int64(values.count) == records else {
             throw WriteError.invalid("cột tính toán «\(columnName)» có \(values.count) dòng, bảng «\(table)» có \(records)")
         }
@@ -216,7 +216,11 @@ public struct TableMetadataWriter {
         let suffix = " (\(tableID))"
         let storageBase = tableStorageName.hasSuffix(suffix) ? String(tableStorageName.dropLast(suffix.count)) : tableStorageName
         let encodedTable = try VertiPaqWriter.encodeTable(name: storageBase, tableID: Int(tableID), partitionID: Int(partitionID),
-                                                          rowNumberID: columnID + 1_000_000, columns: [.init(id: columnID, name: columnName, values: values)])
+                                                          rowNumberID: columnID + 1_000_000, columns: [.init(id: columnID, name: columnName, values: values)],
+                                                          segmentSize: max(1, Int(perSegment)))
+        guard encodedTable.segmentCount == Int(segments) else {
+            throw WriteError.invalid("cột tính toán «\(columnName)» cắt ra \(encodedTable.segmentCount) đoạn, bảng «\(table)» có \(segments)")
+        }
         let raw = encodedTable.columns[1]
         func moved(_ file: VertiPaqWriter.EncodedFile, to folder: String) -> VertiPaqWriter.EncodedFile {
             VertiPaqWriter.EncodedFile(path: folder + "\\" + file.fileName, fileName: file.fileName, folder: file.folder, data: file.data)
@@ -228,7 +232,7 @@ public struct TableMetadataWriter {
             idf: moved(raw.idf, to: partitionFolder), idfmeta: moved(raw.idfmeta, to: partitionFolder),
             rowCount: raw.rowCount, distinctCount: raw.distinctCount, minDataID: raw.minDataID, maxDataID: raw.maxDataID,
             originalMinDataID: raw.originalMinDataID, hasNulls: raw.hasNulls, bitWidth: raw.bitWidth,
-            minValueText: raw.minValueText, maxValueText: raw.maxValueText, stringValueMaxLength: raw.stringValueMaxLength,
+            rleRuns: raw.rleRuns, bitPackedRuns: raw.bitPackedRuns, minValueText: raw.minValueText, maxValueText: raw.maxValueText, stringValueMaxLength: raw.stringValueMaxLength,
             hierarchy: raw.hierarchy)
 
         var next = existing == nil ? columnID + 1 : maxID + 1
@@ -338,14 +342,14 @@ public struct TableMetadataWriter {
                 Statistics_XMType, Statistics_CompressionType, Statistics_CompressionParam, Statistics_EncodingHint,
                 IsDeltaPartitionColumn, DeltaColumnMappingPhysicalName, DeltaColumnMappingId, FramedSourceColumn,
                 DeltaColumnPrimitiveType, DeltaTableColumnStorageID, StringIndexStorageID, ColumnIndexStorageID\(db.fullTextColumn))
-            VALUES (?, ?, ?, ?, ?, 1, ?, NULL, NULL, 1033, 0, ?, ?, ?, ?, -1, ?, ?, 0, ?, 3, ?, ?, 0, 0, ?,
+            VALUES (?, ?, ?, ?, ?, 1, ?, NULL, NULL, 1033, 0, ?, ?, ?, ?, -1, ?, ?, ?, ?, 3, ?, ?, 0, 0, ?,
                 0, NULL, -1, NULL, 0, 0, 0, 0\(db.fullTextValue("NULL")))
             """, [
                 .int(columnStorageID), .int(columnID), .text(column.storageName), .int(Int64(column.storagePosition)),
                 .int(dictionaryStorageID), .int(isRowNumber ? 31 : 8),
                 .int(Int64(column.distinctCount)), .int(Int64(column.minDataID)), .int(Int64(column.maxDataID)),
                 .int(Int64(VertiPaqWriter.nullDataID)), .int(Int64(column.rowCount)),
-                .int(column.hasNulls ? 1 : 0), .int(isRowNumber ? 0 : 1), .int(dbType),
+                .int(column.hasNulls ? 1 : 0), .int(isRowNumber ? 0 : Int64(column.rleRuns)), .int(isRowNumber ? 0 : Int64(column.bitPackedRuns)), .int(dbType),
                 .int(column.dataType == .string ? 2 : (column.dataType == .double || column.dataType == .dateTime ? 1 : 0)), .int(isRowNumber ? 1 : 0),
             ])
 
@@ -396,8 +400,8 @@ public struct TableMetadataWriter {
                   .int(segmentStorageID), .int(idfFileID)])
         try db.run("""
             INSERT INTO SegmentStorage (ID, ColumnPartitionStorageID, SegmentCount, StorageFileID)
-            VALUES (?, ?, 1, ?)
-            """, [.int(segmentStorageID), .int(columnPartitionID), .int(idfmetaFileID)])
+            VALUES (?, ?, ?, ?)
+            """, [.int(segmentStorageID), .int(columnPartitionID), .int(Int64(table.segmentCount)), .int(idfmetaFileID)])
         try insertStorageFile(id: idfFileID, owner: columnPartitionID, ownerType: 23, folder: partitionFolderID,
                               fileName: column.idf.fileName)
         try insertStorageFile(id: idfmetaFileID, owner: segmentStorageID, ownerType: 24, folder: partitionFolderID,

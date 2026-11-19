@@ -28,7 +28,7 @@ enum SourceFunctions {
     // MARK: Odbc.DataSource (SQLite)
 
     /// `Odbc.DataSource("Driver={…SQLite…};Database=đường_dẫn", [HierarchicalNavigation=true])` (VM-F7b): BI Pro không có ODBC; với driver
-    /// SQLite thì đọc thẳng tệp bằng `SQLiteSource`. Có HierarchicalNavigation: một dòng `main` (Kind "Database") chứa bảng điều hướng
+    /// SQLite thì đọc thẳng tệp bằng `SQLiteSource`, bất kể tên driver (T044). Có HierarchicalNavigation: một dòng `main` (Kind "Database") chứa bảng điều hướng
     /// `Name, Data, Kind` ("Table"/"View"); không có thì trả thẳng bảng điều hướng đó [SUY ĐOÁN]. `Data` chỉ đọc khi truy cập. Driver khác báo chưa hỗ trợ.
     static let odbcDataSource = MFunction(
         name: "Odbc.DataSource", parameters: [MParameter(name: "connectionString"), MParameter(name: "options", isOptional: true)], observed: true
@@ -36,13 +36,15 @@ enum SourceFunctions {
         guard case .text(let connection) = args[0] else { throw MError.expression("Odbc.DataSource: chuỗi kết nối phải là text") }
         let properties = SQLiteODBC.properties(connection)
         let driver = properties["driver"] ?? (properties["dsn"].map { "DSN \($0)" } ?? "không rõ")
-        guard driver.lowercased().contains("sqlite"), let path = properties["database"] ?? properties["data source"] else {
-            throw MError(reason: "DataSource.Error", message: "Chưa hỗ trợ ODBC driver \(driver): BI Pro chỉ đọc được SQLite qua chuỗi kết nối có Database=đường_dẫn.")
-        }
+        let unsupported = MError(reason: "DataSource.Error",
+                                 message: "Chưa hỗ trợ ODBC driver \(driver): BI Pro chỉ đọc được tệp SQLite qua chuỗi kết nối có Database=đường_dẫn.")
+        guard let path = properties["database"] ?? properties["data source"] else { throw unsupported }
         guard FileManager.default.fileExists(atPath: path) else {
             throw MError(reason: "DataSource.Error",
                          message: "Không tìm thấy tệp SQLite \"\(path)\". Tệp có thể đã bị xoá, đổi tên hoặc nằm trên máy khác.", detail: path)
         }
+        // T044: tên driver tuỳ máy (Devart, SQLite3 ODBC Driver…); BI Pro đọc thẳng tệp nên chỉ cần tệp là SQLite thật.
+        guard SQLiteODBC.isSQLiteFile(path) else { throw unsupported }
         var hierarchical = false
         if case .record(let fields) = args[1], case .logical(let flag)? = fields.first(where: { $0.name == "HierarchicalNavigation" })?.value {
             hierarchical = flag

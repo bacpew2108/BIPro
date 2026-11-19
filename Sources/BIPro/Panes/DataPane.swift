@@ -20,6 +20,15 @@ struct DataPane: View {
     /// Lý do không xoá được (còn được dùng…), hiện thành hộp báo.
     @State private var refusal: String?
 
+    /// Lời hỏi xoá; cột tính toán còn trong quan hệ, phân cấp hay là cột sắp xếp thì liệt kê thứ bị bỏ kèm (US4).
+    private var deletionMessage: String {
+        guard let target = deleting else { return "" }
+        let cascade = target.column.map { state.deletionCascade(table: target.table, name: $0) } ?? []
+        let base = "Bạn có chắc muốn xoá '\(target.name)'?"
+        guard !cascade.isEmpty else { return base + " Có thể hoàn tác bằng ⌘Z." }
+        return base + " Sẽ bỏ kèm: " + cascade.joined(separator: "; ") + ". Có thể hoàn tác bằng ⌘Z."
+    }
+
     private struct PendingDeletion {
         let table: String
         let column: String?
@@ -76,7 +85,7 @@ struct DataPane: View {
             }
             Button("Huỷ", role: .cancel) { deleting = nil }
         } message: {
-            Text("Bạn có chắc muốn xoá '\(deleting?.name ?? "")'? Có thể hoàn tác bằng ⌘Z.")
+            Text(deletionMessage)
         }
         .alert("Không xoá được", isPresented: Binding(get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
             Button("OK", role: .cancel) { refusal = nil }

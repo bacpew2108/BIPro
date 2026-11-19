@@ -15,13 +15,16 @@ public struct LoadedOrigin: Sendable, Equatable {
     public let itemKind: SourceItemKind
     /// Câu SQL người dùng nhập (PostgreSQL, mục `Query1`); `nil` cho mục bảng/tệp.
     public let nativeQuery: String?
+    /// Tên driver ODBC ghi vào M của nguồn SQLite (T044); `nil` là driver mặc định.
+    public let odbcDriver: String?
 
-    public init(kind: SourceKind, location: String, itemName: String, itemKind: SourceItemKind, nativeQuery: String? = nil) {
+    public init(kind: SourceKind, location: String, itemName: String, itemKind: SourceItemKind, nativeQuery: String? = nil, odbcDriver: String? = nil) {
         self.kind = kind
         self.location = location
         self.itemName = itemName
         self.itemKind = itemKind
         self.nativeQuery = nativeQuery
+        self.odbcDriver = odbcDriver
     }
 }
 
@@ -35,21 +38,71 @@ enum StepKind {
     static let file = "file"
 }
 
-/// Chuỗi kết nối ODBC Desktop ghi cho tệp SQLite (VM-F7b quan sát với driver Devart; driver khác như "SQLite3 ODBC Driver" cũng đọc được).
+/// Chuỗi kết nối ODBC Desktop ghi cho tệp SQLite. Desktop không có connector SQLite: Get Data ▸ ODBC với driver người dùng cài (VM-F7b quan sát
+/// với "Devart ODBC Driver for SQLite"). BI Pro đọc thẳng tệp, tên driver chỉ để Desktop Refresh được: người dùng chọn driver có trên máy
+/// Desktop (T044), BI Pro nhớ ở `UserDefaults["bipro.sqlite.odbcDriver"]`.
 enum SQLiteODBC {
-    static let driver = "Devart ODBC Driver for SQLite"
+    static let defaultDriver = "Devart ODBC Driver for SQLite"
+    static let defaultsKey = "bipro.sqlite.odbcDriver"
+    /// Gợi ý trong ô chọn (vẫn nhập tự do được). `[SUY ĐOÁN]` tên thường gặp của các driver SQLite trên Windows.
+    static let commonDrivers = [defaultDriver, "SQLite3 ODBC Driver", "SQLite ODBC Driver", "CData ODBC Driver for SQLite"]
 
-    static func connectionString(path: String) -> String { "Driver={\(driver)};Database=\(path)" }
+    static func savedDriver(in defaults: UserDefaults = .standard) -> String {
+        let value = defaults.string(forKey: defaultsKey)?.trimmingCharacters(in: .whitespaces) ?? ""
+        return value.isEmpty ? defaultDriver : value
+    }
 
-    /// Các cặp khoá=giá trị của chuỗi kết nối ODBC (khoá viết thường, bỏ ngoặc nhọn quanh giá trị).
+    static func save(driver: String, in defaults: UserDefaults = .standard) {
+        let value = driver.trimmingCharacters(in: .whitespaces)
+        if value.isEmpty { defaults.removeObject(forKey: defaultsKey) } else { defaults.set(value, forKey: defaultsKey) }
+    }
+
+    /// `Driver={tên};Database=đường_dẫn` như Desktop ghi. Thoát theo quy tắc chuỗi kết nối ODBC (`[SUY ĐOÁN]`, Desktop chưa quan sát với tên
+    /// lạ): tên driver luôn trong ngoặc nhọn; đường dẫn chỉ bọc ngoặc khi có `;`, `{` hoặc `}`; trong ngoặc, `}` viết thành `}}`.
+    static func connectionString(path: String, driver: String = defaultDriver) -> String {
+        "Driver=\(braced(driver));Database=\(path.contains(where: { $0 == ";" || $0 == "{" || $0 == "}" }) ? braced(path) : path)"
+    }
+
+    /// Tệp bắt đầu bằng chữ ký "SQLite format 3".
+    static func isSQLiteFile(_ path: String) -> Bool {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return false }
+        defer { try? handle.close() }
+        return (try? handle.read(upToCount: 16)) == Data("SQLite format 3\0".utf8)
+    }
+
+    private static func braced(_ value: String) -> String { "{" + value.replacingOccurrences(of: "}", with: "}}") + "}" }
+
+    /// Các cặp khoá=giá trị của chuỗi kết nối ODBC (khoá viết thường). Giá trị trong ngoặc nhọn được mở ngoặc (`}}` thành `}`, `;` bên trong
+    /// không tách).
     static func properties(_ connection: String) -> [String: String] {
         var out: [String: String] = [:]
-        for part in connection.split(separator: ";") {
-            guard let eq = part.firstIndex(of: "=") else { continue }
-            let key = part[..<eq].trimmingCharacters(in: .whitespaces).lowercased()
-            var value = part[part.index(after: eq)...].trimmingCharacters(in: .whitespaces)
-            if value.hasPrefix("{"), value.hasSuffix("}") { value = String(value.dropFirst().dropLast()) }
-            out[key] = value
+        let chars = Array(connection)
+        var i = 0
+        while i < chars.count {
+            var key = ""
+            while i < chars.count, chars[i] != "=", chars[i] != ";" { key.append(chars[i]); i += 1 }
+            guard i < chars.count, chars[i] == "=" else { i += 1; continue }
+            i += 1
+            while i < chars.count, chars[i] == " " { i += 1 }
+            var value = ""
+            if i < chars.count, chars[i] == "{" {
+                i += 1
+                while i < chars.count {
+                    if chars[i] == "}" {
+                        if i + 1 < chars.count, chars[i + 1] == "}" { value.append("}"); i += 2; continue }
+                        i += 1
+                        break
+                    }
+                    value.append(chars[i]); i += 1
+                }
+                while i < chars.count, chars[i] != ";" { i += 1 }
+            } else {
+                while i < chars.count, chars[i] != ";" { value.append(chars[i]); i += 1 }
+                value = value.trimmingCharacters(in: .whitespaces)
+            }
+            i += 1
+            let k = key.trimmingCharacters(in: .whitespaces).lowercased()
+            if !k.isEmpty { out[k] = value }
         }
         return out
     }
@@ -82,10 +135,10 @@ enum SourceQuery {
             add(name, "Source{[Item=\(StepFactory.quote(origin.itemName)),Kind=\"\(kind)\"]}[Data]", StepKind.navigation)
             if !isTable { promote() }   // [SUY ĐOÁN] bảng đặt tên đã có tiêu đề, Desktop không thăng cấp.
         case .sqlite:
-            // Desktop không có connector SQLite riêng: Get Data ▸ ODBC với driver SQLite (VM-F7b, Devart), điều hướng theo cấp `main`,
+            // Desktop không có connector SQLite riêng: Get Data ▸ ODBC với driver SQLite (VM-F7b, Devart; driver chọn được, T044), điều hướng theo cấp `main`,
             // không có "Changed Type" (kiểu lấy từ driver).
             let kind = origin.itemKind == .view ? "View" : "Table"
-            return [QueryStep(name: "Source", expression: "Odbc.DataSource(\(StepFactory.quote(SQLiteODBC.connectionString(path: origin.location))), [HierarchicalNavigation=true])",
+            return [QueryStep(name: "Source", expression: "Odbc.DataSource(\(StepFactory.quote(SQLiteODBC.connectionString(path: origin.location, driver: origin.odbcDriver ?? SQLiteODBC.defaultDriver))), [HierarchicalNavigation=true])",
                               kind: StepKind.source),
                     QueryStep(name: "main_Database", expression: "Source{[Name=\"main\",Kind=\"Database\"]}[Data]", kind: StepKind.navigation),
                     QueryStep(name: "\(origin.itemName)_\(kind)", expression: "main_Database{[Name=\(StepFactory.quote(origin.itemName)),Kind=\"\(kind)\"]}[Data]",

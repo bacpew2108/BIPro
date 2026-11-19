@@ -148,6 +148,30 @@ public enum HierarchyIndex {
         return Level(dataIDs: ids, rank: sortedRank(ids, own: ownRank, by: otherIDs, rank: otherRank))
     }
 
+    /// Mã dữ liệu từng dòng và hạng sắp của một cột, lấy từ giá trị trong bộ nhớ hoặc từ ABF; dùng để ghép cấp mà cột cấp và cột sắp theo
+    /// đến từ hai nguồn khác nhau (US4: cột tính toán vừa tính lại trên bảng đã có trong file).
+    public struct Ranked: Sendable {
+        public var ids: [Int64]
+        public var rank: [Int64: Int]
+    }
+
+    public static func ranked(_ values: VertiPaqWriter.Values) throws -> Ranked {
+        let own = try VertiPaqWriter.encodeDictionary(values)
+        return Ranked(ids: own.ids, rank: Dictionary(uniqueKeysWithValues: own.sortedIDs.enumerated().map { ($1, $0) }))
+    }
+
+    public static func ranked(_ column: ModelMetadata.ColumnStorage, columnID: Int, abf: ABFBackup) throws -> Ranked {
+        let ids = try dataIDs(column, abf: abf)
+        return Ranked(ids: ids, rank: try positions(columnID: columnID, abf: abf)
+                        ?? Dictionary(uniqueKeysWithValues: Set(ids).sorted().enumerated().map { ($1, $0) }))
+    }
+
+    public static func level(_ own: Ranked, sortBy: Ranked?) throws -> Level {
+        guard let sortBy else { return Level(dataIDs: own.ids, rank: own.rank) }
+        guard sortBy.ids.count == own.ids.count else { throw WriteError.invalid("cột sắp theo lệch số dòng") }
+        return Level(dataIDs: own.ids, rank: sortedRank(own.ids, own: own.rank, by: sortBy.ids, rank: sortBy.rank))
+    }
+
     /// Hạng theo cột sắp: mỗi mã lấy hạng của giá trị sắp ở dòng đầu tiên mang mã đó; trùng thì theo hạng riêng.
     private static func sortedRank(_ ids: [Int64], own: [Int64: Int], by other: [Int64], rank otherRank: [Int64: Int]) -> [Int64: Int] {
         var key: [Int64: (Int, Int)] = [:]

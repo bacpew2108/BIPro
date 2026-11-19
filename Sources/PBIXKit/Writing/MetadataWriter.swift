@@ -251,7 +251,6 @@ public struct MetadataWriter {
             var removed: [String] = [], columnID = 0, position = 0
             try transaction { db, _ in
                 columnID = try Self.calculatedColumnID(db, table: table, name: name)
-                try Self.requireNoIndexes(db, columnID: columnID, table: table, name: name, action: "sửa công thức")
                 guard let stored = try db.int("""
                     SELECT cs.StoragePosition FROM ColumnStorage cs JOIN [Column] c ON c.ColumnStorageID = cs.ID WHERE c.ID = ?
                     """, [.int(Int64(columnID))]) else {
@@ -281,6 +280,7 @@ public struct MetadataWriter {
         var removed: [String] = []
         try transaction { db, now in
             let columnID = try Self.calculatedColumnID(db, table: table, name: name)
+            // Quan hệ, cấp phân cấp và cột sắp xếp dùng cột này đã được `PBIXWriter` bỏ hoặc dựng lại trước (US4, T049).
             try Self.requireNoIndexes(db, columnID: columnID, table: table, name: name, action: "xoá")
             removed = try Self.removeColumnStorage(db, columnID: Int64(columnID))
             try Self.deleteDependents(db, objectID: columnID)
@@ -343,7 +343,7 @@ public struct MetadataWriter {
         return id
     }
 
-    /// Chỉ mục phải dựng lại khi dữ liệu cột đổi hay cột mất: quan hệ (`R$`), cấp phân cấp (`U$`), cột khác sắp xếp theo cột này.
+    /// Còn chỗ dùng sau khi `PBIXWriter` đã dọn (US4): xoá cột mà còn quan hệ, cấp phân cấp hay cột sắp theo nó là lỗi của bộ ghi.
     private static func requireNoIndexes(_ db: MetadataDatabase, columnID: Int, table: String, name: String, action: String) throws {
         let id = MetadataDatabase.Value.int(Int64(columnID))
         if (try db.int("SELECT COUNT(*) FROM Relationship WHERE FromColumnID = ? OR ToColumnID = ?", [id, id]) ?? 0) > 0 {
@@ -548,14 +548,19 @@ public struct MetadataWriter {
         let db = database
         guard let tableID = try? db.userTableID(named: name) else { return [] }
         let ids = try db.strings("SELECT ID FROM Relationship WHERE FromTableID = ? OR ToTableID = ? ORDER BY ID", [.int(Int64(tableID)), .int(Int64(tableID))])
-        return try ids.compactMap(Int64.init).map { id in
+        return try rebuildable(ids.compactMap(Int64.init), owner: "việc thay dữ liệu của bảng «\(name)»")
+    }
+
+    private func rebuildable(_ ids: [Int64], owner: String) throws -> [NewRelationship] {
+        let db = database
+        return try ids.map { id in
             func text(_ sql: String) throws -> String { try db.strings(sql, [.int(id)]).first ?? "" }
             func number(_ field: String) throws -> Int64 { try db.int("SELECT \(field) FROM Relationship WHERE ID = ?", [.int(id)]) ?? 0 }
             let relName = try text("SELECT Name FROM Relationship WHERE ID = ?")
             let fromCardinality = try number("FromCardinality")
             guard try number("Type") == 1, fromCardinality == 2 || fromCardinality == 1, try number("ToCardinality") == 1, try number("JoinOnDateBehavior") == 1,
                   try number("RelyOnReferentialIntegrity") == 0, try number("SecurityFilteringBehavior") == 1, try number("State") == 1 else {
-                throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)»: quan hệ \(relName) có thuộc tính khác mặc định, chỉ mục quan hệ chưa dựng lại được")
+                throw WriteError.invalid("Chưa lưu được \(owner): quan hệ \(relName) có thuộc tính khác mặc định, chỉ mục quan hệ chưa dựng lại được")
             }
             func column(_ side: String) throws -> (table: String, column: String) {
                 (try text("SELECT t.Name FROM Relationship r JOIN [Table] t ON t.ID = r.\(side)TableID WHERE r.ID = ?"),
@@ -566,6 +571,53 @@ public struct MetadataWriter {
                                    fromMany: fromCardinality == 2, toMany: false,
                                    isActive: try number("IsActive") == 1, crossFilteringBehavior: Int(try number("CrossFilteringBehavior")))
         }
+    }
+
+    // MARK: Chỗ dùng một cột (US4, T049)
+
+    /// Quan hệ dùng cột `table[column]` (phía nào cũng được), cùng định dạng `relationshipsToRebuild` để xoá rồi thêm lại.
+    public func relationships(using table: String, column: String) throws -> [NewRelationship] {
+        let db = database
+        guard (try? db.userTableID(named: table)) != nil else { return [] }
+        let id = MetadataDatabase.Value.int(Int64(try Self.columnID(db, table: table, name: column)))
+        let ids = try db.strings("SELECT ID FROM Relationship WHERE FromColumnID = ? OR ToColumnID = ? ORDER BY ID", [id, id]).compactMap(Int64.init)
+        return try rebuildable(ids, owner: "việc sửa cột «\(table)[\(column)]»")
+    }
+
+    /// Phân cấp người dùng của `table` có một cấp là `column` (tên, cấp theo thứ tự, ẩn, chú thích) để xoá rồi thêm lại.
+    public func hierarchies(using table: String, column: String) throws -> [NewHierarchy] {
+        let db = database
+        guard db.tableExists("Hierarchy"), db.tableExists("Level"), let tableID = try? db.userTableID(named: table) else { return [] }
+        let columnID = try Self.columnID(db, table: table, name: column)
+        let ids = try db.strings("""
+            SELECT DISTINCT h.ID FROM Hierarchy h JOIN Level l ON l.HierarchyID = h.ID WHERE h.TableID = ? AND l.ColumnID = ? ORDER BY h.ID
+            """, [.int(Int64(tableID)), .int(Int64(columnID))]).compactMap(Int64.init)
+        return try ids.map { id in
+            let name = try db.strings("SELECT Name FROM Hierarchy WHERE ID = ?", [.int(id)]).first ?? ""
+            let hidden = try db.int("SELECT IsHidden FROM Hierarchy WHERE ID = ?", [.int(id)]) ?? 0
+            let levelNames = try db.strings("SELECT Name FROM Level WHERE HierarchyID = ? ORDER BY Ordinal", [.int(id)])
+            let levelColumns = try db.strings("""
+                SELECT COALESCE(c.ExplicitName, c.InferredName) FROM Level l JOIN [Column] c ON c.ID = l.ColumnID WHERE l.HierarchyID = ? ORDER BY l.Ordinal
+                """, [.int(id)])
+            var annotations: [String: String] = [:]
+            if db.tableExists("Annotation") {
+                let names = try db.strings("SELECT Name FROM Annotation WHERE ObjectID = ? AND ObjectType = 9 ORDER BY ID", [.int(id)])
+                let values = try db.strings("SELECT Value FROM Annotation WHERE ObjectID = ? AND ObjectType = 9 ORDER BY ID", [.int(id)])
+                for (k, v) in zip(names, values) { annotations[k] = v }
+            }
+            return NewHierarchy(table: table, name: name, levels: zip(levelNames, levelColumns).map { HierarchyLevel(name: $0, column: $1) },
+                                isHidden: hidden != 0, annotations: annotations)
+        }
+    }
+
+    /// Cột của `table` sắp xếp theo `column` (`SortByColumnID`), trừ chính nó.
+    public func columnsSorted(by table: String, column: String) throws -> [String] {
+        let db = database
+        guard let tableID = try? db.userTableID(named: table) else { return [] }
+        let columnID = try Self.columnID(db, table: table, name: column)
+        return try db.strings("""
+            SELECT COALESCE(ExplicitName, InferredName) FROM [Column] WHERE TableID = ? AND SortByColumnID = ? AND ID <> ? ORDER BY ID
+            """, [.int(Int64(tableID)), .int(Int64(columnID)), .int(Int64(columnID))])
     }
 
     /// `allowedTypes`: loại cột (`Column.Type`) bảng được có; nil là bỏ qua (xoá bảng bỏ luôn cột tính toán của nó, như Desktop).
@@ -980,9 +1032,9 @@ extension MetadataWriter {
                     ColumnStorageID, Type, SourceColumn, ColumnOriginID, Expression, FormatString, IsAvailableInMDX, SortByColumnID,
                     AttributeHierarchyID, ModifiedTime, StructureModifiedTime, RefreshedTime, SystemFlags, KeepUniqueRows, DisplayOrdinal,
                     ErrorMessage, SourceProviderType, DisplayFolder, EncodingHint, RelatedColumnDetailsID, AlternateOfID, LineageTag,
-                    SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior, StringIndexID, FullTextIndexID)
+                    SourceLineageTag, ExpressionContext, StringIndexingBehavior, FullTextIndexingBehavior\(db.columnIndexColumns))
                 VALUES (?, ?, 'INDEX', NULL, 6, 19, NULL, NULL, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, ?, 1, NULL, 0, NULL, NULL, 1, 0, 0, ?, ?, ?,
-                        1, 0, 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, 1, 1, 0, 0, 0)
+                        1, 0, 0, NULL, NULL, NULL, 0, 0, 0, NULL, NULL, 1, 1, 0\(db.columnIndexValues))
                 """, [.int(columnID), .int(tableID), .int(columnStorageID), .int(now), .int(now), .int(refreshedNever)])
             try db.run("""
                 INSERT INTO ColumnStorage (ID, ColumnID, Name, StoragePosition, DictionaryStorageID, Settings, ColumnFlags, Collation, OrderByColumn,

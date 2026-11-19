@@ -23,8 +23,9 @@ public enum VertiPaqWriter {
     /// Every Desktop table names its RowNumber column `RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61` (Marketing, sales_2026, probe).
     public static let rowNumberColumnGUID = UUID(uuidString: "2662979B-1795-4F74-8F37-6A1BA8059B61")!
 
-    /// Số dòng tối đa của một đoạn dữ liệu (2^23, Desktop: `RecordsPerSegment`). Bảng lớn hơn cần nhiều đoạn, chưa làm.
-    public static let maxRowsPerSegment = 8_388_608
+    /// Số dòng của một đoạn dữ liệu (2^23). Desktop giữ 1 056 320 dòng trong một đoạn (Nhom6 `Fact Transaction`, `RecordsPerSegment`
+    /// = số dòng); `[SUY ĐOÁN]` bảng lớn hơn cắt mỗi 8 388 608 dòng (VM-F14 chưa quan sát).
+    public static let recordsPerSegment = 8_388_608
 
     /// Desktop writes 16 runs in every `.idf` run table.
     static let runTableSize = 16
@@ -127,6 +128,9 @@ public enum VertiPaqWriter {
         public let originalMinDataID: Int
         public let hasNulls: Bool
         public let bitWidth: Int
+        /// `Statistics_RLERuns`, `Statistics_OthersRLERuns` (sum over segments).
+        public var rleRuns: Int = 0
+        public var bitPackedRuns: Int = 1
         /// `AttributeHierarchyStorage.MinValue`, `MaxValue` and `StringValueMaxLength`.
         public let minValueText: String?
         public let maxValueText: String?
@@ -170,6 +174,12 @@ public enum VertiPaqWriter {
         public let rowCount: Int
         /// The RowNumber column first, then the data columns in input order.
         public let columns: [EncodedColumn]
+        /// Rows of each segment (one entry for a table of one segment).
+        public var segmentRecords: [Int] = []
+
+        /// `SegmentMapStorage.SegmentCount` and `RecordsPerSegment` (Desktop: the row count when there is one segment).
+        public var segmentCount: Int { max(1, segmentRecords.count) }
+        public var recordsPerSegment: Int { segmentRecords.count > 1 ? segmentRecords[0] : rowCount }
 
         /// Every file, in the order to add them to the ABF.
         public var files: [EncodedFile] {
@@ -187,14 +197,12 @@ public enum VertiPaqWriter {
     /// Throws `WriteError.invalid` when a name is empty or has a NUL, the column counts differ,
     /// IDs repeat, a string contains a NUL, or a bit width above 32 would be needed.
     public static func encodeTable(name: String, tableID: Int, partitionID: Int, rowNumberID: Int,
-                                   rowNumberGUID: UUID = rowNumberColumnGUID, columns: [ColumnInput]) throws -> EncodedTable {
+                                   rowNumberGUID: UUID = rowNumberColumnGUID, columns: [ColumnInput],
+                                   segmentSize: Int = recordsPerSegment) throws -> EncodedTable {
         guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid("tên bảng rỗng hoặc có ký tự NUL") }
         guard let first = columns.first else { throw WriteError.invalid("bảng «\(name)» không có cột nào") }
         let rowCount = first.values.count
         guard rowCount > 0 else { throw WriteError.invalid("bảng «\(name)» không có dòng nào, chưa lưu được bảng rỗng") }
-        guard rowCount <= maxRowsPerSegment else {
-            throw WriteError.invalid("bảng «\(name)» có \(rowCount) dòng, vượt giới hạn \(maxRowsPerSegment) dòng mỗi đoạn dữ liệu (chưa lưu được bảng lớn hơn)")
-        }
 
         var ids = Set([tableID, partitionID, rowNumberID])
         guard ids.count == 3 else { throw WriteError.invalid("ID của bảng, phân vùng và cột RowNumber phải khác nhau") }
@@ -219,7 +227,7 @@ public enum VertiPaqWriter {
 
         // RowNumber: value i is data ID i + 3, value encoded (BaseId -3).
         let rowIDs = (0..<rowCount).map { Int64($0 + firstDataID) }
-        let rowSegment = try encodeSegment(ids: rowIDs, dictionaryCount: rowCount)
+        let rowSegment = try encodeSegment(ids: rowIDs, dictionaryCount: rowCount, segmentSize: segmentSize)
         encoded.append(EncodedColumn(
             kind: .rowNumber, id: rowNumberID,
             explicitName: "RowNumber-" + rowNumberGUID.uuidString,
@@ -231,6 +239,7 @@ public enum VertiPaqWriter {
             rowCount: rowCount, distinctCount: rowCount,
             minDataID: rowSegment.minDataID, maxDataID: rowSegment.maxDataID,
             originalMinDataID: rowSegment.originalMinDataID, hasNulls: false, bitWidth: rowSegment.bitWidth,
+            rleRuns: rowSegment.rleRuns, bitPackedRuns: rowSegment.bitPackedRuns,
             minValueText: "0", maxValueText: String(rowCount - 1), stringValueMaxLength: 0, hierarchy: nil))
 
         for (position, column) in columns.enumerated() {
@@ -238,7 +247,7 @@ public enum VertiPaqWriter {
             let dictionaryName = "0.\(name) (\(tableID)).\(storageName).dictionary"
             let segmentBase = "0.\(name) (\(tableID)).\(storageName).0"
             let dictionary = try encodeDictionary(column.values)
-            let segment = try encodeSegment(ids: dictionary.ids, dictionaryCount: dictionary.count)
+            let segment = try encodeSegment(ids: dictionary.ids, dictionaryCount: dictionary.count, segmentSize: segmentSize)
             let (minText, maxText, maxLength) = textStatistics(column.values)
             encoded.append(EncodedColumn(
                 kind: .data, id: column.id, explicitName: column.name, storageName: storageName,
@@ -250,14 +259,14 @@ public enum VertiPaqWriter {
                 rowCount: rowCount, distinctCount: dictionary.count,
                 minDataID: segment.minDataID, maxDataID: segment.maxDataID,
                 originalMinDataID: segment.originalMinDataID, hasNulls: dictionary.hasNulls,
-                bitWidth: segment.bitWidth,
+                bitWidth: segment.bitWidth, rleRuns: segment.rleRuns, bitPackedRuns: segment.bitPackedRuns,
                 minValueText: minText, maxValueText: maxText, stringValueMaxLength: maxLength,
                 hierarchy: try encodeHierarchy(sortedIDs: dictionary.sortedIDs, dictionaryCount: dictionary.count,
                                                hasNulls: dictionary.hasNulls)))
         }
 
         return EncodedTable(name: name, tableID: tableID, partitionID: partitionID, rowCount: rowCount,
-                            columns: encoded)
+                            columns: encoded, segmentRecords: rowSegment.segmentRecords)
     }
 
     // MARK: - Dictionary
@@ -396,49 +405,167 @@ public enum VertiPaqWriter {
     struct SegmentResult {
         let idf: Data
         let idfmeta: Data
+        /// Column-level statistics over every segment.
         let minDataID: Int
         let maxDataID: Int
         let originalMinDataID: Int
         let bitWidth: Int
+        /// `Statistics_RLERuns` / `Statistics_OthersRLERuns`: RLE runs and bit-packed runs, summed over segments.
+        let rleRuns: Int
+        let bitPackedRuns: Int
+        /// Rows of each segment, in order.
+        let segmentRecords: [Int]
     }
 
-    /// One segment with all rows bit packed. `ids` are data IDs (NULL is `nullDataID`).
-    static func encodeSegment(ids: [Int64], dictionaryCount: Int) throws -> SegmentResult {
-        let records = ids.count
-        guard records <= Int(UInt32.max), ids.allSatisfy({ $0 >= 0 && $0 <= Int64(UInt32.max) }) else {
-            throw WriteError.invalid("đoạn dữ liệu \(records) dòng có mã vượt quá 32 bit, chưa lưu được")
+    /// One run of a segment: a repeated data ID, or `count` bit-packed values.
+    enum Run: Equatable {
+        case repeated(id: Int64, count: Int)
+        case packed(count: Int)
+    }
+
+    /// Encodes the data IDs of a column (NULL is `nullDataID`) as segments of `segmentSize` rows (US5, T055/T056).
+    ///
+    /// Each segment is a hybrid RLE + bit-packing block as Desktop writes it (Nhom6 `Fact Transaction`, 1 056 320 rows):
+    /// - `.idf`: per segment `u64 runTableSize`, the run table (`(u32 value, u32 repeats)`; a bit-packed run has value
+    ///   `0xFFFFFFFF - values packed so far`), `u64 wordCount`, the words. The run table is the next power of two above the runs used
+    ///   (at least 16), unused entries zero. With no bit-packed value Desktop still writes one zero word.
+    /// - `.idfmeta`: `<1:CP n`, one `<1:CS` per segment (facet `(a, 2·runTableSize, 2·runs + 2, 0)`, statistics with RLE and bit-packed
+    ///   run counts, bit-packed sub-block), `CP:1>`, then `<1:SDOs` with each segment's run section and word section offsets.
+    ///
+    /// `[SUY ĐOÁN]` (VM-F14 chưa quan sát): Desktop reorders rows to lengthen runs; BI Pro keeps the source order. Facet `a` (11–23 in
+    /// Desktop's files, rule unknown, ignored by the decoder) stays `min(rows, 13)` as before.
+    static func encodeSegment(ids: [Int64], dictionaryCount: Int, segmentSize: Int = recordsPerSegment) throws -> SegmentResult {
+        guard ids.count <= Int(UInt32.max) * 4, ids.allSatisfy({ $0 >= 0 && $0 <= Int64(UInt32.max) }) else {
+            throw WriteError.invalid("đoạn dữ liệu \(ids.count) dòng có mã vượt quá 32 bit, chưa lưu được")
         }
-        let hasNulls = ids.contains(Int64(nullDataID))
-        let nonNull = ids.filter { $0 != Int64(nullDataID) }
-        let minDataID = Int(nonNull.min() ?? Int64(firstDataID))
-        let maxDataID = Int(ids.max() ?? Int64(firstDataID))
-        let originalMin = Int(ids.min() ?? Int64(firstDataID))
+        guard segmentSize > 0 else { throw WriteError.invalid("cỡ đoạn dữ liệu phải lớn hơn 0") }
+        var idf = VertiPaqByteWriter()
+        var blocks: [(meta: VertiPaqByteWriter, start: Int, runTableSize: Int, words: Int)] = []
+        var minAll = Int.max, maxAll = Int.min, originalMin = Int.max, widest = 1, rleTotal = 0, packedTotal = 0
+        var records: [Int] = []
+        var start = 0
+        repeat {
+            let end = min(ids.count, start + segmentSize)
+            let segment = ids[start..<end]
+            let fileOffset = idf.data.count
+            let block = try encodeOneSegment(segment, into: &idf)
+            blocks.append((block.meta, fileOffset, block.runTableSize, block.words))
+            minAll = min(minAll, block.minDataID); maxAll = max(maxAll, block.maxDataID); originalMin = min(originalMin, block.originalMin)
+            widest = max(widest, block.bitWidth); rleTotal += block.rleRuns; packedTotal += block.packedRuns
+            records.append(segment.count)
+            start = end
+        } while start < ids.count
+
+        var meta = VertiPaqByteWriter()
+        meta.tag("<1:CP")
+        meta.u64(UInt64(blocks.count))
+        for block in blocks { meta.append(block.meta) }
+        meta.tag("CP:1>")
+        // Trailer describing the IDF layout of each segment (runs, then words). Ignored by the decoder.
+        meta.tag("<1:SDOs")
+        for block in blocks {
+            meta.tag("<1:CSDOs")
+            meta.u64(UInt64(block.start)); meta.u64(UInt64(block.runTableSize))
+            meta.tag("<1:CSDOs")
+            meta.u64(UInt64(block.start + 8 + 8 * block.runTableSize))
+            meta.u64(UInt64(block.words))
+            meta.tag("CSDOs:1>")
+            meta.tag("CSDOs:1>")
+        }
+        meta.tag("SDOs:1>")
+        return SegmentResult(idf: idf.data, idfmeta: meta.data, minDataID: minAll == .max ? firstDataID : minAll,
+                             maxDataID: maxAll == .min ? firstDataID : maxAll, originalMinDataID: originalMin == .max ? firstDataID : originalMin,
+                             bitWidth: widest, rleRuns: rleTotal, bitPackedRuns: packedTotal, segmentRecords: records)
+    }
+
+    /// Shortest run Desktop stores as an RLE entry: the shortest RLE runs in Desktop's files are 64–66 values (Nhom6 `account key`,
+    /// Marketing `Conversion dự kiến`), shorter repeats stay bit packed. `[SUY ĐOÁN]` the cut is exactly 64.
+    static let minimumRLERun = 64
+
+    /// Runs of one segment: repeated IDs of at least `minimumRLERun` values become RLE entries, the rest is bit packed.
+    static func runs(_ ids: ArraySlice<Int64>) -> [Run] {
+        let minimum = minimumRLERun
+        var out: [Run] = []
+        func addPacked(_ n: Int) {
+            guard n > 0 else { return }
+            if case .packed(let c)? = out.last { out[out.count - 1] = .packed(count: c + n) } else { out.append(.packed(count: n)) }
+        }
+        var i = ids.startIndex
+        while i < ids.endIndex {
+            var j = i + 1
+            while j < ids.endIndex, ids[j] == ids[i] { j += 1 }
+            let length = j - i
+            if length >= minimum { out.append(.repeated(id: ids[i], count: length)) } else { addPacked(length) }
+            i = j
+        }
+        return out
+    }
+
+    private struct SegmentBlock {
+        var meta: VertiPaqByteWriter
+        var runTableSize: Int
+        var words: Int
+        var minDataID: Int
+        var maxDataID: Int
+        var originalMin: Int
+        var bitWidth: Int
+        var rleRuns: Int
+        var packedRuns: Int
+    }
+
+    private static func encodeOneSegment(_ ids: ArraySlice<Int64>, into idf: inout VertiPaqByteWriter) throws -> SegmentBlock {
+        let records = ids.count
+        var hasNulls = false, minNonNull = Int64.max, maxID = Int64.min, minID = Int64.max
+        for id in ids {
+            if id == Int64(nullDataID) { hasNulls = true } else { minNonNull = min(minNonNull, id) }
+            maxID = max(maxID, id); minID = min(minID, id)
+        }
+        let minDataID = minNonNull == .max ? firstDataID : Int(minNonNull)
+        let maxDataID = maxID == .min ? firstDataID : Int(maxID)
         // With NULLs the segment is based at the NULL id, otherwise at its own minimum (decoder rule).
         let base = hasNulls ? nullDataID : minDataID
-        let packedValues = ids.map { UInt64(max(0, Int($0) - base)) }
-        let (width, compressionClass) = try bitWidthAndClass(for: packedValues.max() ?? 0)
-        let words = pack(packedValues, width: width)
+        // Desktop sizes the bit width on the whole segment range, RLE values included (Marketing `Nguồn traffic`: one packed value, 3 bits).
+        let (width, compressionClass) = try bitWidthAndClass(for: UInt64(max(0, maxDataID - base)))
+        let runs = runs(ids)
+        var packed: [UInt64] = []
+        packed.reserveCapacity(records)
+        var cursor = ids.startIndex
+        for run in runs {
+            switch run {
+            case .repeated(_, let count): cursor += count
+            case .packed(let count):
+                for id in ids[cursor..<(cursor + count)] { packed.append(UInt64(max(0, Int(id) - base))) }
+                cursor += count
+            }
+        }
+        var words = pack(packed, width: width)
+        if words.isEmpty { words = [0] }
+        let used = runs.count
+        var tableSize = runTableSize
+        while tableSize <= used { tableSize *= 2 }
 
-        // .idf: a table of 16 runs (Desktop always writes 16; unused runs are zero), the first being one bit-packed run
-        // (marker 0xFFFFFFFF - 0), then the words.
-        var idf = VertiPaqByteWriter()
-        idf.u64(UInt64(runTableSize))
-        idf.u32(0xFFFF_FFFF)
-        idf.u32(UInt32(records))
-        for _ in 1..<runTableSize { idf.u32(0); idf.u32(0) }
+        idf.u64(UInt64(tableSize))
+        var packedSoFar: UInt64 = 0
+        var rleRuns = 0, packedRuns = 0
+        for run in runs {
+            switch run {
+            case .repeated(let id, let count):
+                idf.u32(UInt32(id)); idf.u32(UInt32(count)); rleRuns += 1
+            case .packed(let count):
+                idf.u32(UInt32(0xFFFF_FFFF - packedSoFar)); idf.u32(UInt32(count)); packedSoFar += UInt64(count); packedRuns += 1
+            }
+        }
+        for _ in used..<tableSize { idf.u32(0); idf.u32(0) }
         idf.u64(UInt64(words.count))
         for word in words { idf.u64(word) }
 
-        // .idfmeta: CP / CS / SS / bit-packed sub-block / trailer.
         var meta = VertiPaqByteWriter()
-        meta.tag("<1:CP")
-        meta.u64(1)
         meta.tag("<1:CS")
         meta.u64(UInt64(records))
         meta.u64(1)                      // base segment id, as observed
         meta.u32(0xABA5A)                // hybrid RLE facet
         meta.u32(UInt32(compressionClass))
-        meta.u64(UInt64(min(records, 13))); meta.u64(32); meta.u64(4); meta.u8(0) // facet values; the first is min(rows, 13) in Desktop's files [SUY ĐOÁN]
+        meta.u64(UInt64(min(records, 13))); meta.u64(UInt64(2 * tableSize)); meta.u64(UInt64(2 * used + 2)); meta.u8(0)
         meta.u32(UInt32(base))           // first run value
         meta.tag("<1:SS")
         meta.u64(0)                      // distinct states: 0 in Desktop's files
@@ -448,29 +575,17 @@ public enum VertiPaqWriter {
         meta.u64(UInt64.max)             // RLE sort order: none
         meta.u64(UInt64(records))
         meta.u8(hasNulls ? 1 : 0)
-        meta.u64(0); meta.u64(1)         // RLE runs, other RLE runs
+        meta.u64(UInt64(rleRuns)); meta.u64(UInt64(packedRuns))
         meta.tag("SS:1>")
         meta.u8(1)
         meta.tag("<1:CS")
-        meta.u64(UInt64(records))        // bit-packed values
+        meta.u64(UInt64(packed.count))   // bit-packed values
         meta.u64(0)
         meta.u8(0)
         meta.tag("CS:1>")
         meta.tag("CS:1>")
-        meta.tag("CP:1>")
-        // Trailer describing the IDF layout (runs, then words). Ignored by the decoder.
-        meta.tag("<1:SDOs")
-        meta.tag("<1:CSDOs")
-        meta.u64(0); meta.u64(UInt64(runTableSize))
-        meta.tag("<1:CSDOs")
-        meta.u64(UInt64(8 + 8 * runTableSize)) // runs section: count + the run table
-        meta.u64(UInt64(words.count))
-        meta.tag("CSDOs:1>")
-        meta.tag("CSDOs:1>")
-        meta.tag("SDOs:1>")
-
-        return SegmentResult(idf: idf.data, idfmeta: meta.data, minDataID: minDataID, maxDataID: maxDataID,
-                             originalMinDataID: originalMin, bitWidth: width)
+        return SegmentBlock(meta: meta, runTableSize: tableSize, words: words.count, minDataID: minDataID, maxDataID: maxDataID,
+                            originalMin: Int(minID == .max ? Int64(firstDataID) : minID), bitWidth: width, rleRuns: rleRuns, packedRuns: packedRuns)
     }
 
     /// The smallest supported width that holds `maximum`, and its compression class.
@@ -671,6 +786,8 @@ struct VertiPaqByteWriter {
     }
 
     mutating func bytes(_ values: [UInt8]) { data.append(contentsOf: values) }
+
+    mutating func append(_ other: VertiPaqByteWriter) { data.append(other.data) }
 
     /// An ASCII tag followed by a NUL byte, as in `<1:CP\0`.
     mutating func tag(_ text: String) {

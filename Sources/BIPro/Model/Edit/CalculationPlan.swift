@@ -207,16 +207,14 @@ extension CalculationPlan {
         return seeds
     }
 
-    /// Lý do không lưu được việc tính lại các nút `nodes` đang có trong file: dữ liệu mới của cột trong quan hệ, phân cấp hay cột sắp xếp
-    /// cần dựng lại chỉ mục (chưa làm); bảng tính toán có quan hệ, phân cấp hay cột tính toán thì chưa thay được (bộ ghi từ chối).
+    /// Lý do không lưu được việc tính lại các nút `nodes` đang có trong file: bảng tính toán có quan hệ, phân cấp hay cột tính toán thì
+    /// chưa thay được (bộ ghi từ chối). Cột tính toán trong quan hệ, phân cấp hay là cột sắp xếp thì bộ ghi dựng lại chỉ mục (US4).
     static func saveBlockers(_ nodes: [Node], metadata: ModelMetadata) -> [String] {
         var lines: [String] = []
         for node in nodes {
             switch node {
-            case .column(let table, let name):
-                guard let column = metadata.columns.first(where: { $0.tableName == table && $0.name == name }) else { continue }
-                let uses = metadata.indexUses(of: column)
-                if !uses.isEmpty { lines.append("\(node): " + uses.joined(separator: "; ")) }
+            case .column:
+                continue
             case .table(let name):
                 var uses: [String] = []
                 if metadata.relationships.contains(where: { $0.fromTable == name || $0.toTable == name }) { uses.append("bảng có quan hệ") }

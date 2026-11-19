@@ -81,8 +81,17 @@ public final class NavigatorState {
     /// Hộp kết nối cơ sở dữ liệu đang mở; `nil` với nguồn tệp.
     public var databaseForm: DatabaseForm?
 
-    public init(makeSource: ((SourceKind, String) throws -> any DataSource)? = nil, credentials: CredentialVault = .shared) {
+    /// Driver ODBC ghi vào M của nguồn SQLite (T044): driver có trên máy Desktop sẽ Refresh; đổi là nhớ cho lần sau.
+    public var odbcDriver: String {
+        didSet { SQLiteODBC.save(driver: odbcDriver, in: odbcDefaults) }
+    }
+    @ObservationIgnored private let odbcDefaults: UserDefaults
+
+    public init(makeSource: ((SourceKind, String) throws -> any DataSource)? = nil, credentials: CredentialVault = .shared,
+                odbcDefaults: UserDefaults = .standard) {
         self.credentials = credentials
+        self.odbcDefaults = odbcDefaults
+        self.odbcDriver = SQLiteODBC.savedDriver(in: odbcDefaults)
         self.makeSource = makeSource ?? { kind, location in try SourceFactory.make(kind: kind, location: location, credentials: credentials) }
     }
 
@@ -240,11 +249,12 @@ public final class NavigatorState {
         guard canLoad else { return nil }
         let chosen = items.filter { checkedItemIDs.contains($0.id) }.compactMap { sourceItems[$0.id] }
         let origin = sourceKind.map { (kind: $0, location: location) }
+        let driver = SQLiteODBC.savedDriver(in: odbcDefaults)   // ô trống thì về mặc định
         phase = .loading
         progress = 0
         loaded = []
         let task = Task<[LoadedTable], Error> { [weak self] in
-            try await TableLoader.load(chosen, existingNames: existingNames, source: origin, progress: { fraction in
+            try await TableLoader.load(chosen, existingNames: existingNames, source: origin, odbcDriver: driver, progress: { fraction in
                 Task { @MainActor in self?.advance(to: fraction) }
             })
         }

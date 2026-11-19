@@ -12,11 +12,13 @@ import Testing
         _ = try VertiPaqWriter.encodeTable(name: name, tableID: 1001, partitionID: 1002, rowNumberID: 1003, columns: columns)
     }
 
-    @Test func bangVuotMotDoanDuLieuBiTuChoi() {
-        // 8 388 609 dòng: không dựng cả bảng thật, chỉ cần đủ dòng để vượt giới hạn.
-        let rows = VertiPaqWriter.maxRowsPerSegment + 1
-        let text = message { try encode([.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))]) }
-        #expect(text.contains("vượt giới hạn") && text.contains("«T»"), Comment(rawValue: text))
+    /// US5 (T054): bảng hơn 8 388 608 dòng không còn bị từ chối mà cắt thành nhiều đoạn (`VertiPaqSegmentTests`).
+    @Test func bangVuotMotDoanCatThanhHaiDoan() throws {
+        let rows = VertiPaqWriter.recordsPerSegment + 1
+        let table = try VertiPaqWriter.encodeTable(name: "T", tableID: 1001, partitionID: 1002, rowNumberID: 1003,
+                                                   columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))])
+        #expect(table.segmentRecords == [VertiPaqWriter.recordsPerSegment, 1])
+        #expect(table.segmentCount == 2 && table.recordsPerSegment == VertiPaqWriter.recordsPerSegment)
     }
 
     @Test func tenCotTrungKhongPhanBietHoaThuong() {

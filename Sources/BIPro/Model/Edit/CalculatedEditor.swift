@@ -144,17 +144,24 @@ extension DocumentState {
         }
     }
 
-    /// Xoá cột tính toán (T116, "Xoá khỏi mô hình" sau khi xác nhận). Chặn kèm nơi dùng (báo cáo, measure, cột, quan hệ…).
+    /// Xoá cột tính toán (T116, "Xoá khỏi mô hình" sau khi xác nhận). Chặn kèm nơi dùng (báo cáo, measure, cột tính toán). Quan hệ, cấp
+    /// phân cấp và cách sắp xếp dùng cột bị bỏ kèm trong cùng bước ⌘Z (US4, hộp xác nhận liệt kê `deletionCascade`).
     @discardableResult
     func deleteCalculatedColumn(table: String, name: String) -> String? {
         if let blocker = modelEditingBlocker { return blocker }
         guard let model = workspace.metadata else { return "File không có mô hình dữ liệu." }
         let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                             documents: ModelReferences.documents(layout: layout, workspace: workspace))
+            .filter { ![.relationship, .sortBy, .hierarchy].contains($0.kind) }
         if !usages.isEmpty { return "Không xoá được: " + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
         if let reason = modelEditor.apply(.deleteCalculatedColumn(table: table, name: name)) { return reason }
         if self.table == table, column == name { column = nil; measureDraft = nil }
         return nil
+    }
+
+    /// Những gì bị bỏ kèm khi xoá cột tính toán `table[name]` (quan hệ, cấp phân cấp, cách sắp xếp), cho hộp xác nhận.
+    func deletionCascade(table: String, name: String) -> [String] {
+        workspace.metadata?.indexCascade(of: table, name: name) ?? []
     }
 
     /// Xoá bảng tính toán (T116): như gỡ bảng (`dropTable`), chặn khi measure, quan hệ, cột/bảng tính toán khác hay báo cáo còn dùng.

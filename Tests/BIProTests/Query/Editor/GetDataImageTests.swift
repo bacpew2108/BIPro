@@ -89,6 +89,25 @@ import Connectors
         try dataLoading.write(to: dir.appendingPathComponent("navigator-loading.png"))
     }
 
+    /// T044: Navigator SQLite có ô chọn driver ODBC ở chân.
+    @Test @MainActor func exportNavigatorSQLiteImage() async throws {
+        guard let url = FFixtures.sample("sales_2026.sqlite") else { return }
+        let name = "bipro-test-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let state = NavigatorState(odbcDefaults: defaults)
+        await state.openSource(kind: .sqlite, location: url.path)
+        #expect(state.phase == .ready)
+        if let sales = state.items.first(where: { $0.name == "Sales" }) {
+            state.toggle(sales.id)
+            await state.showPreview(sales.id)
+        }
+        let size = CGSize(width: 960, height: 620)
+        let data = try #require(png(NavigatorView(state: state, scrollable: false), size: size))
+        try verifyImageRep(data, expectedSize: size, minColors: 20)
+        try data.write(to: try outputDirectory().appendingPathComponent("navigator-sqlite.png"))
+    }
+
     @Test @MainActor func exportNavigatorErrorImage() async throws {
         let state = NavigatorState()
         await state.openSource(kind: .excel, location: "/khong/co/file.xlsx")

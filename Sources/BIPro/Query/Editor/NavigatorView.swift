@@ -189,6 +189,10 @@ struct NavigatorView: View {
         HStack {
             footerLeftDiagnostic
 
+            if state.sourceKind == .sqlite, state.phase != .loading {
+                odbcDriverField
+            }
+
             Spacer()
 
             HStack(spacing: 8) {
@@ -236,6 +240,44 @@ struct NavigatorView: View {
         .padding(.horizontal, 16)
         .frame(height: 56)
         .background(DS.Palette.chrome)
+    }
+
+    /// T044: Desktop đọc SQLite qua ODBC; tên driver ghi vào M phải là driver có trên máy Desktop sẽ Refresh. BI Pro đọc thẳng tệp nên
+    /// không phụ thuộc driver. Gợi ý tên thường gặp, nhập tự do được, nhớ cho lần sau.
+    private var odbcDriverField: some View {
+        @Bindable var bindable = state
+        return HStack(spacing: 6) {
+            Text("Driver ODBC trong M:")
+                .font(DS.Typeface.bodySmall)
+                .foregroundStyle(DS.Palette.secondaryLabel)
+            if scrollable {
+                TextField(SQLiteODBC.defaultDriver, text: $bindable.odbcDriver)
+                    .textFieldStyle(.roundedBorder)
+                    .font(DS.Typeface.bodySmall)
+                    .frame(width: 230)
+                Menu {
+                    ForEach(SQLiteODBC.commonDrivers, id: \.self) { name in
+                        Button(name) { state.odbcDriver = name }
+                    }
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Chọn driver SQLite có trên máy chạy Power BI Desktop")
+            } else {
+                // Xuất ảnh (`ImageRenderer` không vẽ được ô nhập AppKit): vẽ tĩnh.
+                HStack {
+                    Text(state.odbcDriver).font(DS.Typeface.bodySmall).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.system(size: 10)).foregroundStyle(DS.Palette.secondaryLabel)
+                }
+                .padding(.horizontal, 6)
+                .frame(width: 250, height: 22)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Color.white))
+                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: 1))
+            }
+        }
     }
 
     @ViewBuilder

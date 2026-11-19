@@ -156,4 +156,57 @@ import Testing
         #expect(try await bigRows(again) == .integer(6))
         #expect(try await scalar(again, "COUNTROWS(Vùng)") == .integer(2))
     }
+
+    /// US4 (T050): cột tính toán làm khoá quan hệ, cấp phân cấp và cột sắp xếp: sửa công thức trên file đã lưu rồi lưu (bộ ghi dựng lại `R$`,
+    /// `U$`), xoá thì hộp xác nhận liệt kê thứ bỏ kèm, một bước ⌘Z, lưu được, mở lại đúng.
+    @Test func cotTinhToanTrongQuanHePhanCapSapXep() async throws {
+        let (state, root) = try await document(); defer { try? FileManager.default.removeItem(at: root) }
+        let dim = LoadedTable(name: "Nhom", data: try TableData(columns: [
+            TableColumn(name: "K", data: ColumnBuilder.integers([0, 1, 2, 10, 11, 12])),
+            TableColumn(name: "Ten", data: ColumnBuilder.strings(["Không", "Một", "Hai", "Mười", "Mười một", "Mười hai"])),
+        ]), status: .new)
+        #expect(state.loadFromGetData([dim]) == nil)
+        #expect(await state.addCalculatedColumn(table: "Sales", formula: "Nhóm = MOD(Sales[Key], 3)") == nil)
+        #expect(await state.addCalculatedColumn(table: "Sales", formula: "Nhãn = \"L\" & MOD(Sales[Key], 3)") == nil)
+        #expect(state.modelEditor.apply([
+            .addRelationship(NewRelationship(name: UUID().uuidString.lowercased(), fromTable: "Sales", fromColumn: "Nhóm", toTable: "Nhom", toColumn: "K")),
+            .addHierarchy(NewHierarchy(table: "Sales", name: "Vùng nhóm", levels: [HierarchyLevel(name: "Vùng", column: "Region"),
+                                                                                  HierarchyLevel(name: "Nhóm", column: "Nhóm")])),
+            .updateColumn(table: "Sales", name: "Nhãn", patch: ColumnPatch(sortBy: .set("Nhóm"))),
+        ]) == nil)
+        let source = try #require(state.fileURL)
+        let file = root.appendingPathComponent("us4.pbix")
+        let backups = root.appendingPathComponent("Backups")
+        #expect(try DocumentSaver.saveUntitled(editor: state.layout, source: source, to: file, readOnlyRoots: [], backupDirectory: backups).didWrite)
+
+        // Sửa công thức cột có sẵn trong file (giữ một–một với Nhãn): lưu được, quan hệ lọc theo dữ liệu mới.
+        let opened = DocumentState(workspace: try Workspace(data: Data(contentsOf: file)), fileName: file.lastPathComponent, fileURL: file)
+        #expect(await opened.updateCalculatedColumn(table: "Sales", name: "Nhóm", formula: "Nhóm = MOD(Sales[Key], 3) + 10") == nil)
+        #expect(try DocumentSaver.save(editor: opened.layout, source: file, to: file, expectedStamp: try FileStamp.of(file), readOnlyRoots: [],
+                                       backupDirectory: backups).didWrite)
+        let again = DocumentState(workspace: try Workspace(data: Data(contentsOf: file)), fileName: file.lastPathComponent, fileURL: file)
+        #expect(again.workspace.metadata?.relationships.contains { $0.fromColumn == "Nhóm" && $0.toTable == "Nhom" } == true)
+        // Key 1..6 → Nhóm 11, 12, 10, 11, 12, 10: "Mười" có Key 3 và 6 → Qty 4 + 2.
+        #expect(try await scalar(again, "CALCULATE(SUM(Sales[Qty]), Nhom[Ten] = \"Mười\")") == .integer(6))
+
+        // Xoá: hộp xác nhận nêu quan hệ, cấp phân cấp, cách sắp xếp; một bước ⌘Z.
+        let cascade = again.deletionCascade(table: "Sales", name: "Nhóm")
+        #expect(cascade.count == 3 && cascade.contains { $0.contains("quan hệ") } && cascade.contains { $0.contains("Vùng nhóm") }
+                && cascade.contains { $0.contains("Nhãn") }, "\(cascade)")
+        let depth = again.layout.undoDepth
+        #expect(again.deleteCalculatedColumn(table: "Sales", name: "Nhóm") == nil)
+        #expect(again.layout.undoDepth == depth + 1)
+        var model = try #require(again.workspace.metadata)
+        #expect(model.relationships.isEmpty && model.hierarchies.first { $0.name == "Vùng nhóm" }?.levels.map(\.columnName) == ["Region"])
+        #expect(model.columns.first { $0.name == "Nhãn" }?.sortByColumnID == nil)
+        again.layout.undo()
+        model = try #require(again.workspace.metadata)
+        #expect(model.relationships.count == 1 && model.hierarchies.first { $0.name == "Vùng nhóm" }?.levels.count == 2)
+        again.layout.redo()
+        #expect(try DocumentSaver.save(editor: again.layout, source: file, to: file, expectedStamp: try FileStamp.of(file), readOnlyRoots: [],
+                                       backupDirectory: backups).didWrite)
+        let last = try #require(try Workspace(data: Data(contentsOf: file)).metadata)
+        #expect(!last.columns.contains { $0.name == "Nhóm" } && last.relationships.isEmpty)
+        #expect(last.hierarchies.first { $0.name == "Vùng nhóm" }?.levels.map(\.columnName) == ["Region"])
+    }
 }

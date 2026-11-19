@@ -274,7 +274,8 @@ public enum PBIXWriter {
         metadata.hierarchyLevelsProvider = { table, levels in
             if let memory = inMemory[table.lowercased()] {
                 func values(_ column: String) throws -> VertiPaqWriter.Values {
-                    guard let v = memory.columns.first(where: { $0.name == column })?.values else {
+                    guard let v = memory.columns.first(where: { $0.name == column })?.values
+                            ?? calculatedByKey["\(table)[\(column)]".lowercased()] else {
                         throw WriteError.invalid("bảng \(table) không có cột \(column)")
                     }
                     return v
@@ -288,15 +289,70 @@ public enum PBIXWriter {
                 }
                 return (storage, id)
             }
-            return try levels.map { level in
-                let (storage, id) = try stored(level.column)
-                let sortBy = try level.sortBy.map { try stored($0) }
-                return try HierarchyIndex.level(storage, columnID: id, sortBy: sortBy.map { (column: $0.0, id: $0.1) }, abf: abf)
+            // Cột tính toán vừa tính lại (US4) lấy giá trị trong bộ nhớ, cột khác đọc từ ABF; hai nguồn ghép được vì mã dữ liệu của cột
+            // mới theo đúng `VertiPaqWriter.encodeDictionary` mà bộ ghi dùng.
+            func ranked(_ column: String) throws -> HierarchyIndex.Ranked {
+                if let values = calculatedByKey["\(table)[\(column)]".lowercased()] { return try HierarchyIndex.ranked(values) }
+                let (storage, id) = try stored(column)
+                return try HierarchyIndex.ranked(storage, columnID: id, abf: abf)
+            }
+            return try levels.map { level in try HierarchyIndex.level(try ranked(level.column), sortBy: try level.sortBy.map(ranked)) }
+        }
+        /// Cột sắp theo `sortColumn` phải còn một–một với giá trị mới của nó: Desktop báo không sắp được khi một giá trị của cột được sắp ứng
+        /// với nhiều giá trị của cột sắp xếp.
+        func checkSortedColumns(table: String, sortColumn: String) throws {
+            let sorted = try metadata.columnsSorted(by: table, column: sortColumn)
+            guard !sorted.isEmpty, let keys = cells(table, sortColumn) else { return }
+            for column in sorted {
+                let own: [CellValue]
+                if let memory = cells(table, column) { own = memory } else {
+                    guard let storage = sourceModel.storage(table: table, column: column) else { continue }
+                    let decoded = try VertiPaq.decodeColumn(storage, abf: abf)
+                    own = (0..<decoded.count).map { decoded[$0] }
+                }
+                guard own.count == keys.count else { continue }
+                var seen: [CellValue: CellValue] = [:]
+                for (value, key) in zip(own, keys) {
+                    if let previous = seen.updateValue(key, forKey: value), previous != key {
+                        throw WriteError.invalid("Không sắp «\(table)[\(column)]» theo «\(sortColumn)» được nữa: một giá trị của «\(column)» (\(value)) "
+                                                 + "ứng với nhiều giá trị của «\(sortColumn)». Hãy chọn cột sắp xếp khác hoặc sửa công thức «\(sortColumn)».")
+                    }
+                }
             }
         }
         // Thay dữ liệu bảng đang dính quan hệ: xoá quan hệ (kèm bảng `R$` và tệp chỉ mục), thay bảng, thêm lại quan hệ cùng tên với chỉ mục dựng từ
         // dữ liệu mới. Bảng xoá khỏi file mà còn quan hệ thì `dropTable` từ chối như trước.
         for edit in collapsed.items {
+            // Cột tính toán còn được dùng (US4, T049): dựng lại `R$` của quan hệ và `U$` của phân cấp theo dữ liệu mới; xoá thì bỏ kèm.
+            switch edit {
+            case .updateCalculatedColumn(let table, let name, _, _):
+                try checkSortedColumns(table: table, sortColumn: name)
+                let relationships = try metadata.relationships(using: table, column: name)
+                let hierarchies = try metadata.hierarchies(using: table, column: name)
+                for relationship in relationships { try metadata.apply(.deleteRelationship(name: relationship.name)) }
+                for hierarchy in hierarchies { try metadata.apply(.dropHierarchy(table: hierarchy.table, name: hierarchy.name)) }
+                try metadata.apply(edit)
+                for hierarchy in hierarchies { try metadata.apply(.addHierarchy(hierarchy)) }
+                for relationship in relationships { try metadata.apply(.addRelationship(relationship)) }
+                continue
+            case .deleteCalculatedColumn(let table, let name):
+                // `[SUY ĐOÁN]` như Desktop xoá cột (VM-F13 chưa quan sát): bỏ quan hệ dùng cột, bỏ cấp khỏi phân cấp (hết cấp thì bỏ phân cấp),
+                // cột sắp theo cột này về sắp mặc định.
+                for relationship in try metadata.relationships(using: table, column: name) { try metadata.apply(.deleteRelationship(name: relationship.name)) }
+                for hierarchy in try metadata.hierarchies(using: table, column: name) {
+                    try metadata.apply(.dropHierarchy(table: hierarchy.table, name: hierarchy.name))
+                    var rest = hierarchy
+                    rest.levels.removeAll { $0.column.caseInsensitiveCompare(name) == .orderedSame }
+                    if !rest.levels.isEmpty { try metadata.apply(.addHierarchy(rest)) }
+                }
+                for column in try metadata.columnsSorted(by: table, column: name) {
+                    try metadata.apply(.updateColumn(table: table, name: column, patch: ColumnPatch(sortBy: .clear)))
+                }
+                try metadata.apply(edit)
+                continue
+            default:
+                break
+            }
             guard case .replaceTable(let old, let new) = edit, new.enableLoad else { try metadata.apply(edit); continue }
             let relationships = try metadata.relationshipsToRebuild(touching: old)
             for relationship in relationships { try metadata.apply(.deleteRelationship(name: relationship.name)) }
@@ -443,8 +499,23 @@ public enum PBIXWriter {
             })
             // Một–một có hai chỉ mục (T066): tính là hai.
             let weight: (String) -> Int = { $0 == "1:1" ? 2 : 1 }
+            // Cột tính toán sửa (US4): quan hệ và phân cấp dùng cột được xoá rồi thêm lại; xoá cột: quan hệ bỏ, phân cấp bỏ (còn cấp thì thêm lại).
+            var updatedColumns = Set<String>(), deletedColumns = Set<String>()
+            for edit in changes.allModelEdits.items {
+                if case .updateCalculatedColumn(let t, let n, _, _) = edit { updatedColumns.insert("\(t)[\(n)]".lowercased()) }
+                if case .deleteCalculatedColumn(let t, let n) = edit { deletedColumns.insert("\(t)[\(n)]".lowercased()) }
+            }
+            func usesColumn(_ r: ModelMetadata.Relationship, _ set: Set<String>) -> Bool {
+                set.contains("\(r.fromTable)[\(r.fromColumn)]".lowercased()) || set.contains("\(r.toTable)[\(r.toColumn)]".lowercased())
+            }
+            func hierarchyUses(_ h: ModelMetadata.Hierarchy, _ set: Set<String>) -> Bool {
+                h.levels.contains { set.contains("\(h.tableName)[\($0.columnName)]".lowercased()) }
+            }
+            let calcRebuilt = oldModel.relationships.filter { usesColumn($0, updatedColumns) }.reduce(0) { $0 + weight($1.cardinality) }
+            let calcDropped = oldModel.relationships.filter { usesColumn($0, deletedColumns) }.reduce(0) { $0 + weight($1.cardinality) }
+            let hierarchyRebuilt = oldModel.hierarchies.filter { hierarchyUses($0, updatedColumns) || hierarchyUses($0, deletedColumns) }.count
             let rebuilt = oldModel.relationships.filter { replacedOldNames.contains($0.fromTable) || replacedOldNames.contains($0.toTable) }
-                .reduce(0) { $0 + weight($1.cardinality) }
+                .reduce(0) { $0 + weight($1.cardinality) } + calcRebuilt
             let adds = changes.allModelEdits.items.reduce(0) { total, edit in
                 if case .addRelationship(let r) = edit { total + (!r.fromMany && !r.toMany ? 2 : 1) } else { total }
             } + rebuilt
@@ -452,7 +523,7 @@ public enum PBIXWriter {
                 if case .deleteRelationship(let name) = edit {
                     total + ((oldModel.relationships + oldModel.dateTableRelationships).first { $0.name == name }.map { weight($0.cardinality) } ?? 1)
                 } else { total }
-            } + rebuilt
+            } + rebuilt + calcDropped
             // Bảng mới: tệp của bảng (`<Tên> (<id>).tbl…`) và của bảng hệ thống `H$<Tên> (<id>)$…`.
             // Tên tệp của bảng do Desktop ghi thay ký tự không phải chữ số bằng khoảng trắng ("Dim_Loan_Profile" thành "Dim Loan Profile (31).tbl").
             // Khớp cả mã bảng: tiền tố chỉ theo tên ("Sales (") còn trúng tệp của bảng "Sales (2)" và bỏ qua so byte của nó (lỗi T096/T104).
@@ -480,8 +551,8 @@ public enum PBIXWriter {
             let isTouchedTableFile: (String) -> Bool = { isNewTableFile($0) || isGoneTableFile($0) }
             // Phân cấp thêm hay xoá (T030): bốn cột của bảng `U$`, mỗi cột `.idf` và `.idfmeta`.
             let isHierarchyIndex: (String) -> Bool = { $0.hasPrefix("U$") }
-            let hierarchyAdds = changes.allModelEdits.items.filter { if case .addHierarchy = $0 { true } else { false } }.count
-            let hierarchyDrops = changes.allModelEdits.items.filter { if case .dropHierarchy = $0 { true } else { false } }.count
+            let hierarchyAdds = changes.allModelEdits.items.filter { if case .addHierarchy = $0 { true } else { false } }.count + hierarchyRebuilt
+            let hierarchyDrops = changes.allModelEdits.items.filter { if case .dropHierarchy = $0 { true } else { false } }.count + hierarchyRebuilt
             guard addedPaths.allSatisfy({ isIndex($0) || isHierarchyIndex($0) || isNewTableFile($0) }),
                   removedPaths.allSatisfy({ isIndex($0) || isHierarchyIndex($0) || isGoneTableFile($0) }),
                   addedPaths.filter(isIndex).count <= 2 * adds, removedPaths.filter(isIndex).count <= 2 * deletes,

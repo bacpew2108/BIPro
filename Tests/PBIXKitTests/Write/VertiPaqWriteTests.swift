@@ -138,6 +138,14 @@ private enum VertiPaqFixture {
             #expect(oursMeta.first?.minDataID == realMeta.first?.minDataID, "Marketing[\(name)]: base data ID")
             #expect(oursMeta.first?.bitWidth == realMeta.first?.bitWidth, "Marketing[\(name)]: bit width")
             #expect(oursMeta.first?.hasNulls == realMeta.first?.hasNulls, "Marketing[\(name)]: NULL flag")
+            // US5 (T056): same row order → same runs (RLE lengths and bit-packed lengths) as Desktop; IDs differ by dictionary order.
+            let realRuns = try VertiPaq.parseIDF(Data(try abf.contents(named: storage.idfFiles[0])), file: "real.idf")[0].runs
+                .filter { $0.repeats > 0 }.map { ($0.value >= 0xFFFF_0000 ? "P" : "R") + "\($0.repeats)" }
+            let oursRuns = try VertiPaq.parseIDF(segment.idf, file: "ours.idf")[0].runs
+                .filter { $0.repeats > 0 }.map { ($0.value >= 0xFFFF_0000 ? "P" : "R") + "\($0.repeats)" }
+            #expect(oursRuns == realRuns, "Marketing[\(name)]: runs")
+            #expect(oursMeta.first?.bitPackedCount == realMeta.first?.bitPackedCount, "Marketing[\(name)]: bit-packed count")
+            #expect(segment.idfmeta.count == Data(try abf.contents(named: storage.idfFiles[0] + "meta")).count, "Marketing[\(name)]: idfmeta size")
         }
     }
 
