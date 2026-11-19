@@ -2,7 +2,9 @@
 // Hành vi theo Desktop 2.159 (docs/phase-f-evidence/vm-f7/QUAN-SAT-DB.md): Navigator danh sách phẳng `lược_đồ.bảng`, khung nhìn trước rồi
 // bảng theo lược đồ và tên ([SUY ĐOÁN] từ một mẫu), không lược đồ hệ thống; nạp thành bảng tên `lược_đồ bảng`. Có câu SQL thì chỉ một mục
 // `Query1`. Kiểu: int2/int4/int8/oid → Int64; numeric, float4, float8 → Double; boolean; date, timestamp → DateTime; text, varchar, char,
-// name, uuid, json, jsonb, xml → chữ. Kiểu khác (interval, bytea, time, timestamptz, mảng…) báo "chưa hỗ trợ" kèm tên kiểu và tên cột.
+// name, uuid, json, jsonb, xml → chữ. VM-F15 (specs/011 T041): timestamptz → ngày giờ theo múi giờ máy (Power Query DateTime.Type);
+// time → Time (giờ trong ngày, `sourceType` time); interval → Duration (ngày, tháng = 30 ngày); bytea → Binary (chữ hex, `sourceType` binary,
+// mô hình bỏ cột); mảng → chữ dạng PostgreSQL in ra (Text.Type). Kiểu khác báo "chưa hỗ trợ" kèm tên kiểu và tên cột.
 
 import ColumnStore
 import Foundation
@@ -129,7 +131,7 @@ public struct PostgresItem: SourceItem {
 
 /// Dồn các dòng chữ của máy chủ thành cột có kiểu. Mỗi cột một lớp giữ mảng để thêm dòng không chép lại mảng.
 struct PostgresTableBuilder {
-    enum Kind { case integer, double, boolean, dateTime, text, unsupported }
+    enum Kind { case integer, double, boolean, dateTime, zonedDateTime, time, interval, binary, text, unsupported }
 
     private final class Column {
         let field: PostgresField
@@ -160,6 +162,13 @@ struct PostgresTableBuilder {
         case 16: .boolean
         case 1082, 1114: .dateTime                     // date, timestamp
         case 25, 1043, 1042, 18, 19, 2950, 114, 3802, 142: .text   // text, varchar, char, "char", name, uuid, json, jsonb, xml
+        case 1184: .zonedDateTime                      // timestamptz
+        case 1083: .time                               // time without time zone
+        case 1186: .interval
+        case 17: .binary                               // bytea
+        // Mảng của các kiểu thường gặp (bool, int, float, numeric, chữ, ngày giờ, uuid, json…): Desktop đọc thành chữ.
+        case 1000, 1005, 1007, 1016, 1021, 1022, 1231, 1009, 1015, 1014, 1002, 1003, 1182, 1115, 1185, 1183, 1187, 2951, 199, 3807, 1001, 143:
+            .text
         default: .unsupported
         }
     }
@@ -177,10 +186,69 @@ struct PostgresTableBuilder {
                     throw SourceError.unsupported("giá trị ngày \"\(text)\" ở cột \"\(column.field.name)\"")
                 }
                 column.doubles.append(value)
-            case .text: column.strings.append(text)
+            case .zonedDateTime:
+                let value = text.flatMap { Self.localDateTime($0, zone: .current) }
+                if let text, value == nil { throw SourceError.unsupported("giá trị ngày giờ \"\(text)\" ở cột \"\(column.field.name)\"") }
+                column.doubles.append(value)
+            case .time: column.doubles.append(text.flatMap(Self.timeOfDay))
+            case .interval:
+                let value = text.flatMap(Self.intervalDays)
+                if let text, value == nil { throw SourceError.unsupported("khoảng thời gian \"\(text)\" ở cột \"\(column.field.name)\"") }
+                column.doubles.append(value)
+            case .binary, .text: column.strings.append(text)
             case .unsupported: break
             }
         }
+    }
+
+    /// `HH:MM:SS[.ffffff]` → phần của ngày.
+    static func timeOfDay(_ text: String) -> Double? {
+        let parts = text.split(separator: ":")
+        guard parts.count == 3, let h = Double(parts[0]), let m = Double(parts[1]), let s = Double(parts[2]) else { return nil }
+        return (h * 3600 + m * 60 + s) / 86_400
+    }
+
+    /// timestamptz dạng chữ của máy chủ (`2026-03-01 01:30:00.25+00`, `…+05:30`) → ngày OLE theo giờ địa phương của `zone`, như Desktop đổi
+    /// về giờ máy (VM-F15). `[SUY ĐOÁN]` năm âm hay "BC", `infinity` chưa xét.
+    static func localDateTime(_ text: String, zone: TimeZone) -> Double? {
+        guard let sign = text.lastIndex(where: { $0 == "+" || $0 == "-" }), text.distance(from: text.startIndex, to: sign) >= 19 else { return nil }
+        let body = String(text[..<sign]), offsetText = text[text.index(after: sign)...]
+        let pieces = offsetText.split(separator: ":").compactMap { Int($0) }
+        guard !pieces.isEmpty else { return nil }
+        let offset = (pieces[0] * 3600 + (pieces.count > 1 ? pieces[1] * 60 : 0) + (pieces.count > 2 ? pieces[2] : 0)) * (text[sign] == "-" ? -1 : 1)
+        guard let wall = DateHelper.parseDateTime(body) else { return nil }
+        let utc = wall - Double(offset) / 86_400
+        // Ngày OLE → Date (UTC) để lấy độ lệch múi giờ của thời điểm đó.
+        let date = Date(timeIntervalSince1970: (utc - 25_569) * 86_400)
+        return utc + Double(zone.secondsFromGMT(for: date)) / 86_400
+    }
+
+    /// interval kiểu chữ mặc định của PostgreSQL (`1 year 2 mons -3 days 04:05:06.5`) → số ngày; năm = 12 tháng, tháng = 30 ngày
+    /// (VM-F15: `-1 year -2 mons 3 days` → -417).
+    static func intervalDays(_ text: String) -> Double? {
+        var days = 0.0
+        let tokens = text.split(separator: " ").map(String.init)
+        var i = 0
+        while i < tokens.count {
+            let token = tokens[i]
+            if token.contains(":") {
+                let negative = token.hasPrefix("-")
+                let clean = token.trimmingCharacters(in: CharacterSet(charactersIn: "+-"))
+                guard let fraction = timeOfDay(clean) else { return nil }
+                days += negative ? -fraction : fraction
+                i += 1
+                continue
+            }
+            guard i + 1 < tokens.count, let n = Double(token) else { return nil }
+            switch tokens[i + 1] {
+            case "year", "years": days += n * 360
+            case "mon", "mons": days += n * 30
+            case "day", "days": days += n
+            default: return nil
+            }
+            i += 2
+        }
+        return days
     }
 
     private static func double(_ text: String) -> Double? {
@@ -199,10 +267,17 @@ struct PostgresTableBuilder {
             case .integer: data = ColumnBuilder.integers(column.integers)
             case .double: data = ColumnBuilder.doubles(column.doubles)
             case .boolean: data = ColumnBuilder.booleans(column.booleans)
-            case .dateTime: data = ColumnBuilder.dateTimes(column.doubles)
-            case .text, .unsupported: data = ColumnBuilder.strings(column.strings)
+            case .dateTime, .zonedDateTime, .time: data = ColumnBuilder.dateTimes(column.doubles)
+            case .interval: data = ColumnBuilder.doubles(column.doubles)
+            case .binary, .text, .unsupported: data = ColumnBuilder.strings(column.strings)
             }
-            return TableColumn(name: column.field.name, data: data)
+            let source: MSourceType? = switch column.kind {
+            case .time: .time
+            case .interval: .duration
+            case .binary: .binary
+            default: nil
+            }
+            return TableColumn(name: column.field.name, data: data, sourceType: source)
         })
     }
 }

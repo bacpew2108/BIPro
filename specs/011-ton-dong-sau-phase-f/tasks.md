@@ -218,8 +218,8 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - Golden `f15-desktop.pbix` (đọc bằng `pbix-dump rows`) và `vm-f15/QUAN-SAT.md`.
   - Test cần máy chủ thì dùng `BIPRO_PG`, bỏ qua khi thiếu; không ghi mật khẩu.
   - Tiêu chí: 100% ô khớp; không còn lỗi "chưa hỗ trợ" cho năm kiểu; Parquet phẳng cũ không đổi (`ParquetGoldenTests`).
-- [ ] T041 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Postgres/PostgresSource.swift`, `PostgresConnection.swift`: đọc timestamptz, time, interval, bytea, mảng theo VM-F15, có `sourceType`. Test `Tests/ConnectorsTests/PostgresTypesTests.swift` (máy chủ thử).
-- [ ] T042 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Parquet/ParquetSource.swift`, `ParquetCodec.swift`: dựng lại struct và list từ mức lặp và mức định nghĩa (Dremel), độ sâu đến 3; sâu hơn thì báo "Chưa hỗ trợ" kèm tên cột. `scripts/f-samples/make_parquet.py --nested`. Test `Tests/ConnectorsTests/ParquetNestedTests.swift`, golden bảng Desktop nạp.
+- [x] T041 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Postgres/PostgresSource.swift`, `PostgresConnection.swift`: đọc timestamptz, time, interval, bytea, mảng theo VM-F15, có `sourceType`. Test `Tests/ConnectorsTests/PostgresTypesTests.swift` (máy chủ thử).
+- [x] T042 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Parquet/ParquetSource.swift`, `ParquetCodec.swift`: dựng lại struct và list từ mức lặp và mức định nghĩa (Dremel), độ sâu đến 3; sâu hơn thì báo "Chưa hỗ trợ" kèm tên cột. `scripts/f-samples/make_parquet.py --nested`. Test `Tests/ConnectorsTests/ParquetNestedTests.swift`, golden bảng Desktop nạp.
 - [ ] T043 [US6] [LEAD] Review gói F2-CONN (skill `agy-delegation`); giao lại tối đa một lần; merge khi bạn bảo.
 - [x] T044 [US6] [LEAD] Driver ODBC SQLite:
   - `Sources/BIPro/Query/NavigatorState.swift`, `DatabaseConnectView.swift`, `SourceQuery.swift`: ô chọn driver (danh sách tên phổ biến và nhập tự do), nhớ ở `UserDefaults["bipro.sqlite.odbcDriver"]`, mặc định "Devart ODBC Driver for SQLite";
@@ -227,7 +227,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - đọc lại M có driver lạ vẫn chạy được trong BI Pro, vì BI Pro đọc SQLite trực tiếp;
   - tên driver có ký tự đặc biệt (`;`, `{`, `}`, dấu cách) được thoát đúng cách Desktop ghi chuỗi kết nối.
   Test `Tests/BIProTests/Query/SQLiteDriverTests.swift`.
-- [ ] T045 [US6] [LEAD] Query Editor và mô hình dùng `sourceType`:
+- [x] T045 [US6] [LEAD] Query Editor và mô hình dùng `sourceType`:
   - hiện kiểu time, duration, datetimezone, binary đúng như Desktop;
   - `Changed Type` và giá trị nạp vào mô hình theo quy tắc VM-F15 (`Sources/BIPro/Query/`, `Sources/BIPro/Model/Edit/TableLoader.swift`).
   Test đầu-cuối `Tests/BIProTests/Query/F2SourcesFlowTests.swift`, để lại `build/f2-out/f15/bipro-f15.pbix`.

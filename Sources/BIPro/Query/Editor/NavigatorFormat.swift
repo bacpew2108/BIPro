@@ -32,6 +32,39 @@ enum NavigatorFormat {
         }
     }
 
+    /// Ô của cột có kiểu Power Query riêng (VM-F15, như Desktop hiện): Time "08:30:00", Duration "1.02:03:04" / "-02:30:00" /
+    /// "0.00:00:00.5000000", Binary "Binary". `nil` khi hiện như thường.
+    static func sourceCell(_ value: StoredValue, _ source: MSourceType?) -> String? {
+        switch (source, value) {
+        case (.binary, .string): return "Binary"
+        case (.time, .dateTime(let d)):
+            let total = (d - d.rounded(.down)) * 86_400
+            let whole = Int(total.rounded(.down))
+            let fraction = total - Double(whole)
+            let base = String(format: "%02d:%02d:%02d", whole / 3600, whole / 60 % 60, whole % 60)
+            guard fraction > 5e-8 else { return base }
+            var digits = String(format: "%07d", Int((fraction * 1e7).rounded()))
+            while digits.hasSuffix("0") { digits.removeLast() }
+            return base + "." + digits
+        case (.duration, .double(let days)):
+            let negative = days < 0
+            let ticks = Int64((abs(days) * 86_400 * 1e7).rounded())
+            let wholeDays = ticks / (86_400 * 10_000_000)
+            var rest = ticks % (86_400 * 10_000_000)
+            let h = rest / 36_000_000_000; rest %= 36_000_000_000
+            let m = rest / 600_000_000; rest %= 600_000_000
+            let sec = rest / 10_000_000, frac = rest % 10_000_000
+            var text = String(format: "%02lld:%02lld:%02lld", h, m, sec)
+            if wholeDays > 0 { text = "\(wholeDays)." + text }
+            if frac > 0 {
+                text += String(format: ".%07lld", frac)
+                if wholeDays == 0 { text = "0." + text }   // Desktop: "0.00:00:00.5000000"
+            }
+            return (negative ? "-" : "") + text
+        default: return nil
+        }
+    }
+
     static func cell(_ value: StoredValue) -> String {
         switch value {
         case .blank:

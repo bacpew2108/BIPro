@@ -114,9 +114,9 @@ enum PGFixture {
 
     @Test func unsupportedTypeIsNamed() async throws {
         guard let (address, credential) = PGFixture.config else { return }
-        let items = try await PostgresSource(address: address, credential: credential, query: "select interval '1 day' as khoang").items()
+        let items = try await PostgresSource(address: address, credential: credential, query: "select point(1, 2) as khoang").items()
         do { _ = try await items[0].load(progress: nil); Issue.record("phải báo chưa hỗ trợ") } catch let SourceError.unsupported(what) {
-            #expect(what.contains("interval") && what.contains("khoang"))
+            #expect(what.contains("point") && what.contains("khoang"))
         }
     }
 

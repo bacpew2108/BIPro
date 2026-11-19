@@ -161,7 +161,7 @@ struct NavigatorPreviewGrid: View {
                 ForEach(table.columns.indices, id: \.self) { colIndex in
                     let column = table.columns[colIndex]
                     HStack(spacing: 4) {
-                        columnTypeIcon(for: column.data.type)
+                        columnTypeIcon(for: column.data.type, source: column.sourceType)
                             .lineLimit(1)
                             .fixedSize()
 
@@ -212,7 +212,7 @@ struct NavigatorPreviewGrid: View {
                                     .foregroundStyle(DS.Palette.tertiaryLabel)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
-                                let text = NavigatorFormat.cell(val)
+                                let text = NavigatorFormat.sourceCell(val, table.columns[colIndex].sourceType) ?? NavigatorFormat.cell(val)
                                 Text(text)
                                     .font(isNumeric ? DS.Typeface.mono : DS.Typeface.bodySmall)
                                     .foregroundStyle(DS.Palette.label)
@@ -235,6 +235,19 @@ struct NavigatorPreviewGrid: View {
         switch type {
         case .integer, .double, .currency: return true
         default: return false
+        }
+    }
+
+    @ViewBuilder
+    private func columnTypeIcon(for type: DAXType, source: MSourceType?) -> some View {
+        if let source, [.time, .duration, .binary].contains(source) {
+            Text(QueryEditorFormat.typeBadge(type, source: source))
+                .font(.system(size: 8, weight: .bold))
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(DS.Palette.secondaryLabel)
+        } else {
+            columnTypeIcon(for: type)
         }
     }
 

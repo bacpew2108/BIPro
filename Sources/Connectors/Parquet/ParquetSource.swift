@@ -1,6 +1,6 @@
 // Phase F, T089 (US7): nguồn Parquet tự viết (tập con): footer Thrift Compact, trang dữ liệu v1/v2 và trang từ điển, mã hoá PLAIN,
-// PLAIN_DICTIONARY/RLE_DICTIONARY, RLE (boolean), nén UNCOMPRESSED/SNAPPY/GZIP. Chỉ lược đồ phẳng (cột REQUIRED/OPTIONAL); cột lồng,
-// lặp, codec hay mã hoá khác báo "Chưa hỗ trợ" kèm tên.
+// PLAIN_DICTIONARY/RLE_DICTIONARY, RLE (boolean), nén UNCOMPRESSED/SNAPPY/GZIP. Cột phẳng REQUIRED/OPTIONAL; cột lồng struct/LIST tới độ
+// sâu 3 (T042, `ParquetNested.swift`); MAP, lặp kiểu cũ, codec hay mã hoá khác báo "Chưa hỗ trợ" kèm tên.
 //
 // Ánh xạ kiểu theo Desktop 2.159 (VM-F7a, `docs/phase-f-evidence/vm-f7/QUAN-SAT.md`): INT32/INT64 → số nguyên; FLOAT/DOUBLE → số thực;
 // DECIMAL (mọi kiểu vật lý) → số thực (Desktop không dùng Fixed decimal); DATE → ngày; TIMESTAMP (ms/µs/ns) và INT96 → ngày giờ;
@@ -27,7 +27,12 @@ private struct ParquetItem: SourceItem {
     let name: String
     let kind: SourceItemKind = .file
     let file: ParquetFile
-    var columns: [SourceColumn]? { file.leaves.map { SourceColumn(name: $0.name, type: $0.type) } }
+    var columns: [SourceColumn]? { file.fields.map { field in
+        switch field {
+        case .flat(let i): SourceColumn(name: file.leaves[i].name, type: file.leaves[i].type)
+        case .nested(let node): SourceColumn(name: node.element.name, type: .string)
+        }
+    } }
     var rowCountHint: Int? { file.metadata.rowCount }
 
     func preview(limit: Int) async throws -> TableData { try file.read(rowLimit: limit, progress: nil) }
@@ -47,9 +52,17 @@ public struct ParquetFile: Sendable {
     }
 
     /// Nội dung tệp, ánh xạ từ đĩa khi được (T109, SC-005): không chép cả tệp vào bộ nhớ, mỗi lần chỉ chép footer hoặc một column chunk.
+    /// Cột trên cùng theo thứ tự lược đồ: phẳng (chỉ số trong `leaves`) hay lồng.
+    enum Field: @unchecked Sendable {
+        case flat(Int)
+        case nested(ParquetNode)
+    }
+
     let data: Data
     let metadata: ParquetFileMetaData
     let leaves: [Leaf]
+    let fields: [Field]
+    static let maxNesting = 3
 
     public init(url: URL) throws {
         let data: Data
@@ -76,16 +89,28 @@ public struct ParquetFile: Sendable {
         let metadata = try ParquetFileMetaData(reader.structure())
         guard let root = metadata.schema.first else { throw ThriftCompactReader.failure("thiếu lược đồ") }
         var leaves: [Leaf] = []
-        for element in metadata.schema.dropFirst() {
-            if element.children > 0 || element.repetition == 2 {
-                throw SourceError.unsupported("Parquet có cột lồng hoặc lặp (\(element.name))")
+        var fields: [Field] = []
+        var index = 1
+        let elements = metadata.schema
+        while index < elements.count {
+            let node = ParquetNode.build(elements, &index, parentDefinition: 0, parentRepetition: 0, parentPath: [])
+            if node.isLeaf && node.element.repetition != 2 {
+                fields.append(.flat(leaves.count))
+                leaves.append(Leaf(name: node.element.name, element: node.element, maxDefinition: node.definition, type: try Self.type(of: node.element)))
+                continue
             }
-            leaves.append(Leaf(name: element.name, element: element, maxDefinition: element.repetition == 1 ? 1 : 0, type: try Self.type(of: element)))
+            if let reason = node.unsupportedReason() { throw SourceError.unsupported(reason) }
+            guard node.nesting <= Self.maxNesting else {
+                throw SourceError.unsupported("Parquet cột \(node.element.name) lồng sâu \(node.nesting) tầng (tối đa \(Self.maxNesting))")
+            }
+            for leaf in node.leaves { _ = try Self.type(of: leaf.element) }
+            fields.append(.nested(node))
         }
-        guard root.children == leaves.count else { throw SourceError.unsupported("Parquet có cột lồng") }
+        guard fields.count == root.children else { throw SourceError.unsupported("Parquet có lược đồ lạ") }
         self.data = data
         self.metadata = metadata
         self.leaves = leaves
+        self.fields = fields
     }
 
     static func type(of e: ParquetSchemaElement) throws -> DAXType {
@@ -109,25 +134,126 @@ public struct ParquetFile: Sendable {
     public func read(rowLimit: Int?, progress: SourceProgress?) throws -> TableData {
         let wanted = min(rowLimit ?? metadata.rowCount, metadata.rowCount)
         var sinks = leaves.map { ColumnSink(type: $0.type, capacity: wanted) }
+        var nestedValues: [Int: [ParquetValue]] = [:]
         var rows = 0
         for (g, group) in metadata.rowGroups.enumerated() where rows < wanted {
             if Task.isCancelled { throw SourceError.cancelled }
             let take = min(group.rowCount, wanted - rows)
-            for (c, leaf) in leaves.enumerated() {
-                guard let chunk = group.columns.first(where: { $0.path == [leaf.name] }) ?? (group.columns.indices.contains(c) ? group.columns[c] : nil) else {
-                    throw ThriftCompactReader.failure("thiếu cột \(leaf.name)")
+            for (f, field) in fields.enumerated() {
+                switch field {
+                case .flat(let c):
+                    let leaf = leaves[c]
+                    guard let chunk = group.columns.first(where: { $0.path == [leaf.name] }) else { throw ThriftCompactReader.failure("thiếu cột \(leaf.name)") }
+                    try readChunk(chunk, leaf: leaf, rows: take, into: &sinks[c])
+                case .nested(let node):
+                    var entries: [[String]: ParquetLeafEntries] = [:]
+                    for leafNode in node.leaves {
+                        guard let chunk = group.columns.first(where: { $0.path == leafNode.path }) else {
+                            throw ThriftCompactReader.failure("thiếu cột \(leafNode.path.joined(separator: "."))")
+                        }
+                        entries[leafNode.path] = try readEntries(chunk, node: leafNode)
+                    }
+                    nestedValues[f, default: []] += ParquetAssembler.assemble(node, entries: entries, rows: take)
                 }
-                try readChunk(chunk, leaf: leaf, rows: take, into: &sinks[c])
             }
             rows += take
             progress?(Double(g + 1) / Double(max(metadata.rowGroups.count, 1)))
         }
+        var columns: [TableColumn] = []
+        var structured: [Int: [Int: any Sendable]] = [:]
+        for (f, field) in fields.enumerated() {
+            switch field {
+            case .flat(let c): columns.append(TableColumn(name: leaves[c].name, data: sinks[c].columnData()))
+            case .nested(let node):
+                let values = nestedValues[f] ?? []
+                var cells: [Int: any Sendable] = [:]
+                for (row, value) in values.enumerated() where value != .null { cells[row] = value }
+                if !cells.isEmpty { structured[f] = cells }
+                columns.append(TableColumn(name: node.element.name, data: ColumnBuilder.strings(values.map(\.placeholder))))
+            }
+        }
         do {
-            return try TableData(columns: zip(leaves, sinks).map { TableColumn(name: $0.name, data: $1.columnData()) })
+            return try TableData(columns: columns, structured: structured)
         } catch TableDataError.duplicateColumn(let name) {
             throw SourceError.unreadable("Parquet có hai cột cùng tên \(name)")
         }
     }
+
+    /// Mọi mục (mức lặp, mức định nghĩa, giá trị có mặt) của một lá thuộc cột lồng trong một column chunk.
+    private func readEntries(_ chunk: ParquetColumnChunk, node: ParquetNode) throws -> ParquetLeafEntries {
+        let leaf = Leaf(name: node.path.joined(separator: "."), element: node.element, maxDefinition: node.definition, type: try Self.type(of: node.element))
+        var out = ParquetLeafEntries()
+        var position = chunk.dataPageOffset
+        if let dictionary = chunk.dictionaryPageOffset, dictionary > 0, dictionary < position { position = dictionary }
+        var dictionary: ColumnValues?
+        let repWidth = Self.levelWidth(node.repetition), defWidth = Self.levelWidth(node.definition)
+        while out.definition.count < chunk.valueCount {
+            guard position < data.count else { throw ParquetBytes.truncated }
+            var reader = ThriftCompactReader(Self.copy(data, position, min(data.count, position + 64 * 1024)), at: 0)
+            let header = try ParquetPageHeader(reader.structure())
+            let body = position + reader.index
+            guard body + header.compressedSize <= data.count else { throw ParquetBytes.truncated }
+            position = body + header.compressedSize
+            let raw = Self.copy(data, body, position)[...]
+            switch header.type {
+            case 2:
+                var cursor = ParquetBytes(try ParquetCodec.decompress(raw, codec: chunk.codec, size: header.uncompressedSize))
+                dictionary = try plain(&cursor, count: header.valueCount, leaf: leaf)
+            case 0, 3:
+                let count = header.valueCount
+                var reps = [Int32](repeating: 0, count: count), defs = [Int32](repeating: Int32(node.definition), count: count)
+                var cursor: ParquetBytes
+                if header.type == 0 {
+                    let page = try ParquetCodec.decompress(raw, codec: chunk.codec, size: header.uncompressedSize)
+                    cursor = ParquetBytes(page)
+                    for (max, width, isRep) in [(node.repetition, repWidth, true), (node.definition, defWidth, false)] where max > 0 {
+                        let length = try cursor.u32()
+                        guard cursor.index + length <= cursor.end else { throw ParquetBytes.truncated }
+                        var levels = ParquetBytes(page, from: cursor.index, to: cursor.index + length)
+                        let decoded = try levels.hybrid(bitWidth: width, count: count)
+                        if isRep { reps = decoded } else { defs = decoded }
+                        cursor.index += length
+                    }
+                } else {
+                    let levelBytes = header.repetitionLength + header.definitionLength
+                    guard levelBytes <= raw.count else { throw ParquetBytes.truncated }
+                    if node.repetition > 0 {
+                        var levels = ParquetBytes(Array(raw[raw.startIndex..<(raw.startIndex + header.repetitionLength)]))
+                        reps = try levels.hybrid(bitWidth: repWidth, count: count)
+                    }
+                    if node.definition > 0 {
+                        var levels = ParquetBytes(Array(raw[(raw.startIndex + header.repetitionLength)..<(raw.startIndex + levelBytes)]))
+                        defs = try levels.hybrid(bitWidth: defWidth, count: count)
+                    }
+                    let values = raw[(raw.startIndex + levelBytes)...]
+                    cursor = ParquetBytes(header.isCompressed
+                        ? try ParquetCodec.decompress(values, codec: chunk.codec, size: header.uncompressedSize - levelBytes) : Array(values))
+                }
+                let present = defs.reduce(0) { $0 + (Int($1) == node.definition ? 1 : 0) }
+                let values: ColumnValues
+                switch header.encoding {
+                case 0: values = try plain(&cursor, count: present, leaf: leaf)
+                case 2, 8:
+                    guard let dictionary else { throw ThriftCompactReader.failure("thiếu trang từ điển của cột \(leaf.name)") }
+                    if present == 0 { values = dictionary.gather([]); break }
+                    let width = Int(cursor.bytes[cursor.index]); cursor.index += 1
+                    let indices = try cursor.hybrid(bitWidth: width, count: present)
+                    guard indices.allSatisfy({ $0 >= 0 && Int($0) < dictionary.count }) else { throw ThriftCompactReader.failure("chỉ số từ điển") }
+                    values = dictionary.gather(indices)
+                default:
+                    throw SourceError.unsupported("Parquet mã hoá \(Self.encodingName(header.encoding)) (cột \(leaf.name))")
+                }
+                out.repetition += reps
+                out.definition += defs
+                out.values += values.stored(as: leaf.type)
+            default:
+                continue
+            }
+        }
+        return out
+    }
+
+    static func levelWidth(_ max: Int) -> Int { max == 0 ? 0 : Int.bitWidth - max.leadingZeroBitCount }
 
     /// Byte `from..<to` của `data` (đã chặn trong tệp), chép ra mảng.
     static func copy(_ data: Data, _ from: Int, _ to: Int) -> [UInt8] {
@@ -354,6 +480,16 @@ enum ColumnValues {
         case .double(let v): v.count
         case .bool(let v): v.count
         case .string(let v): v.count
+        }
+    }
+
+    /// Giá trị dạng `StoredValue` theo kiểu cột (số ngày của cột ngày giờ thành `.dateTime`).
+    func stored(as type: DAXType) -> [StoredValue] {
+        switch self {
+        case .int(let v): v.map { .integer($0) }
+        case .double(let v): v.map { type == .dateTime ? .dateTime($0) : .double($0) }
+        case .bool(let v): v.map { .boolean($0) }
+        case .string(let v): v.map { .string($0) }
         }
     }
 

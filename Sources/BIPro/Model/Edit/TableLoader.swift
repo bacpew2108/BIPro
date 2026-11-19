@@ -166,10 +166,25 @@ extension TableLoader {
     /// `ModelEdit.addTable` / `.replaceTable` mang bảng này: cột (tên, kiểu mô hình) và `TableData` gắn kèm (dữ liệu ô ở lại bộ nhớ,
     /// các ảnh chụp hoàn tác dùng chung một bản). `queryExpression` là biểu thức M nạp bảng (nil khi chưa có truy vấn).
     static func newTable(from loaded: LoadedTable, queryExpression: String? = nil, enableLoad: Bool = true) -> NewTable {
-        let columns = loaded.data.columns.map { NewTableColumn(name: $0.name, dataType: modelType($0.data.type)) }
+        let data = modelData(loaded.data)
+        let columns = data.columns.map { NewTableColumn(name: $0.name, dataType: modelType($0.data.type)) }
         // Chuỗi vào kho như Desktop: bỏ khoảng trắng cuối, gộp hoa thường (VM-F12, T022).
         return NewTable(name: loaded.name, columns: columns, queryExpression: queryExpression ?? loaded.queryDefinition, enableLoad: enableLoad,
-                        attachment: ModelText.normalize(loaded.data))
+                        attachment: ModelText.normalize(data))
+    }
+
+    /// Dữ liệu vào mô hình: cột Binary bị bỏ như Desktop (VM-F15: cột `bytea` không có trong mô hình sau khi nạp).
+    static func modelData(_ data: TableData) -> TableData {
+        guard data.columns.contains(where: { $0.sourceType == .binary }),
+              let kept = try? TableData(columns: data.columns.filter { $0.sourceType != .binary }), !kept.columns.isEmpty else { return data }
+        return kept
+    }
+
+    /// Định dạng Desktop đặt theo kiểu Power Query (VM-F15): Time → "Long Time". Áp sau `addTable`/`replaceTable` trong cùng bước.
+    static func formatEdits(for loaded: LoadedTable) -> [ModelEdit] {
+        loaded.data.columns.filter { $0.sourceType == .time }.map {
+            .updateColumn(table: loaded.name, name: $0.name, patch: ColumnPatch(formatString: .set("Long Time")))
+        }
     }
 
     /// Kiểu cột của engine → `Column.DataType` của mô hình (tiền tệ là `decimal`, như Power BI).
@@ -188,11 +203,11 @@ extension TableLoader {
 extension TableLoader {
     /// Thao tác mô hình cho các bảng đã nạp: `.new` → `addTable`, `.replaced` → `replaceTable`, `.unchanged` bỏ qua.
     static func edits(for tables: [LoadedTable]) -> [ModelEdit] {
-        tables.compactMap { loaded in
+        tables.flatMap { loaded -> [ModelEdit] in
             switch loaded.status {
-            case .new: .addTable(newTable(from: loaded))
-            case .replaced: .replaceTable(name: loaded.name, newTable(from: loaded))
-            case .unchanged: nil
+            case .new: [.addTable(newTable(from: loaded))] + formatEdits(for: loaded)
+            case .replaced: [.replaceTable(name: loaded.name, newTable(from: loaded))] + formatEdits(for: loaded)
+            case .unchanged: []
             }
         }
     }

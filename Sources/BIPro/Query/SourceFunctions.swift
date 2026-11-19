@@ -226,7 +226,31 @@ enum SourceFunctions {
         let table = try blocking {
             try ParquetFile(url: URL(fileURLWithPath: path)).read(rowLimit: nil, progress: nil)
         }
-        return .table(table)
+        guard !table.structured.isEmpty else { return .table(table) }
+        // Cột lồng (T042): ô struct thành bản ghi M, ô list thành danh sách M (Table.ExpandRecordColumn, Table.ExpandListColumn dùng được).
+        var structured: [Int: [Int: any Sendable]] = [:]
+        for (column, cells) in table.structured {
+            structured[column] = cells.compactMapValues { ($0 as? ParquetValue).map(mValue) }
+        }
+        return .table(try TableData(columns: table.columns, errorMask: table.errorMask, nested: table.nested, structured: structured))
+    }
+
+    static func mValue(_ value: ParquetValue) -> MValue {
+        switch value {
+        case .null: return .null
+        case .record(let fields): return .record(fields.map { MField(name: $0.name, value: mValue($0.value)) })
+        case .list(let items): return .list(items.map(mValue))
+        case .scalar(let stored):
+            switch stored {
+            case .blank: return .null
+            case .integer(let v): return .number(Double(v))
+            case .double(let v): return .number(v)
+            case .currency(let v): return .currency(v)
+            case .boolean(let v): return .logical(v)
+            case .string(let v): return .text(v)
+            case .dateTime(let v): return .dateTime(v)
+            }
+        }
     }
 
     // MARK: Excel.Workbook

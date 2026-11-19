@@ -41,6 +41,16 @@ public enum QueryEditorFormat {
         }
     }
 
+    /// Nhãn kiểu có xét kiểu Power Query của nguồn (VM-F15): Time → "Giờ", Duration → "TG", Binary → "Bin".
+    public static func typeBadge(_ type: DAXType, source: MSourceType?) -> String {
+        switch source {
+        case .time: "Giờ"
+        case .duration: "TG"
+        case .binary: "Bin"
+        default: typeBadge(type)
+        }
+    }
+
     /// valid + error + empty
     public static func countLine(_ profile: ColumnProfile) -> Int {
         profile.valid + profile.error + profile.empty

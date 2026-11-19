@@ -45,6 +45,12 @@ struct PreviewGridView: View {
     }
 
     /// Chữ của ô có cấu trúc (cột giữ chỗ ghi "Record"/"List"/"Table"); ô null trả `nil`.
+    /// Nhãn thay giá trị ô: ô lồng ("Bảng", "Bản ghi"…) hoặc cột có kiểu Power Query riêng (Time, Duration, Binary; VM-F15).
+    private func cellLabel(_ table: TableData, row: Int, column: Int) -> String? {
+        if let nested = nestedLabel(table, row: row, column: column) { return nested }
+        return NavigatorFormat.sourceCell(table.value(row: row, column: column), table.columns[column].sourceType)
+    }
+
     private func nestedLabel(_ table: TableData, row: Int, column: Int) -> String? {
         if table.nested[column] != nil { return "Bảng" }
         guard table.structured[column] != nil else { return nil }
@@ -157,7 +163,7 @@ struct PreviewGridView: View {
                     let isSelected = selectedColumns.contains(col.name)
                     let profile = state.profiles.first { $0.columnName == col.name }
 
-                    columnHeader(name: col.name, type: col.data.type, profile: profile, isSelected: isSelected)
+                    columnHeader(name: col.name, type: col.data.type, source: col.sourceType, profile: profile, isSelected: isSelected)
                         .frame(width: 140, height: headerHeight)
                         .background(isSelected ? DS.Palette.selectionSoft : DS.Palette.chrome)
                         .overlay(alignment: .top) {
@@ -193,7 +199,7 @@ struct PreviewGridView: View {
                         let error = table.error(row: rowIdx, column: colIdx)
                         let isSelected = selectedColumns.contains(col.name)
                         let isNumeric = isNumericType(col.data.type)
-                        let label = nestedLabel(table, row: rowIdx, column: colIdx)
+                        let label = cellLabel(table, row: rowIdx, column: colIdx)
 
                         dataCell(value: val, error: error, isNumeric: isNumeric, isSelected: isSelected, isOdd: isOdd, nestedText: label)
                             .frame(width: 140, height: 26)
@@ -223,11 +229,11 @@ struct PreviewGridView: View {
 
     // MARK: - Column Header View
 
-    private func columnHeader(name: String, type: DAXType, profile: ColumnProfile?, isSelected: Bool) -> some View {
+    private func columnHeader(name: String, type: DAXType, source: MSourceType?, profile: ColumnProfile?, isSelected: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             // Top: Type badge, Name, Arrow
             HStack(spacing: 4) {
-                Text(QueryEditorFormat.typeBadge(type))
+                Text(QueryEditorFormat.typeBadge(type, source: source))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.secondaryLabel)
                     .padding(.horizontal, 3)
