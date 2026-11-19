@@ -184,6 +184,10 @@ import Testing
         #expect(await opened.updateCalculatedColumn(table: "Sales", name: "Nhóm", formula: "Nhóm = MOD(Sales[Key], 3) + 10") == nil)
         #expect(try DocumentSaver.save(editor: opened.layout, source: file, to: file, expectedStamp: try FileStamp.of(file), readOnlyRoots: [],
                                        backupDirectory: backups).didWrite)
+        // Tệp gate VM-F13 (T052): sửa công thức xong, còn quan hệ, phân cấp, cột sắp xếp.
+        let gate = try F2Fixtures.outputDirectory("f13")
+        try? FileManager.default.removeItem(at: gate.appendingPathComponent("bipro-f13-sua.pbix"))
+        try FileManager.default.copyItem(at: file, to: gate.appendingPathComponent("bipro-f13-sua.pbix"))
         let again = DocumentState(workspace: try Workspace(data: Data(contentsOf: file)), fileName: file.lastPathComponent, fileURL: file)
         #expect(again.workspace.metadata?.relationships.contains { $0.fromColumn == "Nhóm" && $0.toTable == "Nhom" } == true)
         // Key 1..6 → Nhóm 11, 12, 10, 11, 12, 10: "Mười" có Key 3 và 6 → Qty 4 + 2.
@@ -205,6 +209,8 @@ import Testing
         again.layout.redo()
         #expect(try DocumentSaver.save(editor: again.layout, source: file, to: file, expectedStamp: try FileStamp.of(file), readOnlyRoots: [],
                                        backupDirectory: backups).didWrite)
+        try? FileManager.default.removeItem(at: gate.appendingPathComponent("bipro-f13-xoa.pbix"))
+        try FileManager.default.copyItem(at: file, to: gate.appendingPathComponent("bipro-f13-xoa.pbix"))
         let last = try #require(try Workspace(data: Data(contentsOf: file)).metadata)
         #expect(!last.columns.contains { $0.name == "Nhóm" } && last.relationships.isEmpty)
         #expect(last.hierarchies.first { $0.name == "Vùng nhóm" }?.levels.map(\.columnName) == ["Region"])

@@ -239,7 +239,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 **Kiểm độc lập**: bản sao Nhom6 và tài liệu thử; Desktop mở và tính đúng.
 
-- [ ] T047 [US4] [VM] **VM-F13**, ghi `docs/phase-f2-evidence/vm-f13/QUAN-SAT.md` và lưu `f13-desktop.pbix`:
+- [x] T047 [US4] [VM] **VM-F13**, ghi `docs/phase-f2-evidence/vm-f13/QUAN-SAT.md` và lưu `f13-desktop.pbix`:
   - trên bản sao Nhom6, sửa `Dim_District[branch_label]` (cấp phân cấp) rồi xoá nó: hỏi gì, phân cấp còn lại gì;
   - trên tài liệu thử:
     - cột tính toán làm khoá phía "một" của quan hệ: sửa vẫn duy nhất, sửa thành trùng (Desktop báo gì, quan hệ ra sao), xoá;
@@ -261,7 +261,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - bản sao Nhom6: sửa `branch_label`, sửa một cột tính toán khoá quan hệ trên tài liệu thử → lưu hai lần → mở lại;
   - đối chiếu từng dòng và số liệu visual dùng phân cấp;
   - để lại tệp gate trong `build/f2-out/f13/`.
-- [ ] T052 [US4] [VM] Gate VM-F13: Desktop mở các tệp gate không lỗi; visual dùng phân cấp, quan hệ, cột sắp xếp ra đúng số và đúng thứ tự (so với Desktop tự làm cùng thao tác). Ghi `vm-f13/KET-QUA.md`.
+- [x] T052 [US4] [VM] Gate VM-F13: Desktop mở các tệp gate không lỗi; visual dùng phân cấp, quan hệ, cột sắp xếp ra đúng số và đúng thứ tự (so với Desktop tự làm cùng thao tác). Ghi `vm-f13/KET-QUA.md`.
 
 ## Giai đoạn 7: US5, dữ liệu lớn: nhiều đoạn và RLE (P3)
 

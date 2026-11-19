@@ -298,35 +298,14 @@ public enum PBIXWriter {
             }
             return try levels.map { level in try HierarchyIndex.level(try ranked(level.column), sortBy: try level.sortBy.map(ranked)) }
         }
-        /// Cột sắp theo `sortColumn` phải còn một–một với giá trị mới của nó: Desktop báo không sắp được khi một giá trị của cột được sắp ứng
-        /// với nhiều giá trị của cột sắp xếp.
-        func checkSortedColumns(table: String, sortColumn: String) throws {
-            let sorted = try metadata.columnsSorted(by: table, column: sortColumn)
-            guard !sorted.isEmpty, let keys = cells(table, sortColumn) else { return }
-            for column in sorted {
-                let own: [CellValue]
-                if let memory = cells(table, column) { own = memory } else {
-                    guard let storage = sourceModel.storage(table: table, column: column) else { continue }
-                    let decoded = try VertiPaq.decodeColumn(storage, abf: abf)
-                    own = (0..<decoded.count).map { decoded[$0] }
-                }
-                guard own.count == keys.count else { continue }
-                var seen: [CellValue: CellValue] = [:]
-                for (value, key) in zip(own, keys) {
-                    if let previous = seen.updateValue(key, forKey: value), previous != key {
-                        throw WriteError.invalid("Không sắp «\(table)[\(column)]» theo «\(sortColumn)» được nữa: một giá trị của «\(column)» (\(value)) "
-                                                 + "ứng với nhiều giá trị của «\(sortColumn)». Hãy chọn cột sắp xếp khác hoặc sửa công thức «\(sortColumn)».")
-                    }
-                }
-            }
-        }
+        // Cột sắp theo cột vừa sửa không cần còn một–một: engine Desktop nhận (VM-F13, TOM: sửa `Nhóm` làm `Nhãn` ứng với nhiều giá trị,
+        // `refresh calculate` không lỗi, cột vẫn Ready).
         // Thay dữ liệu bảng đang dính quan hệ: xoá quan hệ (kèm bảng `R$` và tệp chỉ mục), thay bảng, thêm lại quan hệ cùng tên với chỉ mục dựng từ
         // dữ liệu mới. Bảng xoá khỏi file mà còn quan hệ thì `dropTable` từ chối như trước.
         for edit in collapsed.items {
             // Cột tính toán còn được dùng (US4, T049): dựng lại `R$` của quan hệ và `U$` của phân cấp theo dữ liệu mới; xoá thì bỏ kèm.
             switch edit {
             case .updateCalculatedColumn(let table, let name, _, _):
-                try checkSortedColumns(table: table, sortColumn: name)
                 let relationships = try metadata.relationships(using: table, column: name)
                 let hierarchies = try metadata.hierarchies(using: table, column: name)
                 for relationship in relationships { try metadata.apply(.deleteRelationship(name: relationship.name)) }

@@ -103,15 +103,13 @@ struct CalculatedIndexRebuildTests {
         }
     }
 
-    /// Cột sắp xếp phá một–một: Desktop báo không sắp được (một giá trị của cột được sắp ứng với nhiều giá trị của cột sắp xếp).
-    @Test func cotSapXepPhaMotMotBiTuChoi() {
-        do {
-            _ = try build([.updateCalculatedColumn(table: "Marketing", name: "Nhóm", expression: "MOD([Conversion], 5)", dataType: .int64)],
-                          ["Marketing[Nhóm]": .int64((0..<Self.rows).map { Int64($0 % 5) })])
-            Issue.record("phải báo lỗi")
-        } catch {
-            #expect("\(error)".contains("Nhãn") && "\(error)".contains("sắp"), "\(error)")
-        }
+    /// Cột sắp xếp mất một–một: engine Desktop vẫn nhận (VM-F13), nên bộ ghi lưu được; quan hệ và phân cấp vẫn dựng lại.
+    @Test func cotSapXepMatMotMotVanLuuDuoc() throws {
+        let url = try build([.updateCalculatedColumn(table: "Marketing", name: "Nhóm", expression: "MOD([Conversion], 5)", dataType: .int64)],
+                            ["Marketing[Nhóm]": .int64((0..<Self.rows).map { Int64($0 % 5) })])
+        defer { try? FileManager.default.removeItem(at: url) }
+        #expect(try Self.checkRelationshipIndexes(url) == 2)
+        #expect(try HierarchyIndexWriterTests.check(url) >= 1)
     }
 
     /// Xoá cột: quan hệ dùng nó bị bỏ (kèm `R$`), phân cấp còn cấp khác thì giữ và dựng lại `U$`, cột sắp theo nó về sắp mặc định.
