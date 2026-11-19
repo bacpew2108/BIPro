@@ -114,7 +114,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - `swift test` qua; golden nặng DAX không đổi;
   - không hard-code.
   Chưa đạt thì giao lại một lần. Merge chỉ khi bạn bảo.
-- [ ] T022 [US3] [LEAD] Test `Tests/BIProTests/Model/F2TextCalcTests.swift`: cột tính toán dùng `UPPER`, `MID`, `SUBSTITUTE` trên bảng mẫu → lưu → mở lại, giá trị bằng golden. Để lại `build/f2-out/f12/bipro-f12.pbix`.
+- [x] T022 [US3] [LEAD] Test `Tests/BIProTests/Model/F2TextCalcTests.swift`: cột tính toán dùng `UPPER`, `MID`, `SUBSTITUTE` trên bảng mẫu → lưu → mở lại, giá trị bằng golden. Để lại `build/f2-out/f12/bipro-f12.pbix`.
 - [ ] T023 [US3] [VM] Gate VM-F12: Desktop mở `bipro-f12.pbix`; cột tính toán dùng hàm mới có công thức đúng; DAX query view so cột đã lưu với biểu thức tính lại cho 0 dòng lệch. Ghi `vm-f12/KET-QUA.md`.
 
 ## Giai đoạn 4: US2, tài liệu mới giống Desktop (P1)

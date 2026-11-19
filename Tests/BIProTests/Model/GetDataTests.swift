@@ -189,8 +189,8 @@ struct GetDataTests {
         #expect(try await scalar(again, "[Tong Qty]") == 99_742)
     }
 
-    /// Cột kiểu chưa lưu được (tiền tệ): báo lỗi tiếng Việt, file gốc giữ nguyên byte, vẫn chưa lưu (FR-051).
-    @Test func cotKieuChuaLuuDuocBaoLoiVaGiuNguyenFileGoc() async throws {
+    /// Cột tiền tệ (Fixed decimal): trước T103 bị từ chối khi lưu (FR-051); nay lưu được như Desktop và đọc lại đúng giá trị.
+    @Test func cotTienTeLuuDuocVaDocLaiDung() async throws {
         let dir = try EFixtures.outputDirectory("F-getdata")
         let source = dir.appendingPathComponent("Nhom6_f_save2.pbix")
         try? FileManager.default.removeItem(at: source)
@@ -199,15 +199,10 @@ struct GetDataTests {
         let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: source)), fileName: source.lastPathComponent, fileURL: source)
         let data = try TableData(columns: [TableColumn(name: "Tien", data: ColumnBuilder.currency([10_000, 20_000]))])
         #expect(state.loadFromGetData([LoadedTable(name: "Logic", data: data)]) == nil)
-        let before = try Data(contentsOf: source)
-        do {
-            try DocumentSaver.save(editor: state.layout, source: source, to: source, expectedStamp: nil,
-                                   readOnlyRoots: [], backupDirectory: dir.appendingPathComponent("Backups"))
-            Issue.record("phải báo lỗi")
-        } catch {
-            #expect("\(error)".contains("tiền tệ"), Comment(rawValue: "\(error)"))
-        }
-        #expect(try Data(contentsOf: source) == before)
-        #expect(state.layout.isDirty)
+        #expect(try DocumentSaver.save(editor: state.layout, source: source, to: source, expectedStamp: nil,
+                                       readOnlyRoots: [], backupDirectory: dir.appendingPathComponent("Backups")).didWrite)
+        let again = DocumentState(workspace: try Workspace(data: Data(contentsOf: source)), fileName: source.lastPathComponent, fileURL: source)
+        #expect(again.workspace.rowCount("Logic") == 2)
+        #expect(again.workspace.metadata?.columns.first { $0.tableName == "Logic" && $0.name == "Tien" }?.dataType == .decimal)
     }
 }

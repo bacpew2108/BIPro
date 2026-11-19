@@ -165,8 +165,9 @@ extension TableLoader {
     /// các ảnh chụp hoàn tác dùng chung một bản). `queryExpression` là biểu thức M nạp bảng (nil khi chưa có truy vấn).
     static func newTable(from loaded: LoadedTable, queryExpression: String? = nil, enableLoad: Bool = true) -> NewTable {
         let columns = loaded.data.columns.map { NewTableColumn(name: $0.name, dataType: modelType($0.data.type)) }
+        // Chuỗi vào kho như Desktop: bỏ khoảng trắng cuối, gộp hoa thường (VM-F12, T022).
         return NewTable(name: loaded.name, columns: columns, queryExpression: queryExpression ?? loaded.queryDefinition, enableLoad: enableLoad,
-                        attachment: loaded.data)
+                        attachment: ModelText.normalize(loaded.data))
     }
 
     /// Kiểu cột của engine → `Column.DataType` của mô hình (tiền tệ là `decimal`, như Power BI).

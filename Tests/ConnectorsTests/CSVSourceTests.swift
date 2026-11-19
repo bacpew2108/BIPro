@@ -104,11 +104,11 @@ import ColumnStore
         let table = try await items[0].load(progress: nil)
         #expect(table.rowCount == 31)
 
-        // Row 2 (3rd row): Product is blank
-        #expect(table.value(row: 2, column: 4) == .blank)
+        // Row 2 (3rd row): Product trống. Cột chữ: ô trống là chuỗi rỗng như Desktop (`Csv.Document`, VM-F1, VM-F12).
+        #expect(table.value(row: 2, column: 4) == .string(""))
 
-        // Row 3 (4th row): Region is blank
-        #expect(table.value(row: 3, column: 2) == .blank)
+        // Row 3 (4th row): Region trống, cũng là chuỗi rỗng
+        #expect(table.value(row: 3, column: 2) == .string(""))
 
         // Row 4 (5th row): Qty has "n/a", column Qty is string
         #expect(table.columns[5].data.type == .string)
@@ -170,7 +170,7 @@ import ColumnStore
         #expect(table.value(row: 1, column: 1) == .string("có \"ngoặc kép\", dấu phẩy"))
 
         #expect(table.value(row: 2, column: 0) == .integer(3))
-        #expect(table.value(row: 2, column: 1) == .blank)
+        #expect(table.value(row: 2, column: 1) == .string(""))   // cột chữ: ô trống là chuỗi rỗng như Desktop
     }
 
     @Test func customersCSVLoad() async throws {

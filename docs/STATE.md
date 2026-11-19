@@ -378,7 +378,28 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
     - Lưu qua hộp Save không thử (đã có test và gate).
   - **Test mới:** `EnterDataStateTests.danNhieuOVaoMotOThiTraiRaLuoi`, `AddDataPanelTests.goiYDung…`, `coTrucXMaChuaCoYKhongSap`, `VariationTitleTests`, `VariationToggleGuardTests`.
   - `swift test` 2 343 qua; golden nặng 160/160.
-- **Việc kế:** US2 xong (T024–T038, T066), chưa commit. Tiếp: US3 còn T022 (`F2TextCalcTests`), T023 (gate VM-F12); rồi US6, US4, US5, Polish. Tồn đọng US2: viết lại visual khi tắt Auto date/time như Desktop; card mới có phân cấp ngày; engine chưa có `TODAY`; xoá bảng hay tắt Enable load khi còn quan hệ tự tạo vẫn bị chặn.
+- **US2 đã commit** (`eaaad69`, `f79200f`, `0b71195`, `710c7db`; chưa push).
+- **T022 xong (2026-11-19, chưa commit):** `F2TextCalcTests`.
+  - Các bước: tài liệu mới → nạp `text_cases.csv` → 16 cột tính toán (UPPER, MID, SUBSTITUTE, LEN, LOWER, TRIM, REPLACE, RIGHT, REPT, FIND, EXACT, UNICODE, FIXED, COMBINEVALUES) → lưu → mở lại.
+  - Kết quả: 320 ô bằng golden VM-F12.
+  - Để lại `build/f2-out/f12/bipro-f12.pbix`.
+  - Lệch ban đầu 51 ô, không do hàm văn bản mà do cách lưu chuỗi. Đã sửa theo Desktop:
+    1. Ô trống cột chữ của CSV là chuỗi rỗng, không phải BLANK (`CSVSource`, đúng quan sát VM-F1 trước đây chưa làm).
+    2. Chuỗi vào kho bỏ khoảng trắng cuối, giữ khoảng trắng đầu (`ColumnStore/ModelText.swift`).
+    3. Chuỗi chỉ khác hoa thường chữ ASCII gộp về cách viết gặp trước; chữ có dấu khác hoa thường vẫn hai giá trị ("à N"/"À N").
+  - Áp ở `TableLoader.newTable` (mọi bảng nạp) và `CalculatedData` (cột/bảng tính toán). `[SUY ĐOÁN]`: chỉ bỏ U+0020; chỉ gộp A–Z.
+  - Sửa test cũ:
+    - `CSVSourceTests`: ô trống chữ là "".
+    - `FGateTests.taoFileGateF8` hỏng từ T035: quan hệ tự tạo chặn Group By bỏ cột. Test tắt tự phát hiện; hành vi Desktop chưa quan sát, tồn đọng.
+    - `GetDataTests`: test tiền tệ "chưa lưu được" đã cũ từ T103, nay kiểm lưu được.
+  - `swift test` 2 346 qua; toàn bộ bộ nặng (`BIPRO_HEAVY=1`, không lọc) 2 346 qua.
+- **Việc kế: T023 gate VM-F12.**
+  - Đã có:
+    - truy vấn đếm dòng lệch ở `…/scratchpad/t023.dax` (sinh lại được; cột chữ so bằng `EXACT`, vì `<>` không phân biệt hoa thường);
+    - engine BI Pro cho 0 lệch cả 16 cột.
+  - Chưa chép được `bipro-f12.pbix` vào VM vì VM đang suspended: `prlctl resume`, rồi chép vào `C:\Users\bacpew\f12g\`.
+  - Sau gate: ghi `vm-f12/KET-QUA.md`, rồi US6, US4, US5, Polish.
+  - Tồn đọng US2: viết lại visual khi tắt Auto date/time; card có phân cấp ngày; `TODAY`; cột của quan hệ tự tạo bị bỏ (Close & Apply, xoá bảng, Enable load).
 
 ## Việc tiếp theo
 

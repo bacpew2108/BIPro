@@ -258,6 +258,9 @@ struct FGateTests {
         // (g3) T074: Merge + mở rộng, Append (tham chiếu truy vấn khác), Group By.
         let g3 = try fresh("g3-merge.pbix")
         let s3 = try open(g3)
+        // Test viết trước khi có tự phát hiện quan hệ (T035): quan hệ tự tạo sales_2026 (3) → customers chặn Group By bỏ CustomerID.
+        // Desktop xử lý thế nào khi cột của quan hệ tự tạo mất đi chưa quan sát (tồn đọng), nên tắt tuỳ chọn để giữ ý test.
+        s3.layout.setAutodetectRelationships(false)
         try await loadAndApply(s3, file: "sales_2026.csv", item: "sales_2026")
         try await loadAndApply(s3, file: "customers.csv", item: "customers")
         try await loadAndApply(s3, file: "sales_2026.csv", item: "sales_2026")

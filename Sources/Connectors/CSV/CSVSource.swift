@@ -127,13 +127,16 @@ private struct CSVItem: SourceItem, Sendable {
         for colIdx in 0..<headers.count {
             let colStrings = dataRows.map { $0[colIdx] }
             if options.detectTypes {
-                let (data, errors) = ColumnTypeDetector.column(from: colStrings, name: headers[colIdx])
+                var (data, errors) = ColumnTypeDetector.column(from: colStrings, name: headers[colIdx])
+                // Desktop đọc CSV qua `Csv.Document`: ô trống là chuỗi rỗng, cột chữ giữ chuỗi rỗng (null chỉ khi đổi sang số, ngày…).
+                // VM-F1 (`CHECKLIST-KET-QUA.md`) và VM-F12 (`IN-Txt#5`, `#6`).
+                if data.type == .string { data = ColumnBuilder.strings(colStrings.map { $0 ?? "" }) }
                 tableCols.append(TableColumn(name: headers[colIdx], data: data))
                 if !errors.isEmpty {
                     errorMask[colIdx] = errors
                 }
             } else {
-                let data = ColumnBuilder.strings(colStrings)
+                let data = ColumnBuilder.strings(colStrings.map { $0 ?? "" })
                 tableCols.append(TableColumn(name: headers[colIdx], data: data))
             }
         }

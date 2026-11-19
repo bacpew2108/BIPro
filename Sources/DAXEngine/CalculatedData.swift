@@ -70,7 +70,8 @@ public enum CalculatedData {
             for v in values {
                 if case .blank = v { out.append(nil) } else { out.append(v.asText()) }
             }
-            return ColumnBuilder.strings(out)
+            // Như kho Desktop: bỏ khoảng trắng cuối, gộp hoa thường (VM-F12, T022).
+            return ColumnBuilder.strings(ModelText.normalize(out))
         case .boolean:
             var out: [Bool?] = []; out.reserveCapacity(values.count)
             for v in values {
