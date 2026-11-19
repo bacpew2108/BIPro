@@ -269,7 +269,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 **Kiểm độc lập**: `big_10m.parquet`, `repeat_1m.csv`; so cỡ, thời gian, bộ nhớ và DAX với file Desktop.
 
-- [ ] T053 [US5] [VM] **VM-F14**: Desktop nạp `big_10m.parquet` và `repeat_1m.csv`, lưu `f14-big-desktop.pbix` và `f14-rle-desktop.pbix` (ngoài git, chép về Mac qua thư mục chia sẻ). Đọc bằng PBIXKit:
+- [x] T053 [US5] [VM] **VM-F14**: Desktop nạp `big_10m.parquet` và `repeat_1m.csv`, lưu `f14-big-desktop.pbix` và `f14-rle-desktop.pbix` (ngoài git, chép về Mac qua thư mục chia sẻ). Đọc bằng PBIXKit:
   - `SegmentMapStorage` (số đoạn, `RecordsPerSegment`);
   - cỡ và meta `.idf`/`.idfmeta` từng cột (RLE, bit-packing hay lai);
   - thứ tự dòng đọc lại so với nguồn;
@@ -292,7 +292,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - tài liệu mới + `big_10m.parquet` (10 cột) + cột tính toán + quan hệ tới bảng nhỏ → lưu < 2 phút, đỉnh bộ nhớ < 4 GB (đo `task_info`), đọc lại trùng nguồn;
   - `repeat_1m.csv`: cỡ tệp ≤ 125% `f14-rle-desktop.pbix`;
   - ghi số vào `specs/011-ton-dong-sau-phase-f/measurements.md`.
-- [ ] T059 [US5] [VM] Gate VM-F14: Desktop mở tệp 10 triệu dòng và tệp RLE; `COUNTROWS`, `SUM`, `DISTINCTCOUNT` và lọc qua quan hệ khớp. Ghi `vm-f14/KET-QUA.md`.
+- [x] T059 [US5] [VM] Gate VM-F14: Desktop mở tệp 10 triệu dòng và tệp RLE; `COUNTROWS`, `SUM`, `DISTINCTCOUNT` và lọc qua quan hệ khớp. Ghi `vm-f14/KET-QUA.md`.
 
 ## Giai đoạn 8: Hoàn thiện
 

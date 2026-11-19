@@ -9,8 +9,8 @@ Máy: MacBook Pro M-series, macOS 15 (Darwin 24.6). Bản release (`-c release -
 | Tài liệu mới + `big_10m.parquet` (10 triệu dòng × 10 cột, 2 đoạn 8 388 608 + 1 611 392) + bảng `Khach` (quan hệ tự phát hiện) + cột tính toán `Thanh tien` | 16,2 s | 78,7 s | 473 MB | 2 314 MB | mở lại: `COUNTROWS`, `SUM`, `DISTINCTCOUNT`, lọc qua quan hệ, cột tính toán trùng nguồn |
 | `repeat_1m.csv` (1 triệu dòng × 5 cột) | | 3,3 s | 27 431 949 byte | | `Batch` 100 run RLE; số dòng, đếm khác nhau, tổng `Flag` đúng |
 
-- SC-007 (lưu < 2 phút, bộ nhớ < 4 GB): đạt.
-- SC-006 (cỡ tệp `repeat_1m` ≤ 125 % Desktop): chưa so, chờ `f14-rle-desktop.pbix` của buổi VM-F14. Cột `Value` (1 triệu số ngẫu nhiên) chiếm phần lớn tệp; RLE chỉ giúp cột lặp liền nhau vì BI Pro giữ thứ tự dòng nguồn (Desktop sắp lại dòng, `[SUY ĐOÁN]` chưa làm).
+- SC-007 (lưu < 2 phút, bộ nhớ < 4 GB): đạt. Lần đo sau khi đổi sang một đoạn (gate VM-F14): lưu 82,2 s, 474 MB, đỉnh 1 902 MB.
+- SC-006 (cỡ tệp `repeat_1m` ≤ 125 % Desktop): **chưa đạt**. Desktop ước lượng khoảng 6,7 MB phần dữ liệu (DMV, `vm-f14/QUAN-SAT.md`), BI Pro 27,4 MB: Desktop mã hoá VALUE cho `ID`, `Value` và sắp lại dòng. Cột `Value` (1 triệu số ngẫu nhiên) chiếm phần lớn tệp; RLE chỉ giúp cột lặp liền nhau vì BI Pro giữ thứ tự dòng nguồn (Desktop sắp lại dòng, `[SUY ĐOÁN]` chưa làm).
 
 ## Mã hoá RLE so với Desktop (T056)
 

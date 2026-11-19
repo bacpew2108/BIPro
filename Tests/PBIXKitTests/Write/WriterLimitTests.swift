@@ -12,13 +12,21 @@ import Testing
         _ = try VertiPaqWriter.encodeTable(name: name, tableID: 1001, partitionID: 1002, rowNumberID: 1003, columns: columns)
     }
 
-    /// US5 (T054): bảng hơn 8 388 608 dòng không còn bị từ chối mà cắt thành nhiều đoạn (`VertiPaqSegmentTests`).
-    @Test func bangVuotMotDoanCatThanhHaiDoan() throws {
-        let rows = VertiPaqWriter.recordsPerSegment + 1
+    /// US5 (T054): bảng lớn hơn một đoạn không bị từ chối mà cắt thành nhiều đoạn 2^20 dòng như Desktop (VM-F14); phần lẻ nhỏ gộp vào
+    /// đoạn trước (Nhom6: 1 056 320 dòng một đoạn).
+    @Test func bangVuotMotDoanCatTheoDesktop() throws {
+        let n = VertiPaqWriter.recordsPerSegment
+        #expect(VertiPaqWriter.segmentLayout(rows: 1_056_320, segmentSize: n) == [1_056_320])
+        #expect(VertiPaqWriter.segmentLayout(rows: 10_000_000, segmentSize: n) == Array(repeating: n, count: 9) + [562_816])
+        #expect(VertiPaqWriter.segmentLayout(rows: n, segmentSize: n) == [n])
+        let rows = n + n / 2
         let table = try VertiPaqWriter.encodeTable(name: "T", tableID: 1001, partitionID: 1002, rowNumberID: 1003,
-                                                   columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))])
-        #expect(table.segmentRecords == [VertiPaqWriter.recordsPerSegment, 1])
-        #expect(table.segmentCount == 2 && table.recordsPerSegment == VertiPaqWriter.recordsPerSegment)
+                                                   columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))], segmentSize: n)
+        #expect(table.segmentRecords == [n, n / 2])
+        // Mặc định bộ ghi ghi một đoạn (gate VM-F14: nhiều đoạn chưa được Desktop nhận).
+        #expect(try VertiPaqWriter.encodeTable(name: "T", tableID: 1001, partitionID: 1002, rowNumberID: 1003,
+                                               columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))]).segmentCount == 1)
+        #expect(table.segmentCount == 2 && table.recordsPerSegment == n)
     }
 
     @Test func tenCotTrungKhongPhanBietHoaThuong() {

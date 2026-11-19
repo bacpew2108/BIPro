@@ -23,9 +23,25 @@ public enum VertiPaqWriter {
     /// Every Desktop table names its RowNumber column `RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61` (Marketing, sales_2026, probe).
     public static let rowNumberColumnGUID = UUID(uuidString: "2662979B-1795-4F74-8F37-6A1BA8059B61")!
 
-    /// Số dòng của một đoạn dữ liệu (2^23). Desktop giữ 1 056 320 dòng trong một đoạn (Nhom6 `Fact Transaction`, `RecordsPerSegment`
-    /// = số dòng); `[SUY ĐOÁN]` bảng lớn hơn cắt mỗi 8 388 608 dòng (VM-F14 chưa quan sát).
-    public static let recordsPerSegment = 8_388_608
+    /// Số dòng của một đoạn dữ liệu: 2^20 như Desktop (VM-F14, DMV `DISCOVER_STORAGE_TABLE_COLUMN_SEGMENTS`: 10 triệu dòng thành 9 đoạn
+    /// 1 048 576 dòng và một đoạn 562 816). Phần lẻ nhỏ gộp vào đoạn trước (Nhom6 `Fact Transaction`: 1 056 320 dòng một đoạn);
+    /// `[SUY ĐOÁN]` ngưỡng gộp là 1/8 đoạn (`tailMergeLimit`).
+    public static let recordsPerSegment = 1_048_576
+    static var tailMergeLimit: Int { recordsPerSegment / 8 }
+    /// Cỡ đoạn bộ ghi dùng cho bảng mới: **một đoạn** (gate VM-F14, 2026-11-19: tệp 2,5 triệu dòng ghi ba đoạn bị Desktop báo DBCC hỏng, ghi một
+    /// đoạn thì mở được và số đúng). Bố cục byte của nhiều đoạn chưa có mẫu Desktop để so; `recordsPerSegment` giữ cỡ Desktop dùng.
+    nonisolated(unsafe) public static var segmentSizeForNewTables = Int.max
+
+    /// Số dòng từng đoạn khi cắt `rows` dòng theo `segmentSize` (phần lẻ ≤ 1/8 đoạn gộp vào đoạn trước).
+    static func segmentLayout(rows: Int, segmentSize: Int) -> [Int] {
+        guard rows > segmentSize else { return [rows] }
+        var sizes = Array(repeating: segmentSize, count: rows / segmentSize)
+        let tail = rows % segmentSize
+        if tail > 0 {
+            if tail <= segmentSize / 8 { sizes[sizes.count - 1] += tail } else { sizes.append(tail) }
+        }
+        return sizes
+    }
 
     /// Desktop writes 16 runs in every `.idf` run table.
     static let runTableSize = 16
@@ -198,7 +214,7 @@ public enum VertiPaqWriter {
     /// IDs repeat, a string contains a NUL, or a bit width above 32 would be needed.
     public static func encodeTable(name: String, tableID: Int, partitionID: Int, rowNumberID: Int,
                                    rowNumberGUID: UUID = rowNumberColumnGUID, columns: [ColumnInput],
-                                   segmentSize: Int = recordsPerSegment) throws -> EncodedTable {
+                                   segmentSize: Int = segmentSizeForNewTables) throws -> EncodedTable {
         guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid("tên bảng rỗng hoặc có ký tự NUL") }
         guard let first = columns.first else { throw WriteError.invalid("bảng «\(name)» không có cột nào") }
         let rowCount = first.values.count
@@ -444,8 +460,8 @@ public enum VertiPaqWriter {
         var minAll = Int.max, maxAll = Int.min, originalMin = Int.max, widest = 1, rleTotal = 0, packedTotal = 0
         var records: [Int] = []
         var start = 0
-        repeat {
-            let end = min(ids.count, start + segmentSize)
+        for size in segmentLayout(rows: ids.count, segmentSize: segmentSize) {
+            let end = start + size
             let segment = ids[start..<end]
             let fileOffset = idf.data.count
             let block = try encodeOneSegment(segment, into: &idf)
@@ -454,7 +470,7 @@ public enum VertiPaqWriter {
             widest = max(widest, block.bitWidth); rleTotal += block.rleRuns; packedTotal += block.packedRuns
             records.append(segment.count)
             start = end
-        } while start < ids.count
+        }
 
         var meta = VertiPaqByteWriter()
         meta.tag("<1:CP")

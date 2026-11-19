@@ -93,17 +93,19 @@ import Testing
         }
     }
 
-    /// 8 388 609 dòng (hơn một đoạn) qua `PBIXWriter`, đọc lại từng ô; siêu dữ liệu `SegmentMapStorage` hai đoạn.
+    /// 2,5 đoạn (2 621 440 dòng) qua `PBIXWriter`, đọc lại từng ô; siêu dữ liệu `SegmentMapStorage` ba đoạn.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BIPRO_HEAVY"] == "1"
                    && FileManager.default.fileExists(atPath: DesktopGolden.path.path)))
     func bangHonMotDoanQuaPBIXWriter() throws {
-        let rows = VertiPaqWriter.recordsPerSegment + 1
+        let rows = VertiPaqWriter.recordsPerSegment * 5 / 2
         var ids = [Int64?](repeating: nil, count: rows), regions = [String?](repeating: nil, count: rows)
         let names = ["Bắc", "Trung", "Nam", "Tây Nguyên"]
         for i in 0..<rows {
             ids[i] = i % 1_000 == 7 ? nil : Int64(i)
             regions[i] = names[(i / 100_000) % 4]
         }
+        VertiPaqWriter.segmentSizeForNewTables = VertiPaqWriter.recordsPerSegment
+        defer { VertiPaqWriter.segmentSizeForNewTables = Int.max }
         var changes = PBIXChanges()
         changes.modelEdits.append(.addTable(NewTable(name: "Lon", columns: [NewTableColumn(name: "ID", values: .int64(ids)),
                                                                            NewTableColumn(name: "Vùng", values: .string(regions))])))
@@ -123,16 +125,18 @@ import Testing
             JOIN PartitionStorage ps ON ps.SegmentMapStorageID = sm.ID JOIN Partition p ON p.PartitionStorageID = ps.ID
             JOIN [Table] t ON t.ID = p.TableID WHERE t.Name = 'Lon'
             """)
-        #expect(map == ["2/\(VertiPaqWriter.recordsPerSegment)/\(rows)"])
+        #expect(map == ["3/\(VertiPaqWriter.recordsPerSegment)/\(rows)"])
     }
 }
 
 extension VertiPaqSegmentTests {
-    /// T057: cột tính toán thêm vào bảng hai đoạn cắt đúng như bảng (8 388 608 + 1), đọc lại trùng từng ô.
+    /// T057: cột tính toán thêm vào bảng nhiều đoạn cắt đúng như bảng (2^20 + 2^20 + nửa đoạn), đọc lại trùng từng ô.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BIPRO_HEAVY"] == "1"
                    && FileManager.default.fileExists(atPath: DesktopGolden.path.path)))
     func cotTinhToanTrenBangHaiDoan() throws {
-        let rows = VertiPaqWriter.recordsPerSegment + 1
+        let rows = VertiPaqWriter.recordsPerSegment * 5 / 2
+        VertiPaqWriter.segmentSizeForNewTables = VertiPaqWriter.recordsPerSegment
+        defer { VertiPaqWriter.segmentSizeForNewTables = Int.max }
         var first = PBIXChanges()
         first.modelEdits.append(.addTable(NewTable(name: "Lon", columns: [NewTableColumn(name: "ID", values: .int64((0..<rows).map { Int64($0) }))])))
         let staged = FileManager.default.temporaryDirectory.appendingPathComponent("seg-\(UUID().uuidString).pbix")
@@ -148,7 +152,7 @@ extension VertiPaqSegmentTests {
         let metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
         let storage = try #require(metadata.storage(table: "Lon", column: "Chẵn lẻ"))
         #expect(try VertiPaq.parseIDFMeta(Data(try abf.contents(named: storage.idfFiles[0] + "meta")), file: "m").map(\.records)
-                    == [VertiPaqWriter.recordsPerSegment, 1])
+                    == [VertiPaqWriter.recordsPerSegment, VertiPaqWriter.recordsPerSegment, VertiPaqWriter.recordsPerSegment / 2])
         let column = try VertiPaq.decodeColumn(storage, abf: abf)
         #expect(column.count == rows)
         for i in stride(from: 0, to: rows, by: 7_919) + [rows - 1, VertiPaqWriter.recordsPerSegment - 1] {
