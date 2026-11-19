@@ -169,7 +169,8 @@ public struct ParquetFile: Sendable {
                 var cells: [Int: any Sendable] = [:]
                 for (row, value) in values.enumerated() where value != .null { cells[row] = value }
                 if !cells.isEmpty { structured[f] = cells }
-                columns.append(TableColumn(name: node.element.name, data: ColumnBuilder.strings(values.map(\.placeholder))))
+                columns.append(TableColumn(name: node.element.name, data: ColumnBuilder.strings(values.map(\.placeholder)),
+                                           sourceType: node.listElement != nil ? .list : .record))
             }
         }
         do {

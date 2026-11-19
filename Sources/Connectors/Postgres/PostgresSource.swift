@@ -187,10 +187,10 @@ struct PostgresTableBuilder {
                 }
                 column.doubles.append(value)
             case .zonedDateTime:
-                let value = text.flatMap { Self.localDateTime($0, zone: .current) }
+                let value = text.flatMap { Self.localDateTime($0, zone: .current) }.map(Self.centiseconds)
                 if let text, value == nil { throw SourceError.unsupported("giá trị ngày giờ \"\(text)\" ở cột \"\(column.field.name)\"") }
                 column.doubles.append(value)
-            case .time: column.doubles.append(text.flatMap(Self.timeOfDay))
+            case .time: column.doubles.append(text.flatMap(Self.timeOfDay).map(Self.centiseconds))
             case .interval:
                 let value = text.flatMap(Self.intervalDays)
                 if let text, value == nil { throw SourceError.unsupported("khoảng thời gian \"\(text)\" ở cột \"\(column.field.name)\"") }
@@ -199,6 +199,12 @@ struct PostgresTableBuilder {
             case .unsupported: break
             }
         }
+    }
+
+    /// `[SUY ĐOÁN]` Desktop làm tròn giờ tới 1/100 giây khi nạp (VM-F15: time 12:34:56.789 lưu 12:34:56.79; .5 và .25 giữ nguyên).
+    static func centiseconds(_ days: Double) -> Double {
+        let whole = days.rounded(.down)
+        return whole + ((days - whole) * 8_640_000).rounded() / 8_640_000
     }
 
     /// `HH:MM:SS[.ffffff]` → phần của ngày.
@@ -273,6 +279,7 @@ struct PostgresTableBuilder {
             }
             let source: MSourceType? = switch column.kind {
             case .time: .time
+            case .zonedDateTime: .dateTime
             case .interval: .duration
             case .binary: .binary
             default: nil

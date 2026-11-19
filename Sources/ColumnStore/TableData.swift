@@ -9,6 +9,8 @@
 /// `Changed Type`.
 public enum MSourceType: String, CaseIterable, Sendable {
     case time, duration, dateTimeZone, binary, list, record
+    /// Ngày giờ có giờ (Power Query `DateTime.Type`, khác `Date.Type`): Desktop đặt định dạng "General Date" (VM-F15, timestamptz).
+    case dateTime
 }
 
 public struct TableColumn: Sendable {

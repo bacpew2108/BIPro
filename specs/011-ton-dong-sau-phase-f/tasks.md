@@ -206,13 +206,13 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 **Kiểm độc lập**: bảng nạp so với Desktop nạp cùng nguồn; Desktop Refresh chạy M của BI Pro.
 
-- [ ] T039 [US6] [VM] **VM-F15**:
+- [x] T039 [US6] [VM] **VM-F15**:
   - **PostgreSQL**: tạo bảng `types_f15` trên `bipro-pg` có timestamptz (nhiều múi giờ), time, interval (âm, tháng), bytea, `int[]`, `text[]` (có NULL, nhiều chiều). Desktop nạp: kiểu trong Power Query và trong mô hình, giá trị, cột bị bỏ hay báo lỗi.
   - **Parquet**: Desktop nạp `nested.parquet`: struct và list hiện ra sao, M sinh ra, mở rộng.
   - **SQLite**: nếu bạn cài driver SQLite thứ hai trong VM, ghi M Desktop với driver đó; không có thì ghi bằng chuỗi kết nối Devart như hiện có.
   - Ghi `docs/phase-f2-evidence/vm-f15/QUAN-SAT.md` và lưu `f15-desktop.pbix` (ngoài git).
   - Mật khẩu không vào docs.
-- [ ] T040 [US6] [LEAD] `docs/tasks/f2-conn.md`: brief gói F2-CONN.
+- [x] T040 [US6] [LEAD] `docs/tasks/f2-conn.md`: brief gói F2-CONN. (Bỏ: lead tự làm T041/T042 ngày 2026-11-19 vì giao Orca lúc người dùng đang dùng máy sẽ bật cửa sổ.)
   - Tệp đúng T001.
   - Hợp đồng `contracts/sources.md` (`sourceType`, ô `record`/`list` của `TableData.structured`).
   - Golden `f15-desktop.pbix` (đọc bằng `pbix-dump rows`) và `vm-f15/QUAN-SAT.md`.
@@ -220,7 +220,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - Tiêu chí: 100% ô khớp; không còn lỗi "chưa hỗ trợ" cho năm kiểu; Parquet phẳng cũ không đổi (`ParquetGoldenTests`).
 - [x] T041 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Postgres/PostgresSource.swift`, `PostgresConnection.swift`: đọc timestamptz, time, interval, bytea, mảng theo VM-F15, có `sourceType`. Test `Tests/ConnectorsTests/PostgresTypesTests.swift` (máy chủ thử).
 - [x] T042 [P] [US6] [AGY:F2-CONN] `Sources/Connectors/Parquet/ParquetSource.swift`, `ParquetCodec.swift`: dựng lại struct và list từ mức lặp và mức định nghĩa (Dremel), độ sâu đến 3; sâu hơn thì báo "Chưa hỗ trợ" kèm tên cột. `scripts/f-samples/make_parquet.py --nested`. Test `Tests/ConnectorsTests/ParquetNestedTests.swift`, golden bảng Desktop nạp.
-- [ ] T043 [US6] [LEAD] Review gói F2-CONN (skill `agy-delegation`); giao lại tối đa một lần; merge khi bạn bảo.
+- [x] T043 [US6] [LEAD] (Không cần: lead tự làm) Review gói F2-CONN (skill `agy-delegation`); giao lại tối đa một lần; merge khi bạn bảo.
 - [x] T044 [US6] [LEAD] Driver ODBC SQLite:
   - `Sources/BIPro/Query/NavigatorState.swift`, `DatabaseConnectView.swift`, `SourceQuery.swift`: ô chọn driver (danh sách tên phổ biến và nhập tự do), nhớ ở `UserDefaults["bipro.sqlite.odbcDriver"]`, mặc định "Devart ODBC Driver for SQLite";
   - M dựng theo driver đã chọn, chuỗi kết nối theo VM-F15;
@@ -231,7 +231,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
   - hiện kiểu time, duration, datetimezone, binary đúng như Desktop;
   - `Changed Type` và giá trị nạp vào mô hình theo quy tắc VM-F15 (`Sources/BIPro/Query/`, `Sources/BIPro/Model/Edit/TableLoader.swift`).
   Test đầu-cuối `Tests/BIProTests/Query/F2SourcesFlowTests.swift`, để lại `build/f2-out/f15/bipro-f15.pbix`.
-- [ ] T046 [US6] [VM] Gate VM-F15: Desktop mở `bipro-f15.pbix`; bảng PostgreSQL, Parquet lồng và SQLite đúng từng ô; Refresh chạy được M của BI Pro. Ghi `vm-f15/KET-QUA.md`.
+- [x] T046 [US6] [VM] Gate VM-F15: Desktop mở `bipro-f15.pbix`; bảng PostgreSQL, Parquet lồng và SQLite đúng từng ô; Refresh chạy được M của BI Pro. Ghi `vm-f15/KET-QUA.md`.
 
 ## Giai đoạn 6: US4, sửa/xoá cột tính toán còn được dùng (P2)
 

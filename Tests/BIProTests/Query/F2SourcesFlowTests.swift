@@ -66,6 +66,7 @@ struct F2SourcesFlowTests {
         #expect(columns.map(\.name) == ["id", "tz", "t", "iv", "ia", "ta"])          // bytea bỏ
         #expect(columns.first { $0.name == "t" }?.formatString == "Long Time")
         #expect(columns.first { $0.name == "iv" }?.dataType == .double)
+        #expect(columns.first { $0.name == "tz" }?.formatString == "General Date")
         #expect(columns.first { $0.name == "ia" }?.dataType == .string)
 
         let destination = try F2Fixtures.outputDirectory("f15").appendingPathComponent("bipro-f15.pbix")

@@ -38,6 +38,7 @@ import ColumnStore
         #expect(table.columns[1].data.value(at: 0) == .string("Record") && table.columns[1].data.value(at: 2) == .blank)
         #expect(table.columns[2].data.value(at: 1) == .string("List"))
         #expect(table.columns[0].data.value(at: 5) == .integer(6))
+        #expect(table.columns.map(\.sourceType) == [nil, .record, .list, .list, .record])
         // Xem trước 2 dòng.
         let preview = try ParquetFile(url: try #require(Self.file)).read(rowLimit: 2, progress: nil)
         #expect(preview.rowCount == 2 && (preview.structured[2]?[0] as? ParquetValue) == .list([i(1), i(2), i(3)]))

@@ -26,6 +26,8 @@ import Testing
             TableColumn(name: "t", data: ColumnBuilder.dateTimes([0.5, 0.25]), sourceType: .time),
             TableColumn(name: "iv", data: ColumnBuilder.doubles([1, -2]), sourceType: .duration),
             TableColumn(name: "b", data: ColumnBuilder.strings(["\\x00", nil]), sourceType: .binary),
+            TableColumn(name: "r", data: ColumnBuilder.strings(["Record", nil]), sourceType: .record),
+            TableColumn(name: "l", data: ColumnBuilder.strings(["List", "List"]), sourceType: .list),
         ])
         let edits = TableLoader.edits(for: [LoadedTable(name: "pg", data: data, status: .new)])
         guard case .addTable(let table)? = edits.first else { Issue.record("phải có addTable"); return }

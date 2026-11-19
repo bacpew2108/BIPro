@@ -37,7 +37,8 @@ import ColumnStore
         let table = try await item.load(progress: nil)
         #expect(table.columns.map(\.name) == ["id", "tz", "t", "iv", "b", "ia", "ta"])
         let c = Dictionary(uniqueKeysWithValues: table.columns.map { ($0.name, $0) })
-        #expect(c["tz"]?.sourceType == nil && c["tz"]?.data.type == .dateTime)
+        #expect(c["tz"]?.sourceType == .dateTime && c["tz"]?.data.type == .dateTime)
+        #expect(c["t"]?.data.value(at: 4) == .dateTime(45_296.79 / 86_400))   // 12:34:56.789 → .79 như Desktop
         #expect(c["t"]?.sourceType == .time && c["t"]?.data.type == .dateTime)
         #expect(c["iv"]?.sourceType == .duration && c["iv"]?.data.type == .double)
         #expect(c["b"]?.sourceType == .binary)

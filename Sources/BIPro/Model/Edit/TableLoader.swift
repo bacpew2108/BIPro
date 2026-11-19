@@ -173,17 +173,27 @@ extension TableLoader {
                         attachment: ModelText.normalize(data))
     }
 
-    /// Dữ liệu vào mô hình: cột Binary bị bỏ như Desktop (VM-F15: cột `bytea` không có trong mô hình sau khi nạp).
+    /// Dữ liệu vào mô hình: cột Binary, Record, List bị bỏ như Desktop (VM-F15: cột `bytea` không có trong mô hình sau khi nạp; cột struct/list
+    /// của Parquet "does not exist in the rowset" khi làm mới). `[SUY ĐOÁN]` cột bản ghi/danh sách do M dựng (JSON chưa mở rộng) chưa quan sát.
     static func modelData(_ data: TableData) -> TableData {
-        guard data.columns.contains(where: { $0.sourceType == .binary }),
-              let kept = try? TableData(columns: data.columns.filter { $0.sourceType != .binary }), !kept.columns.isEmpty else { return data }
+        let dropped: Set<MSourceType> = [.binary, .record, .list]
+        guard data.columns.contains(where: { $0.sourceType.map(dropped.contains) == true }),
+              let kept = try? TableData(columns: data.columns.filter { !($0.sourceType.map(dropped.contains) ?? false) }), !kept.columns.isEmpty
+        else { return data }
         return kept
     }
 
-    /// Định dạng Desktop đặt theo kiểu Power Query (VM-F15): Time → "Long Time". Áp sau `addTable`/`replaceTable` trong cùng bước.
+    /// Định dạng Desktop đặt theo kiểu Power Query (VM-F15): Time → "Long Time", DateTime → "General Date". Áp sau `addTable`/`replaceTable`
+    /// trong cùng bước.
     static func formatEdits(for loaded: LoadedTable) -> [ModelEdit] {
-        loaded.data.columns.filter { $0.sourceType == .time }.map {
-            .updateColumn(table: loaded.name, name: $0.name, patch: ColumnPatch(formatString: .set("Long Time")))
+        loaded.data.columns.compactMap { column -> ModelEdit? in
+            let format: String
+            switch column.sourceType {
+            case .time: format = "Long Time"
+            case .dateTime: format = "General Date"
+            default: return nil
+            }
+            return .updateColumn(table: loaded.name, name: column.name, patch: ColumnPatch(formatString: .set(format)))
         }
     }
 

@@ -1,4 +1,4 @@
-# VM-F15 (T039): quan sát Desktop 2.159, dở dang (2026-11-19)
+# VM-F15 (T039): quan sát Desktop 2.159 (2026-11-19)
 
 ## PostgreSQL `f15.public.types_f15` (máy chủ `bipro-pg`, `scripts/f2-samples/pg_seed.sh`; VM ở múi giờ SE Asia +07)
 
@@ -15,7 +15,18 @@ M Desktop sinh (Navigator): `Source = PostgreSQL.Database("10.211.55.2:55432", "
 
 Ảnh: `p0-xem-truoc.png`, `p1-xem-truoc-mang.png`, `p2-pq-kieu-postgres.png`.
 
-## Chưa xong
-- Parquet `nested.parquet` (sinh bằng `make_f2_samples.py`, đã chép vào `C:\Users\bacpew\f15`): đang dán M vào Query2 trong Power Query.
-- SQLite driver thứ hai: VM chưa có.
-- Chưa lưu `f15-desktop.pbix`. Desktop đang mở `C:\Users\bacpew\f15\nen.pbix` với Power Query (Query1 = Table.Schema, Query2 dở) — bỏ, không áp dụng.
+Làm tròn: `time` 12:34:56.789 lưu 12:34:56.79 (0,524268402777778), các giá trị .5 và .25 giữ nguyên. `[SUY ĐOÁN]` Desktop làm tròn tới 1/100 giây.
+
+## Parquet lồng (`nested.parquet`, `scripts/f2-samples/make_f2_samples.py`)
+
+Không quan sát qua giao diện được (buổi này không bấm trong VM): dùng TMSL qua ADOMD trên chính Desktop (`build/vm-tools/tmsl.ps1`). Bảng mới có phân vùng M
+`Parquet.Document(File.Contents("C:\Users\bacpew\f15\nested.parquet"), [Compression=null, LegacyColumnNameEncoding=false, MaxDepth=null])`:
+- chỉ cột `id` (Int64): làm mới được, 6 dòng;
+- thêm cột struct `s` hay `d`, hay list `l`, `ls`: lỗi **"The 's' column does not exist in the rowset."** (tương tự với `l`, `ls`, `d`).
+
+Kết luận: khi nạp vào mô hình, cột Record và List bị bỏ khỏi rowset, như cột Binary. Trong Power Query các ô vẫn là Record/List (mở rộng được bằng
+`Table.ExpandRecordColumn`/`Table.ExpandListColumn`).
+
+## SQLite driver thứ hai
+
+VM chỉ có Devart; chưa cài driver khác. M của BI Pro ghi tên driver người dùng chọn (T044).
