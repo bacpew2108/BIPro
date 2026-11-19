@@ -400,6 +400,7 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - US5: bảng nhiều đoạn (8 388 608 dòng mỗi đoạn `[SUY ĐOÁN]`; Desktop giữ 1 056 320 dòng một đoạn), RLE lai như Desktop (run ≥ 64, khớp từng từ với Marketing và Nhom6 khi cùng thứ tự dòng), số run vào `Statistics_RLERuns/OthersRLERuns`, cột tính toán trên bảng nhiều đoạn. `VertiPaqSegmentTests`, nặng `F2LargeSaveTests` (10 triệu dòng lưu 78,7 s, 2,3 GB; số đo `specs/011…/measurements.md`; tệp gate `build/f2-out/f14/`).
   - `swift test` 2 370 qua.
 - **Chặn bởi VM (2026-11-19):** chuột Mac không tới Windows (con trỏ VM đứng yên khi `cliclick` rê; phím `prlctl send-key-event` không vào Desktop), dù Parallels Tools chạy. Không bấm bằng PowerShell trong VM (quyết định của bạn). Cần bạn kiểm Parallels rồi mới làm: T039 (VM-F15), T046, T047 (VM-F13), T052, T053 (VM-F14), T059, T063. Máy chủ `bipro-pg` dựng lại (Docker, `scripts/f2-samples/pg_seed.sh`, CSDL `f15` có `types_f15`). Đĩa còn ~2 GB.
+- **2026-11-19 tối:** bạn sửa chuột VM (cửa sổ Parallels ở màn hình phụ, toạ độ mới trong `build/vm-tools/c2v.sh`, `s2v.sh`); dọn `build/` (giữ mẫu Desktop và `f2-out`). T061 `/code-review` xong (`2f9269e`). T039 dở: kiểu PostgreSQL đã quan sát (`docs/phase-f2-evidence/vm-f15/QUAN-SAT.md`), còn Parquet lồng. Docker `bipro-pg` tạo lại (mật khẩu ở scratchpad phiên). Bộ test nặng toàn bộ cần chạy lại (lần trước không in kết quả).
 - **Việc kế:** gate/quan sát VM ở trên; F2-CONN (T040–T043) chờ golden VM-F15; T045; Polish T060–T065.
 ## Việc tiếp theo
 

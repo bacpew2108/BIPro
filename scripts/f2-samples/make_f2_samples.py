@@ -11,7 +11,7 @@ Quan hệ dự kiến cho tự phát hiện (VM-F11c):
 - Sales[CustomerID] (số, lặp) → Customers[CustomerID] (số, duy nhất): Desktop nên tạo nhiều–một.
 - Sales[ProductID] là số, Products[ProductID] là chữ "P01"…: trùng tên khác kiểu.
 - Sales[Region] và Customers[Region]: trùng tên, cả hai phía không duy nhất.
-nested.parquet do gói F2-CONN sinh (scripts/f-samples/make_parquet.py --nested, task T042).
+nested.parquet (lược đồ lồng struct/list tới độ sâu 3, có NULL và danh sách rỗng) sinh cùng mẫu thường (VM-F15, T039).
 """
 import csv
 import datetime
@@ -183,6 +183,25 @@ def write_big_10m(path):
     pq.write_table(table, path, compression="snappy", row_group_size=1_000_000)
 
 
+def write_nested(path):
+    """6 dòng, lược đồ lồng: struct, list, list of struct, struct lồng struct và list (độ sâu 3), có NULL, danh sách rỗng, phần tử NULL."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    point = pa.struct([("x", pa.int64()), ("y", pa.string())])
+    deep = pa.struct([("inner", pa.struct([("v", pa.float64())])), ("tags", pa.list_(pa.string()))])
+    table = pa.table({
+        "id": pa.array([1, 2, 3, 4, 5, 6], pa.int64()),
+        "s": pa.array([{"a": 1, "b": "một"}, {"a": None, "b": "hai"}, None, {"a": 4, "b": None}, {"a": 5, "b": "năm"}, {"a": 6, "b": ""}],
+                      pa.struct([("a", pa.int64()), ("b", pa.string())])),
+        "l": pa.array([[1, 2, 3], [], None, [None, 5], [7], [8, 9]], pa.list_(pa.int64())),
+        "ls": pa.array([[{"x": 1, "y": "a"}, {"x": 2, "y": "b"}], [], None, [{"x": None, "y": "c"}], [None], [{"x": 6, "y": "Đà Nẵng"}]],
+                       pa.list_(point)),
+        "d": pa.array([{"inner": {"v": 1.5}, "tags": ["x", "y"]}, {"inner": None, "tags": []}, None,
+                       {"inner": {"v": None}, "tags": None}, {"inner": {"v": -2.25}, "tags": ["z"]}, {"inner": {"v": 0.0}, "tags": [None]}], deep),
+    })
+    pq.write_table(table, path, compression="snappy")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     p = lambda name: os.path.join(OUT, name)
@@ -191,6 +210,7 @@ def main():
     write_products(p("products.csv"))
     write_text_cases(p("text_cases.csv"))
     write_repeat_1m(p("repeat_1m.csv"))
+    write_nested(p("nested.parquet"))
     if "--large" in sys.argv:
         write_big_10m(p("big_10m.parquet"))
     for name in sorted(os.listdir(OUT)):
