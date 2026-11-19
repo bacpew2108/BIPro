@@ -56,9 +56,9 @@ struct T116Nhom6Tests {
         #expect(reason == nil, Comment(rawValue: reason ?? ""))
         reason = await second.updateCalculatedColumn(table: "Fact_Loan", name: "Nhãn tuổi", formula: "Nhãn tuổi = \"Tuổi \" & Fact_Loan[age_group_at_loan]")
         #expect(reason == nil, Comment(rawValue: reason ?? ""))
-        // Cột là cấp của phân cấp (Desktop dựng lại `U$`, BI Pro chưa): chặn kèm lý do.
-        let blocked = await second.updateCalculatedColumn(table: "Dim_District", name: "branch_label", formula: "branch_label = Dim_District[city]")
-        #expect(blocked?.contains("phân cấp") == true, Comment(rawValue: blocked ?? "nil"))
+        // Cột là cấp của phân cấp: sửa được, bộ ghi dựng lại `U$` (US4, specs/011; trước đây bị chặn).
+        let rebuilt = await second.updateCalculatedColumn(table: "Dim_District", name: "branch_label", formula: "branch_label = Dim_District[city]")
+        #expect(rebuilt == nil, Comment(rawValue: rebuilt ?? "nil"))
         #expect(second.deleteCalculatedColumn(table: "Fact_Loan", name: "Bỏ") == nil)
         reason = await second.updateCalculatedTable(name: "Nhóm tuổi",
                                                     formula: "Nhóm tuổi = FILTER(DISTINCT(Fact_Loan[age_group_at_loan]), Fact_Loan[age_group_at_loan] <> \"Unknown\")")

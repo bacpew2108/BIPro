@@ -30,7 +30,7 @@ import Testing
             TableColumn(name: "Raw", data: ColumnBuilder.strings(["", nil]), sourceType: .binary),
         ])
         #expect(table.prefix(1).columns.map(\.sourceType) == [.dateTimeZone, .binary])
-        #expect(Set(MSourceType.allCases.map(\.rawValue)) == ["time", "duration", "dateTimeZone", "binary", "list", "record"])
+        #expect(Set(MSourceType.allCases.map(\.rawValue)) == ["time", "duration", "dateTimeZone", "binary", "list", "record", "dateTime"])
     }
 
     @Test func rejectsRowCountMismatch() {

@@ -19,3 +19,12 @@ Với cùng thứ tự dòng, bộ ghi ra đúng run (RLE và bit-packing), số
 - 5 cột `Fact_Transaction` của Nhom6 (1 056 320 dòng, `VertiPaqSegmentTests.runTrungDesktopTrenNhom6`).
 
 Quy tắc rút ra: run lặp từ 64 giá trị trở lên thành mục RLE; độ rộng bit theo cả khoảng mã của đoạn; bảng run là luỹ thừa của 2 lớn hơn số run dùng (tối thiểu 16).
+
+## T060: golden nặng đầy đủ (2026-11-19, release, `BIPRO_HEAVY=1`, không lọc, có `BIPRO_PG`)
+
+- 2 385 test; 3 trượt rồi xử lý:
+  - `T116Nhom6Tests` còn kỳ vọng chặn sửa cột là cấp phân cấp (nay sửa được): đã sửa test;
+  - `TableDataTests` thiếu `MSourceType.dateTime`: đã sửa test;
+  - `F2LargeSaveTests` lưu 124 s (> 120 s) khi chạy cùng lúc với Desktop trong VM và người dùng đang dùng máy; chạy riêng 78–82 s.
+- Golden DAX Phase B và truy vấn visual (`VIS-BENCHMARK` KHỚP) không đổi.
+- SC-008: Nhom6 chỉ T2 lưu 2,36 / 2,56 / 2,40 s (< 4 s).

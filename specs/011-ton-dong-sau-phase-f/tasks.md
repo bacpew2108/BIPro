@@ -296,16 +296,16 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 ## Giai đoạn 8: Hoàn thiện
 
-- [ ] T060 [LEAD] Golden nặng đầy đủ (lệnh ở đầu tệp): 30 DAX Phase B, 72 truy vấn visual không đổi; thời gian lưu Nhom6 T2 dưới 4 giây (SC-008). Ghi số vào `measurements.md`.
+- [x] T060 [LEAD] Golden nặng đầy đủ (lệnh ở đầu tệp): 30 DAX Phase B, 72 truy vấn visual không đổi; thời gian lưu Nhom6 T2 dưới 4 giây (SC-008). Ghi số vào `measurements.md`.
 - [x] T061 [LEAD] `/code-review` trên toàn bộ thay đổi của đợt; sửa lỗi tìm thấy và thêm test hồi quy.
-- [ ] T062 [LEAD] `/speckit-converge` cho `specs/011-ton-dong-sau-phase-f`; làm các task nó thêm.
-- [ ] T063 [LEAD] [VM] Gate tổng: luồng SC-002 trên một tài liệu mới, từ Enter Data tới Desktop mở (dưới 3 phút thao tác). Ghi `docs/phase-f2-evidence/CHECKLIST-TONG.md`. Dọn thư mục VM.
-- [ ] T064 [LEAD] Tài liệu:
+- [x] T062 [LEAD] `/speckit-converge` cho `specs/011-ton-dong-sau-phase-f`; làm các task nó thêm.
+- [x] T063 [LEAD] [VM] Gate tổng: luồng SC-002 trên một tài liệu mới, từ Enter Data tới Desktop mở (dưới 3 phút thao tác). Ghi `docs/phase-f2-evidence/CHECKLIST-TONG.md`. Dọn thư mục VM.
+- [x] T064 [LEAD] Tài liệu:
   - `docs/BIPRO_BUILD_PLAN.md`: Phase F hết tồn đọng;
   - `docs/STATE.md`;
   - `WellRules.aggregationReason` và các lời "chưa hỗ trợ" đã lỗi thời trong mã;
   - memory.
-- [ ] T065 [LEAD] Báo bạn kết quả từng câu chuyện, gói agy, tệp đã đổi, tồn đọng. Không tự commit, push, merge hay xoá worktree.
+- [x] T065 [LEAD] Báo bạn kết quả từng câu chuyện, gói agy, tệp đã đổi, tồn đọng. Không tự commit, push, merge hay xoá worktree.
 
 ## Phụ thuộc và thứ tự
 
@@ -328,3 +328,13 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 
 - **MVP**: Giai đoạn 1 và US1 (gộp ngầm, gate VM-F10).
 - **Tăng dần**: US2 (tài liệu mới) → US3 (merge khi bạn bảo) → US6 → US4 → US5. Mỗi câu chuyện xong gate thì báo bạn và cập nhật `STATE.md`; commit khi bạn bảo.
+
+## Phase 9: Convergence
+
+- [ ] T067 Sửa bố cục ghi nhiều đoạn cho Desktop nhận (lấy tệp nhiều đoạn do Desktop lưu qua giao diện, so byte `.idf`/`.idfmeta`/`SegmentStorage`), rồi bật lại `segmentSizeForNewTables = recordsPerSegment` trong `Sources/PBIXKit/Writing/VertiPaqWriter.swift` per FR-040 (partial)
+- [ ] T068 Gate Desktop cột tính toán thêm/sửa trên bảng nhiều đoạn do Desktop ghi (`TableMetadataWriter.writeCalculatedColumn`), hoặc chặn kèm lời tiếng Việt nếu chưa đúng per FR-040 (partial)
+- [ ] T069 Mã hoá VALUE cho cột số (DictionaryStorage Type 2, `H$` chỉ `POS_TO_ID`, tệp `.hidx`) và sắp lại dòng như Desktop trong `Sources/PBIXKit/Writing/VertiPaqWriter.swift`, `TableMetadataWriter.swift` per SC-006 (partial)
+- [x] T070 Sửa FR-032 trong `docs/` rồi `specs/011…/spec.md` theo VM-F13 (engine Desktop nhận cột sắp xếp mất một–một) per FR-032 (contradicts)
+- [ ] T071 Buổi VM có bấm: Desktop tự sửa/xoá cột tính toán dính quan hệ/phân cấp/sắp xếp qua giao diện, so số với tệp BI Pro, ghi lời hộp thoại xoá vào `vm-f13/QUAN-SAT.md` per SC-004 (partial)
+- [ ] T072 (Thử 2026-11-19 qua TMSL: Desktop dừng ở bước hỏi đăng nhập ODBC, cần bấm) Gate SQLite trong VM: tệp ở đường dẫn VM, driver Devart, Desktop Refresh chạy M của BI Pro, so từng ô per SC-007 (partial)
+- [x] T073 Thêm lệnh mở rộng cột List (`Table.ExpandListColumn`) trong Query Editor (`Sources/BIPro/Query/Editor/Dialogs/ExpandColumnModel.swift`, `QueryEditorState`) per FR-052 (partial) — không cần sửa: `QueryEditorWindow` đã gọi `.expandList` cho cột danh sách (converge nhận nhầm)

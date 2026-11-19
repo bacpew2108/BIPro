@@ -195,7 +195,7 @@ Bạn nạp bảng PostgreSQL có cột timestamptz, time, interval, bytea, mả
 
 - **FR-030**: Hệ thống PHẢI cho sửa công thức cột tính toán là đầu quan hệ, cấp phân cấp hay cột sắp xếp, và dựng lại chỉ mục quan hệ, chỉ mục phân cấp, thứ tự sắp xếp như Desktop khi lưu.
 - **FR-031**: Hệ thống PHẢI cho xoá cột tính toán còn được dùng theo đúng cách Desktop xử lý (hỏi, xoá kèm quan hệ/cấp phân cấp/tham chiếu sắp xếp), hoàn tác được.
-- **FR-032**: Trường hợp Desktop từ chối (ví dụ đầu "một" không còn duy nhất, sắp xếp không một–một) PHẢI bị từ chối với lời báo tương ứng.
+- **FR-032**: Trường hợp Desktop từ chối (ví dụ đầu "một" không còn duy nhất) PHẢI bị từ chối với lời báo tương ứng. (VM-F13: engine Desktop nhận cột sắp xếp mất một–một khi sửa công thức, nên BI Pro cũng nhận.)
 
 **Lưu dữ liệu lớn (Câu chuyện 5)**
 
