@@ -379,7 +379,7 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
   - **Test mới:** `EnterDataStateTests.danNhieuOVaoMotOThiTraiRaLuoi`, `AddDataPanelTests.goiYDung…`, `coTrucXMaChuaCoYKhongSap`, `VariationTitleTests`, `VariationToggleGuardTests`.
   - `swift test` 2 343 qua; golden nặng 160/160.
 - **US2 đã commit** (`eaaad69`, `f79200f`, `0b71195`, `710c7db`; chưa push).
-- **T022 xong (2026-11-19, chưa commit):** `F2TextCalcTests`.
+- **T022 xong (2026-11-19, commit `66faec3`):** `F2TextCalcTests`.
   - Các bước: tài liệu mới → nạp `text_cases.csv` → 16 cột tính toán (UPPER, MID, SUBSTITUTE, LEN, LOWER, TRIM, REPLACE, RIGHT, REPT, FIND, EXACT, UNICODE, FIXED, COMBINEVALUES) → lưu → mở lại.
   - Kết quả: 320 ô bằng golden VM-F12.
   - Để lại `build/f2-out/f12/bipro-f12.pbix`.
@@ -393,14 +393,8 @@ Việc kế, theo thứ tự: (1) **T066 gate Desktop** (chờ bạn chạy tay 
     - `FGateTests.taoFileGateF8` hỏng từ T035: quan hệ tự tạo chặn Group By bỏ cột. Test tắt tự phát hiện; hành vi Desktop chưa quan sát, tồn đọng.
     - `GetDataTests`: test tiền tệ "chưa lưu được" đã cũ từ T103, nay kiểm lưu được.
   - `swift test` 2 346 qua; toàn bộ bộ nặng (`BIPRO_HEAVY=1`, không lọc) 2 346 qua.
-- **Việc kế: T023 gate VM-F12.**
-  - Đã có:
-    - truy vấn đếm dòng lệch ở `…/scratchpad/t023.dax` (sinh lại được; cột chữ so bằng `EXACT`, vì `<>` không phân biệt hoa thường);
-    - engine BI Pro cho 0 lệch cả 16 cột.
-  - Chưa chép được `bipro-f12.pbix` vào VM vì VM đang suspended: `prlctl resume`, rồi chép vào `C:\Users\bacpew\f12g\`.
-  - Sau gate: ghi `vm-f12/KET-QUA.md`, rồi US6, US4, US5, Polish.
-  - Tồn đọng US2: viết lại visual khi tắt Auto date/time; card có phân cấp ngày; `TODAY`; cột của quan hệ tự tạo bị bỏ (Close & Apply, xoá bảng, Enable load).
-
+- **T023 xong (2026-11-19): gate VM-F12 ĐẠT** (`docs/phase-f2-evidence/vm-f12/KET-QUA.md`): Desktop mở `bipro-f12.pbix`, 16 công thức đúng; giá trị lưu so biểu thức tính lại 0 lệch ở 14/16 cột, 2 cột lệch 1 dòng (😀 bị cắt đôi: Desktop lưu U+FFFD, tính lại giữ nửa surrogate; BI Pro lưu trùng Desktop). Chuột Mac không tới VM buổi này: truy vấn chạy thẳng vào `msmdsrv` bằng `build/vm-tools/daxq.ps1` (ADOMD của Desktop). US3 xong.
+- **Việc kế: US6 (T039 VM-F15).**
 ## Việc tiếp theo
 
 **Phase E, chờ bạn (2026-11-14 đêm):**

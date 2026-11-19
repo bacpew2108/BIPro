@@ -1,0 +1,1 @@
+EVALUATE SELECTCOLUMNS(FILTER(INFO.VIEW.COLUMNS(), [Table] = "text_cases"), "Name", [Name], "Type", [Type], "DataType", [DataType], "Expr", [Expression])
