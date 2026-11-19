@@ -116,6 +116,24 @@ struct RelationshipDetectorGoldenTests {
         #expect(relationships.allSatisfy { $0.isActive && $0.name.hasPrefix("AutoDetected_") && $0.crossFilteringBehavior == 1 })
     }
 
+    /// Review T061: cột ngày vừa thành phía nhiều của quan hệ tự phát hiện không được bảng ngày cục bộ (chỉ phía một có).
+    @Test func cotNgayPhiaNhieuKhongCoBangNgayCucBo() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("reldetect-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let state = try newDocument(root)
+        let orders = LoadedTable(name: "Orders", data: try TableData(columns: [
+            TableColumn(name: "OrderDate", data: ColumnBuilder.dateTimes([45_658, 45_658, 45_659])),
+            TableColumn(name: "Qty", data: ColumnBuilder.integers([1, 2, 3])),
+        ]))
+        let calendar = LoadedTable(name: "Lich", data: try TableData(columns: [
+            TableColumn(name: "OrderDate", data: ColumnBuilder.dateTimes([45_658, 45_659, 45_660])),
+        ]))
+        #expect(state.loadFromGetData([orders, calendar]) == nil)
+        let model = try #require(state.workspace.metadata)
+        #expect(model.relationships.contains { $0.name.hasPrefix("AutoDetected_") && $0.fromTable == "Orders" && $0.toTable == "Lich" })
+        #expect(model.variations.map { "\($0.table)[\($0.column)]" } == ["Lich[OrderDate]"])
+    }
+
     @Test func tatTuyChonThiKhongTao() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("reldetect-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }

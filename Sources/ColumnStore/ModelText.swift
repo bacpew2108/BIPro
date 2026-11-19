@@ -46,7 +46,7 @@ public enum ModelText {
     private static func same(_ a: String?, _ b: String?) -> Bool {
         switch (a, b) {
         case (nil, nil): true
-        case let (x?, y?): Array(x.utf16) == Array(y.utf16)
+        case let (x?, y?): x.utf16.elementsEqual(y.utf16)
         default: false
         }
     }

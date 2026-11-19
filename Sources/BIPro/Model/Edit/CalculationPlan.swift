@@ -213,8 +213,12 @@ extension CalculationPlan {
         var lines: [String] = []
         for node in nodes {
             switch node {
-            case .column:
-                continue
+            case .column(let table, let name):
+                // Bộ ghi dựng lại `R$` cho quan hệ nhiều–một và một–một (US4); quan hệ nhiều–nhiều thì chưa.
+                let stuck = metadata.relationships.filter {
+                    (($0.fromTable == table && $0.fromColumn == name) || ($0.toTable == table && $0.toColumn == name)) && !["M:1", "1:1"].contains($0.cardinality)
+                }
+                if !stuck.isEmpty { lines.append("\(node): quan hệ \(stuck.map(\.name).joined(separator: ", ")) chưa dựng lại được chỉ mục") }
             case .table(let name):
                 var uses: [String] = []
                 if metadata.relationships.contains(where: { $0.fromTable == name || $0.toTable == name }) { uses.append("bảng có quan hệ") }

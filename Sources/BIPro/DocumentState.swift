@@ -191,12 +191,12 @@ final class DocumentState {
         } expand: { current, new in
             // Auto date/time (T032): bảng ngày cục bộ theo cột ngày thêm, đổi hay bỏ khi tuỳ chọn của file bật.
             guard let runtime, let model = try? runtime.base.applying(current) else { return new }
-            let dated = AutoDateTime.expand(new, model: model)
-            // Tự phát hiện quan hệ (T035) sau khi nạp bảng mới, khi tuỳ chọn của file bật; cùng bước ⌘Z với lần nạp.
-            guard layout.autodetectRelationships else { return dated }
-            return RelationshipDetector.expand(dated, before: model, isUnique: { ref in
-                Self.isUnique(ref, runtime: runtime, workspace: workspace)
-            })
+            // Tự phát hiện quan hệ (T035) sau khi nạp bảng mới, khi tuỳ chọn của file bật; cùng bước ⌘Z với lần nạp. Chạy trước Auto date/time
+            // để cột ngày vừa thành phía nhiều không được bảng ngày cục bộ (review T061).
+            let related = layout.autodetectRelationships
+                ? RelationshipDetector.expand(new, before: model, isUnique: { ref in Self.isUnique(ref, runtime: runtime, workspace: workspace) })
+                : new
+            return AutoDateTime.expand(related, model: model)
         }
         layout.diagramSource = { [weak workspace] in
             guard let archive = workspace?.pbix.archive, let entry = archive.entry("DiagramLayout") else { return nil }
@@ -241,7 +241,6 @@ final class DocumentState {
         }
     }
 
-    /// Trang đang xem, với bố cục đã sửa (nếu có). Mọi nơi cần bố cục hiện tại phải đọc qua đây.
     /// Cột của bảng đã có không có giá trị trùng: bảng nạp trong phiên đọc từ dữ liệu phiên, bảng của file so số giá trị khác nhau với
     /// số dòng (như hộp tạo quan hệ).
     nonisolated static func isUnique(_ ref: RelationshipDraft.ColumnRef, runtime: ModelRuntime, workspace: Workspace) -> Bool {
@@ -250,6 +249,7 @@ final class DocumentState {
         return storage.cardinality >= workspace.rowCount(ref.table)
     }
 
+    /// Trang đang xem, với bố cục đã sửa (nếu có). Mọi nơi cần bố cục hiện tại phải đọc qua đây.
     var page: ReportPage? { pageID.flatMap(layout.page(_:)) }
 
     /// Các trang theo thứ tự tab, với thêm, xoá, đổi tên, đổi thứ tự và bố cục đã sửa (D5). Mọi nơi liệt kê trang đọc qua đây.

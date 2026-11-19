@@ -241,8 +241,8 @@ public struct MetadataWriter {
     // MARK: Sửa và xoá cột, bảng tính toán có trong file (Phase F, T116, VM-F9)
 
     /// Sửa công thức cột tính toán như Desktop: giữ dòng `Column` (ID, thuộc tính, `LineageTag`), bỏ dữ liệu lưu trữ cũ cùng bảng `H$`,
-    /// ghi dữ liệu mới (giá trị đã tính trong `calculatedValues`) ở cùng vị trí lưu. Cột nằm trong quan hệ, là cấp của phân cấp hay là
-    /// cột sắp xếp của cột khác thì từ chối (chỉ mục `R$`/`U$` chưa dựng lại được). Lỗi thì cơ sở dữ liệu và danh sách tệp như trước.
+    /// ghi dữ liệu mới (giá trị đã tính trong `calculatedValues`) ở cùng vị trí lưu. Quan hệ và phân cấp dùng cột đã được `PBIXWriter` gỡ
+    /// trước và thêm lại sau (dựng `R$`/`U$` mới, US4). Lỗi thì cơ sở dữ liệu và danh sách tệp như trước.
     mutating func updateCalculatedColumn(table: String, name: String, expression: String) throws {
         let values = try calculated(table, name)
         let snapshot = try database.serialize()
@@ -582,6 +582,14 @@ public struct MetadataWriter {
         let id = MetadataDatabase.Value.int(Int64(try Self.columnID(db, table: table, name: column)))
         let ids = try db.strings("SELECT ID FROM Relationship WHERE FromColumnID = ? OR ToColumnID = ? ORDER BY ID", [id, id]).compactMap(Int64.init)
         return try rebuildable(ids, owner: "việc sửa cột «\(table)[\(column)]»")
+    }
+
+    /// Tên các quan hệ dùng cột `table[column]` (xoá cột chỉ cần bỏ, không dựng lại, nên không xét thuộc tính).
+    public func relationshipNames(using table: String, column: String) throws -> [String] {
+        let db = database
+        guard (try? db.userTableID(named: table)) != nil else { return [] }
+        let id = MetadataDatabase.Value.int(Int64(try Self.columnID(db, table: table, name: column)))
+        return try db.strings("SELECT Name FROM Relationship WHERE FromColumnID = ? OR ToColumnID = ? ORDER BY ID", [id, id])
     }
 
     /// Phân cấp người dùng của `table` có một cấp là `column` (tên, cấp theo thứ tự, ẩn, chú thích) để xoá rồi thêm lại.

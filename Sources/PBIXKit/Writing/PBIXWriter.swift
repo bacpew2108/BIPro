@@ -338,7 +338,7 @@ public enum PBIXWriter {
             case .deleteCalculatedColumn(let table, let name):
                 // `[SUY ĐOÁN]` như Desktop xoá cột (VM-F13 chưa quan sát): bỏ quan hệ dùng cột, bỏ cấp khỏi phân cấp (hết cấp thì bỏ phân cấp),
                 // cột sắp theo cột này về sắp mặc định.
-                for relationship in try metadata.relationships(using: table, column: name) { try metadata.apply(.deleteRelationship(name: relationship.name)) }
+                for relationship in try metadata.relationshipNames(using: table, column: name) { try metadata.apply(.deleteRelationship(name: relationship)) }
                 for hierarchy in try metadata.hierarchies(using: table, column: name) {
                     try metadata.apply(.dropHierarchy(table: hierarchy.table, name: hierarchy.name))
                     var rest = hierarchy

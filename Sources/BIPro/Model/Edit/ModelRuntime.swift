@@ -86,7 +86,7 @@ final class ModelRuntime: @unchecked Sendable {
         let blockers = CalculationPlan.saveBlockers(inFile, metadata: metadata)
         if !blockers.isEmpty {
             throw ModelEditError("Chưa tính lại và lưu được cột/bảng tính toán có sẵn: " + blockers.joined(separator: "; ")
-                                 + " (BI Pro chưa dựng lại chỉ mục theo dữ liệu mới)")
+                                 + " (BI Pro chưa thay được dữ liệu bảng tính toán có quan hệ, phân cấp hay cột tính toán)")
         }
     }
 

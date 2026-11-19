@@ -32,5 +32,17 @@ import ColumnStore
         #expect(find("o?th", "Northeast", [.integer(1), .integer(0)]) == .success(.integer(2)), "ký tự đại diện ?")
         #expect(find("e", "Northeast", [.integer(6)]) == .success(.integer(6)), "bắt đầu tìm từ start_num")
         if case .failure = find("x", "abc", []) {} else { Issue.record("không thấy và thiếu not_found_value phải là lỗi") }
+        // T061 (review): ký tự viết hoa dài hơn (U+FB00 "ﬀ" → "FF", "ŉ" → "ʼN") không làm lệch vị trí trong chuỗi gốc.
+        #expect(find("x", "\u{FB00}x", []) == .success(.integer(2)))
+        #expect(find("x", "\u{149}\u{149}x", []) == .success(.integer(3)))
+        #expect(find("?x", "\u{FB00}x", []) == .success(.integer(1)))
+    }
+
+    /// T061 (review): đối số đúng 2^63 không làm sập tiến trình (tràn khi đổi sang Int).
+    @Test func doiSoCucLonKhongSap() {
+        if case .success(let v) = fkChay("LEFT", [fkLit(.string("abc")), fkLit(.double(9_223_372_036_854_775_808))]) {
+            #expect(v == .string("abc"))
+        }
+        _ = fkChay("REPT", [fkLit(.string("")), fkLit(.double(9_223_372_036_854_775_808))])
     }
 }

@@ -297,7 +297,7 @@ Kiểm: `swift build`; `swift test`; golden nặng `BIPRO_HEAVY=1 swift test -c 
 ## Giai đoạn 8: Hoàn thiện
 
 - [ ] T060 [LEAD] Golden nặng đầy đủ (lệnh ở đầu tệp): 30 DAX Phase B, 72 truy vấn visual không đổi; thời gian lưu Nhom6 T2 dưới 4 giây (SC-008). Ghi số vào `measurements.md`.
-- [ ] T061 [LEAD] `/code-review` trên toàn bộ thay đổi của đợt; sửa lỗi tìm thấy và thêm test hồi quy.
+- [x] T061 [LEAD] `/code-review` trên toàn bộ thay đổi của đợt; sửa lỗi tìm thấy và thêm test hồi quy.
 - [ ] T062 [LEAD] `/speckit-converge` cho `specs/011-ton-dong-sau-phase-f`; làm các task nó thêm.
 - [ ] T063 [LEAD] [VM] Gate tổng: luồng SC-002 trên một tài liệu mới, từ Enter Data tới Desktop mở (dưới 3 phút thao tác). Ghi `docs/phase-f2-evidence/CHECKLIST-TONG.md`. Dọn thư mục VM.
 - [ ] T064 [LEAD] Tài liệu:

@@ -163,8 +163,9 @@ private func coreQuery(_ visual: ReportVisual, metadata: ModelMetadata, filters:
         case .measure:
             measures.append(quoted(field.entity, field.property))
         case .aggregation:
-            let fn = (field.function ?? "Sum").uppercased()
-            let name = ["SUM", "MIN", "MAX", "AVERAGE", "COUNT", "DISTINCTCOUNT"].contains(fn) ? fn : "SUM"
+            // Mã `Aggregation.Function` của PBIR (VM-F10): 0 Sum, 1 Avg, 2 đếm khác nhau, 3 Min, 4 Max, 5 Count, 6 Median, 7 StdDev, 8 Var.
+            let names = [0: "SUM", 1: "AVERAGE", 2: "DISTINCTCOUNT", 3: "MIN", 4: "MAX", 5: "COUNTA", 6: "MEDIAN", 7: "STDEV.P", 8: "VAR.P"]
+            let name = field.aggregationFunction.flatMap { names[$0] } ?? "SUM"
             measures.append("\(name)(\(quoted(field.entity, field.property)))")
         default:
             break

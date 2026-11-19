@@ -81,10 +81,17 @@ public enum MBinary {
             while true {
                 stream.pointee.dst_ptr = buffer
                 stream.pointee.dst_size = chunk
+                let before = stream.pointee.src_size
                 let status = compression_stream_process(stream, Int32(COMPRESSION_STREAM_FINALIZE.rawValue))
-                output.append(buffer, count: chunk - stream.pointee.dst_size)
+                let produced = chunk - stream.pointee.dst_size
+                output.append(buffer, count: produced)
                 switch status {
-                case COMPRESSION_STATUS_OK: continue
+                case COMPRESSION_STATUS_OK:
+                    // Dữ liệu cụt hoặc rỗng: bộ giải nén trả OK mãi mà không đọc thêm, không ra thêm byte nào.
+                    if produced == 0, stream.pointee.src_size == before {
+                        throw MError(reason: "DataFormat.Error", message: "Binary.Decompress: dữ liệu nén Deflate bị cụt")
+                    }
+                    continue
                 case COMPRESSION_STATUS_END: return output
                 default: throw MError(reason: "DataFormat.Error", message: "Binary.Decompress: dữ liệu nén Deflate hỏng")
                 }

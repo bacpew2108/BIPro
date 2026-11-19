@@ -123,8 +123,18 @@ public enum TextFunctions: FunctionFamily {
         let haySlice = Array(withinUnits[(start - 1)...])
         let hayString = String(decoding: haySlice, as: UTF16.self)
 
-        // Uppercase cả hai để so không phân biệt hoa thường nhưng không chuẩn hoá Unicode (NFC ≠ NFD)
-        let hayUpper = daxUpperString(hayString)
+        // Uppercase cả hai để so không phân biệt hoa thường nhưng không chuẩn hoá Unicode (NFC ≠ NFD). Viết hoa có thể đổi độ dài
+        // (U+FB00 "ﬀ" → "FF", "ŉ" → "ʼN"): giữ bảng vị trí UTF-16 của chuỗi viết hoa về vị trí trong chuỗi gốc.
+        var hayUpper = ""
+        var originalOffset: [Int] = []
+        var consumed = 0
+        for character in hayString {
+            let upper = daxUpperString(String(character))
+            originalOffset += Array(repeating: consumed, count: upper.utf16.count)
+            hayUpper += upper
+            consumed += character.utf16.count
+        }
+        originalOffset.append(consumed)
         let findUpper = daxUpperString(findText)
 
         var pattern = ""
@@ -153,13 +163,12 @@ public enum TextFunctions: FunctionFamily {
 
         if !wildcard && !hasEscape {
             if let range = hayUpper.range(of: findUpper, options: [.literal]) {
-                let prefix = hayUpper[..<range.lowerBound]
-                offsetInHayUnits = Array(prefix.utf16).count
+                offsetInHayUnits = originalOffset[hayUpper.utf16.distance(from: hayUpper.utf16.startIndex, to: range.lowerBound)]
             }
         } else {
             if let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]),
                let match = regex.firstMatch(in: hayUpper, range: NSRange(location: 0, length: (hayUpper as NSString).length)) {
-                offsetInHayUnits = match.range.location
+                offsetInHayUnits = originalOffset[min(match.range.location, originalOffset.count - 1)]
             }
         }
 

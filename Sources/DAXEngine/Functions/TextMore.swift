@@ -9,8 +9,9 @@ extension TextFunctions {
     static func roundDAXInt(_ d: Double) -> Int {
         guard d.isFinite else { return 0 }
         let rounded = d.rounded(.toNearestOrAwayFromZero)
-        if rounded > Double(Int.max) { return Int.max }
-        if rounded < Double(Int.min) { return Int.min }
+        // `Double(Int.max)` làm tròn lên đúng 2^63, nên so `>=` (2^63 không vừa Int).
+        if rounded >= Double(Int.max) { return Int.max }
+        if rounded <= Double(Int.min) { return Int.min }
         return Int(rounded)
     }
 
@@ -36,7 +37,7 @@ extension TextFunctions {
         let arg = try frame.scalar(0)
         if arg.isBlank { return .blank }
         let text = arg.asText()
-        return .integer(Int64(Array(text.utf16).count))
+        return .integer(Int64(text.utf16.count))
     }
 
     // MARK: - UPPER / LOWER
@@ -389,7 +390,7 @@ extension TextFunctions {
         let bArg = try frame.scalar(1)
         let aStr = aArg.isBlank ? "" : aArg.asText()
         let bStr = bArg.isBlank ? "" : bArg.asText()
-        return .boolean(Array(aStr.utf16) == Array(bStr.utf16))
+        return .boolean(aStr.utf16.elementsEqual(bStr.utf16))
     }
 
     // MARK: - UNICHAR
