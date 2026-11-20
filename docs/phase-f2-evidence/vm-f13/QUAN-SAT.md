@@ -16,3 +16,12 @@ Kết luận cho BI Pro:
 - Sửa công thức: không chặn khi cột sắp xếp mất một–một (trước đây BI Pro báo lỗi; đã bỏ).
 - Xoá: phải gỡ cách sắp xếp, quan hệ và cấp phân cấp trước, như BI Pro làm (`PBIXWriter`, hộp xác nhận liệt kê).
 - `[SUY ĐOÁN]` còn lại: Desktop có tự gỡ kèm khi xoá qua giao diện hay báo lỗi; lời hộp thoại.
+
+## Bổ sung 2026-11-20 (T071, buổi VM bấm giao diện Desktop trên `bipro-f13-sua.pbix`)
+- Chọn `Sales[Nhóm]` trong Data pane, bấm `...` → **Delete from model**:
+  - Hộp thoại xác nhận của Desktop (`p1-hop-thoai-xoa.png`): tiêu đề **`Delete column`**, nội dung **`Are you sure you want to delete 'Nhóm'?`**, nút **`Yes`** / **`Cancel`**. Desktop không liệt kê danh sách đối tượng phụ thuộc trong hộp thoại (BI Pro liệt kê rõ quan hệ, cấp phân cấp và cột sắp xếp bị gỡ kèm).
+- Bấm **`Yes`** (`p2-sau-khi-xoa.png`):
+  - Desktop **tự động xoá kèm**: cột `Sales[Nhóm]` bị xoá; quan hệ `Sales[Nhóm] → Nhom[K]` bị gỡ (`INFO.VIEW.RELATIONSHIPS()` rỗng); thuộc tính `SortByColumn` của `Sales[Nhãn]` được đặt về trống; phân cấp `Vùng nhóm` bỏ cấp `Nhóm`, giữ lại cấp `Vùng` (MDX `ALLMEMBERS` còn `All`, `E`, `N`, `S`).
+  - Kết quả khớp hoàn toàn với tệp `bipro-f13-xoa.pbix` do BI Pro ghi.
+  - Visual đang dùng `Nhóm` và `Vùng nhóm` trên canvas chuyển sang lỗi thiếu trường ("Something's wrong with one or more fields") như kỳ vọng.
+- Sửa công thức `Sales[Nhóm]` trên thanh công thức với `MOD(Sales[Key], 3) + 10`: tổng `Qty` theo `Nhom[Ten]` (`Mười = 6`, `Mười một = 6`, `Mười hai = 5`) và biểu đồ `Sum of Nhóm by Vùng and Nhóm` (`E: 11`, `N: 10, 11`, `S: 12`) khớp BI Pro.

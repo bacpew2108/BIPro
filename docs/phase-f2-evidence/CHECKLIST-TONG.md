@@ -7,9 +7,9 @@ Ngày 2026-11-19. Mỗi câu chuyện có buổi quan sát Desktop và gate Desk
 | US1 phép gộp ngầm | `vm-f10/` | `vm-f10/KET-QUA.md` | ĐẠT |
 | US2 tài liệu mới (Auto date/time, tự phát hiện quan hệ, Thêm dữ liệu, Enter Data) | `vm-f11/QUAN-SAT.md` | `vm-f11/KET-QUA.md` (T037) | ĐẠT |
 | US3 hàm văn bản DAX | `vm-f12/QUAN-SAT.md` | `vm-f12/KET-QUA.md` (T023) | ĐẠT |
-| US4 sửa/xoá cột tính toán còn được dùng | `vm-f13/QUAN-SAT.md` (engine, TOM) | `vm-f13/KET-QUA.md` (T052) | ĐẠT; chưa so với Desktop làm qua giao diện (T071) |
-| US5 dữ liệu lớn | `vm-f14/QUAN-SAT.md` (DMV) | `vm-f14/KET-QUA.md` (T059) | ĐẠT với bảng một đoạn; nhiều đoạn (T067) và cỡ tệp SC-006 (T069) còn mở |
-| US6 nguồn | `vm-f15/QUAN-SAT.md` | `vm-f15/KET-QUA.md` (T046) | ĐẠT phần PostgreSQL và Parquet; Refresh SQLite trong VM còn mở (T072) |
+| US4 sửa/xoá cột tính toán còn được dùng | `vm-f13/QUAN-SAT.md` (TOM + UI T071) | `vm-f13/KET-QUA.md` (T052, T071) | ĐẠT |
+| US5 dữ liệu lớn | `vm-f14/QUAN-SAT.md` (DMV + tệp thật Desktop) | `vm-f14/KET-QUA.md` (T059, T067, T068, T069) | ĐẠT (10 đoạn 10M dòng, cột tính toán trên bảng nhiều đoạn Desktop, SC-006 đạt 90,5 %) |
+| US6 nguồn | `vm-f15/QUAN-SAT.md` | `vm-f15/KET-QUA.md` (T046, T072) | ĐẠT (PostgreSQL, Parquet lồng, SQLite Refresh driver Devart) |
 
 ## Luồng SC-002
 

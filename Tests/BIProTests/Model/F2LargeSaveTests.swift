@@ -105,8 +105,8 @@ struct F2LargeSaveTests {
         #expect(row == [.integer(10_000_000), .integer(totalQty), .integer(1_000), .integer(vipQty), .blank], "\(row)")
         let segments = try VertiPaq.parseIDFMeta(
             Data(try #require(reopened.abf).contents(named: try #require(model.storage(table: table.name, column: "Qty")).idfFiles[0] + "meta")), file: "m")
-        // Một đoạn: bố cục nhiều đoạn chưa được Desktop nhận (gate VM-F14), Desktop đọc được bảng một đoạn.
-        #expect(segments.map(\.records) == [10_000_000])
+        // T067: 10 triệu dòng cắt thành 9 đoạn 2^20 + 1 đoạn cuối 562 816 như Desktop.
+        #expect(segments.map(\.records) == Array(repeating: VertiPaqWriter.recordsPerSegment, count: 9) + [10_000_000 - 9 * VertiPaqWriter.recordsPerSegment])
     }
 
     @Test func repeat1mRLE() async throws {

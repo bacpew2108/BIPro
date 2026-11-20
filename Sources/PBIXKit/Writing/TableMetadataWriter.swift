@@ -117,8 +117,9 @@ public struct TableMetadataWriter {
                       .int(segmentMapID), .int(partitionFolderID)])
             try db.run("""
                 INSERT INTO SegmentMapStorage (ID, PartitionStorageID, Type, RecordCount, SegmentCount, RecordsPerSegment)
-                VALUES (?, ?, 3, ?, ?, ?)
-                """, [.int(segmentMapID), .int(partitionStorageID), .int(Int64(table.rowCount)), .int(Int64(table.segmentCount)),
+                VALUES (?, ?, ?, ?, ?, ?)
+                """, [.int(segmentMapID), .int(partitionStorageID), .int(table.segmentCount > 1 ? 1 : 3),
+                      .int(Int64(table.rowCount)), .int(Int64(table.segmentCount)),
                       .int(Int64(table.recordsPerSegment))])
             // The partition needs a valid M query: Desktop reports "Token Literal expected" for an empty one (gate F-T3, 2026-11-15).
             try db.run("""
@@ -203,10 +204,20 @@ public struct TableMetadataWriter {
               let records = try db.int("SELECT RecordCount FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) else {
             throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có nhiều phân vùng hoặc thiếu dữ liệu lưu trữ")
         }
-        // Bảng nhiều đoạn (T057): cột tính toán cắt đúng như các cột đã có (`RecordsPerSegment`).
+        // Bảng nhiều đoạn (T057, T068): cắt đúng số đoạn và `RecordsPerSegment` của bảng có sẵn (kể cả bảng do Desktop ghi).
         let perSegment = try segments > 1 ? (db.int("SELECT RecordsPerSegment FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) ?? records) : records
         guard Int64(values.count) == records else {
             throw WriteError.invalid("cột tính toán «\(columnName)» có \(values.count) dòng, bảng «\(table)» có \(records)")
+        }
+        let targetSegments: [Int]
+        if segments <= 1 {
+            targetSegments = [Int(records)]
+        } else {
+            let full = Int(segments - 1), last = Int(records) - full * Int(perSegment)
+            guard perSegment > 0, last > 0, last <= Int(perSegment) else {
+                throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bố cục đoạn dữ liệu không đều (\(segments) đoạn, \(perSegment) dòng/đoạn, tổng \(records))")
+            }
+            targetSegments = Array(repeating: Int(perSegment), count: full) + [last]
         }
         let position = try existing ?? ((db.int("""
             SELECT MAX(cs.StoragePosition) FROM ColumnStorage cs JOIN [Column] c ON c.ColumnStorageID = cs.ID WHERE c.TableID = ?
@@ -217,7 +228,7 @@ public struct TableMetadataWriter {
         let storageBase = tableStorageName.hasSuffix(suffix) ? String(tableStorageName.dropLast(suffix.count)) : tableStorageName
         let encodedTable = try VertiPaqWriter.encodeTable(name: storageBase, tableID: Int(tableID), partitionID: Int(partitionID),
                                                           rowNumberID: columnID + 1_000_000, columns: [.init(id: columnID, name: columnName, values: values)],
-                                                          segmentSize: max(1, Int(perSegment)))
+                                                          segmentSize: max(1, Int(perSegment)), segmentRecords: targetSegments)
         guard encodedTable.segmentCount == Int(segments) else {
             throw WriteError.invalid("cột tính toán «\(columnName)» cắt ra \(encodedTable.segmentCount) đoạn, bảng «\(table)» có \(segments)")
         }

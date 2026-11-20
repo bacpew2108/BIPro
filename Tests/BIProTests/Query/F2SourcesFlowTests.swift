@@ -5,6 +5,7 @@
 import ColumnStore
 import Connectors
 import Foundation
+import MEngine
 import PBIXKit
 import Testing
 @testable import BIPro
@@ -86,5 +87,41 @@ struct F2SourcesFlowTests {
         if case .double(let sum) = row[0] { #expect(abs(sum - (1 + 7384.0 / 86_400 - 2.5 / 24 + 32 - 417 + 0.5 / 86_400)) < 1e-9) }
         else { Issue.record("iv: \(row[0])") }
         #expect(row[1] == .integer(6) && row[3] == .integer(50))
+    }
+
+    /// T072: sinh tệp `.pbix` có nguồn SQLite (`Customers` và `Sales`) với đường dẫn VM và driver Devart để bấm Refresh trong Desktop.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BIPRO_F14_GATE"] == "1"))
+    func sinhTepGateSQLiteDevartChoVM() async throws {
+        guard let sqlite = FFixtures.sample("sales_2026.sqlite") else { return }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("t072-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let untitled = try UntitledDocuments.create(root: root)
+        let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: untitled)), fileName: untitled.lastPathComponent, fileURL: untitled)
+
+        let defaultsName = "bipro-t072-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer { defaults.removePersistentDomain(forName: defaultsName) }
+        let nav = NavigatorState(odbcDefaults: defaults)
+        #expect(nav.odbcDriver == SQLiteODBC.defaultDriver)
+        await nav.openSource(kind: .sqlite, location: sqlite.path)
+        for name in ["Customers", "Sales"] {
+            nav.toggle(try #require(nav.items.first { $0.name == name }).id)
+        }
+        let loaded = try #require(await nav.load(existingNames: state.existingTableNames))
+        let vmPath = #"C:\Users\bacpew\f15\sales_2026.sqlite"#
+        let rewritten = loaded.map { table -> LoadedTable in
+            let o = LoadedOrigin(kind: .sqlite, location: vmPath, itemName: table.name, itemKind: .table, odbcDriver: SQLiteODBC.defaultDriver)
+            return LoadedTable(name: table.name, data: table.data, status: table.status, origin: o)
+        }
+        #expect(state.loadFromGetData(rewritten) == nil)
+
+        let destination = try F2Fixtures.outputDirectory("f15").appendingPathComponent("bipro-t072-sqlite.pbix")
+        try? FileManager.default.removeItem(at: destination)
+        #expect(try DocumentSaver.saveUntitled(editor: state.layout, source: untitled, to: destination, readOnlyRoots: [],
+                                               backupDirectory: root.appendingPathComponent("Backups")).didWrite)
+        let reopened = try Workspace(data: Data(contentsOf: destination))
+        let saved = try #require(reopened.metadata)
+        #expect(saved.partitionQueries["Customers"]?.contains(#"Driver={Devart ODBC Driver for SQLite};Database=C:\Users\bacpew\f15\sales_2026.sqlite"#) == true)
+        #expect(saved.partitionQueries["Sales"]?.contains(#"Driver={Devart ODBC Driver for SQLite};Database=C:\Users\bacpew\f15\sales_2026.sqlite"#) == true)
     }
 }

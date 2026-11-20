@@ -23,9 +23,9 @@ import Testing
         let table = try VertiPaqWriter.encodeTable(name: "T", tableID: 1001, partitionID: 1002, rowNumberID: 1003,
                                                    columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))], segmentSize: n)
         #expect(table.segmentRecords == [n, n / 2])
-        // Mặc định bộ ghi ghi một đoạn (gate VM-F14: nhiều đoạn chưa được Desktop nhận).
+        // Mặc định bộ ghi cắt nhiều đoạn theo `recordsPerSegment` như Desktop (T067).
         #expect(try VertiPaqWriter.encodeTable(name: "T", tableID: 1001, partitionID: 1002, rowNumberID: 1003,
-                                               columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))]).segmentCount == 1)
+                                               columns: [.init(id: 1004, name: "A", values: .int64([Int64?](repeating: 1, count: rows)))]).segmentCount == 2)
         #expect(table.segmentCount == 2 && table.recordsPerSegment == n)
     }
 

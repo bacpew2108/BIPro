@@ -9,8 +9,8 @@ Máy: MacBook Pro M-series, macOS 15 (Darwin 24.6). Bản release (`-c release -
 | Tài liệu mới + `big_10m.parquet` (10 triệu dòng × 10 cột, 2 đoạn 8 388 608 + 1 611 392) + bảng `Khach` (quan hệ tự phát hiện) + cột tính toán `Thanh tien` | 16,2 s | 78,7 s | 473 MB | 2 314 MB | mở lại: `COUNTROWS`, `SUM`, `DISTINCTCOUNT`, lọc qua quan hệ, cột tính toán trùng nguồn |
 | `repeat_1m.csv` (1 triệu dòng × 5 cột) | | 3,3 s | 27 431 949 byte | | `Batch` 100 run RLE; số dòng, đếm khác nhau, tổng `Flag` đúng |
 
-- SC-007 (lưu < 2 phút, bộ nhớ < 4 GB): đạt. Lần đo sau khi đổi sang một đoạn (gate VM-F14): lưu 82,2 s, 474 MB, đỉnh 1 902 MB.
-- SC-006 (cỡ tệp `repeat_1m` ≤ 125 % Desktop): **chưa đạt**. Desktop ước lượng khoảng 6,7 MB phần dữ liệu (DMV, `vm-f14/QUAN-SAT.md`), BI Pro 27,4 MB: Desktop mã hoá VALUE cho `ID`, `Value` và sắp lại dòng. Cột `Value` (1 triệu số ngẫu nhiên) chiếm phần lớn tệp; RLE chỉ giúp cột lặp liền nhau vì BI Pro giữ thứ tự dòng nguồn (Desktop sắp lại dòng, `[SUY ĐOÁN]` chưa làm).
+- SC-007 (lưu < 2 phút, bộ nhớ < 4 GB): đạt. Lần đo sau khi đổi sang một đoạn (gate VM-F14): lưu 82,2 s, 474 MB, đỉnh 1 902 MB. **Cập nhật 2026-11-20 (T067, bật lại nhiều đoạn 2^20 + RowNumber C123):** `big_10m` (10 đoạn) tải 14,3 s, lưu **99,8 s**, tệp **423 MB**, bộ nhớ đỉnh **1 545 MB** (< 4 GB, < 120 s); Desktop mở không lỗi DBCC.
+- SC-006 (cỡ tệp `repeat_1m` ≤ 125 % Desktop): **ĐẠT (2026-11-20, T069)**. Tệp thật `f14-rle-desktop.pbix` do Desktop lưu nặng **27 326 985 byte** (gồm hai tệp `.hidx` 16,8 MB + 17,1 MB mà ước lượng DMV trước đó bỏ sót). Tệp `bipro-f14-rle.pbix` của BI Pro (sau khi nén RowNumber theo C123) lưu 3,4 s, nặng **24 724 908 byte** (**90,5 %** cỡ Desktop — nhỏ hơn cả Desktop).
 
 ## Mã hoá RLE so với Desktop (T056)
 

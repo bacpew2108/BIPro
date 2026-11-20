@@ -15,3 +15,6 @@ Buổi 2026-11-19, Desktop 2.159 trên VM. Mở tệp bằng `prlctl exec explor
    - phân cấp `Địa lý` (MDX tầng 3) có đủ 77 lá mang nhãn mới.
 
 Chưa so với tệp Desktop tự làm cùng thao tác qua giao diện (buổi này không bấm trong VM).
+
+## Bổ sung 2026-11-20 (T071)
+Đã bấm thử trực tiếp trong giao diện Desktop trên `bipro-f13-sua.pbix`: xoá `Sales[Nhóm]` qua **Delete from model** → hộp thoại `Delete column` (`Are you sure you want to delete 'Nhóm'?`) → bấm **Yes** cho trạng thái mô hình (cột, quan hệ, phân cấp `Vùng nhóm` còn cấp `Vùng`, `Nhãn` bỏ `SortByColumn`) khớp 100 % với `bipro-f13-xoa.pbix` của BI Pro. Ảnh đã cắt che thanh tài khoản: `p1-hop-thoai-xoa.png`, `p2-sau-khi-xoa.png`. **SC-004 ĐẠT đầy đủ.**

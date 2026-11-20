@@ -28,18 +28,19 @@ public enum VertiPaqWriter {
     /// `[SUY ĐOÁN]` ngưỡng gộp là 1/8 đoạn (`tailMergeLimit`).
     public static let recordsPerSegment = 1_048_576
     static var tailMergeLimit: Int { recordsPerSegment / 8 }
-    /// Cỡ đoạn bộ ghi dùng cho bảng mới: **một đoạn** (gate VM-F14, 2026-11-19: tệp 2,5 triệu dòng ghi ba đoạn bị Desktop báo DBCC hỏng, ghi một
-    /// đoạn thì mở được và số đúng). Bố cục byte của nhiều đoạn chưa có mẫu Desktop để so; `recordsPerSegment` giữ cỡ Desktop dùng.
-    nonisolated(unsafe) public static var segmentSizeForNewTables = Int.max
+    /// Cỡ đoạn bộ ghi dùng cho bảng mới: 2^20 như Desktop (T067: đối chiếu `f14-mid-desktop.pbix` cho thấy lỗi DBCC trước đây do
+    /// `SegmentMapStorage.Type` ghi 3 thay vì 1 cho bảng nhiều đoạn).
+    nonisolated(unsafe) public static var segmentSizeForNewTables = recordsPerSegment
 
-    /// Số dòng từng đoạn khi cắt `rows` dòng theo `segmentSize` (phần lẻ ≤ 1/8 đoạn gộp vào đoạn trước).
+    /// Số dòng từng đoạn khi cắt `rows` dòng theo `segmentSize`. Phần lẻ nhỏ (≤ 1/8 đoạn) chỉ gộp khi bảng còn một đoạn duy nhất
+    /// (Nhom6 `Fact Transaction` 1 056 320 dòng, `SegmentMapStorage.Type = 3`); bảng nhiều đoạn (`Type = 1`) cắt đúng theo `segmentSize`
+    /// để mọi đoạn không vượt `RecordsPerSegment`.
     static func segmentLayout(rows: Int, segmentSize: Int) -> [Int] {
         guard rows > segmentSize else { return [rows] }
+        if rows <= segmentSize + segmentSize / 8 { return [rows] }
         var sizes = Array(repeating: segmentSize, count: rows / segmentSize)
         let tail = rows % segmentSize
-        if tail > 0 {
-            if tail <= segmentSize / 8 { sizes[sizes.count - 1] += tail } else { sizes.append(tail) }
-        }
+        if tail > 0 { sizes.append(tail) }
         return sizes
     }
 
@@ -214,7 +215,8 @@ public enum VertiPaqWriter {
     /// IDs repeat, a string contains a NUL, or a bit width above 32 would be needed.
     public static func encodeTable(name: String, tableID: Int, partitionID: Int, rowNumberID: Int,
                                    rowNumberGUID: UUID = rowNumberColumnGUID, columns: [ColumnInput],
-                                   segmentSize: Int = segmentSizeForNewTables) throws -> EncodedTable {
+                                   segmentSize: Int = segmentSizeForNewTables,
+                                   segmentRecords: [Int]? = nil) throws -> EncodedTable {
         guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid("tên bảng rỗng hoặc có ký tự NUL") }
         guard let first = columns.first else { throw WriteError.invalid("bảng «\(name)» không có cột nào") }
         let rowCount = first.values.count
@@ -241,9 +243,8 @@ public enum VertiPaqWriter {
         let rowNumberName = "RowNumber " + rowNumberGUID.uuidString.replacingOccurrences(of: "-", with: " ")
         var encoded: [EncodedColumn] = []
 
-        // RowNumber: value i is data ID i + 3, value encoded (BaseId -3).
-        let rowIDs = (0..<rowCount).map { Int64($0 + firstDataID) }
-        let rowSegment = try encodeSegment(ids: rowIDs, dictionaryCount: rowCount, segmentSize: segmentSize)
+        // RowNumber: value i is data ID i + 3, value encoded (BaseId -3). Desktop encodes it as identity C123 (sub 703067, 144 B/segment).
+        let rowSegment = try encodeRowNumberSegment(rowCount: rowCount, segmentSize: segmentSize, segmentRecords: segmentRecords)
         encoded.append(EncodedColumn(
             kind: .rowNumber, id: rowNumberID,
             explicitName: "RowNumber-" + rowNumberGUID.uuidString,
@@ -263,7 +264,7 @@ public enum VertiPaqWriter {
             let dictionaryName = "0.\(name) (\(tableID)).\(storageName).dictionary"
             let segmentBase = "0.\(name) (\(tableID)).\(storageName).0"
             let dictionary = try encodeDictionary(column.values)
-            let segment = try encodeSegment(ids: dictionary.ids, dictionaryCount: dictionary.count, segmentSize: segmentSize)
+            let segment = try encodeSegment(ids: dictionary.ids, dictionaryCount: dictionary.count, segmentSize: segmentSize, segmentRecords: segmentRecords)
             let (minText, maxText, maxLength) = textStatistics(column.values)
             encoded.append(EncodedColumn(
                 kind: .data, id: column.id, explicitName: column.name, storageName: storageName,
@@ -450,17 +451,22 @@ public enum VertiPaqWriter {
     ///
     /// `[SUY ĐOÁN]` (VM-F14 chưa quan sát): Desktop reorders rows to lengthen runs; BI Pro keeps the source order. Facet `a` (11–23 in
     /// Desktop's files, rule unknown, ignored by the decoder) stays `min(rows, 13)` as before.
-    static func encodeSegment(ids: [Int64], dictionaryCount: Int, segmentSize: Int = recordsPerSegment) throws -> SegmentResult {
+    static func encodeSegment(ids: [Int64], dictionaryCount: Int, segmentSize: Int = recordsPerSegment,
+                              segmentRecords: [Int]? = nil) throws -> SegmentResult {
         guard ids.count <= Int(UInt32.max) * 4, ids.allSatisfy({ $0 >= 0 && $0 <= Int64(UInt32.max) }) else {
             throw WriteError.invalid("đoạn dữ liệu \(ids.count) dòng có mã vượt quá 32 bit, chưa lưu được")
         }
         guard segmentSize > 0 else { throw WriteError.invalid("cỡ đoạn dữ liệu phải lớn hơn 0") }
+        let sizes = segmentRecords ?? segmentLayout(rows: ids.count, segmentSize: segmentSize)
+        guard sizes.allSatisfy({ $0 > 0 }), sizes.reduce(0, +) == ids.count else {
+            throw WriteError.invalid("bố cục đoạn dữ liệu không khớp tổng số dòng \(ids.count)")
+        }
         var idf = VertiPaqByteWriter()
         var blocks: [(meta: VertiPaqByteWriter, start: Int, runTableSize: Int, words: Int)] = []
         var minAll = Int.max, maxAll = Int.min, originalMin = Int.max, widest = 1, rleTotal = 0, packedTotal = 0
         var records: [Int] = []
         var start = 0
-        for size in segmentLayout(rows: ids.count, segmentSize: segmentSize) {
+        for size in sizes {
             let end = start + size
             let segment = ids[start..<end]
             let fileOffset = idf.data.count
@@ -492,6 +498,73 @@ public enum VertiPaqWriter {
         return SegmentResult(idf: idf.data, idfmeta: meta.data, minDataID: minAll == .max ? firstDataID : minAll,
                              maxDataID: maxAll == .min ? firstDataID : maxAll, originalMinDataID: originalMin == .max ? firstDataID : originalMin,
                              bitWidth: widest, rleRuns: rleTotal, bitPackedRuns: packedTotal, segmentRecords: records)
+    }
+
+    /// Mã hoá cột RowNumber như Desktop (`f14-mid-desktop.pbix`, khớp từng byte): nén đồng nhất `C123` (lớp phụ 703067),
+    /// mỗi đoạn 144 byte (bảng 16 run với một mục `(0xFFFFFFFF, records)`, 0 từ bit-packing).
+    static func encodeRowNumberSegment(rowCount: Int, segmentSize: Int = recordsPerSegment,
+                                       segmentRecords: [Int]? = nil) throws -> SegmentResult {
+        guard segmentSize > 0 else { throw WriteError.invalid("cỡ đoạn dữ liệu phải lớn hơn 0") }
+        guard rowCount > 0, rowCount + firstDataID - 1 <= Int(UInt32.max) else {
+            throw WriteError.invalid("bảng \(rowCount) dòng vượt quá mã RowNumber 32 bit")
+        }
+        let sizes = segmentRecords ?? segmentLayout(rows: rowCount, segmentSize: segmentSize)
+        guard sizes.allSatisfy({ $0 > 0 }), sizes.reduce(0, +) == rowCount else {
+            throw WriteError.invalid("bố cục đoạn RowNumber không khớp tổng số dòng \(rowCount)")
+        }
+        var idf = VertiPaqByteWriter()
+        var meta = VertiPaqByteWriter()
+        meta.tag("<1:CP")
+        meta.u64(UInt64(sizes.count))
+        var offsets: [Int] = []
+        var firstVal = firstDataID
+        for records in sizes {
+            offsets.append(idf.data.count)
+            idf.u64(UInt64(runTableSize))
+            idf.u32(0xFFFF_FFFF); idf.u32(UInt32(records))
+            for _ in 1..<runTableSize { idf.u32(0); idf.u32(0) }
+            idf.u64(0)
+
+            let lastVal = firstVal + records - 1
+            meta.tag("<1:CS")
+            meta.u64(UInt64(records))
+            meta.u64(0)                      // base segment id = 0 cho RowNumber (Desktop)
+            meta.u32(0xABA5A)
+            meta.u32(703_067)                // C123 identity RowNumber
+            meta.u64(24); meta.u64(UInt64(2 * runTableSize)); meta.u64(2); meta.u8(0)
+            meta.u32(UInt32(firstVal))
+            meta.tag("<1:SS")
+            meta.u64(0)
+            meta.u32(UInt32(firstVal))
+            meta.u32(UInt32(lastVal))
+            meta.u32(UInt32(nullDataID))
+            meta.u64(UInt64.max)
+            meta.u64(UInt64(records))
+            meta.u8(0)
+            meta.u64(0); meta.u64(0)
+            meta.tag("SS:1>")
+            meta.u8(1)
+            meta.tag("<1:CS")
+            meta.u64(UInt64(records))
+            meta.u64(0)
+            meta.u8(0)
+            meta.tag("CS:1>")
+            meta.tag("CS:1>")
+            firstVal = lastVal + 1
+        }
+        meta.tag("CP:1>")
+        meta.tag("<1:SDOs")
+        for start in offsets {
+            meta.tag("<1:CSDOs")
+            meta.u64(UInt64(start)); meta.u64(UInt64(runTableSize))
+            meta.tag("<1:CSDOs")
+            meta.u64(UInt64(start + 8 + 8 * runTableSize)); meta.u64(0)
+            meta.tag("CSDOs:1>")
+            meta.tag("CSDOs:1>")
+        }
+        meta.tag("SDOs:1>")
+        return SegmentResult(idf: idf.data, idfmeta: meta.data, minDataID: firstDataID, maxDataID: firstDataID + rowCount - 1,
+                             originalMinDataID: firstDataID, bitWidth: 0, rleRuns: 0, bitPackedRuns: 0, segmentRecords: sizes)
     }
 
     /// Shortest run Desktop stores as an RLE entry: the shortest RLE runs in Desktop's files are 64–66 values (Nhom6 `account key`,

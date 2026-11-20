@@ -64,6 +64,9 @@ import Testing
         for column in table.columns {
             #expect(try VertiPaq.parseIDFMeta(column.idfmeta.data, file: "m").count == 3, "\(column.storageName)")
         }
+        // RowNumber nén C123 như Desktop: 144 byte mỗi đoạn, 720 byte meta cho 3 đoạn.
+        #expect(table.columns[0].idf.data.count == 3 * 144)
+        #expect(table.columns[0].idfmeta.data.count == 720)
         #expect(table.columns[1].rleRuns > 0)
     }
 
@@ -104,8 +107,9 @@ import Testing
             ids[i] = i % 1_000 == 7 ? nil : Int64(i)
             regions[i] = names[(i / 100_000) % 4]
         }
+        let saved = VertiPaqWriter.segmentSizeForNewTables
         VertiPaqWriter.segmentSizeForNewTables = VertiPaqWriter.recordsPerSegment
-        defer { VertiPaqWriter.segmentSizeForNewTables = Int.max }
+        defer { VertiPaqWriter.segmentSizeForNewTables = saved }
         var changes = PBIXChanges()
         changes.modelEdits.append(.addTable(NewTable(name: "Lon", columns: [NewTableColumn(name: "ID", values: .int64(ids)),
                                                                            NewTableColumn(name: "Vùng", values: .string(regions))])))
@@ -121,11 +125,11 @@ import Testing
         }
         let db = try TableMetadataDatabase(bytes: try abf.contents(named: "metadata.sqlitedb"))
         let map = try db.strings("""
-            SELECT sm.SegmentCount || '/' || sm.RecordsPerSegment || '/' || sm.RecordCount FROM SegmentMapStorage sm
+            SELECT sm.Type || '/' || sm.SegmentCount || '/' || sm.RecordsPerSegment || '/' || sm.RecordCount FROM SegmentMapStorage sm
             JOIN PartitionStorage ps ON ps.SegmentMapStorageID = sm.ID JOIN Partition p ON p.PartitionStorageID = ps.ID
             JOIN [Table] t ON t.ID = p.TableID WHERE t.Name = 'Lon'
             """)
-        #expect(map == ["3/\(VertiPaqWriter.recordsPerSegment)/\(rows)"])
+        #expect(map == ["1/3/\(VertiPaqWriter.recordsPerSegment)/\(rows)"])
     }
 }
 
@@ -135,8 +139,9 @@ extension VertiPaqSegmentTests {
                    && FileManager.default.fileExists(atPath: DesktopGolden.path.path)))
     func cotTinhToanTrenBangHaiDoan() throws {
         let rows = VertiPaqWriter.recordsPerSegment * 5 / 2
+        let saved = VertiPaqWriter.segmentSizeForNewTables
         VertiPaqWriter.segmentSizeForNewTables = VertiPaqWriter.recordsPerSegment
-        defer { VertiPaqWriter.segmentSizeForNewTables = Int.max }
+        defer { VertiPaqWriter.segmentSizeForNewTables = saved }
         var first = PBIXChanges()
         first.modelEdits.append(.addTable(NewTable(name: "Lon", columns: [NewTableColumn(name: "ID", values: .int64((0..<rows).map { Int64($0) }))])))
         let staged = FileManager.default.temporaryDirectory.appendingPathComponent("seg-\(UUID().uuidString).pbix")
