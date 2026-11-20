@@ -52,7 +52,8 @@ struct CodeEditor: NSViewRepresentable {
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.font = Coordinator.font
         textView.textColor = Coordinator.plain
-        textView.backgroundColor = .white
+        textView.backgroundColor = Coordinator.editorBackground
+        textView.insertionPointColor = NSColor.labelColor
         textView.textContainerInset = NSSize(width: 8, height: 10)
         textView.delegate = context.coordinator
         textView.string = text
@@ -79,7 +80,7 @@ struct CodeEditor: NSViewRepresentable {
         scroll.hasVerticalRuler = true
         scroll.rulersVisible = true
         scroll.drawsBackground = true
-        scroll.backgroundColor = .white
+        scroll.backgroundColor = Coordinator.editorBackground
         // macOS 14+ no longer clips views by default; keep the gutter inside the editor.
         scroll.clipsToBounds = true
         ruler.clipsToBounds = true
@@ -133,14 +134,28 @@ struct CodeEditor: NSViewRepresentable {
 
         init(_ parent: CodeEditor) { self.parent = parent }
 
+        static func dynamicNS(light: NSColor, dark: NSColor) -> NSColor {
+            NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            }
+        }
+
         static let font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
-        static let plain = NSColor(srgbRed: 0.11, green: 0.11, blue: 0.12, alpha: 1)
-        static let keyword = NSColor(srgbRed: 0.0, green: 0.35, blue: 0.70, alpha: 1)      // #005AB3
-        static let function = NSColor(srgbRed: 0.29, green: 0.28, blue: 0.82, alpha: 1)    // indigo
-        static let string = NSColor(srgbRed: 0.10, green: 0.50, blue: 0.24, alpha: 1)
-        static let table = NSColor(srgbRed: 0.60, green: 0.25, blue: 0.0, alpha: 1)        // tertiary
-        static let comment = NSColor(srgbRed: 0.56, green: 0.56, blue: 0.58, alpha: 1)
-        static let number = NSColor(srgbRed: 0.75, green: 0.33, blue: 0.0, alpha: 1)
+        static let editorBackground = dynamicNS(light: .white, dark: NSColor(srgbRed: 0.145, green: 0.145, blue: 0.155, alpha: 1))
+        static let plain = dynamicNS(light: NSColor(srgbRed: 0.11, green: 0.11, blue: 0.12, alpha: 1),
+                                     dark: NSColor(srgbRed: 0.93, green: 0.93, blue: 0.95, alpha: 1))
+        static let keyword = dynamicNS(light: NSColor(srgbRed: 0.0, green: 0.35, blue: 0.70, alpha: 1),
+                                       dark: NSColor(srgbRed: 0.35, green: 0.68, blue: 1.0, alpha: 1))
+        static let function = dynamicNS(light: NSColor(srgbRed: 0.29, green: 0.28, blue: 0.82, alpha: 1),
+                                        dark: NSColor(srgbRed: 0.64, green: 0.62, blue: 1.0, alpha: 1))
+        static let string = dynamicNS(light: NSColor(srgbRed: 0.10, green: 0.50, blue: 0.24, alpha: 1),
+                                      dark: NSColor(srgbRed: 0.42, green: 0.84, blue: 0.55, alpha: 1))
+        static let table = dynamicNS(light: NSColor(srgbRed: 0.60, green: 0.25, blue: 0.0, alpha: 1),
+                                     dark: NSColor(srgbRed: 1.0, green: 0.68, blue: 0.38, alpha: 1))
+        static let comment = dynamicNS(light: NSColor(srgbRed: 0.56, green: 0.56, blue: 0.58, alpha: 1),
+                                       dark: NSColor(srgbRed: 0.52, green: 0.52, blue: 0.56, alpha: 1))
+        static let number = dynamicNS(light: NSColor(srgbRed: 0.75, green: 0.33, blue: 0.0, alpha: 1),
+                                      dark: NSColor(srgbRed: 1.0, green: 0.65, blue: 0.30, alpha: 1))
 
         @objc func handleScroll() {
             completionPopup?.hide()
@@ -334,7 +349,7 @@ struct CodeEditor: NSViewRepresentable {
             let popover = NSPopover()
             popover.behavior = .transient
             popover.animates = true
-            popover.appearance = NSAppearance(named: .aqua)
+            popover.appearance = AppPreferences.shared.nsAppearance
             let hosting = NSHostingController(rootView: ErrorTooltipView(message: message))
             popover.contentViewController = hosting
             popover.show(relativeTo: rect, of: textView, preferredEdge: .maxY)
@@ -353,8 +368,7 @@ struct CodeEditor: NSViewRepresentable {
             let popover = NSPopover()
             popover.behavior = .transient
             popover.animates = true
-            // Luôn sáng như Power BI (O14); mặc định NSPopover có nền mờ tối theo vibrancy, khó đọc.
-            popover.appearance = NSAppearance(named: .aqua)
+            popover.appearance = AppPreferences.shared.nsAppearance
             let hosting = NSHostingController(rootView: MeasureTooltipView(measure: measure))
             popover.contentViewController = hosting
             popover.show(relativeTo: rect, of: textView, preferredEdge: .maxY)
@@ -476,11 +490,12 @@ final class LineNumberRuler: NSRulerView {
 
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard let textView, let layout = textView.layoutManager, let container = textView.textContainer else { return }
-        NSColor(srgbRed: 0.965, green: 0.965, blue: 0.97, alpha: 1).setFill()
+        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        (isDark ? NSColor(srgbRed: 0.17, green: 0.17, blue: 0.18, alpha: 1) : NSColor(srgbRed: 0.965, green: 0.965, blue: 0.97, alpha: 1)).setFill()
         bounds.fill()
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular),
-            .foregroundColor: NSColor(srgbRed: 0.56, green: 0.56, blue: 0.58, alpha: 1),
+            .foregroundColor: isDark ? NSColor(srgbRed: 0.56, green: 0.56, blue: 0.60, alpha: 1) : NSColor(srgbRed: 0.56, green: 0.56, blue: 0.58, alpha: 1),
         ]
         let text = textView.string as NSString
         let visible = textView.visibleRect
@@ -516,18 +531,17 @@ final class LineNumberRuler: NSRulerView {
 struct ErrorTooltipView: View {
     let message: String
 
-    private static let headerFill = Color(red: 0.98, green: 0.94, blue: 0.94)
-    private static let ink = Color(red: 0.14, green: 0.14, blue: 0.14)
+    private static let headerFill = Color.dynamic(light: 0xFAEFEF, dark: 0x3D1F21)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.red)
+                    .foregroundStyle(DS.Palette.danger)
                 Text("Lỗi")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.red)
+                    .foregroundStyle(DS.Palette.danger)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -536,54 +550,47 @@ struct ErrorTooltipView: View {
 
             Text(message)
                 .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(Self.ink)
+                .foregroundStyle(DS.Palette.label)
                 .lineLimit(8)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white)
+                .background(DS.Palette.canvas)
         }
         .frame(minWidth: 180, maxWidth: 480, alignment: .leading)
-        .background(Color.white)
-        .environment(\.colorScheme, .light)
+        .background(DS.Palette.canvas)
     }
 }
 
-/// Tooltip khi rê chuột lên measure, theo Power BI (O14): dải tiêu đề xám nhạt "Measure <tên>",
-/// bên dưới là biểu thức DAX trên nền trắng, chữ đậm màu.
+/// Tooltip khi rê chuột lên measure, theo Power BI (O14).
 struct MeasureTooltipView: View {
     let measure: ModelMetadata.Measure
-
-    private static let headerFill = Color(red: 0.95, green: 0.95, blue: 0.95)
-    private static let kindText = Color(red: 0.38, green: 0.37, blue: 0.36)
-    private static let ink = Color(red: 0.14, green: 0.14, blue: 0.14)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text("Measure").font(.system(size: 12, weight: .semibold)).foregroundStyle(Self.kindText)
-                Text(measure.name).font(.system(size: 12)).foregroundStyle(Self.ink)
+                Text("Measure").font(.system(size: 12, weight: .semibold)).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(measure.name).font(.system(size: 12)).foregroundStyle(DS.Palette.label)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Self.headerFill)
+            .background(DS.Palette.chrome)
             let expression = measure.expression.trimmingCharacters(in: .whitespacesAndNewlines)
             if !expression.isEmpty {
                 Text(expression)
                     .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Self.ink)
+                    .foregroundStyle(DS.Palette.label)
                     .lineLimit(12)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white)
+                    .background(DS.Palette.canvas)
             }
         }
         .frame(minWidth: 180, maxWidth: 480, alignment: .leading)
-        .background(Color.white)
-        .environment(\.colorScheme, .light)
+        .background(DS.Palette.canvas)
     }
 }

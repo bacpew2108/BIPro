@@ -431,8 +431,7 @@ struct ColumnFilterPopoverView: View {
         }
         .padding(10)
         .frame(width: 240)
-        .background(Color.white)
-        .environment(\.colorScheme, .light)
+        .background(DS.Palette.canvas)
     }
 }
 
@@ -601,8 +600,7 @@ struct ResultGrid: NSViewRepresentable {
             pop.contentViewController = hosting
             pop.behavior = .transient
             pop.animates = true
-            // Nền sáng như Power BI (O13); mặc định NSPopover theo vibrancy nên nền xám tối, khó đọc.
-            pop.appearance = NSAppearance(named: .aqua)
+            pop.appearance = headerView.effectiveAppearance
             self.popover = pop
             // Popover hiện ngay dưới icon
             pop.show(relativeTo: iconRect, of: headerView, preferredEdge: .maxY)

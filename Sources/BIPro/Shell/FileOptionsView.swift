@@ -14,34 +14,32 @@ struct FileOptionsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Tuỳ chọn tệp").font(DS.Typeface.headlineMedium)
+            Text(tr(.fileOptionsTitle)).font(DS.Typeface.headlineMedium).foregroundStyle(DS.Palette.label)
             section("Trí tuệ thời gian") {
-                Toggle("Tự động ngày/giờ", isOn: $options.autoDateTime)
+                Toggle(tr(.autoDateTimeLabel), isOn: $options.autoDateTime)
                     .disabled(autoDateTimeBlocker != nil)
                     .help(autoDateTimeBlocker ?? "Mỗi cột ngày có một bảng ngày ẩn và phân cấp Năm, Quý, Tháng, Ngày.")
                 if let autoDateTimeBlocker { note(autoDateTimeBlocker) }
             }
             section("Quan hệ") {
-                Toggle("Tự phát hiện quan hệ mới sau khi nạp dữ liệu", isOn: $options.autodetectRelationships)
+                Toggle(tr(.autoDetectRelLabel), isOn: $options.autodetectRelationships)
             }
             if let message { note(message, color: DS.Palette.danger) }
             HStack {
                 Spacer()
-                Button("OK") {
+                Button(tr(.ok)) {
                     if let refusal = onCommit(options) { message = refusal } else { onCancel() }
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .keyboardShortcut(.defaultAction)
-                Button("Huỷ", role: .cancel) { onCancel() }
+                Button(tr(.cancel), role: .cancel) { onCancel() }
                     .buttonStyle(SecondaryButtonStyle())
                     .keyboardShortcut(.cancelAction)
             }
         }
         .padding(24)
         .frame(width: 460)
-        // Nền trắng như hộp Tạo bảng: không đặt thì sheet theo giao diện tối của hệ thống, chữ tối trên nền tối (T038).
-        .background(Color.white)
-        .environment(\.colorScheme, .light)
+        .background(DS.Palette.canvas)
     }
 
     private func section(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {

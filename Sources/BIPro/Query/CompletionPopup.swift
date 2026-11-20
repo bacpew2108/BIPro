@@ -107,7 +107,7 @@ final class CompletionPopupController {
             defer: false
         )
         panel.isReleasedWhenClosed = false   // giữ bằng tham chiếu mạnh; AppKit không được tự release
-        panel.appearance = NSAppearance(named: .aqua)
+        panel.appearance = AppPreferences.shared.nsAppearance
         panel.isFloatingPanel = true
         panel.level = .popUpMenu
         panel.hasShadow = true
@@ -149,14 +149,14 @@ struct CompletionListView: View {
 
                             Text(item.label)
                                 .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(Color(red: 0.12, green: 0.12, blue: 0.13))
+                                .foregroundStyle(DS.Palette.label)
 
                             Spacer()
 
                             if let detail = item.detail, !detail.isEmpty {
                                 Text(detail)
                                     .font(.system(size: 11))
-                                    .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
+                                    .foregroundStyle(DS.Palette.secondaryLabel)
                                     .lineLimit(1)
                             }
                         }
@@ -179,10 +179,9 @@ struct CompletionListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.black.opacity(0.18), lineWidth: 1))
-        .environment(\.colorScheme, .light)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(DS.Palette.separator, lineWidth: 1))
     }
 
     private func kindIcon(_ kind: CompletionItemKind) -> Image {

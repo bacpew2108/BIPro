@@ -26,7 +26,7 @@ struct NavigatorPreviewGrid: View {
                 .clipped()
         }
         .frame(width: 675, height: 518)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     // MARK: - Subheader (44 pt)
@@ -63,7 +63,7 @@ struct NavigatorPreviewGrid: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 44)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private func previewSubtitle(rowCount: Int, hint: Int?) -> String {
@@ -190,7 +190,7 @@ struct NavigatorPreviewGrid: View {
                         .font(DS.Typeface.mono)
                         .foregroundStyle(DS.Palette.tertiaryLabel)
                         .frame(width: 40, height: 28)
-                        .background(isOdd ? DS.Palette.chrome.opacity(0.3) : Color.white)
+                        .background(isOdd ? DS.Palette.chrome.opacity(0.3) : DS.Palette.canvas)
                         .hairline(.trailing)
 
                     // Columns
@@ -222,7 +222,7 @@ struct NavigatorPreviewGrid: View {
                         }
                         .padding(.horizontal, 6)
                         .frame(width: 140, height: 28)
-                        .background(isOdd ? DS.Palette.chrome.opacity(0.3) : Color.white)
+                        .background(isOdd ? DS.Palette.chrome.opacity(0.3) : DS.Palette.canvas)
                         .hairline(.trailing)
                     }
                 }

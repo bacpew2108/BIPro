@@ -35,7 +35,7 @@ struct DatabaseConnectView: View {
                 .hairline(.top)
         }
         .frame(width: 560)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.large))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.large).strokeBorder(DS.Palette.separator, lineWidth: 1))
     }

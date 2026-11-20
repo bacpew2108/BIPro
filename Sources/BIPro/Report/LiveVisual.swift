@@ -12,6 +12,12 @@ struct LiveVisualView: View {
     let visual: ReportVisual
     let interaction: ReportInteraction
     let navigate: (String) -> Void
+    /// Dữ liệu đã nạp sẵn (dùng cho kết xuất tĩnh PNG/PDF — Phase G). Khi khác `nil`, không chạy `.task` bất đồng bộ.
+    var preloaded: LiveVisualData? = nil
+    /// `true` khi kết xuất tĩnh: tắt overlay AppKit, nút drill, tooltip và menu ngữ cảnh.
+    var isExporting: Bool = false
+    /// Gọi khi người dùng chọn "Xuất dữ liệu ra CSV…" trong menu chuột phải của visual.
+    var onExportCSV: ((DataView) -> Void)? = nil
 
     private enum Phase {
         case loading
@@ -30,12 +36,16 @@ struct LiveVisualView: View {
 
     var body: some View {
         let state = interaction.state(for: page)
-        let key = LoadKey(visualType: visual.type, query: visual.raw["visual"]?["query"], state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.effectiveUserFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
-                         removed: interaction.effectiveRemovedFilters.filter { ["", page.id, visual.id].contains($0.scope) }, modelVersion: interaction.modelVersion)
-        ZStack {
-            content(state: state)
+        if let preloaded {
+            rendered(preloaded, state: state)
+        } else {
+            let key = LoadKey(visualType: visual.type, query: visual.raw["visual"]?["query"], state: state, depth: interaction.depth(of: visual), expansion: interaction.slicerExpansion[visual.id] ?? [], matrixExpansion: interaction.matrixExpansion[visual.id] ?? [], userFilters: interaction.effectiveUserFilters.filter { ["", page.id, visual.id].contains($0.key.scope) },
+                             removed: interaction.effectiveRemovedFilters.filter { ["", page.id, visual.id].contains($0.scope) }, modelVersion: interaction.modelVersion)
+            ZStack {
+                content(state: state)
+            }
+            .task(id: key) { await load(state) }
         }
-        .task(id: key) { await load(state) }
     }
 
     @ViewBuilder
@@ -91,8 +101,8 @@ struct LiveVisualView: View {
         let context = renderContext(data, state: state)
         ZStack(alignment: .topLeading) {
             renderedBody(data.view, context: context)
-            if data.spec.drillLevels.count > 1 { drillControls(data.spec) }
-            if menu == nil, let hover, let point = hover.point, case .categorical(let categorical) = data.view {
+            if !isExporting && data.spec.drillLevels.count > 1 { drillControls(data.spec) }
+            if !isExporting && menu == nil, let hover, let point = hover.point, case .categorical(let categorical) = data.view {
                 let rows = VisualTooltip.rows(for: point, in: categorical)
                 if !rows.isEmpty {
                     // Gần mép phải hoặc dưới thì tooltip lật sang trái hoặc lên trên để không bị cắt, như Power BI.
@@ -109,7 +119,7 @@ struct LiveVisualView: View {
                     .allowsHitTesting(false)
                 }
             }
-            if let menu { contextMenu(menu, spec: data.spec) }
+            if !isExporting, let menu { contextMenu(menu, spec: data.spec, view: data.view) }
         }
     }
 
@@ -125,7 +135,7 @@ struct LiveVisualView: View {
         case .slicer(let slicer):
             DropdownSlicerView(data: slicer, title: nil, context: context)
         case .matrix(let matrix):
-            MatrixVisualView(data: matrix, context: context)
+            MatrixVisualView(data: matrix, context: context, scrollable: !isExporting)
         case .categorical(let categorical):
             categoricalView(categorical, context: context)
         }
@@ -133,26 +143,27 @@ struct LiveVisualView: View {
 
     @ViewBuilder
     private func categoricalView(_ data: CategoricalData, context: VisualRenderContext) -> some View {
+        let interactive = !isExporting
         switch visual.type {
         case "donutChart", "pieChart":
-            DonutChartView(data: data, context: context)
+            DonutChartView(data: data, context: context, interactive: interactive)
         case "treemap":
-            TreemapView(data: data, context: context)
+            TreemapView(data: data, context: context, interactive: interactive)
         case "waterfallChart":
-            WaterfallChartView(data: data, context: context)
+            WaterfallChartView(data: data, context: context, interactive: interactive)
         case "funnel":
-            FunnelChartView(data: data, context: context)
+            FunnelChartView(data: data, context: context, interactive: interactive)
         case "ribbonChart":
-            RibbonChartView(data: data, context: context)
+            RibbonChartView(data: data, context: context, interactive: interactive)
         case "shapeMap":
             if let map = interaction.shapeMap() {
-                ShapeMapView(data: data, map: map, context: context)
+                ShapeMapView(data: data, map: map, context: context, interactive: interactive)
             } else {
                 placeholder
             }
         default:
             if let kind = CartesianKind(visualType: visual.type) {
-                CartesianChartView(data: data, kind: kind, context: context)
+                CartesianChartView(data: data, kind: kind, context: context, interactive: interactive)
             } else {
                 placeholder
             }
@@ -198,10 +209,11 @@ struct LiveVisualView: View {
         return VisualRenderContext(
             theme: workspace.theme,
             format: VisualFormat(objects: visual.objects),
-            selection: state.selection.points(forVisual: visual.id),
+            selection: isExporting ? [] : state.selection.points(forVisual: visual.id),
             slicerSelection: state.slicers[visual.id]?.selection ?? SlicerSelection(),
-            actions: actions,
-            visualSize: CGSize(width: visual.width, height: visual.height))
+            actions: isExporting ? .none : actions,
+            visualSize: CGSize(width: visual.width, height: visual.height),
+            isExporting: isExporting)
     }
 
     // MARK: - Drill và menu chuột phải
@@ -226,9 +238,13 @@ struct LiveVisualView: View {
         .padding(2)
     }
 
-    private func contextMenu(_ target: MenuTarget, spec: VisualQuerySpec) -> some View {
+    private func contextMenu(_ target: MenuTarget, spec: VisualQuerySpec, view: DataView) -> some View {
         let depth = interaction.depth(of: visual)
         let through = target.point.map { interaction.drillthroughTargets(from: page, point: $0) } ?? []
+        let canExportCSV: Bool = {
+            if case .empty = view { return false }
+            return onExportCSV != nil
+        }()
         return ZStack(alignment: .topLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { menu = nil }
             VStack(alignment: .leading, spacing: 0) {
@@ -246,6 +262,10 @@ struct LiveVisualView: View {
                 }
                 if target.point != nil, InteractionRules.canSelect(visualType: visual.type) {
                     menuItem("Bỏ chọn") { interaction.select(page: page, visual: visual, spec: spec, point: nil, additive: false) }
+                }
+                if canExportCSV, let onExportCSV {
+                    Divider().padding(.vertical, 2)
+                    menuItem(tr(.exportCSVContextMenu)) { onExportCSV(view) }
                 }
             }
             .padding(4)

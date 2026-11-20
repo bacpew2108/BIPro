@@ -33,7 +33,7 @@ struct PreviewGridView: View {
                     .hairline(.top)
             }
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     // MARK: - Top Context Bar
@@ -104,7 +104,7 @@ struct PreviewGridView: View {
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white)
+            .background(DS.Palette.canvas)
         } else if let table = previewTable {
             if scrollable {
                 ScrollView([.horizontal, .vertical]) {
@@ -189,7 +189,7 @@ struct PreviewGridView: View {
                         .font(DS.Typeface.mono)
                         .foregroundStyle(DS.Palette.tertiaryLabel)
                         .frame(width: 40, height: 26)
-                        .background(isOdd ? DS.Palette.chrome.opacity(0.3) : Color.white)
+                        .background(isOdd ? DS.Palette.chrome.opacity(0.3) : DS.Palette.canvas)
                         .hairline(.trailing)
 
                     // Columns
@@ -238,7 +238,7 @@ struct PreviewGridView: View {
                     .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.secondaryLabel)
                     .padding(.horizontal, 3)
                     .padding(.vertical, 1)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.8)))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas.opacity(0.8)))
 
                 if renamingColumn == name {
                     TextField("", text: $renameText, onCommit: {
@@ -360,7 +360,7 @@ struct PreviewGridView: View {
             } else if isOdd {
                 return DS.Palette.chrome.opacity(0.3)
             } else {
-                return Color.white
+                return DS.Palette.canvas
             }
         }()
 

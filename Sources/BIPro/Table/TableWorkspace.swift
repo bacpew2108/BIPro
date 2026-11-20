@@ -29,7 +29,7 @@ struct TableWorkspace: View {
             }
             StatusBar(workspace: state.workspace, detail: statusDetail)
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var statusDetail: String {
@@ -444,7 +444,7 @@ struct ColumnMetadataPanel: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
         .padding(10)
         .background(DS.Palette.chrome)

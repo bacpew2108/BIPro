@@ -205,7 +205,7 @@ public struct QueryEditorWindow: View {
             }
             // Kích thước cố định chỉ để xuất ảnh PNG; trong cửa sổ thật (sheet) bố cục co giãn theo khung.
             .modifier(FixedImageFrame(enabled: !scrollable))
-            .background(Color.white)
+            .background(DS.Palette.canvas)
 
             // Overlays / Dialogs
             if let popover = activePopover {
@@ -494,7 +494,7 @@ public struct QueryEditorWindow: View {
         }
         .padding(18)
         .frame(width: 440)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.tile))
         .popoverElevation()
     }
@@ -541,7 +541,7 @@ public struct QueryEditorWindow: View {
         }
         .padding(18)
         .frame(width: 440)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.tile))
         .popoverElevation()
     }

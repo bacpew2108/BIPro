@@ -63,7 +63,7 @@ struct MeasurePropertiesPanel: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
         .padding(10)
         .background(DS.Palette.chrome)
@@ -119,7 +119,7 @@ struct MeasureInspector: View {
             MeasurePropertiesPanel(state: state, measure: measure)
                 .id("\(measure.tableName)/\(measure.name)/\(state.modelVersion)")
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .popoverElevation()
     }
 }

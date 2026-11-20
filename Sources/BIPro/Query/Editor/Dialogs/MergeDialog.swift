@@ -93,7 +93,7 @@ public struct MergeDialogContent: View {
         }
         .padding(20)
         .frame(width: 900)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var headerView: some View {
@@ -251,7 +251,7 @@ public struct MergeDialogContent: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -267,7 +267,7 @@ public struct MergeDialogContent: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -355,7 +355,7 @@ public struct MergeDialogContent: View {
                         }
                         .padding(.horizontal, 6)
                         .frame(width: 140, height: 22)
-                        .background(isKey ? DS.Palette.selectionSoft.opacity(0.4) : (row % 2 == 1 ? DS.Palette.chrome.opacity(0.3) : Color.white))
+                        .background(isKey ? DS.Palette.selectionSoft.opacity(0.4) : (row % 2 == 1 ? DS.Palette.chrome.opacity(0.3) : DS.Palette.canvas))
                         .hairline(.trailing)
                     }
                 }

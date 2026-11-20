@@ -29,10 +29,10 @@ struct QueryResultsView: View {
             if layout != .collapsed {
                 content(run)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.white)
+                    .background(DS.Palette.canvas)
             }
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     // MARK: Thanh tiêu đề
@@ -125,7 +125,7 @@ struct QueryResultsView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 44)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private func layoutButton(symbol: String, help: String, to target: ResultsLayout) -> some View {

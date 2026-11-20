@@ -66,7 +66,7 @@ struct QueryTabBar: View {
         .foregroundStyle(selected ? DS.Palette.label : DS.Palette.secondaryLabel)
         .padding(.horizontal, 12)
         .frame(height: 30)
-        .background(selected ? Color.white : Color.clear)
+        .background(selected ? DS.Palette.canvas : Color.clear)
         .overlay(alignment: .bottom) {
             if selected { Rectangle().fill(DS.Palette.accent).frame(height: 2) }
         }
@@ -132,7 +132,7 @@ struct InlineRenameField: NSViewRepresentable {
         field.isBordered = true
         field.bezelStyle = .roundedBezel
         field.drawsBackground = true
-        field.backgroundColor = .white
+        field.backgroundColor = .textBackgroundColor
         field.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
         field.stringValue = text
         field.delegate = context.coordinator

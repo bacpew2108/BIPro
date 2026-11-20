@@ -47,8 +47,8 @@ struct AddDataPanel: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Text("Thêm dữ liệu vào báo cáo").font(.system(size: 22, weight: .semibold))
-            Text("Dữ liệu đã nạp sẽ hiện ở pane Dữ liệu.").font(.system(size: 15)).foregroundStyle(DS.Palette.secondaryLabel)
+            Text(tr(.addDataTitle)).font(.system(size: 22, weight: .semibold)).foregroundStyle(DS.Palette.label)
+            Text(tr(.addDataSubtitle)).font(.system(size: 15)).foregroundStyle(DS.Palette.secondaryLabel)
             HStack(spacing: 14) {
                 ForEach(Self.tiles, id: \.title) { tile in tileView(tile) }
             }
@@ -79,7 +79,7 @@ struct AddDataPanel: View {
                     .padding(.horizontal, 10)
             }
             .frame(width: 160)
-            .background(Color.white)
+            .background(DS.Palette.canvas)
             .clipShape(RoundedRectangle(cornerRadius: 4))
             .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
         }

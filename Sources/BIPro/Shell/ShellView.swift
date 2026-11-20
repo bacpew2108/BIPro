@@ -4,6 +4,8 @@ import SwiftUI
 /// The five-zone window: title bar · ribbon · rail | workspace · status.
 struct ShellView: View {
     @State private var state: DocumentState
+    @State private var showOnboarding = false
+    private let preferences = AppPreferences.shared
 
     init(state: DocumentState) {
         _state = State(initialValue: state)
@@ -23,8 +25,23 @@ struct ShellView: View {
         .background { DocumentWindowBridge(state: state, isDirty: state.layout.isDirty) }
         .focusedSceneValue(\.documentState, state)
         .ignoresSafeArea(.container, edges: .top)
-        .environment(\.colorScheme, .light)
+        .preferredColorScheme(preferences.preferredColorScheme)
         .tint(DS.Palette.accent)
+        .onAppear {
+            preferences.applyAppearance()
+            if !preferences.onboardingSeen {
+                showOnboarding = true
+            }
+        }
+        .onChange(of: preferences.onboardingRequestToken) { _, _ in
+            showOnboarding = true
+        }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView(preferences: preferences) {
+                showOnboarding = false
+            }
+            .preferredColorScheme(preferences.preferredColorScheme)
+        }
         .sheet(isPresented: Binding(get: { state.getDataState != nil }, set: { if !$0 { state.closeGetData() } })) {
             if let navigator = state.getDataState {
                 GetDataFlowView(state: navigator, existingTableNames: state.existingTableNames,
@@ -38,29 +55,45 @@ struct ShellView: View {
                                     }
                                 },
                                 onClose: { state.closeGetData() })
-                    .environment(\.colorScheme, .light)
+                    .preferredColorScheme(preferences.preferredColorScheme)
             }
         }
         .sheet(isPresented: Binding(get: { state.enterData != nil }, set: { if !$0 { state.closeEnterData() } })) {
             if let table = state.enterData {
                 EnterDataView(table: table, onCommit: { await state.loadEnterData($0) }, onCancel: { state.closeEnterData() })
-                    .environment(\.colorScheme, .light)
+                    .preferredColorScheme(preferences.preferredColorScheme)
                     .interactiveDismissDisabled()
             }
         }
         .sheet(isPresented: Binding(get: { state.showFileOptions }, set: { state.showFileOptions = $0 })) {
             FileOptionsView(options: state.fileOptions, autoDateTimeBlocker: state.autoDateTimeBlocker,
                             onCommit: { state.applyFileOptions($0) }, onCancel: { state.showFileOptions = false })
-                .environment(\.colorScheme, .light)
+                .preferredColorScheme(preferences.preferredColorScheme)
         }
         .sheet(isPresented: Binding(get: { state.queryEditorState != nil }, set: { if !$0 { state.closeQueryEditor() } })) {
             if let editor = state.queryEditorState {
                 QueryEditorWindow(state: editor, existingTableNames: state.existingTableNames,
                                   onApply: { state.applyQueryEditor() }, onClose: { state.closeQueryEditor() })
                     .frame(minWidth: 1000, idealWidth: 1280, maxWidth: .infinity, minHeight: 640, idealHeight: 800, maxHeight: .infinity)
-                    .environment(\.colorScheme, .light)
+                    .preferredColorScheme(preferences.preferredColorScheme)
                     // SC-008: chỉ đóng qua nút "Đóng" (Esc), nút này hỏi "Pending changes" khi còn thay đổi chưa áp dụng.
                     .interactiveDismissDisabled()
+            }
+        }
+        .sheet(isPresented: Binding(get: { state.exportSheetKind != nil }, set: { if !$0 { state.closeExportSheet() } })) {
+            if let kind = state.exportSheetKind {
+                ExportSheet(
+                    kind: kind,
+                    visiblePageCount: state.pages.filter { !$0.isHidden }.count,
+                    currentPageName: state.page?.displayName ?? "",
+                    isExporting: $state.isExporting,
+                    progressText: $state.exportProgress,
+                    errorMessage: $state.exportError,
+                    onExportPDF: { state.runExportPDF(scope: $0) },
+                    onExportPNG: { state.runExportPNG(scale: $0) },
+                    onCancel: { state.closeExportSheet() }
+                )
+                .preferredColorScheme(preferences.preferredColorScheme)
             }
         }
     }
@@ -91,25 +124,32 @@ struct TitleBar: View {
                 Image(systemName: "doc.text.fill").foregroundStyle(DS.Palette.accent)
                 Text(state.fileName).font(DS.Typeface.headlineSmall).foregroundStyle(DS.Palette.label).lineLimit(1)
                 Badge(text: state.statusBadge)
-                    .help(state.layout.isDirty ? "Có thay đổi bố cục chưa lưu (⌘S)" : "Bật Sửa (⌘E) để kéo, đổi cỡ visual")
+                    .help(state.layout.isDirty ? tr(.statusDirtyHelp) : tr(.statusViewHelp))
                 Spacer()
                 Menu {
-                    Button("PDF…") {}.disabled(true)
-                    Button("Ảnh PNG của trang…") {}.disabled(true)
-                    Button("Dữ liệu visual ra CSV…") {}.disabled(true)
+                    Button(tr(.exportPDFItem)) { state.openExportSheet(.pdf) }
+                        .disabled(state.pages.isEmpty)
+                    Button(tr(.exportPNGItem)) { state.openExportSheet(.png) }
+                        .disabled(state.page == nil)
+                    Divider()
+                    Button(tr(.exportCSVItem)) { state.exportSelectedVisualToCSV() }
+                        .disabled(state.exportCSVDisabledReason != nil)
+                        .help(state.exportCSVDisabledReason ?? tr(.exportCSVItem))
                 } label: {
-                    Label("Xuất", systemImage: "square.and.arrow.up")
+                    Label(tr(.exportMenu), systemImage: "square.and.arrow.up")
                 }
                 .menuStyle(.button)
                 .buttonStyle(SecondaryButtonStyle())
                 .fixedSize()
-                .help("Xuất PDF/PNG/CSV có ở Phase G")
+                .help(tr(.exportHelp))
+                .accessibilityLabel(tr(.exportMenu))
             }
             .padding(.horizontal, 14)
 
-            SearchField(text: $query, prompt: "Tìm trang, bảng, measure, visual…", shortcut: "⌘K")
+            SearchField(text: $query, prompt: tr(.searchPlaceholder), shortcut: "⌘K")
                 .focused($searchFocused)
                 .frame(width: 420)
+                .accessibilityLabel(tr(.searchPlaceholder))
                 .onChange(of: query) { _, text in showResults = !text.isEmpty }
                 .popover(isPresented: $showResults, arrowEdge: .bottom) {
                     CommandResults(state: state, query: query) { query = ""; showResults = false }
@@ -144,29 +184,29 @@ struct CommandResults: View {
         let w = state.workspace
         var result: [Hit] = []
         for page in state.pages where page.displayName.lowercased().contains(q) {
-            result.append(Hit(symbol: "doc.richtext", title: page.displayName, detail: "Trang") { [state] in
+            result.append(Hit(symbol: "doc.richtext", title: page.displayName, detail: tr(.searchHitPage)) { [state] in
                 state.mode = .report; state.pageID = page.id
             })
         }
         for table in w.userTables where table.name.lowercased().contains(q) {
-            result.append(Hit(symbol: "tablecells", title: table.name, detail: "Bảng") { [state] in
+            result.append(Hit(symbol: "tablecells", title: table.name, detail: tr(.searchHitTable)) { [state] in
                 state.mode = .table; state.select(table: table.name)
             })
         }
         for m in w.metadata?.measures ?? [] where m.name.lowercased().contains(q) {
-            result.append(Hit(symbol: "function", title: m.name, detail: "Measure · \(m.tableName)") { [state] in
+            result.append(Hit(symbol: "function", title: m.name, detail: trf(.searchHitMeasureFormat, m.tableName)) { [state] in
                 state.mode = .daxQuery
                 state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
             })
         }
         for c in w.metadata?.columns ?? [] where c.kind != .rowNumber && w.userTables.contains(where: { $0.name == c.tableName }) && c.name.lowercased().contains(q) {
-            result.append(Hit(symbol: "textformat", title: c.name, detail: "Cột · \(c.tableName)") { [state] in
+            result.append(Hit(symbol: "textformat", title: c.name, detail: trf(.searchHitColumnFormat, c.tableName)) { [state] in
                 state.mode = .table; state.select(table: c.tableName, column: c.name)
             })
         }
         for page in state.pages {
             for v in page.visuals where v.fields.contains(where: { $0.label.lowercased().contains(q) }) {
-                result.append(Hit(symbol: "chart.bar", title: v.fields.map(\.label).joined(separator: ", "), detail: "Visual \(v.type) · \(page.displayName)") { [state] in
+                result.append(Hit(symbol: "chart.bar", title: v.fields.map(\.label).joined(separator: ", "), detail: trf(.searchHitVisualFormat, v.type, page.displayName)) { [state] in
                     state.mode = .report; state.pageID = page.id; state.visualID = v.id
                 })
             }
@@ -178,7 +218,7 @@ struct CommandResults: View {
         let hits = hits
         VStack(alignment: .leading, spacing: 0) {
             if hits.isEmpty {
-                Text("Không tìm thấy “\(query)”").font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel).padding(12)
+                Text(trf(.searchNoResultsFormat, query)).font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel).padding(12)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -212,6 +252,7 @@ struct CommandResults: View {
 
 struct Rail: View {
     @Bindable var state: DocumentState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 6) {
@@ -226,16 +267,18 @@ struct Rail: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(mode.title)
+                .help(mode.localizedTitle)
+                .accessibilityLabel(mode.localizedTitle)
+                .accessibilityAddTraits(selected ? .isSelected : [])
                 .disabled(mode != .report && state.workspace.metadata == nil)
             }
             Spacer()
-            Button {} label: {
+            Button { openSettings() } label: {
                 Image(systemName: "gearshape").font(.system(size: 15)).foregroundStyle(DS.Palette.secondaryLabel).frame(width: 38, height: 38)
             }
             .buttonStyle(.plain)
-            .help("Cài đặt (Phase G)")
-            .disabled(true)
+            .help(tr(.settingsTooltip))
+            .accessibilityLabel(tr(.a11yRailSettings))
         }
         .padding(.vertical, 10)
         .frame(width: DS.Metrics.rail)
@@ -255,7 +298,7 @@ struct StatusBar<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 10) {
             Circle().fill(workspace.metadata == nil ? DS.Palette.warning : DS.Palette.success).frame(width: 7, height: 7)
-            Text(workspace.metadata == nil ? "Không có mô hình dữ liệu" : "VertiPaq: sẵn sàng (\(workspace.totalRows.formatted()) dòng)")
+            Text(workspace.metadata == nil ? tr(.statusNoModel) : trf(.statusVertiPaqReadyFormat, workspace.totalRows.formatted()))
             if !detail.isEmpty {
                 Text("·").foregroundStyle(DS.Palette.tertiaryLabel)
                 Text(detail)
@@ -287,11 +330,20 @@ struct ZoomControl: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Button(action: zoomOut) { Image(systemName: "minus") }.buttonStyle(GhostIconButtonStyle())
+            Button(action: zoomOut) { Image(systemName: "minus") }
+                .buttonStyle(GhostIconButtonStyle())
+                .help(tr(.zoomOut))
+                .accessibilityLabel(tr(.zoomOut))
             Text("\(percent)%").font(DS.Typeface.label.monospacedDigit()).frame(width: 40)
-            Button(action: zoomIn) { Image(systemName: "plus") }.buttonStyle(GhostIconButtonStyle())
+                .accessibilityLabel("\(percent)%")
+            Button(action: zoomIn) { Image(systemName: "plus") }
+                .buttonStyle(GhostIconButtonStyle())
+                .help(tr(.zoomIn))
+                .accessibilityLabel(tr(.zoomIn))
             Button(action: fit) { Image(systemName: "arrow.up.left.and.arrow.down.right") }
-                .buttonStyle(GhostIconButtonStyle()).help("Vừa khung")
+                .buttonStyle(GhostIconButtonStyle())
+                .help(tr(.zoomFit))
+                .accessibilityLabel(tr(.zoomFit))
         }
     }
 }

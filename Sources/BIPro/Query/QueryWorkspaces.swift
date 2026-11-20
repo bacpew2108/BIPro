@@ -69,7 +69,7 @@ struct DAXQueryWorkspace: View {
         }
         .animation(.easeInOut(duration: 0.2), value: resultsLayout)
         .animation(.easeInOut(duration: 0.2), value: showDataPane)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .onAppear {
             updateCompletionModel()
         }
@@ -274,12 +274,12 @@ struct TMDLWorkspace: View {
                         }
                         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxHeight: 110).background(Color(hex: "#FFF5F5")!).hairline(.top)
+                    .frame(maxHeight: 110).background(Color.dynamic(light: 0xFFF5F5, dark: 0x3D1F21)).hairline(.top)
                 }
                 StatusBar(workspace: state.workspace, detail: "Áp dụng TMDL: measure, thuộc tính cột, bảng ẩn, quan hệ; bảng và cột mới chờ Phase F")
             }
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .onChange(of: state.modelVersion) { _, _ in drafts = [:]; issues = [] }
     }
 

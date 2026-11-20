@@ -1,26 +1,34 @@
+import AppKit
 import SwiftUI
 
-/// Design tokens from `UIdesign/lumen_analytics_design_system/DESIGN.md` (macOS system palette, light mode).
+/// Design tokens from `UIdesign/lumen_analytics_design_system/DESIGN.md` (macOS 15 Sequoia dynamic Light/Dark palette).
 enum DS {
     enum Palette {
         static let accent = Color(hex: "#0A84FF")!
-        static let accentHover = Color(hex: "#0077ED")!
-        static let accentPressed = Color(hex: "#0068D6")!
+        static let accentHover = Color.dynamic(light: 0x0077ED, dark: 0x2E96FF)
+        static let accentPressed = Color.dynamic(light: 0x0068D6, dark: 0x006CE0)
         static let indigo = Color(hex: "#5E5CE6")!
-        static let backdrop = Color(hex: "#EBEBF0")!       // under the report canvas
-        static let chrome = Color(hex: "#F5F5F7")!         // toolbars, panes, headers
-        static let canvas = Color.white                    // report canvas, tiles, popovers
-        static let separator = Color(hex: "#E5E5EA")!      // hairlines
-        static let label = Color(hex: "#1C1C1E")!
-        static let secondaryLabel = Color(hex: "#636366")!
-        static let tertiaryLabel = Color(hex: "#8E8E93")!
-        static let controlFill = Color(red: 118 / 255, green: 118 / 255, blue: 128 / 255).opacity(0.12)
-        static let searchFill = Color(red: 118 / 255, green: 118 / 255, blue: 128 / 255).opacity(0.08)
-        static let selectionSoft = Color(hex: "#0A84FF")!.opacity(0.12)
+
+        /// Vùng nền dưới trang báo cáo (`backdrop`).
+        static let backdrop = Color.dynamic(light: 0xEBEBF0, dark: 0x1C1C1E)
+        /// Thanh công cụ, Rail, tiêu đề ngăn (`chrome`).
+        static let chrome = Color.dynamic(light: 0xF5F5F7, dark: 0x242426)
+        /// Bề mặt bảng điều khiển, thẻ UI, popover (thích ứng Dark Mode).
+        static let canvas = Color.dynamic(light: 0xFFFFFF, dark: 0x2C2C2E)
+        /// Nền giấy cố định của trang báo cáo `.pbix` (luôn sáng để giữ nguyên màu tác giả — FR-013).
+        static let documentPaper = Color.white
+
+        static let separator = Color.dynamic(light: 0xE5E5EA, dark: 0x3A3A3C)
+        static let label = Color.dynamic(light: 0x1C1C1E, dark: 0xF5F5F7)
+        static let secondaryLabel = Color.dynamic(light: 0x636366, dark: 0xAEAEB2)
+        static let tertiaryLabel = Color.dynamic(light: 0x8E8E93, dark: 0x6E6E73)
+        static let controlFill = Color.dynamic(light: 0x767680, lightAlpha: 0.12, dark: 0x767680, darkAlpha: 0.24)
+        static let searchFill = Color.dynamic(light: 0x767680, lightAlpha: 0.08, dark: 0x767680, darkAlpha: 0.20)
+        static let selectionSoft = Color.dynamic(light: 0x0A84FF, lightAlpha: 0.12, dark: 0x0A84FF, darkAlpha: 0.24)
         static let success = Color(hex: "#34C759")!
         static let warning = Color(hex: "#FF9F0A")!
         static let danger = Color(hex: "#FF453A")!
-        static let checkboxBorder = Color(hex: "#C7C7CC")!
+        static let checkboxBorder = Color.dynamic(light: 0xC7C7CC, dark: 0x545458)
 
         /// Six-hue analytical ramp.
         static let series: [Color] = ["#0A84FF", "#5E5CE6", "#30B0C7", "#34C759", "#FF9F0A", "#FF453A"].map { Color(hex: $0)! }
@@ -75,21 +83,38 @@ enum DS {
     }
 }
 
+extension Color {
+    /// Tạo màu động SwiftUI thích ứng Sáng/Tối qua `NSColor(name:dynamicProvider:)` mà không cần `.xcassets`.
+    static func dynamic(light: UInt32, lightAlpha: CGFloat = 1, dark: UInt32, darkAlpha: CGFloat = 1) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let rgb = isDark ? dark : light
+            let alpha = isDark ? darkAlpha : lightAlpha
+            return NSColor(
+                srgbRed: CGFloat((rgb >> 16) & 0xFF) / 255,
+                green: CGFloat((rgb >> 8) & 0xFF) / 255,
+                blue: CGFloat(rgb & 0xFF) / 255,
+                alpha: alpha
+            )
+        })
+    }
+}
+
 extension View {
-    /// Tile elevation: `0 1px 2px rgba(0,0,0,.04), 0 0 0 1px rgba(0,0,0,.05)`.
+    /// Tile elevation: thích ứng Sáng/Tối.
     func tileElevation(cornerRadius: CGFloat = DS.Radius.tile) -> some View {
         self
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.black.opacity(0.05), lineWidth: 1))
-            .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.dynamic(light: 0x000000, lightAlpha: 0.05, dark: 0xFFFFFF, darkAlpha: 0.09), lineWidth: 1))
+            .shadow(color: Color.dynamic(light: 0x000000, lightAlpha: 0.04, dark: 0x000000, darkAlpha: 0.25), radius: 1, y: 1)
     }
 
     /// Popover/dropdown elevation.
     func popoverElevation(cornerRadius: CGFloat = DS.Radius.tile) -> some View {
         self
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.dynamic(light: 0x000000, lightAlpha: 0.08, dark: 0xFFFFFF, darkAlpha: 0.14), lineWidth: 0.5))
+            .shadow(color: Color.dynamic(light: 0x000000, lightAlpha: 0.12, dark: 0x000000, darkAlpha: 0.45), radius: 12, y: 6)
     }
 
     func hairline(_ edge: Edge) -> some View {

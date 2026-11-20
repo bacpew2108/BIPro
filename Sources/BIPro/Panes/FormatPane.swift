@@ -120,7 +120,7 @@ private struct FormatCardView: View {
                 .padding(.bottom, 8)
             }
         }
-        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
     }
 

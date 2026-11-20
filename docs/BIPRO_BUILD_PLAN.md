@@ -196,7 +196,13 @@ Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào bá
 - **Xong khi:** đi hết luồng `sales_2026.xlsx` → Query Editor → Close & Apply → report → lưu `.pbix` → mở được trong Power BI Desktop. **Đạt** (T100, 2026-11-17).
 
 ### Phase G: Hoàn thiện (2–3 tuần) → **v1.0**
-- [ ] Export PDF/PNG/CSV, Quick Look cho `.pbix`, dark mode, VoiceOver, tiếng Việt và tiếng Anh, icon app, Settings, hướng dẫn lần đầu.
+> **Mốc v1.0 ĐẠT (2026-11-21)**: Spec Kit `specs/012-g-hoan-thien-v1/`, bằng chứng `docs/phase-g-evidence/`, số đo `specs/012-g-hoan-thien-v1/measurements.md`.
+- [x] Export PDF/PNG/CSV (`VisualCSVExporter` RFC 4180 + UTF-8 BOM, `ReportPageExporter` PNG 1×/2× & PDF nhiều trang vectơ, `ExportSheet`, menu `Xuất` Title bar / `Tệp ▸ Xuất` / chuột phải visual).
+- [x] Quick Look cho `.pbix` (`PBIXQuickLookSummary` `< 1 s`, `PBIXQuickLookRenderer`, `PBIXQuickLook.appex` + `PBIXThumbnail.appex` đóng gói trong `scripts/build-app.sh`, kiểm thực tế qua `QLThumbnailGenerator` trên macOS 15).
+- [x] Dark Mode (`DS.Palette` màu động macOS 15 Sequoia cho toàn bộ 5 workspace/sheet/AppKit bridge; giữ nguyên nền tài liệu `.pbix` trên Report Canvas) & Cài đặt ứng dụng (`SettingsView`, `⌘,`, nút bánh răng Rail, `AppPreferences`).
+- [x] Song ngữ Tiếng Việt và Tiếng Anh (`L10n`, nhãn phép gộp ngầm, bất biến byte `.pbix`).
+- [x] VoiceOver & trợ năng (`VisualAccessibilitySummary`, nhãn trợ năng toàn vỏ ứng dụng & visual, `AccessibilityAnnouncer`).
+- [x] Biểu tượng ứng dụng (`scripts/make-icon.swift` → `AppIcon.icns`), Hướng dẫn lần đầu (`OnboardingView` 3 bước) và đóng gói `build/BI Pro.app` phiên bản **1.0.0**.
 
 ### Mốc thời gian
 | Mốc | Gồm | Tích luỹ |

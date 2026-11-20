@@ -48,7 +48,7 @@ struct EnterDataView: View {
         }
         .padding(24)
         .frame(width: 760, height: 560)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .confirmationDialog("Bạn có chắc muốn thoát? Thay đổi trong bảng sẽ mất.", isPresented: $confirmCancel) {
             Button("Có", role: .destructive) { onCancel() }
             Button("Không", role: .cancel) {}
@@ -130,7 +130,7 @@ struct EnterDataView: View {
                 .buttonStyle(.plain)
                 .help("Thêm cột")
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private func dataRow(_ row: Int) -> some View {
@@ -147,7 +147,7 @@ struct EnterDataView: View {
                     .font(DS.Typeface.body)
                     .padding(.horizontal, 6)
                     .frame(width: cellWidth, height: 22, alignment: .leading)
-                    .background(Color.white)
+                    .background(DS.Palette.canvas)
                     .border(DS.Palette.separator, width: 0.5)
             }
         }

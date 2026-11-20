@@ -12,7 +12,7 @@ struct FiltersPane: View {
     var body: some View {
         let w = state.workspace
         VStack(spacing: 0) {
-            PaneHeader(title: "Bộ lọc", symbol: "line.3.horizontal.decrease", collapse: collapse)
+            PaneHeader(title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", collapse: collapse)
             SearchField(text: $search, prompt: "Tìm bộ lọc").padding(.horizontal, 10).padding(.bottom, 6)
             if let reason = state.reportEditingBlocker {
                 Text(reason).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
@@ -123,7 +123,7 @@ struct AddFieldMenu: View {
         } label: {
             Text("Thêm field dữ liệu vào đây").font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
                 .frame(maxWidth: .infinity).frame(height: 40)
-                .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+                .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
         }
         .menuStyle(.button).buttonStyle(.plain)
@@ -156,7 +156,7 @@ struct FilterCard: View {
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 3).fill(grey ? Color(hex: "#D2D2D7")! : Color.white))
+        .background(RoundedRectangle(cornerRadius: 3).fill(grey ? Color.dynamic(light: 0xD2D2D7, dark: 0x3A3A3C) : DS.Palette.canvas))
         .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(grey ? Color.clear : DS.Palette.separator))
         .opacity(filter.isHidden ? 0.7 : 1)
         .help(filter.field.map { "\($0.entity)[\($0.property)]" } ?? "")
@@ -206,10 +206,10 @@ struct VisualizationsPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PaneHeader(title: "Trực quan hóa", symbol: "chart.bar.xaxis", collapse: collapse)
+            PaneHeader(title: tr(.paneVisualizations), symbol: "chart.bar.xaxis", collapse: collapse)
             SegmentedPill(selection: $state.visualizationsTab, options: [
-                .init(value: .build, title: "Xây dựng", symbol: "chart.bar"),
-                .init(value: .format, title: "Định dạng", symbol: "paintbrush"),
+                .init(value: .build, title: tr(.paneBuild), symbol: "chart.bar"),
+                .init(value: .format, title: tr(.paneFormat), symbol: "paintbrush"),
             ], fill: true)
             .padding(.horizontal, 10)
             .padding(.bottom, 8)
@@ -236,13 +236,15 @@ struct VisualizationsPane: View {
                 .font(.system(size: 13))
                 .foregroundStyle(selected ? Color.white : DS.Palette.secondaryLabel)
                 .frame(width: 32, height: 28)
-                .background(RoundedRectangle(cornerRadius: 5).fill(selected ? DS.Palette.accent : Color.white))
+                .background(RoundedRectangle(cornerRadius: 5).fill(selected ? DS.Palette.accent : DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: selected ? 0 : 1))
                 .opacity(enabled || selected ? 1 : 0.4)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(entry.name)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func galleryTap(_ type: String) {
@@ -344,7 +346,7 @@ struct SelectionPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            PaneHeader(title: "Lựa chọn", symbol: "square.3.layers.3d", collapse: collapse)
+            PaneHeader(title: tr(.paneSelection), symbol: "square.3.layers.3d", collapse: collapse)
             SectionLabel(text: "Thứ tự lớp")
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -377,6 +379,8 @@ struct SelectionPane: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture { row.toggleHidden(state.interaction) }
                                     .help(hidden ? "Hiện visual" : "Ẩn visual")
+                                    .accessibilityLabel(hidden ? tr(.a11yHidden) : tr(.a11yVisible))
+                                    .accessibilityAddTraits(.isButton)
                             }
                             .padding(.leading, 10 + CGFloat(row.indent) * 16)
                             .padding(.trailing, 10)
@@ -406,7 +410,7 @@ struct BookmarksPane: View {
         let interaction = state.interaction
         let rows = interaction.bookmarkRows
         VStack(spacing: 0) {
-            PaneHeader(title: "Bookmark", symbol: "bookmark", collapse: collapse) {
+            PaneHeader(title: tr(.paneBookmarks), symbol: "bookmark", collapse: collapse) {
                 Button {
                     state.addBookmark()
                 } label: { Image(systemName: "plus") }

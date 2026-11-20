@@ -59,7 +59,7 @@ struct AdvancedEditorContent: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white)
+            .background(DS.Palette.canvas)
 
             // Status bar
             HStack(spacing: 6) {
@@ -109,11 +109,11 @@ struct AdvancedEditorContent: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 48)
-            .background(Color.white)
+            .background(DS.Palette.canvas)
             .hairline(.top)
         }
         .frame(width: 760, height: 520)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.tile))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
     }

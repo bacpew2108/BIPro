@@ -12,16 +12,31 @@ struct BIProApp: App {
     var body: some Scene {
         DocumentGroup(viewing: PBIXDocument.self) { file in
             ShellView(state: DocumentState(workspace: file.document.workspace,
-                                           fileName: file.fileURL?.lastPathComponent ?? "Không tên.pbix",
+                                           fileName: file.fileURL?.lastPathComponent ?? tr(.untitledDocument),
                                            fileURL: file.fileURL))
                 .frame(minWidth: 1100, minHeight: 680)
         }
         .commands {
             SaveCommands()
             EditCommands()
+            AppHelpCommands()
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1600, height: 1000)
+
+        Settings {
+            SettingsView(preferences: AppPreferences.shared)
+        }
+    }
+}
+
+struct AppHelpCommands: Commands {
+    var body: some Commands {
+        CommandGroup(after: .help) {
+            Button(tr(.menuShowOnboarding)) {
+                AppPreferences.shared.requestShowOnboarding()
+            }
+        }
     }
 }
 

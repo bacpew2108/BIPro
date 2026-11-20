@@ -72,7 +72,7 @@ struct QueryRibbonView: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 30)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     // MARK: - Ribbon Content by Tab

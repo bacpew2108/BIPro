@@ -267,7 +267,7 @@ struct LeftMenuListView: View {
             }
         }
         .padding(.vertical, 4)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)

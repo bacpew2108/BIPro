@@ -20,7 +20,8 @@ struct ReportWorkspace: View {
                                        guard state.pages.contains(where: { $0.id == target }) else { return }
                                        state.pageID = target; state.visualID = nil
                                    },
-                                   editor: state.layout, editMode: state.editMode)
+                                   editor: state.layout, editMode: state.editMode,
+                                   onExportCSV: { visual, view in state.exportVisualToCSV(visual: visual, view: view) })
                         .id(page.id)
                         .overlay {
                             // T029: tài liệu chưa có bảng thì giữa khung trang là màn "Thêm dữ liệu vào báo cáo" (VM-F11a).
@@ -49,17 +50,17 @@ struct ReportWorkspace: View {
                 .frame(width: 200).hairline(.leading)
         }
         if state.showFilters {
-            pane(collapsed: $filtersCollapsed, title: "Bộ lọc", symbol: "line.3.horizontal.decrease", width: 230) {
+            pane(collapsed: $filtersCollapsed, title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", width: 230) {
                 FiltersPane(state: state) { filtersCollapsed = true }
             }
         }
         if state.showVisualizations {
-            pane(collapsed: $visualsCollapsed, title: "Trực quan hóa", symbol: "chart.bar.xaxis", width: 250) {
+            pane(collapsed: $visualsCollapsed, title: tr(.paneVisualizations), symbol: "chart.bar.xaxis", width: 250) {
                 VisualizationsPane(state: state) { visualsCollapsed = true }
             }
         }
         if state.showData {
-            pane(collapsed: $dataCollapsed, title: "Dữ liệu", symbol: "cylinder.split.1x2", width: 250) {
+            pane(collapsed: $dataCollapsed, title: tr(.paneData), symbol: "cylinder.split.1x2", width: 250) {
                 DataPane(state: state, purpose: .report) { dataCollapsed = true }
             }
         }
@@ -149,7 +150,7 @@ struct PageTabs: View {
     }
 
     private func tabLabel(_ page: ReportPage, selected: Bool, targeted: Bool) -> some View {
-        let fill: Color = selected ? .white : (targeted ? DS.Palette.accent.opacity(0.12) : .clear)
+        let fill: Color = selected ? DS.Palette.canvas : (targeted ? DS.Palette.accent.opacity(0.12) : .clear)
         let weight: Font.Weight = selected ? .semibold : .regular
         let shadow = Color.black.opacity(selected ? 0.08 : 0)
         return HStack(spacing: 4) {
@@ -195,6 +196,10 @@ struct PageTabs: View {
                 state.visualID = nil
             }
             .help(page.isHidden ? "Trang ẩn khi xem báo cáo" : page.displayName)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(trf(.a11yPageTabFormat, page.displayName))
+            .accessibilityValue(page.isHidden ? tr(.a11yHidden) : (state.pageID == page.id ? tr(.a11ySelected) : ""))
+            .accessibilityAddTraits(state.pageID == page.id ? [.isButton, .isSelected] : .isButton)
             .contextMenu {
                 Button("Đổi tên…") { startRename(page) }.disabled(blocker != nil)
                 Button("Nhân bản") { state.duplicatePage(page.id) }.disabled(blocker != nil)
@@ -215,14 +220,15 @@ struct EditModeSwitch: View {
 
     var body: some View {
         Picker("Chế độ", selection: $state.editMode) {
-            Text("Xem").tag(false)
-            Text("Sửa").tag(true)
+            Text(tr(.editModeSwitchView)).tag(false)
+            Text(tr(.editModeSwitchEdit)).tag(true)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
         .frame(width: 120)
         .padding(10)
         .disabled(!state.canEditCanvas)
+        .accessibilityLabel(tr(.menuEditMode))
         .help(state.canEditCanvas ? "Sửa bố cục: kéo, đổi cỡ visual (⌘E). Xem: lọc chéo và drill như trong Power BI."
               : "Báo cáo này chưa sửa được bố cục.")
         .background {

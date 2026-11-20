@@ -15,16 +15,18 @@ struct RibbonView: View {
                         Rectangle().fill(DS.Palette.separator).frame(width: 1, height: 16).padding(.horizontal, 6)
                     }
                     Button { state.ribbonTab = tab } label: {
-                        Text(tab.title)
+                        Text(tab.localizedTitle)
                             .font(.system(size: 13, weight: selected ? .semibold : .regular))
                             .foregroundStyle(tab.isContextual ? DS.Palette.accent : (selected ? DS.Palette.label : DS.Palette.secondaryLabel))
                             .padding(.horizontal, 10)
                             .frame(height: 26)
-                            .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(selected ? Color.white : .clear)
+                            .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(selected ? DS.Palette.canvas : .clear)
                                 .shadow(color: .black.opacity(selected ? 0.08 : 0), radius: 1, y: 0.5))
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(tab.localizedTitle)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
                 Spacer()
             }
@@ -36,7 +38,7 @@ struct RibbonView: View {
                     .padding(.horizontal, 8)
             }
             .frame(height: 88)
-            .background(Color.white)
+            .background(DS.Palette.canvas)
             .hairline(.top)
             .hairline(.bottom)
         }
@@ -70,18 +72,18 @@ struct RibbonView: View {
 private struct DataSourceCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Dữ liệu") {
-            RibbonButton(title: "Lấy dữ liệu", symbol: "cylinder.split.1x2", tint: DS.Palette.accent,
+        RibbonGroup(title: tr(.paneData)) {
+            RibbonButton(title: tr(.ribbonGetData), symbol: "cylinder.split.1x2", tint: DS.Palette.accent,
                          disabledReason: state.getDataBlocker) { state.showGetData() }
-            RibbonButton(title: "Excel", symbol: "tablecells.badge.ellipsis", tint: DS.Palette.success,
+            RibbonButton(title: tr(.ribbonExcel), symbol: "tablecells.badge.ellipsis", tint: DS.Palette.success,
                          disabledReason: state.getDataBlocker) { state.showGetData(kind: .excel) }
             RibbonButton(title: "SQL", symbol: "server.rack", tint: DS.Palette.indigo, phase: "Phase F")
-            RibbonButton(title: "Nhập dữ liệu", symbol: "square.and.pencil",
+            RibbonButton(title: tr(.ribbonEnterData), symbol: "square.and.pencil",
                          disabledReason: state.enterDataBlocker) { state.showEnterData() }
         }
         RibbonDivider()
         RibbonGroup(title: "Truy vấn") {
-            RibbonButton(title: "Biến đổi dữ liệu", symbol: "slider.horizontal.3",
+            RibbonButton(title: tr(.ribbonTransformData), symbol: "slider.horizontal.3",
                          disabledReason: state.queryEditorBlocker) { state.showQueryEditor() }
             RibbonButton(title: "Làm mới", symbol: "arrow.clockwise", phase: "Phase F")
         }
@@ -92,7 +94,7 @@ private struct CalculationCommands: View {
     let state: DocumentState
     var body: some View {
         RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+            RibbonButton(title: tr(.ribbonNewMeasure), symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table ?? state.workspace.userTables.first?.name { state.newMeasureInTableView(table: table) }
             }
             RibbonButton(title: "Measure nhanh", symbol: "bolt", tint: DS.Palette.measure, phase: "Phase E")
@@ -114,10 +116,10 @@ private struct ReportHomeCommands: View {
         RibbonDivider()
         DataSourceCommands(state: state)
         RibbonDivider()
-        RibbonGroup(title: "Chèn") {
-            RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
+        RibbonGroup(title: tr(.ribbonInsert)) {
+            RibbonButton(title: tr(.ribbonNewVisual), symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("cardVisual") }
-            RibbonButton(title: "Hộp văn bản", symbol: "textformat",
+            RibbonButton(title: tr(.ribbonTextBox), symbol: "textformat",
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
         }
         RibbonDivider()

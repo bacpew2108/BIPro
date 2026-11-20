@@ -68,7 +68,7 @@ public struct ExpandColumnContent: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(6)
-            .background(Color.white)
+            .background(DS.Palette.canvas)
             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
 
             // Use prefix checkbox
@@ -102,7 +102,7 @@ public struct ExpandColumnContent: View {
         }
         .padding(14)
         .frame(width: 320)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var columnsList: some View {

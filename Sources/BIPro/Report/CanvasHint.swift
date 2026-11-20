@@ -16,8 +16,8 @@ struct CanvasHint: View {
             Image(systemName: "chart.bar.doc.horizontal")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(DS.Palette.accent)
-            Text("Dựng visual từ dữ liệu").font(.system(size: 22, weight: .semibold))
-            Text("Chọn hoặc kéo field từ pane Dữ liệu vào khung báo cáo.")
+            Text(tr(.canvasHintTitle)).font(.system(size: 22, weight: .semibold)).foregroundStyle(DS.Palette.label)
+            Text(tr(.canvasHintSubtitle))
                 .font(.system(size: 15))
                 .foregroundStyle(DS.Palette.secondaryLabel)
         }

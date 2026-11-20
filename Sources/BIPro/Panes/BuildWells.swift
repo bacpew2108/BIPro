@@ -230,7 +230,7 @@ struct TextboxContentEditor: View {
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 90, maxHeight: 160)
                 .padding(4)
-                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(focused ? DS.Palette.accent : DS.Palette.separator))
                 .padding(.horizontal, 10)
             HStack {

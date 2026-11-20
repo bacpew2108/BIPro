@@ -58,7 +58,7 @@ public struct CustomColumnDialogContent: View {
                             .font(DS.Typeface.body)
                             .padding(.horizontal, 10)
                             .frame(maxWidth: 320, minHeight: 28)
-                            .background(Color.white)
+                            .background(DS.Palette.canvas)
                             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                     } else {
                         HStack {
@@ -69,7 +69,7 @@ public struct CustomColumnDialogContent: View {
                         }
                         .padding(.horizontal, 10)
                         .frame(maxWidth: 320, minHeight: 28)
-                        .background(Color.white)
+                        .background(DS.Palette.canvas)
                         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                     }
                 }
@@ -104,7 +104,7 @@ public struct CustomColumnDialogContent: View {
 
                         columnsList
                             .frame(width: 200, height: 140)
-                            .background(Color.white)
+                            .background(DS.Palette.canvas)
                             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
 
                         Button {
@@ -120,7 +120,7 @@ public struct CustomColumnDialogContent: View {
                             }
                             .padding(.horizontal, 10)
                             .frame(height: 24)
-                            .background(Color.white)
+                            .background(DS.Palette.canvas)
                             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                         }
                         .buttonStyle(.plain)
@@ -156,7 +156,7 @@ public struct CustomColumnDialogContent: View {
         }
         .padding(20)
         .frame(width: 720)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var headerView: some View {
@@ -186,7 +186,7 @@ public struct CustomColumnDialogContent: View {
             TextEditor(text: $formula)
                 .font(DS.Typeface.mono)
                 .padding(6)
-                .background(Color.white)
+                .background(DS.Palette.canvas)
         } else {
             // Dùng Text khi scrollable == false để ImageRenderer không bị ô trống
             Text(formula.isEmpty ? "= [Cột]" : formula)
@@ -194,7 +194,7 @@ public struct CustomColumnDialogContent: View {
                 .foregroundStyle(formula.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(8)
-                .background(Color.white)
+                .background(DS.Palette.canvas)
         }
     }
 

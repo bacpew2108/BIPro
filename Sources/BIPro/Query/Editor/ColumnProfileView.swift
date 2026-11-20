@@ -57,7 +57,7 @@ struct ColumnProfileView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private func bodyContent(profile: ColumnProfile) -> some View {
@@ -104,7 +104,7 @@ struct ColumnProfileView: View {
             .frame(maxHeight: .infinity, alignment: .center)
         }
         .padding(8)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.control))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
@@ -155,7 +155,7 @@ struct ColumnProfileView: View {
             }
         }
         .padding(8)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.control))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }

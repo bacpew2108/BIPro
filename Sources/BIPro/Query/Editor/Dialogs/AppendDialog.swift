@@ -83,7 +83,7 @@ public struct AppendDialogContent: View {
         }
         .padding(20)
         .frame(width: 640)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var headerView: some View {
@@ -179,7 +179,7 @@ public struct AppendDialogContent: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -225,7 +225,7 @@ public struct AppendDialogContent: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, minHeight: 140, maxHeight: 180)
-                .background(Color.white)
+                .background(DS.Palette.canvas)
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
             }
 
@@ -246,7 +246,7 @@ public struct AppendDialogContent: View {
                     }
                     .font(DS.Typeface.bodySmall)
                     .frame(width: 80, height: 26)
-                    .background(Color.white)
+                    .background(DS.Palette.canvas)
                     .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                 }
                 .buttonStyle(.plain)
@@ -265,7 +265,7 @@ public struct AppendDialogContent: View {
                     }
                     .font(DS.Typeface.bodySmall)
                     .frame(width: 80, height: 26)
-                    .background(Color.white)
+                    .background(DS.Palette.canvas)
                     .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                 }
                 .buttonStyle(.plain)
@@ -334,7 +334,7 @@ public struct AppendDialogContent: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, minHeight: 140, maxHeight: 180)
-                .background(Color.white)
+                .background(DS.Palette.canvas)
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
             }
         }

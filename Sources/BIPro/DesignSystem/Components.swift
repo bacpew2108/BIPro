@@ -23,7 +23,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .padding(.horizontal, 12)
             .frame(height: 26)
             .background(RoundedRectangle(cornerRadius: DS.Radius.control)
-                .fill(configuration.isPressed ? DS.Palette.chrome : Color.white))
+                .fill(configuration.isPressed ? DS.Palette.chrome : DS.Palette.canvas))
             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
             .shadow(color: .black.opacity(0.05), radius: 0.5, y: 0.5)
     }
@@ -86,6 +86,7 @@ struct RibbonButton: View {
         .disabled(phase != nil || disabledReason != nil)
         .opacity(phase != nil || disabledReason != nil ? 0.55 : 1)
         .help(phase.map { "\(title): có ở \($0)" } ?? disabledReason ?? title)
+        .accessibilityLabel(title)
     }
 }
 
@@ -151,7 +152,7 @@ struct SegmentedPill<Value: Hashable>: View {
                     .frame(height: 22)
                     .background {
                         if selected {
-                            RoundedRectangle(cornerRadius: DS.Radius.segmentInner).fill(Color.white)
+                            RoundedRectangle(cornerRadius: DS.Radius.segmentInner).fill(DS.Palette.canvas)
                                 .shadow(color: .black.opacity(0.12), radius: 1.5, y: 1)
                         }
                     }
@@ -182,7 +183,8 @@ struct PaneHeader<Trailing: View>: View {
             if let collapse {
                 Button(action: collapse) { Image(systemName: "chevron.right") }
                     .buttonStyle(GhostIconButtonStyle())
-                    .help("Thu gọn")
+                    .help(trf(.a11yCollapsePaneFormat, title))
+                    .accessibilityLabel(trf(.a11yCollapsePaneFormat, title))
             }
         }
         .padding(.horizontal, 10)
@@ -221,7 +223,8 @@ struct CollapsedPaneStrip: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Mở \(title)")
+        .help(trf(.a11yExpandPaneFormat, title))
+        .accessibilityLabel(trf(.a11yExpandPaneFormat, title))
     }
 }
 
@@ -269,7 +272,7 @@ struct SearchField: View {
             } else if let shortcut {
                 Text(shortcut).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                     .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(RoundedRectangle(cornerRadius: DS.Radius.badge).fill(Color.white.opacity(0.8)))
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.badge).fill(DS.Palette.canvas.opacity(0.8)))
             }
         }
         .padding(.horizontal, 8)
@@ -283,7 +286,7 @@ struct CheckboxMark: View {
     let isOn: Bool
     var body: some View {
         RoundedRectangle(cornerRadius: 3.5)
-            .fill(isOn ? DS.Palette.accent : Color.white)
+            .fill(isOn ? DS.Palette.accent : DS.Palette.canvas)
             .overlay(RoundedRectangle(cornerRadius: 3.5).strokeBorder(isOn ? Color.clear : DS.Palette.checkboxBorder))
             .overlay { if isOn { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white) } }
             .frame(width: 14, height: 14)
@@ -335,7 +338,7 @@ struct FieldChip: View {
         }
         .padding(.horizontal, 8)
         .frame(minHeight: 28)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 }
@@ -363,7 +366,7 @@ struct PropertyRow: View {
 /// Tile surface with the standard elevation.
 struct TileBackground: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.white)
+        RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas)
             .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
     }
 }

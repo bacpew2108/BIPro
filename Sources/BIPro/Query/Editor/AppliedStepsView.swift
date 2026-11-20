@@ -50,7 +50,7 @@ struct AppliedStepsView: View {
                     editingEnterData = nil
                     return nil
                 }, onCancel: { editingEnterData = nil })
-                .environment(\.colorScheme, .light)
+                .preferredColorScheme(AppPreferences.shared.preferredColorScheme)
                 .interactiveDismissDisabled()
             }
         }
@@ -126,7 +126,7 @@ struct AppliedStepsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+                            .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
                             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                     } else {
                         TextField("", text: $queryNameText, onCommit: {
@@ -136,7 +136,7 @@ struct AppliedStepsView: View {
                         .font(DS.Typeface.body)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
                         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                     }
 
@@ -240,7 +240,7 @@ struct AppliedStepsView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .background(RoundedRectangle(cornerRadius: DS.Radius.control)
-            .fill(isSelected ? DS.Palette.accent : Color.white))
+            .fill(isSelected ? DS.Palette.accent : DS.Palette.canvas))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control)
             .strokeBorder(isSelected ? Color.clear : DS.Palette.separator))
         .contentShape(Rectangle())

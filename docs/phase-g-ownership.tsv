@@ -1,0 +1,12 @@
+# Phân khu sở hữu tệp — Phase G (v1.0)
+# Format: area<TAB>glob<TAB>owner<TAB>notes
+Settings	Sources/BIPro/Settings/**	lead	AppPreferences, L10n, SettingsView, OnboardingView
+DesignSystem	Sources/BIPro/DesignSystem/Tokens.swift	lead	Dynamic light/dark DS.Palette + documentPaper
+Export	Sources/BIPro/Export/**	lead	VisualCSVExporter, ReportPageExporter, ExportSheet
+QuickLookCore	Sources/PBIXKit/QuickLook*.swift	lead	PBIXQuickLookSummary (<1s) + PBIXQuickLookRenderer
+QuickLookExt	Sources/PBIXQuickLook/**	lead	PreviewViewController + ThumbnailProvider (.appex)
+Accessibility	Sources/BIPro/Report/AccessibilitySummary.swift	lead	VisualAccessibilitySummary + AccessibilityAnnouncer
+Packaging	scripts/make-icon.swift	lead	Native macOS AppIcon.icns generator
+Packaging	scripts/build-app.sh	lead	v1.0.0 bundle + AppIcon + QuickLook .appex
+Tests	Tests/BIProTests/PhaseG/**	lead	Phase G unit + heavy integration tests
+Tests	Tests/PBIXKitTests/QuickLookSummaryTests.swift	lead	Quick Look summary & renderer tests

@@ -225,7 +225,7 @@ struct FilterEditorBody: View {
             } label: {
                 HStack { Text(effectiveMode.rawValue).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
                     .padding(.horizontal, 8).frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
             }
             .menuStyle(.button).buttonStyle(.plain)
             switch effectiveMode {
@@ -313,7 +313,7 @@ struct AdvancedFilterEditor: View {
             } label: {
                 HStack { Text(condition.wrappedValue.kind.title).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
                     .padding(.horizontal, 8).frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
             }
             .menuStyle(.button).buttonStyle(.plain)
             if condition.wrappedValue.kind.needsOperand {
@@ -360,7 +360,7 @@ struct TopNFilterEditor: View {
                     Spacer(); Image(systemName: "chevron.down").font(.system(size: 9))
                 }
                 .padding(.horizontal, 8).frame(height: 24)
-                .background(RoundedRectangle(cornerRadius: 3).fill(Color.white))
+                .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
             }
             .menuStyle(.button).buttonStyle(.plain)
             HStack {

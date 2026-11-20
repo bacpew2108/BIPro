@@ -58,29 +58,59 @@ enum AggregateFunction: Int, CaseIterable, Hashable, Sendable {
         }
     }
 
-    /// Nhãn hiển thị tiếng Việt của trường, tương ứng nhãn Desktop ("Sum of Amount", "First Region", "Earliest OrderDate").
-    /// Desktop đổi Min/Max thành First/Last với cột chữ và Earliest/Latest với cột ngày.
-    func label(column: String, kind: ColumnKind) -> String { "\(name(kind: kind)) của \(column)" }
-
-    /// Tên phép gộp trong menu của trường ("Tổng", "Đầu tiên"…).
-    func name(kind: ColumnKind) -> String {
-        let name: String
-        switch (self, kind) {
-        case (.min, .text): name = "Đầu tiên"
-        case (.max, .text): name = "Cuối cùng"
-        case (.min, .date): name = "Sớm nhất"
-        case (.max, .date): name = "Muộn nhất"
-        case (.sum, _): name = "Tổng"
-        case (.average, _): name = "Trung bình"
-        case (.countDistinct, _): name = "Số lượng (riêng biệt)"
-        case (.min, _): name = "Nhỏ nhất"
-        case (.max, _): name = "Lớn nhất"
-        case (.count, _): name = "Số lượng"
-        case (.median, _): name = "Trung vị"
-        case (.standardDeviation, _): name = "Độ lệch chuẩn"
-        case (.variance, _): name = "Phương sai"
+    /// Nhãn hiển thị theo ngôn ngữ UI (Tiếng Việt: "Tổng của Amount", English: "Sum of Amount").
+    /// Chỉ dùng hiển thị UI; `nativeQueryRef` ghi vào `.pbix` luôn bất biến theo Power BI Desktop.
+    func label(column: String, kind: ColumnKind, language: ResolvedLanguage = .vi) -> String {
+        switch language {
+        case .vi:
+            return "\(name(kind: kind, language: .vi)) của \(column)"
+        case .en:
+            switch (self, kind) {
+            case (.min, .text): return "First \(column)"
+            case (.max, .text): return "Last \(column)"
+            case (.min, .date): return "Earliest \(column)"
+            case (.max, .date): return "Latest \(column)"
+            default: return "\(name(kind: kind, language: .en)) of \(column)"
+            }
         }
-        return name
+    }
+
+    /// Tên phép gộp trong menu của trường ("Tổng" / "Sum", "Đầu tiên" / "First"…).
+    func name(kind: ColumnKind, language: ResolvedLanguage = .vi) -> String {
+        switch language {
+        case .vi:
+            switch (self, kind) {
+            case (.min, .text): return "Đầu tiên"
+            case (.max, .text): return "Cuối cùng"
+            case (.min, .date): return "Sớm nhất"
+            case (.max, .date): return "Muộn nhất"
+            case (.sum, _): return "Tổng"
+            case (.average, _): return "Trung bình"
+            case (.countDistinct, _): return "Số lượng (riêng biệt)"
+            case (.min, _): return "Nhỏ nhất"
+            case (.max, _): return "Lớn nhất"
+            case (.count, _): return "Số lượng"
+            case (.median, _): return "Trung vị"
+            case (.standardDeviation, _): return "Độ lệch chuẩn"
+            case (.variance, _): return "Phương sai"
+            }
+        case .en:
+            switch (self, kind) {
+            case (.min, .text): return "First"
+            case (.max, .text): return "Last"
+            case (.min, .date): return "Earliest"
+            case (.max, .date): return "Latest"
+            case (.sum, _): return "Sum"
+            case (.average, _): return "Average"
+            case (.countDistinct, _): return "Count (Distinct)"
+            case (.min, _): return "Minimum"
+            case (.max, _): return "Maximum"
+            case (.count, _): return "Count"
+            case (.median, _): return "Median"
+            case (.standardDeviation, _): return "Standard deviation"
+            case (.variance, _): return "Variance"
+            }
+        }
     }
 
     /// Nhóm kiểu cột quyết định nhãn và danh sách phép gộp (VM-F10: cột chữ chỉ có First, Last, Count (Distinct), Count).

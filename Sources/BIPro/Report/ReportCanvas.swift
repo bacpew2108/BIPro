@@ -18,6 +18,8 @@ struct ReportPageView: View {
     /// Bộ sửa bố cục và cờ chế độ Sửa (D1). Không có bộ sửa thì luôn là chế độ Xem.
     var editor: LayoutEditor?
     var editMode = false
+    /// Gọi khi người dùng bấm "Xuất dữ liệu ra CSV…" trên menu chuột phải của một visual.
+    var onExportCSV: ((ReportVisual, DataView) -> Void)? = nil
 
     /// Khung tạm của các visual đang bị kéo (chỉ chế độ Sửa).
     @State private var preview: [String: Frame] = [:]
@@ -126,7 +128,14 @@ struct ReportPageView: View {
                 .onTapGesture { deselect() }
             ForEach(page.visuals.filter { !isHidden($0) }) { visual in
                 let frame = preview[visual.id]
-                VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
+                let a11y = VisualAccessibilitySummary.describe(
+                    visual: visual,
+                    data: interaction?.loadedDataViews[visual.id],
+                    slicerSelectedCount: interaction?.state(for: page).slicers[visual.id]?.selection.paths.count ?? 0,
+                    language: AppPreferences.shared.effectiveLanguage
+                )
+                VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction,
+                                    navigate: navigate, onExportCSV: onExportCSV.map { handler in { view in handler(visual, view) } })
                     .frame(width: frame.map { CGFloat($0.width) } ?? visual.width, height: frame.map { CGFloat($0.height) } ?? visual.height)
                     .allowsHitTesting(!isEditing)
                     .overlay {
@@ -134,6 +143,10 @@ struct ReportPageView: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { if !isEditing { selectedVisual = visual.id } }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel(a11y.label)
+                    .accessibilityValue(a11y.value)
+                    .accessibilityHint(a11y.hint)
                     .offset(x: frame.map { CGFloat($0.x) } ?? visual.x, y: frame.map { CGFloat($0.y) } ?? visual.y)
             }
             if isEditing, let editor {
@@ -167,6 +180,9 @@ struct VisualContainerView: View {
     let visual: ReportVisual
     var interaction: ReportInteraction?
     let navigate: (String) -> Void
+    var preloaded: LiveVisualData? = nil
+    var isExporting: Bool = false
+    var onExportCSV: ((DataView) -> Void)? = nil
 
     private var container: ObjectProperties { visual.containerObjects }
     private var theme: ReportTheme { workspace.theme }
@@ -186,7 +202,8 @@ struct VisualContainerView: View {
                     .frame(maxWidth: .infinity, alignment: Alignment(horizontal: title.alignment, vertical: .center))
                     .lineLimit(1)
             }
-            VisualContentView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
+            VisualContentView(workspace: workspace, page: page, visual: visual, interaction: interaction,
+                              navigate: navigate, preloaded: preloaded, isExporting: isExporting, onExportCSV: onExportCSV)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(padding)
@@ -251,9 +268,12 @@ struct VisualContentView: View {
     let visual: ReportVisual
     var interaction: ReportInteraction?
     let navigate: (String) -> Void
+    var preloaded: LiveVisualData? = nil
+    var isExporting: Bool = false
+    var onExportCSV: ((DataView) -> Void)? = nil
 
     /// Loại visual có renderer số thật (gói G). Còn lại giữ bản giữ chỗ.
-    private static let liveTypes: Set<String> = [
+    static let liveTypes: Set<String> = [
         "card", "cardVisual", "slicer", "pivotTable", "matrix",
         "clusteredBarChart", "clusteredColumnChart", "stackedColumnChart", "columnChart", "hundredPercentStackedColumnChart",
         "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
@@ -263,7 +283,8 @@ struct VisualContentView: View {
 
     var body: some View {
         if let interaction, interaction.isAvailable, Self.liveTypes.contains(visual.type) {
-            LiveVisualView(workspace: workspace, page: page, visual: visual, interaction: interaction, navigate: navigate)
+            LiveVisualView(workspace: workspace, page: page, visual: visual, interaction: interaction,
+                           navigate: navigate, preloaded: preloaded, isExporting: isExporting, onExportCSV: onExportCSV)
         } else {
             staticContent
         }

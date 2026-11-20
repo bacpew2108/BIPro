@@ -33,7 +33,8 @@ struct EditCanvasOverlay: View {
     @State private var ghost: [String: Frame] = [:]
 
     private var bounds: PageBounds { PageBounds(page) }
-    private var snapEnabled: Bool { !NSEvent.modifierFlags.contains(.option) }
+    private var snapEnabled: Bool { AppPreferences.shared.snapToGrid && !NSEvent.modifierFlags.contains(.option) }
+    private var gridSize: Int { AppPreferences.shared.gridSize }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -207,7 +208,7 @@ struct EditCanvasOverlay: View {
             guard hypot(point.x - start.x, point.y - start.y) * scale >= 3 || !preview.isEmpty else { return }
             let movable = frames.filter { !editor.isLockedByGroup($0.id) }
             guard !movable.isEmpty else { return }
-            let moved = LayoutGeometry.move(movable.map(\.frame), dx: dx, dy: dy, page: bounds, snap: snapEnabled)
+            let moved = LayoutGeometry.move(movable.map(\.frame), dx: dx, dy: dy, page: bounds, snap: snapEnabled, grid: gridSize)
             var next: [String: Frame] = [:]
             for (item, frame) in zip(movable, moved) { next[item.id] = frame }
             preview = next
@@ -248,7 +249,7 @@ struct EditCanvasOverlay: View {
                 onInteract()
                 let dx = Int((value.location.x - value.startLocation.x).rounded())
                 let dy = Int((value.location.y - value.startLocation.y).rounded())
-                ghost = [visual.id: LayoutGeometry.resize(start, handle: handle, dx: dx, dy: dy, page: bounds, snap: snapEnabled)]
+                ghost = [visual.id: LayoutGeometry.resize(start, handle: handle, dx: dx, dy: dy, page: bounds, snap: snapEnabled, grid: gridSize)]
             }
             .onEnded { _ in
                 if !ghost.isEmpty { editor.apply(frames: ghost) }

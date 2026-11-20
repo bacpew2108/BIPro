@@ -53,8 +53,9 @@ enum LayoutGeometry {
     static let zStep = 1000
 
     /// Bội số gần nhất của `grid` (đúng nửa lưới thì làm tròn lên).
-    static func snap(_ value: Int) -> Int {
-        Int((Double(value) / Double(grid) + 0.5).rounded(.down)) * grid
+    static func snap(_ value: Int, grid step: Int = grid) -> Int {
+        let g = max(1, step)
+        return Int((Double(value) / Double(g) + 0.5).rounded(.down)) * g
     }
 
     private static func clamp(_ value: Int, _ low: Int, _ high: Int) -> Int { min(max(value, low), max(low, high)) }
@@ -62,16 +63,16 @@ enum LayoutGeometry {
     // MARK: Di chuyển
 
     /// Dời một khung.
-    static func move(_ frame: Frame, dx: Int, dy: Int, page: PageBounds, snap: Bool) -> Frame {
-        move([frame], dx: dx, dy: dy, page: page, snap: snap)[0]
+    static func move(_ frame: Frame, dx: Int, dy: Int, page: PageBounds, snap: Bool, grid: Int = grid) -> Frame {
+        move([frame], dx: dx, dy: dy, page: page, snap: snap, grid: grid)[0]
     }
 
     /// Dời cả nhóm: gốc của khung bao bám lưới và kẹp trong trang, mọi khung chịu cùng độ dời,
     /// nên vị trí tương đối giữ nguyên (kể cả khi khung không nằm trên lưới).
-    static func move(_ frames: [Frame], dx: Int, dy: Int, page: PageBounds, snap doSnap: Bool) -> [Frame] {
+    static func move(_ frames: [Frame], dx: Int, dy: Int, page: PageBounds, snap doSnap: Bool, grid: Int = grid) -> [Frame] {
         guard let box = boundingBox(frames) else { return frames }
         var targetX = box.x + dx, targetY = box.y + dy
-        if doSnap { targetX = snap(targetX); targetY = snap(targetY) }
+        if doSnap { targetX = snap(targetX, grid: grid); targetY = snap(targetY, grid: grid) }
         targetX = clamp(targetX, 0, page.width - box.width)
         targetY = clamp(targetY, 0, page.height - box.height)
         let shiftX = targetX - box.x, shiftY = targetY - box.y
@@ -82,9 +83,9 @@ enum LayoutGeometry {
 
     /// Kéo một tay nắm `(dx, dy)` điểm. Chỉ cạnh đang kéo đổi, cạnh đó bám lưới; kết quả kẹp trong trang,
     /// không nhỏ hơn `minSize` và không bị đảo chiều.
-    static func resize(_ frame: Frame, handle: ResizeHandle, dx: Int, dy: Int, page: PageBounds, snap doSnap: Bool) -> Frame {
+    static func resize(_ frame: Frame, handle: ResizeHandle, dx: Int, dy: Int, page: PageBounds, snap doSnap: Bool, grid: Int = grid) -> Frame {
         var left = frame.x, right = frame.right, top = frame.y, bottom = frame.bottom
-        func edge(_ value: Int) -> Int { doSnap ? snap(value) : value }
+        func edge(_ value: Int) -> Int { doSnap ? snap(value, grid: grid) : value }
         if handle.movesLeft { left = clamp(edge(frame.x + dx), 0, right - minSize) }
         if handle.movesRight { right = clamp(edge(frame.right + dx), left + minSize, page.width) }
         if handle.movesTop { top = clamp(edge(frame.y + dy), 0, bottom - minSize) }

@@ -51,7 +51,7 @@ struct NavigatorView: View {
                 .hairline(.top)
         }
         .frame(width: 960, height: 620)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.large))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.large).strokeBorder(DS.Palette.separator, lineWidth: 1))
         .onAppear {
@@ -159,7 +159,7 @@ struct NavigatorView: View {
                 .padding(.vertical, 24)
                 .background(
                     RoundedRectangle(cornerRadius: DS.Radius.large)
-                        .fill(Color.white)
+                        .fill(DS.Palette.canvas)
                         .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
                 )
                 .overlay(
@@ -274,7 +274,7 @@ struct NavigatorView: View {
                 }
                 .padding(.horizontal, 6)
                 .frame(width: 250, height: 22)
-                .background(RoundedRectangle(cornerRadius: 5).fill(Color.white))
+                .background(RoundedRectangle(cornerRadius: 5).fill(DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: 1))
             }
         }

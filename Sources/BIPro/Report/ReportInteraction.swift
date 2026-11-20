@@ -33,12 +33,15 @@ final class ReportInteraction {
     var states: [String: FilterState] = [:]
     /// Phiên bản mô hình hiệu lực (Phase E): đổi thì mọi visual nạp lại vì measure, quan hệ hoặc cột có thể đã đổi.
     var modelVersion = 0
+    /// Dữ liệu đã nạp gần nhất của từng visual (dùng cho Xuất CSV tức thì và tóm tắt VoiceOver — Phase G).
+    var loadedDataViews: [String: DataView] = [:]
 
     /// Mô hình hiệu lực đổi (Phase E): bỏ bộ đọc spec và bộ nạp đã dựng trên mô hình cũ (kèm bộ nhớ đệm kết quả) và báo visual nạp lại.
     func modelDidChange() {
         servicesTask?.cancel()
         servicesTask = nil
         servicesGeneration += 1
+        loadedDataViews = [:]
         modelVersion += 1
     }
 
@@ -398,6 +401,7 @@ final class ReportInteraction {
         spec.highlight = assembled.highlight
         let loaded = try await loader.load(spec)
         recordLegendValues(of: visual.id, in: loaded.view)
+        loadedDataViews[visual.id] = loaded.view
         return LiveVisualData(spec: spec, view: loaded.view, query: loaded.query, elapsed: loaded.elapsed)
     }
 

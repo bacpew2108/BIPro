@@ -112,7 +112,7 @@ struct FormulaBarView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(isCurrentStepLocked ? DS.Palette.controlFill.opacity(0.5) : Color.white))
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(isCurrentStepLocked ? DS.Palette.controlFill.opacity(0.5) : DS.Palette.canvas))
                     .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
             } else {
                 Group {
@@ -130,7 +130,7 @@ struct FormulaBarView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
             }
 

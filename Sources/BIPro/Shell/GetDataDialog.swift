@@ -77,7 +77,7 @@ struct GetDataDialogView: View {
                 .hairline(.top)
         }
         .frame(width: 840, height: 580)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.large))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.large).strokeBorder(DS.Palette.separator, lineWidth: 1))
     }
@@ -118,7 +118,7 @@ struct GetDataDialogView: View {
                     Spacer()
                     Text("⌘F").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                         .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.badge).fill(Color.white.opacity(0.8)))
+                        .background(RoundedRectangle(cornerRadius: DS.Radius.badge).fill(DS.Palette.canvas.opacity(0.8)))
                 }
                 .padding(.horizontal, 8)
                 .frame(width: 240, height: 28)
@@ -241,7 +241,7 @@ struct GetDataDialogView: View {
                 .clipped()
             }
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var catalogSubheader: some View {
@@ -261,7 +261,7 @@ struct GetDataDialogView: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 36)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private func connectorRow(_ entry: ConnectorEntry) -> some View {

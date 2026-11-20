@@ -67,14 +67,18 @@ struct VisualRenderContext {
     var actions: VisualActions
     /// Kích thước visual trên trang (đơn vị trang); trục giá trị chia vạch theo chiều cao vùng vẽ ước từ đó. nil = số vạch cố định.
     var visualSize: CGSize?
+    /// `true` khi đang kết xuất tĩnh ra PNG/PDF (tắt lớp AppKit overlay, hover, điều khiển drill/scroll).
+    var isExporting: Bool
 
     init(theme: ReportTheme = .fallback, format: VisualFormat = VisualFormat(), selection: Set<DataPointID> = [],
-         slicerSelection: SlicerSelection = SlicerSelection(), actions: VisualActions = .none, visualSize: CGSize? = nil) {
+         slicerSelection: SlicerSelection = SlicerSelection(), actions: VisualActions = .none, visualSize: CGSize? = nil,
+         isExporting: Bool = false) {
         self.visualSize = visualSize
         self.theme = theme
         self.format = format
         self.selection = selection
         self.slicerSelection = slicerSelection
         self.actions = actions
+        self.isExporting = isExporting
     }
 }

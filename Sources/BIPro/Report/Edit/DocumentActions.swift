@@ -89,6 +89,7 @@ extension DocumentState {
         do {
             let outcome = try DocumentSaver.save(editor: layout, source: source, to: destination, expectedStamp: expectedStamp)
             if destination.standardizedFileURL == source.standardizedFileURL { openedStamp = outcome.newStamp }
+            AccessibilityAnnouncer.announce(trf(.a11yAnnouncementSavedFormat, destination.lastPathComponent))
             return true
         } catch SaveError.modifiedExternally {
             // File đã bị chương trình khác đổi: cho chọn.
@@ -152,6 +153,12 @@ final class DocumentRegistry {
 // MARK: - Uỷ quyền ứng dụng: hỏi lưu khi thoát
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            AppPreferences.shared.applyAppearance()
+        }
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         MainActor.assumeIsolated {
             for document in DocumentRegistry.shared.dirtyDocuments {
@@ -229,32 +236,43 @@ struct SaveCommands: Commands {
         // của nó và làm app sập lúc khởi động.
         // Nhóm "New/Open" mặc định của DocumentGroup chỉ xem có mục "New" không dùng được: thay bằng "Mới" (tài liệu trống, T077) và "Mở…".
         CommandGroup(replacing: .newItem) {
-            Button("Mới") { UntitledDocuments.openNew() }
+            Button(tr(.menuNew)) { UntitledDocuments.openNew() }
                 .keyboardShortcut("n", modifiers: .command)
-            Button("Mở…") { NSDocumentController.shared.openDocument(nil) }
+            Button(tr(.menuOpen)) { NSDocumentController.shared.openDocument(nil) }
                 .keyboardShortcut("o", modifiers: .command)
         }
         CommandGroup(after: .newItem) {
-            Menu("Mở gần đây") {
+            Menu(tr(.menuOpenRecent)) {
                 ForEach(RecentFiles.urls, id: \.self) { url in
                     Button(url.lastPathComponent) {
                         NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }
                     }
                 }
                 Divider()
-                Button("Xoá danh sách") { RecentFiles.clear() }
+                Button(tr(.menuClearRecent)) { RecentFiles.clear() }
             }
         }
         CommandGroup(replacing: .saveItem) {
-            Button("Đóng") { NSApp.keyWindow?.performClose(nil) }
+            Button(tr(.menuClose)) { NSApp.keyWindow?.performClose(nil) }
                 .keyboardShortcut("w", modifiers: .command)
             Divider()
-            Button("Lưu") { state?.save() }
+            Button(tr(.menuSave)) { state?.save() }
                 .keyboardShortcut("s", modifiers: .command)
-            Button("Lưu thành…") { state?.saveAs() }
+            Button(tr(.menuSaveAs)) { state?.saveAs() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
             Divider()
-            Button("Tuỳ chọn tệp…") { state?.showFileOptionsDialog() }
+            Menu(tr(.menuExport)) {
+                Button(tr(.exportPDFItem)) { state?.openExportSheet(.pdf) }
+                    .disabled(state?.pages.isEmpty ?? true)
+                Button(tr(.exportPNGItem)) { state?.openExportSheet(.png) }
+                    .disabled(state?.page == nil)
+                Divider()
+                Button(tr(.exportCSVItem)) { state?.exportSelectedVisualToCSV() }
+                    .disabled(state?.exportCSVDisabledReason != nil)
+            }
+            .disabled(state == nil)
+            Divider()
+            Button(tr(.menuFileOptions)) { state?.showFileOptionsDialog() }
                 .disabled(state == nil)
         }
     }

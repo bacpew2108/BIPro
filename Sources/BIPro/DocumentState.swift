@@ -19,6 +19,17 @@ enum WorkspaceMode: String, CaseIterable, Identifiable {
         }
     }
 
+    @MainActor
+    var localizedTitle: String {
+        switch self {
+        case .report: tr(.modeReport)
+        case .table: tr(.modeTable)
+        case .model: tr(.modeModel)
+        case .daxQuery: tr(.modeDAX)
+        case .tmdl: tr(.modeTMDL)
+        }
+    }
+
     var symbol: String {
         switch self {
         case .report: "chart.bar.xaxis"
@@ -48,6 +59,23 @@ enum RibbonTab: String, Identifiable {
         }
     }
 
+    @MainActor
+    var localizedTitle: String {
+        let lang = AppPreferences.shared.effectiveLanguage
+        guard lang == .en else { return title }
+        switch self {
+        case .home: return "Home"
+        case .insert: return "Insert"
+        case .modeling: return "Modeling"
+        case .view: return "View"
+        case .help: return "Help"
+        case .format: return "Format"
+        case .dataDrill: return "Data / Drill"
+        case .tableTools: return "Table tools"
+        case .columnTools: return "Column tools"
+        }
+    }
+
     /// Contextual tabs are tinted, as in the design.
     var isContextual: Bool { [.format, .dataDrill, .tableTools, .columnTools].contains(self) }
 }
@@ -74,10 +102,21 @@ final class DocumentState {
     /// Vùng trang đang nhìn thấy trong canvas (toạ độ trang); nil = cả trang. Dùng khi thêm visual mới (D3).
     var visibleRect: CGRect?
     var editMode = false {
-        didSet { if !editMode { layout.clearSelection(); if visualID != nil { visualID = nil } } }
+        didSet {
+            if !editMode { layout.clearSelection(); if visualID != nil { visualID = nil } }
+            if editMode != oldValue {
+                AccessibilityAnnouncer.announce(tr(editMode ? .a11yAnnouncementEditModeOn : .a11yAnnouncementEditModeOff))
+            }
+        }
     }
     /// Trạng thái lọc/tương tác và nạp dữ liệu của các visual trong báo cáo (gói G).
     let interaction: ReportInteraction
+
+    // Export sheet state (Phase G, US1)
+    var exportSheetKind: ExportSheetKind?
+    var isExporting = false
+    var exportProgress = ""
+    var exportError: String?
 
     var mode: WorkspaceMode = .report {
         didSet {
@@ -88,7 +127,16 @@ final class DocumentState {
     var ribbonTab: RibbonTab = .home
 
     // Report
-    var pageID: String? { didSet { if pageID != oldValue { layout.showPage(pageID) } } }
+    var pageID: String? {
+        didSet {
+            if pageID != oldValue {
+                layout.showPage(pageID)
+                if let name = page?.displayName, oldValue != nil {
+                    AccessibilityAnnouncer.announce(trf(.a11yAnnouncementPageChangedFormat, name))
+                }
+            }
+        }
+    }
     var visualID: String? {
         didSet {
             if visualID == nil, ribbonTab.isContextual, mode == .report { ribbonTab = .home }

@@ -58,11 +58,11 @@ public struct QueryDependenciesContent: View {
                             .scaleEffect(zoomScale, anchor: .topLeading)
                             .frame(width: canvasWidth * zoomScale, height: canvasHeight * zoomScale)
                     }
-                    .background(Color(hex: "#F6F7F9")!)
+                    .background(DS.Palette.chrome)
                 } else {
                     canvasView
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .background(Color(hex: "#F6F7F9")!)
+                        .background(DS.Palette.chrome)
                         .clipped()
                 }
 
@@ -79,7 +79,7 @@ public struct QueryDependenciesContent: View {
                 .hairline(.top)
         }
         .frame(minWidth: 800, minHeight: 500)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     // MARK: - Header Bar
@@ -102,7 +102,7 @@ public struct QueryDependenciesContent: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 44)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     // MARK: - Cycle Banner
@@ -297,7 +297,7 @@ public struct QueryDependenciesContent: View {
         }
         .padding(10)
         .frame(width: 200, height: 80)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.tile))
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.tile)
@@ -332,7 +332,7 @@ public struct QueryDependenciesContent: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.tile))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
         .shadow(color: .black.opacity(0.08), radius: 6, y: 3)

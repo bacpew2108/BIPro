@@ -71,7 +71,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(20)
         .frame(width: 600)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
     }
 
     private var headerView: some View {
@@ -146,7 +146,7 @@ public struct GroupByDialogContent: View {
                                 .font(DS.Typeface.body)
                                 .padding(.horizontal, 8)
                                 .frame(height: 28)
-                                .background(Color.white)
+                                .background(DS.Palette.canvas)
                                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(
                                     isBasicNameClashing ? DS.Palette.danger : DS.Palette.separator
                                 ))
@@ -159,7 +159,7 @@ public struct GroupByDialogContent: View {
                             }
                             .padding(.horizontal, 8)
                             .frame(height: 28)
-                            .background(Color.white)
+                            .background(DS.Palette.canvas)
                             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(
                                 isBasicNameClashing ? DS.Palette.danger : DS.Palette.separator
                             ))
@@ -242,7 +242,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -258,7 +258,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -274,7 +274,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -353,7 +353,7 @@ public struct GroupByDialogContent: View {
                                 .font(DS.Typeface.body)
                                 .padding(.horizontal, 8)
                                 .frame(width: 140, height: 28)
-                                .background(Color.white)
+                                .background(DS.Palette.canvas)
                                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                         } else {
                             HStack {
@@ -364,7 +364,7 @@ public struct GroupByDialogContent: View {
                             }
                             .padding(.horizontal, 8)
                             .frame(width: 140, height: 28)
-                            .background(Color.white)
+                            .background(DS.Palette.canvas)
                             .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                         }
 
@@ -469,7 +469,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -485,7 +485,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(.horizontal, 8)
         .frame(width: 170, height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 
@@ -501,7 +501,7 @@ public struct GroupByDialogContent: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
     }
 

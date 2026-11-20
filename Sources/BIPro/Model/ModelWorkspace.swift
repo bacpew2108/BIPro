@@ -153,7 +153,7 @@ struct ModelWorkspace: View {
             .scaleEffect(zoom, anchor: .topLeading)
             .frame(width: size.width * zoom, height: size.height * zoom, alignment: .topLeading)
         }
-        .background(Color(hex: "#FAFAFC")!)
+        .background(DS.Palette.backdrop)
     }
 
     /// Vertical offset of a column row inside its card, so lines meet the key column like in Power BI.
@@ -178,7 +178,7 @@ struct ModelWorkspace: View {
                     TextField("Tên bố cục", text: $renameText)
                         .textFieldStyle(.plain).font(.system(size: 12, weight: .semibold))
                         .padding(.horizontal, 8).frame(width: 130, height: 24)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(Color.white))
+                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
                         .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).stroke(DS.Palette.accent, lineWidth: 1))
                         .focused($renameFocused)
                         .onSubmit { commitRename(name) }
@@ -188,7 +188,7 @@ struct ModelWorkspace: View {
                         .font(.system(size: 12, weight: selected ? .semibold : .regular))
                         .foregroundStyle(selected ? DS.Palette.accent : DS.Palette.secondaryLabel)
                         .padding(.horizontal, 10).frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(selected ? Color.white : .clear))
+                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(selected ? DS.Palette.canvas : .clear))
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { if index > 0 { startRename(name) } else { state.selectDiagram(name) } }
                         .onTapGesture { state.selectDiagram(name) }
@@ -351,7 +351,7 @@ struct TableCard: View {
                 .padding(.vertical, 4)
             }
         }
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .opacity(table.isHidden ? 0.55 : 1)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.tile))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(isSelected ? DS.Palette.accent : DS.Palette.separator, lineWidth: isSelected ? 1.5 : 1))
@@ -453,7 +453,7 @@ struct RelationshipLine: View {
             .font(.system(size: 9, weight: .bold))
             .foregroundStyle(color)
             .frame(width: 15, height: 15)
-            .background(Circle().fill(Color.white))
+            .background(Circle().fill(DS.Palette.canvas))
             .overlay(Circle().strokeBorder(color, lineWidth: 1))
             .position(x: point.x + side * 12, y: point.y)
     }
@@ -521,7 +521,7 @@ struct RelationshipPanel: View {
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .popoverElevation()
     }
 
@@ -592,7 +592,7 @@ struct RelationshipDraftPanel: View {
             }
         }
         .padding(14)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .popoverElevation()
     }
 }

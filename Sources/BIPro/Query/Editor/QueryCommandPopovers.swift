@@ -120,7 +120,7 @@ struct QueryCommandPopoverView: View {
         }
         .padding(14)
         .frame(width: popoverWidth)
-        .background(Color.white)
+        .background(DS.Palette.canvas)
         .popoverElevation()
     }
 
