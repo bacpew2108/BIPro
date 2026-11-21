@@ -4,21 +4,28 @@ import Testing
 
 @Suite struct VisualTypesTests {
     @Test func supportedTypesAreTheObservedOnesPlusTheTextbox() {
-        #expect(Set(VisualTypes.supported) == ["card", "cardVisual", "slicer", "clusteredBarChart", "hundredPercentStackedColumnChart", "lineChart",
-                                               "lineClusteredColumnComboChart", "lineStackedColumnComboChart", "donutChart", "treemap",
-                                               "pivotTable", "shapeMap", "textbox", "clusteredColumnChart", "columnChart",
-                                               // VM-D15 mục 4: bốn loại Desktop tạo với ô Category, Y, Tooltips, nay BI Pro đã vẽ được.
-                                               "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel"])
-        #expect(VisualTypes.supported.count == 21)
+        #expect(Set(VisualTypes.supported) == [
+            "card", "cardVisual", "multiRowCard", "kpi", "gauge",
+            "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer",
+            "clusteredBarChart", "barChart", "stackedBarChart", "hundredPercentStackedBarChart",
+            "clusteredColumnChart", "columnChart", "hundredPercentStackedColumnChart",
+            "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
+            "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel",
+            "scatterChart", "donutChart", "pieChart", "treemap",
+            "pivotTable", "tableEx", "shapeMap", "map", "filledMap",
+            "textbox", "shape", "actionButton", "pageNavigator", "bookmarkNavigator", "image",
+        ])
+        #expect(VisualTypes.supported.count == 40)
     }
 
     @Test func everySupportedTypeHasAnObservedWellAndAMatchingDefaultSize() throws {
+        let nonDataElements: Set<String> = ["textbox", "shape", "actionButton", "pageNavigator", "bookmarkNavigator", "image"]
         for type in VisualTypes.supported {
             let info = try #require(VisualTypes.info(for: type), Comment(rawValue: type))
             let size = try #require(PBIRNewVisual.defaultSize(for: type), Comment(rawValue: type))
             #expect(info.defaultSize.width == size.width && info.defaultSize.height == size.height, Comment(rawValue: type))
             #expect(info.isSupported && VisualTypes.isSupported(type))
-            if type != "textbox" {
+            if !nonDataElements.contains(type) {
                 let visual = ReportVisual(id: "aaaaaaaaaaaaaaaaaaa1", type: type)
                 #expect(WellRules.rules(for: visual).contains { $0.status == .observed }, Comment(rawValue: "\(type) cần ít nhất một ô đã quan sát"))
             }
@@ -31,10 +38,9 @@ import Testing
             #expect(!reason.isEmpty, Comment(rawValue: entry.type))
             #expect(VisualTypes.info(for: entry.type) == nil, Comment(rawValue: entry.type))
         }
-        #expect(VisualTypes.refusal(for: "stackedBarChart").contains("VM-D3"))
+        #expect(VisualTypes.isSupported("barChart") && VisualTypes.isSupported("stackedBarChart"))
         #expect(VisualTypes.isSupported("clusteredColumnChart") && VisualTypes.isSupported("columnChart"))
-        #expect(VisualTypes.refusal(for: "image").contains("tài nguyên"))
-        #expect(VisualTypes.refusal(for: "scatterChart").contains("chưa vẽ"))
+        #expect(VisualTypes.isSupported("image") && VisualTypes.isSupported("scatterChart"))
         #expect(!VisualTypes.refusal(for: "unknownType").isEmpty)
     }
 

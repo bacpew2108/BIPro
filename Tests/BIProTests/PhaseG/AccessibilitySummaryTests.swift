@@ -50,6 +50,21 @@ struct AccessibilitySummaryTests {
         let slicerData = DataView.slicer(SlicerData(levels: [cat], roots: [SlicerNode(.integer(2024))]))
         #expect(VisualAccessibilitySummary.describe(visual: slicerVisual, data: slicerData, slicerSelectedCount: 0, language: .vi).value == "Tất cả")
         #expect(VisualAccessibilitySummary.describe(visual: slicerVisual, data: slicerData, slicerSelectedCount: 2, language: .en).value == "2 selected")
+
+        // v1.1a (T021): Các loại visual mới song ngữ vi/en
+        #expect(VisualAccessibilitySummary.visualTypeName("pieChart", language: .vi) == "Biểu đồ tròn")
+        #expect(VisualAccessibilitySummary.visualTypeName("pieChart", language: .en) == "Pie chart")
+        #expect(VisualAccessibilitySummary.visualTypeName("scatterChart", language: .vi) == "Biểu đồ phân tán")
+        #expect(VisualAccessibilitySummary.visualTypeName("gauge", language: .en) == "Gauge")
+        #expect(VisualAccessibilitySummary.visualTypeName("kpi", language: .en) == "KPI")
+        #expect(VisualAccessibilitySummary.visualTypeName("multiRowCard", language: .vi) == "Thẻ nhiều hàng")
+        #expect(VisualAccessibilitySummary.visualTypeName("map", language: .en) == "Map")
+        #expect(VisualAccessibilitySummary.visualTypeName("filledMap", language: .vi) == "Bản đồ")
+
+        let gaugeData = DataView.gauge(GaugeData(valueField: m, value: DataCell(.integer(500)), min: nil, max: nil, target: nil))
+        #expect(VisualAccessibilitySummary.describe(visual: makeVisual(type: "gauge"), data: gaugeData, language: .en).value == "500")
+        let tableData = DataView.table(TableDataView(columns: [cat, m], rows: [[DataCell(.integer(2024)), DataCell(.integer(10))]], totals: nil, isReduced: false))
+        #expect(VisualAccessibilitySummary.describe(visual: makeVisual(type: "tableEx"), data: tableData, language: .en).value == "1 rows, 2 columns")
     }
 
     @Test("AccessibilityAnnouncer an toàn khi gọi trong môi trường test không có NSApp")

@@ -274,10 +274,13 @@ struct VisualContentView: View {
 
     /// Loại visual có renderer số thật (gói G). Còn lại giữ bản giữ chỗ.
     static let liveTypes: Set<String> = [
-        "card", "cardVisual", "slicer", "pivotTable", "matrix",
-        "clusteredBarChart", "clusteredColumnChart", "stackedColumnChart", "columnChart", "hundredPercentStackedColumnChart",
+        "card", "cardVisual", "multiRowCard", "kpi", "gauge",
+        "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer",
+        "pivotTable", "matrix", "tableEx", "table",
+        "clusteredBarChart", "barChart", "stackedBarChart", "hundredPercentStackedBarChart",
+        "clusteredColumnChart", "stackedColumnChart", "columnChart", "hundredPercentStackedColumnChart",
         "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
-        "donutChart", "treemap", "shapeMap",
+        "scatterChart", "donutChart", "pieChart", "treemap", "shapeMap", "map", "filledMap",
         "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel",
     ]
 
@@ -303,6 +306,8 @@ struct VisualContentView: View {
             ActionButtonVisual(workspace: workspace, visual: visual, interaction: interaction, navigate: navigate)
         case "pageNavigator":
             PageNavigatorVisual(workspace: workspace, pages: interaction?.visiblePages, currentPage: page.id, navigate: navigate)
+        case "bookmarkNavigator":
+            BookmarkNavigatorVisual(workspace: workspace, interaction: interaction, navigate: navigate)
         case "card", "cardVisual", "multiRowCard", "kpi":
             CardPlaceholder(visual: visual, theme: workspace.theme)
         case "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer":
@@ -399,21 +404,34 @@ struct ShapeVisual: View {
         let fill = (theme.color(o.color("fill", "fillColor")) ?? theme.dataColor(0))
             .opacity((o.bool("fill", "show") ?? true) ? o.opacity("fill") : 0)
         let lineShow = o.bool("outline", "show") ?? o.bool("line", "show") ?? true
-        let line = theme.color(o.color("outline", "lineColor") ?? o.color("line", "lineColor")) ?? .black
-        let weight = CGFloat(o.number("outline", "weight") ?? o.number("line", "weight") ?? 1)
+        let line = theme.color(o.color("outline", "lineColor") ?? o.color("line", "lineColor")) ?? theme.dataColor(0)
+        let weight = CGFloat(max(1, o.number("outline", "weight") ?? o.number("line", "weight") ?? (kindIsLine(o) ? 2 : 1)))
         let kind = (o.string("shape", "tileShape") ?? o.string("general", "shapeType") ?? "rectangle").lowercased()
         let round = CGFloat(o.number("shape", "roundEdge") ?? o.number("line", "roundEdge") ?? (kind.contains("round") ? 10 : 0))
+        let angle = o.number("rotation", "shapeAngle") ?? 0
 
         Group {
             if kind.contains("oval") || kind.contains("ellipse") {
                 Ellipse().fill(fill).overlay(Ellipse().strokeBorder(lineShow ? line : .clear, lineWidth: weight))
             } else if kind.contains("line") {
-                Rectangle().fill(line).frame(height: weight)
+                GeometryReader { geo in
+                    Path { p in
+                        let midY = geo.size.height / 2
+                        p.move(to: CGPoint(x: 0, y: midY))
+                        p.addLine(to: CGPoint(x: geo.size.width, y: midY))
+                    }
+                    .stroke(lineShow ? line : .clear, lineWidth: weight)
+                }
             } else {
                 RoundedRectangle(cornerRadius: round).fill(fill)
                     .overlay(RoundedRectangle(cornerRadius: round).strokeBorder(lineShow ? line : .clear, lineWidth: weight))
             }
         }
+        .rotationEffect(.degrees(angle))
+    }
+
+    private func kindIsLine(_ o: ObjectProperties) -> Bool {
+        (o.string("shape", "tileShape") ?? o.string("general", "shapeType") ?? "").lowercased().contains("line")
     }
 }
 
@@ -495,6 +513,61 @@ struct PageNavigatorVisual: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+struct BookmarkNavigatorVisual: View {
+    let workspace: Workspace
+    var interaction: ReportInteraction?
+    let navigate: (String) -> Void
+
+    private struct Item: Identifiable {
+        let id: String
+        let name: String
+    }
+
+    private var items: [Item] {
+        if let interaction {
+            return interaction.bookmarkRows.map { Item(id: $0.id, name: $0.name) }
+        }
+        return workspace.bookmarks.map { Item(id: $0.id, name: $0.displayName) }
+    }
+
+    var body: some View {
+        let accent = workspace.theme.dataColor(0)
+        let activeID = interaction?.visibility.activeBookmarkID
+        if items.isEmpty {
+            HStack {
+                Text(bi("Chưa có dấu trang", "No bookmarks"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.9)))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.gray.opacity(0.3)))
+        } else {
+            HStack(spacing: 6) {
+                ForEach(items) { item in
+                    let selected = item.id == activeID
+                    Button {
+                        if let page = interaction?.applyAnyBookmark(id: item.id) {
+                            navigate(page)
+                        }
+                    } label: {
+                        Text(item.name)
+                            .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                            .foregroundStyle(selected ? Color.white : accent)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(selected ? accent : Color.white.opacity(0.9)))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(accent.opacity(0.6)))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }

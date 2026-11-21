@@ -49,6 +49,8 @@ struct LayoutSnapshot {
     var model = ModelEdits()
     /// Vị trí thẻ bảng và thu phóng ở Model view (Phase E).
     var diagram = DiagramEdits()
+    /// Ảnh nhúng mới thêm trong phiên (US4): tên tài nguyên RegisteredResources → dữ liệu ảnh gốc.
+    var addedImages: [String: Data] = [:]
 }
 
 /// Bố cục có thể sửa của báo cáo. `Workspace` giữ bản gốc bất biến; mọi thay đổi nằm ở đây
@@ -80,6 +82,8 @@ final class LayoutEditor {
     private(set) var modelEdits = ModelEdits()
     /// `modelEdits` ở lần lưu thành công gần nhất.
     private(set) var savedModelEdits = ModelEdits()
+    /// Ảnh nhúng mới thêm trong phiên (US4): tên trong `RegisteredResources` → dữ liệu ảnh (hoàn tác cùng visual).
+    private(set) var addedImages: [String: Data] = [:]
     /// Vị trí thẻ bảng và thu phóng Model view chưa lưu (Phase E). Chung ngăn xếp hoàn tác.
     private(set) var diagramEdits = DiagramEdits()
     /// `diagramEdits` ở lần lưu thành công gần nhất (giữ cả vị trí gốc, để hoàn tác sau lưu ghi lại được vị trí cũ).
@@ -821,7 +825,7 @@ final class LayoutEditor {
     /// Thêm một visual trống của `type` vào trang hiện tại, ở giữa `visibleRect` (toạ độ trang; nil = cả trang), trên cùng,
     /// và chọn nó. Trả mã visual mới, hoặc nil kèm lý do ở `fieldRefusal`.
     @discardableResult
-    func insertVisual(type: String, visibleRect: CGRect?) -> String? {
+    func insertVisual(type: String, visibleRect: CGRect?, shapeKind: String? = nil, imageItemName: String? = nil, imageCaption: String? = nil) -> String? {
         fieldRefusal = nil
         notice = nil
         if isLegacy { fieldRefusal = Self.legacyMessage; return nil }
@@ -852,7 +856,8 @@ final class LayoutEditor {
         let z = (visuals(of: pageID).map(\.z).max() ?? 0) + Double(LayoutGeometry.zStep)
         let siblings = basePage(pageID)?.visuals.prefix(5).compactMap { sourceJSON(pageID, $0.id) } ?? []
         guard let json = try? PBIRNewVisual.makeJSON(name: id, type: type, x: frame.x, y: frame.y, width: frame.width, height: frame.height,
-                                                    z: Int(z), schema: PBIRNewVisual.schemaURL(from: Array(siblings))),
+                                                    z: Int(z), schema: PBIRNewVisual.schemaURL(from: Array(siblings)),
+                                                    shapeKind: shapeKind ?? "rectangle", imageItemName: imageItemName, imageCaption: imageCaption),
               let raw = try? JSONValue.parse(json) else {
             fieldRefusal = "Không dựng được visual mới."
             return nil
@@ -871,6 +876,33 @@ final class LayoutEditor {
         selection = [id]
         primary = id
         return id
+    }
+
+    /// Chèn visual `image` kèm dữ liệu ảnh nhúng vào `RegisteredResources` (US4), gộp trong đúng một bước hoàn tác.
+    @discardableResult
+    func insertImage(data: Data, filename: String, visibleRect: CGRect?) -> (id: String, itemName: String)? {
+        guard !data.isEmpty else { fieldRefusal = "Tệp ảnh rỗng."; return nil }
+        let baseName = URL(fileURLWithPath: filename).lastPathComponent
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "\\", with: "_")
+        let clean = baseName.isEmpty ? "image.png" : baseName
+        var existingNames = Set(addedImages.keys)
+        if let report = openedParts(Self.reportJSONPath).first(where: { $0.path == Self.reportJSONPath })?.data {
+            existingNames.formUnion(PBIRResourcePatch.items(in: report).map(\.name))
+        }
+        let stem = URL(fileURLWithPath: clean).deletingPathExtension().lastPathComponent
+        let ext = URL(fileURLWithPath: clean).pathExtension
+        var itemName = clean
+        var suffix = 2
+        while existingNames.contains(itemName) {
+            itemName = ext.isEmpty ? "\(stem)_\(suffix)" : "\(stem)_\(suffix).\(ext)"
+            suffix += 1
+        }
+        guard let id = insertVisual(type: "image", visibleRect: visibleRect, imageItemName: itemName, imageCaption: clean) else {
+            return nil
+        }
+        addedImages[itemName] = data
+        return (id, itemName)
     }
 
     /// Đổi loại visual `id` sang `type`, giữ vị trí, cỡ, `z`; chuyển trường sang ô tương ứng (R7), tỉa định dạng (R8).
@@ -957,9 +989,27 @@ final class LayoutEditor {
         return dateColumns.contains("\(field.entity)[\(field.property)]")
     }
 
-    /// `PBIRQueryPatch.apply`, rồi thêm sắp xếp mặc định tăng dần theo cột ngày nếu lần đổi loại của visual đòi (VM-D9 mục 1).
+    /// Cột đầu của ô `role` là cột kiểu số hoặc ngày giờ của mô hình.
+    func isNumericOrDateColumn(in wells: [PBIRQueryPatch.Well], role: String) -> Bool {
+        guard let field = wells.first(where: { $0.role == role })?.elements.first?.field, field.kind == .column else { return false }
+        let key = "\(field.entity)[\(field.property)]"
+        if dateColumns.contains(key) || decimalColumns.contains(key) || currencyColumns.contains(key) { return true }
+        if let col = modelColumn(entity: field.entity, property: field.property) {
+            switch col.dataType {
+            case .int64, .double, .decimal, .dateTime: return true
+            default: return false
+            }
+        }
+        return false
+    }
+
+    /// `PBIRQueryPatch.apply`, đặt `mode = 'Between'` cho `slicer` cổ điển khi nhận cột số/ngày chưa có `objects.data`
+    /// (VM-V11A `pop-slicer.visual.json`), rồi thêm sắp xếp mặc định tăng dần theo cột ngày nếu lần đổi loại của visual đòi (VM-D9 mục 1).
     func applyQuery(_ wells: [PBIRQueryPatch.Well], to json: Data, retype: Retype?) throws -> Data {
-        let out = try PBIRQueryPatch.apply(wells, to: json)
+        var out = try PBIRQueryPatch.apply(wells, to: json)
+        if isNumericOrDateColumn(in: wells, role: "Values") {
+            out = try PBIRQueryPatch.settingSlicerModeIfUnset("Between", in: out)
+        }
         guard retype?.sortsByDateCategory == true, let type = retype?.type, let role = Self.defaultSortRole(type),
               isDateColumn(in: wells, role: role) else { return out }
         return try PBIRQueryPatch.addingDefaultCategorySort(out, role: role)
@@ -970,9 +1020,9 @@ final class LayoutEditor {
     /// bảng, matrix, KPI và bản đồ hình (đều quan sát được là không thêm).
     static func defaultSortRole(_ type: String) -> String? {
         if type == "slicer" { return "Values" }
-        let withCategory = type.hasSuffix("ColumnChart") || type.hasSuffix("BarChart") || type == "columnChart"
+        let withCategory = type.hasSuffix("ColumnChart") || type.hasSuffix("BarChart") || type == "columnChart" || type == "barChart"
             || type.hasSuffix("AreaChart") || type == "areaChart" || type.hasSuffix("ComboChart")
-            || ["ribbonChart", "waterfallChart", "donutChart", "funnel"].contains(type)
+            || ["ribbonChart", "waterfallChart", "donutChart", "pieChart", "funnel"].contains(type)
         return withCategory ? "Category" : nil
     }
 
@@ -1063,13 +1113,14 @@ final class LayoutEditor {
 
     private func snapshot(of pageID: String) -> LayoutSnapshot {
         LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary, edits: reportEdits,
-                       model: modelEdits, diagram: diagramEdits)
+                       model: modelEdits, diagram: diagramEdits, addedImages: addedImages)
     }
 
     private func restore(_ step: LayoutSnapshot) {
         edited = step.edited
         structure = step.structure
         reportEdits = step.edits
+        addedImages = step.addedImages
         if modelEdits != step.model {
             modelEdits = step.model
             modelEditsChanged(modelEdits)

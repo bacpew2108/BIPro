@@ -12,6 +12,33 @@ extension LayoutEditor {
     /// tới không bị đụng. Tính lại từ đầu mỗi lần lưu nên lưu lần hai không ghi gì.
     func addResourceChanges(to changes: inout PBIXChanges, archive: ZipArchive) throws {
         if isLegacy { return }
+        // 1. Ảnh mới chèn trong phiên (US4): ghi tệp vào RegisteredResources và đăng ký vào report.json nếu còn visual nhắc tới.
+        if !addedImages.isEmpty, var reportData = current(Self.reportJSONPath, in: changes, archive: archive) {
+            var allVisualText = ""
+            for pageID in structure.order {
+                for v in visuals(of: pageID) where v.type == "image" {
+                    if let d = edited[pageID]?.added[v.id] { allVisualText += String(decoding: d, as: UTF8.self) }
+                }
+            }
+            var reportChanged = false
+            for (name, data) in addedImages.sorted(by: { $0.key < $1.key }) {
+                let ref = "\"ItemName\":\"\(name)\""
+                guard allVisualText.contains(ref) else { continue }
+                let partPath = "Report/StaticResources/RegisteredResources/\(name)"
+                if archive.entry(partPath) == nil {
+                    changes.addedParts[partPath] = data
+                }
+                let updated = try PBIRResourcePatch.addingRegisteredImage(name: name, path: name, to: reportData)
+                if updated != reportData {
+                    reportData = updated
+                    reportChanged = true
+                }
+            }
+            if reportChanged {
+                store(reportData, at: Self.reportJSONPath, changes: &changes, archive: archive)
+            }
+        }
+
         guard let opened = openedParts(Self.reportJSONPath).first(where: { $0.path == Self.reportJSONPath })?.data else { return }
         let cleanable = PBIRResourcePatch.items(in: opened).filter(\.isCleanable)
         guard !cleanable.isEmpty, let disk = current(Self.reportJSONPath, in: changes, archive: archive) else { return }

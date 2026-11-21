@@ -182,7 +182,7 @@ import Testing
         let depth = env.editor.undoDepth
         #expect(env.editor.changeType(of: S.c1, to: "lineClusteredColumnComboChart") == nil)
         #expect(env.editor.undoDepth == depth)
-        for type in ["scatterChart", "textbox", "stackedBarChart", "madeUp"] {
+        for type in ["textbox", "shape", "actionButton", "madeUp"] {
             #expect(env.editor.changeType(of: S.c1, to: type) != nil, Comment(rawValue: type))
         }
         #expect(env.editor.changeType(of: "zzzzzzzzzzzzzzzzzzzz", to: "lineChart") != nil)

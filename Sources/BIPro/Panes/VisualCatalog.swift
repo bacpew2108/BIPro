@@ -7,7 +7,7 @@ enum VisualCatalog {
     struct Well { let role: String; let label: String }
 
     static let gallery: [Entry] = [
-        Entry(type: "stackedBarChart", name: "Biểu đồ thanh xếp chồng", symbol: "chart.bar.xaxis"),
+        Entry(type: "barChart", name: "Biểu đồ thanh xếp chồng", symbol: "chart.bar.xaxis"),
         Entry(type: "columnChart", name: "Biểu đồ cột xếp chồng", symbol: "chart.bar.fill"),
         Entry(type: "clusteredBarChart", name: "Biểu đồ thanh nhóm", symbol: "text.alignleft"),
         Entry(type: "clusteredColumnChart", name: "Biểu đồ cột nhóm", symbol: "chart.bar"),
@@ -35,12 +35,16 @@ enum VisualCatalog {
         Entry(type: "multiRowCard", name: "Thẻ nhiều hàng", symbol: "list.bullet.rectangle"),
         Entry(type: "kpi", name: "KPI", symbol: "arrow.up.right.square"),
         Entry(type: "slicer", name: "Slicer", symbol: "slider.horizontal.below.rectangle"),
+        Entry(type: "advancedSlicerVisual", name: "Slicer nút", symbol: "square.grid.2x2"),
+        Entry(type: "listSlicer", name: "Slicer danh sách", symbol: "checklist"),
+        Entry(type: "textSlicer", name: "Slicer văn bản", symbol: "text.magnifyingglass"),
         Entry(type: "tableEx", name: "Bảng", symbol: "tablecells"),
         Entry(type: "pivotTable", name: "Ma trận", symbol: "square.grid.4x3.fill"),
         Entry(type: "textbox", name: "Hộp văn bản", symbol: "textformat"),
         Entry(type: "image", name: "Ảnh", symbol: "photo"),
         Entry(type: "actionButton", name: "Nút", symbol: "rectangle.and.hand.point.up.left"),
         Entry(type: "pageNavigator", name: "Điều hướng trang", symbol: "rectangle.split.3x1.fill"),
+        Entry(type: "bookmarkNavigator", name: "Điều hướng bookmark", symbol: "bookmark.square"),
         Entry(type: "shape", name: "Hình", symbol: "square.on.circle"),
         Entry(type: "basicShape", name: "Hình", symbol: "square.on.circle"),
     ]
@@ -49,9 +53,12 @@ enum VisualCatalog {
     static func name(_ type: String) -> String { entry(type)?.name ?? type }
     static func symbol(_ type: String) -> String { entry(type)?.symbol ?? "square.dashed" }
 
-    /// `shape`/`basicShape` and `card`/`cardVisual` share a gallery slot.
+    /// `shape`/`basicShape`, `barChart`/`stackedBarChart`, and `columnChart`/`stackedColumnChart` share gallery slots.
     static func matches(_ visualType: String, _ galleryType: String) -> Bool {
-        visualType == galleryType || (visualType == "basicShape" && galleryType == "shape")
+        visualType == galleryType
+            || (visualType == "basicShape" && galleryType == "shape")
+            || (visualType == "stackedBarChart" && galleryType == "barChart")
+            || (visualType == "stackedColumnChart" && galleryType == "columnChart")
     }
 
     static func displayTitle(_ visual: ReportVisual) -> String {
@@ -70,7 +77,7 @@ enum VisualCatalog {
         case _ where t.contains("Combo"):
             wells = [Well(role: "Category", label: "Trục X"), Well(role: "Y", label: "Trục Y (cột)"),
                      Well(role: "Y2", label: "Trục Y (đường)"), Well(role: "Series", label: "Chú giải cột")]
-        case _ where t.hasSuffix("BarChart"):
+        case _ where t.hasSuffix("BarChart") || t == "barChart":
             wells = [Well(role: "Category", label: "Trục Y"), Well(role: "Y", label: "Trục X"), Well(role: "Series", label: "Chú giải")]
         case "waterfallChart":
             wells = [Well(role: "Category", label: "Trục X"), Well(role: "Breakdown", label: "Chia nhỏ"), Well(role: "Y", label: "Trục Y")]
@@ -89,7 +96,7 @@ enum VisualCatalog {
             wells = [Well(role: "Data", label: "Dữ liệu")]
         case "card", "multiRowCard":
             wells = [Well(role: visual.fields.first?.role ?? "Values", label: "Field")]
-        case "slicer", "advancedSlicerVisual":
+        case "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer":
             wells = [Well(role: "Values", label: "Field")]
         case "tableEx":
             wells = [Well(role: "Values", label: "Cột")]
@@ -98,7 +105,9 @@ enum VisualCatalog {
         case "shapeMap":
             wells = [Well(role: "Category", label: "Vị trí"), Well(role: "Series", label: "Chú giải"),
                      Well(role: "Value", label: "Độ bão hoà màu"), Well(role: "Tooltips", label: "Chú thích công cụ")]
-        case "filledMap", "map", "azureMap":
+        case "map":
+            wells = [Well(role: "Category", label: "Vị trí"), Well(role: "Series", label: "Chú giải"), Well(role: "Size", label: "Kích thước bong bóng")]
+        case "filledMap", "azureMap":
             wells = [Well(role: "Category", label: "Vị trí"), Well(role: "Series", label: "Chú giải"), Well(role: "Y", label: "Độ bão hoà màu")]
         case "scatterChart":
             wells = [Well(role: "Category", label: "Giá trị"), Well(role: "Series", label: "Chú giải"),

@@ -65,13 +65,20 @@ public enum PBIXWriter {
         let model = rebuilt?.stream
 
         let dropsBinding = changes.changesReport && archive.entry(Self.securityBindingsPath) != nil
+        let addedExtensions = Set(changes.addedParts.keys.compactMap {
+            let ext = URL(fileURLWithPath: $0).pathExtension.lowercased()
+            return ext.isEmpty ? nil : ext
+        })
         var members: [(path: String, source: ZipWriter.Source)] = []
         for entry in archive.entries {
             if changes.removedParts.contains(entry.path) { continue }
             if dropsBinding && entry.path == Self.securityBindingsPath { continue }
-            if dropsBinding && entry.path == Self.contentTypesPath {
-                let types = withoutSecurityBindingsOverride(try archive.read(entry))
-                members.append((path: entry.path, source: types == nil ? .rawCopy(archive, entry) : .bytes(types!, method: 8)))
+            if entry.path == Self.contentTypesPath && (dropsBinding || !addedExtensions.isEmpty) {
+                var xml = try archive.read(entry)
+                var modified = false
+                if dropsBinding, let stripped = withoutSecurityBindingsOverride(xml) { xml = stripped; modified = true }
+                if let extended = addingMissingExtensions(addedExtensions, to: xml) { xml = extended; modified = true }
+                members.append((path: entry.path, source: modified ? .bytes(xml, method: 8) : .rawCopy(archive, entry)))
             } else if entry.path == "DataModel", let model {
                 // The DataModel member is stored (method 0) in every Power BI file; keep it so.
                 members.append((path: entry.path, source: .bytes(model, method: 0)))
@@ -103,6 +110,24 @@ public enum PBIXWriter {
         guard end < text.count else { return nil }
         var out = text
         out.removeSubrange(start...end)
+        return Data(out)
+    }
+
+    /// Declares `<Default Extension="<ext>" ContentType="" />` in `[Content_Types].xml` for any newly added part extension
+    /// (e.g. `png`, `jpg`, `svg`) not yet declared, so OPC / Power BI Desktop can resolve embedded image resources.
+    static func addingMissingExtensions(_ extensions: Set<String>, to xml: Data) -> Data? {
+        guard !extensions.isEmpty else { return nil }
+        let lower = String(decoding: xml, as: UTF8.self).lowercased()
+        let missing = extensions.sorted().filter { ext in
+            !lower.contains("extension=\"\(ext)\"")
+        }
+        guard !missing.isEmpty else { return nil }
+        let bytes = [UInt8](xml)
+        let close = Array("</Types>".utf8)
+        guard let at = bytes.indices.last(where: { bytes[$0...].starts(with: close) }) else { return nil }
+        let insert = missing.map { #"<Default Extension="\#($0)" ContentType="" />"# }.joined()
+        var out = bytes
+        out.insert(contentsOf: Array(insert.utf8), at: at)
         return Data(out)
     }
 
@@ -375,6 +400,22 @@ public enum PBIXWriter {
                 if let types = pbix.archive.entry(Self.contentTypesPath),
                    String(decoding: try pbix.archive.read(types), as: UTF8.self).contains("SecurityBindings") {
                     throw WriteError.verificationFailed("[Content_Types].xml still mentions SecurityBindings")
+                }
+            }
+            if !changes.addedParts.isEmpty {
+                let addedExts = Set(changes.addedParts.keys.compactMap {
+                    let ext = URL(fileURLWithPath: $0).pathExtension.lowercased()
+                    return ext.isEmpty ? nil : ext
+                })
+                if let srcTypes = source.entry(Self.contentTypesPath),
+                   addingMissingExtensions(addedExts, to: try source.read(srcTypes)) != nil {
+                    touched.insert(Self.contentTypesPath)
+                    if let newTypes = pbix.archive.entry(Self.contentTypesPath) {
+                        let text = String(decoding: try pbix.archive.read(newTypes), as: UTF8.self).lowercased()
+                        for ext in addedExts where !text.contains("extension=\"\(ext)\"") {
+                            throw WriteError.verificationFailed("[Content_Types].xml is missing extension \(ext)")
+                        }
+                    }
                 }
             }
             let isModelRebuilt = changes.changesModel

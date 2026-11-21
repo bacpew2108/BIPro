@@ -36,7 +36,14 @@ enum TypeChange {
     /// vào `Values`; ma trận nhận cột vào `Rows` và measure ở `Tooltips` vào `Values` (cùng ô với measure của `Y`).
     private static let targetFallbacks: [String: [String: [String]]] = [
         "slicer": ["Category": ["Values"]],
+        "advancedSlicerVisual": ["Category": ["Values"]],
+        "listSlicer": ["Category": ["Values"]],
+        "textSlicer": ["Category": ["Values"]],
+        "tableEx": ["Category": ["Values"], "Rows": ["Values"], "Y": ["Values"], "Tooltips": ["Values"]],
+        "multiRowCard": ["Category": ["Values"], "Y": ["Values"]],
         "pivotTable": ["Category": ["Rows"], "Tooltips": ["Values"]],
+        "kpi": ["Y": ["Indicator"], "Category": ["TrendLine"]],
+        "scatterChart": ["Y": ["X", "Y"]],
     ]
 
     /// Ô ưu tiên trước ô cùng tên ở loại đích (VM-D12): bản đồ hình nhận cột ở `Series` (ô "Chú giải"), không phải `Category`
@@ -110,8 +117,8 @@ enum TypeChange {
 
     /// Loại có trục (cột, thanh, đường, vùng, combo…).
     static func hasAxes(_ type: String) -> Bool {
-        type.hasSuffix("BarChart") || type.hasSuffix("ColumnChart") || type == "columnChart" || type.contains("Combo")
-            || ["lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart"].contains(type)
+        type.hasSuffix("BarChart") || type == "barChart" || type.hasSuffix("ColumnChart") || type == "columnChart" || type.contains("Combo")
+            || ["lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "scatterChart"].contains(type)
     }
 
     /// Khoá `objects` có giữ khi đổi sang `type` không. Quan sát VM-D3: Desktop chỉ bỏ khoá không còn hợp lệ

@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-21 (**v1.0.1 QA xong** — đã dọn dẹp dự án `104287e`, hoàn tất Đợt 1 Kiểm thử & Gia cố QA, đang bắt đầu quan sát Power BI Desktop trên VM Windows 11 cho **Đợt 2: Hệ Biểu đồ & Visual mới `specs/013`**).
+Cập nhật: 2026-11-21 (**Đợt 2 — v1.1a `specs/013` HOÀN TẤT 100%** — đã qua toàn bộ 2 444 unit test, 112 golden nặng release, cổng Power BI Desktop 2.159 19/19 visual tại `docs/phase-v11-evidence/vm-v11a/gate-desktop.png`, và đóng gói `build/BI Pro.app` release; sẵn sàng sang **Đợt 3 — v1.1b `specs/014`**).
 
 *(Nhật ký chi tiết Phase A–G trước ngày 2026-11-21 đã được lưu trữ nguyên văn tại `docs/HISTORY.md`.)*
 
@@ -19,11 +19,16 @@ Cập nhật: 2026-11-21 (**v1.0.1 QA xong** — đã dọn dẹp dự án `1042
   - Thêm `docs/phase-*-evidence/**/*.pbix` vào `.gitignore` để giữ 11 tệp golden Desktop cho test mà `git status` vẫn sạch.
   - Tách lịch sử dài sang `docs/HISTORY.md`.
 
-- **Đợt 1 — Kiểm thử chi tiết & Gia cố v1.0.1 (2026-11-21, xong, chưa commit):**
+- **Đợt 1 — Kiểm thử chi tiết & Gia cố v1.0.1 (2026-11-21, commit `32daa53`):**
   - Mở khoá lại 15 test nặng từng bị bỏ qua (`PBIXKitTests`, `ZipWriteTests`, `CompressTests`, `ABFWriteTests`, `MetadataWriteTests`, `PanesNhom6Tests`) nhờ fallback đường dẫn `BIPRO_NHOM6` / `Nhom6_work.pbix` và chuẩn hoá invariant.
   - Vá dứt điểm song ngữ `vi`/`en` cho toàn bộ pane/workspace phụ (`FilterEditor`, `FormatPane`, `BuildWells`, `ModelWorkspace`, `ColumnPropertiesEditor`, `MeasurePropertiesPanel`, `TableWorkspace`, `TMDLWorkspace`, `QueryResultsView`, `QueryToolbar`, `QueryTabBar`), sửa lưới `NSTableView` & `DotGrid` cho Dark Mode.
   - Bổ sung bộ test QA mới (`Tests/BIProTests/QA/AppEndToEndQATests.swift`, `VisualRegressionAndBilingualQATests.swift`): luồng E2E từ tài liệu mới → Enter Data 2 bảng + tự phát hiện quan hệ → Undo/Redo → Measure + Cột tính toán → Báo cáo + Trang + Bookmark → Lưu T3 → Mở lại → Xuất CSV/PNG/PDF; ca biên chống sập; hồi quy hình ảnh toàn bộ 14+ bộ vẽ visual + Dark Mode & song ngữ 7 pane phụ (**5/5 qua trong 0,8 s**).
   - Dựng lại `build/BI Pro.app` release (`codesign --verify --deep --strict` đạt), `e3-loop.sh` đạt 3/3 khớp byte (`0,575 s` / `0,434 s` / `0,096 s`).
+- **Đợt 2 — v1.1a Hệ Biểu đồ, Slicer nâng cao & Phần tử chèn (2026-11-21, `specs/013-v11-bieu-do-visual/`, xong chưa commit):**
+  - Quan sát Power BI Desktop 2.159 (`VM-V11A`, 32 tệp JSON PBIR 2.14.0 tại `docs/phase-v11-evidence/vm-v11a/QUAN-SAT.md`).
+  - Mở rộng `VisualTypes.supported` từ 21 → **40 loại** (`PBIRNewVisual`, `PBIRResourcePatch.addingRegisteredImage`, `PBIXWriter.addingMissingExtensions` cho `[Content_Types].xml`, `PBIRQueryPatch.settingSlicerModeIfUnset`, `WellRules` đa kiểu).
+  - Triển khai đầy đủ 4 nhóm: **2A** (`barChart`/`stackedBarChart`, `hundredPercentStackedBarChart`, `pieChart`), **2B** (`tableEx` + sort/Total, `scatterChart` 1D/2D + bubble, `gauge` 180° + `Max = 2×Value`, `kpi` sparkline + goal delta, `multiRowCard`), **2C** (`advancedSlicerVisual` Tile, `listSlicer`, `textSlicer` `CONTAINSSTRING`, `slicer` `'Between'` 2 đầu số/ngày, `OfflineGeoAtlas` & `GeoMapView` ngoại tuyến 100% cho `map`/`filledMap`), **2D** (mở khoá ribbon **Chèn** cho Hình khối `rectangle`/`oval`/`line`, Nút `actionButton`/`pageNavigator`/`bookmarkNavigator`, Ảnh PNG/JPEG/SVG nhúng `RegisteredResources` + hoàn tác, `BookmarkNavigatorVisual`, mở rộng `FormatCatalog`, `VisualCSVExporter`, `AccessibilitySummary` song ngữ).
+  - Kiểm chứng: **2 444/2 444** unit test qua, **112/112** golden nặng release qua, **Cổng Power BI Desktop 2.159 (T023)** đạt **19/19 visual** với 0 lỗi (`docs/phase-v11-evidence/vm-v11a/gate-desktop.png`), dựng lại `build/BI Pro.app` release + `codesign` đạt.
 
 ## Quyết định đã chốt
 
@@ -46,10 +51,7 @@ Cập nhật: 2026-11-21 (**v1.0.1 QA xong** — đã dọn dẹp dự án `1042
 
 ## Việc tiếp theo
 
-1. **Kiểm thử toàn diện v1.0** (sau khi dọn dẹp):
-   - Xác minh 100% unit test + golden nặng sau dọn dẹp.
-   - Chạy kiểm thử ứng dụng thực tế (`build/BI Pro.app`): 5 workspace, Get Data / Query Editor / Enter Data, Edit / Format / Page / Bookmark / Filter, Model / Measure / Relationship / TMDL, Export PDF/PNG/CSV, Dark/Light Mode, Việt/Anh, Quick Look, VoiceOver, hiệu năng & ca biên.
-2. **Lên kế hoạch & triển khai đợt nâng cấp v1.1** (theo Spec Kit, sau khi kiểm thử xong):
-   - Mở khoá & bổ sung các biểu đồ/visual còn thiếu (`pieChart`, `stackedBarChart`, `hundredPercentStackedBarChart`, `scatterChart`, `gauge`, `kpi`, `multiRowCard`, `tableEx`, `map`/`filledMap`, Slicer nâng cao, phần tử chèn `shape`/`image`/`actionButton`/`pageNavigator`/`bookmarkNavigator`).
-   - Bổ sung các tính năng còn thiếu (Edit Interactions, Matrix mở nút theo hàng, Conditional Formatting UI, mở rộng Format Pane/Theme/Analytics, Refresh nguồn dữ liệu một bấm, đổi tên đối tượng tự cập nhật tham chiếu, hàm DAX còn thiếu `TODAY`/`NOW`/`RANKX`/Window…).
-3. **Git:** Đang ahead 86 commit so với `origin/main` + thay đổi dọn dẹp chưa commit (chờ lệnh bạn).
+1. **Đợt 3 — v1.1b Tính năng nâng cao, Refresh & Mở rộng DAX (`specs/014-v11-tinh-nang-nang-cao/`):**
+   - Quan sát Power BI Desktop 2.159 trên VM trước (`VM-V11B`: Edit Interactions `visualInteractions`, Matrix mở nút theo hàng `expansionStates`, Conditional Formatting rules, Date Advanced filter, Theme switching, DAX functions golden).
+   - Qua đủ 3 cổng Spec Kit (`spec.md` → `plan.md` → `tasks.md`) trước khi triển khai 3A–3D (Edit Interactions UI, Matrix row expand, Conditional Formatting UI, Theme switcher, Refresh nguồn dữ liệu một bấm, đổi tên đối tượng tự cập nhật tham chiếu, hàm DAX `TODAY`/`NOW`/`WEEKDAY`/`EOMONTH`/`TOTALYTD`/`DATESYTD`/`IFERROR`/`LOOKUPVALUE`/`UNION`/`EXCEPT`/`INTERSECT`/`GENERATESERIES`/`OFFSET`/`INDEX`/`WINDOW`).
+2. **Git:** Thay đổi Đợt 2 (`v1.1a`) đang ở working tree (chờ lệnh commit/push của bạn).

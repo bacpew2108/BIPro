@@ -187,14 +187,57 @@ enum DAXQueryBuilder {
         // Y-axis và card mới trên tài liệu không có bộ lọc). Có bộ lọc thì vẫn là SUMMARIZECOLUMNS (golden card Nhom6).
         // [SUY ĐOÁN] Measure thật (không phải gộp ngầm) cũng theo khuôn này: VM-F10 chỉ thấy trường gộp ngầm.
         if spec.primary.isEmpty, spec.secondary.isEmpty, filters.isEmpty, spec.highlight == nil, !spec.measures.isEmpty,
-           spec.shape == .card || spec.shape == .chart {
+           spec.shape == .card || spec.shape == .chart || spec.shape == .gauge || spec.shape == .kpi || spec.shape == .scatter || spec.shape == .table || spec.shape == .multiRowCard {
             w.evaluate(call("ROW", spec.measures.map { "\"\($0.resultName)\", " + expression($0) }))
             return w.text()
         }
 
         switch spec.shape {
-        case .card:
+        case .card, .gauge:
             w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures, highlight: highlightMode(spec))))
+
+        case .table:
+            if spec.primary.isEmpty {
+                w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures)))
+            } else {
+                // Bảng tổng cộng trước (nếu có measure), bảng dòng chi tiết sau (`result.tables.last`).
+                if !spec.measures.isEmpty {
+                    w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures)))
+                }
+                w.variable("__DS0Core", call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures)))
+                let n: Int = { if case .top(let n) = spec.reduction { n } else { 501 } }()
+                w.variable("__DS0PrimaryWindowed", inline("TOPN", ["\(n)", "__DS0Core"] + topnKeys(spec.primaryOrder)))
+                w.evaluate("__DS0PrimaryWindowed", orderBy: orderBy(spec.primaryOrder))
+            }
+
+        case .multiRowCard:
+            if spec.primary.isEmpty {
+                w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures)))
+            } else {
+                w.variable("__DS0Core", call("SUMMARIZECOLUMNS", groupColumns(spec.primary) + filters + measureArgs(spec.measures)))
+                let n: Int = { if case .top(let n) = spec.reduction { n } else { 501 } }()
+                w.variable("__DS0PrimaryWindowed", inline("TOPN", ["\(n)", "__DS0Core"] + topnKeys(spec.primaryOrder)))
+                w.evaluate("__DS0PrimaryWindowed", orderBy: orderBy(spec.primaryOrder))
+            }
+
+        case .kpi:
+            if spec.primary.isEmpty {
+                w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures)))
+            } else {
+                buildSingleAxis(spec, filters: filters, into: &w)
+            }
+
+        case .scatter:
+            if spec.primary.isEmpty && spec.secondary.isEmpty {
+                w.evaluate(call("SUMMARIZECOLUMNS", filters + measureArgs(spec.measures)))
+            } else {
+                let allGroups = groupColumns(spec.primary + spec.secondary)
+                let order = spec.primaryOrder + spec.secondaryOrder
+                w.variable("__DS0Core", call("SUMMARIZECOLUMNS", allGroups + filters + measureArgs(spec.measures)))
+                let n: Int = { if case .top(let n) = spec.reduction { n } else { 3502 } }()
+                w.variable("__DS0BodyLimited", inline("TOPN", ["\(n)", "__DS0Core"] + topnKeys(order)))
+                w.evaluate("__DS0BodyLimited", orderBy: orderBy(order))
+            }
 
         case .slicer(let top) where spec.drillLevels.count >= 2 && !spec.expanded.isEmpty:
             // Slicer hierarchy có nút đang mở: cấp gốc kèm các cấp con của nút mở (C1.md §2.2, D1-slicer-nam).

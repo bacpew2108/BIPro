@@ -17,13 +17,36 @@ struct DataPointID: Hashable, Sendable {
     init(_ values: [String: Value]) { self.values = values }
 }
 
+/// Khoảng lọc của slicer chế độ `'Between'` (số hoặc ngày).
+struct SlicerRange: Hashable, Sendable {
+    var min: Value?
+    var max: Value?
+
+    init(min: Value? = nil, max: Value? = nil) {
+        self.min = min
+        self.max = max
+    }
+
+    var isEmpty: Bool { min == nil && max == nil }
+}
+
 /// Lựa chọn của một slicer. Mỗi phần tử là một đường dẫn trong cây (ví dụ [2016] chọn cả năm, [2016, "Q1"] chỉ chọn quý).
 struct SlicerSelection: Hashable, Sendable {
     var paths: Set<[Value]>
+    /// Lọc khoảng cho slicer số/ngày (`mode == 'Between'`).
+    var range: SlicerRange? = nil
+    /// Lọc chứa chuỗi cho `textSlicer`.
+    var searchText: String? = nil
 
-    init(_ paths: Set<[Value]> = []) { self.paths = paths }
+    init(_ paths: Set<[Value]> = [], range: SlicerRange? = nil, searchText: String? = nil) {
+        self.paths = paths
+        self.range = range
+        self.searchText = searchText
+    }
 
-    var isEmpty: Bool { paths.isEmpty }
+    var isEmpty: Bool {
+        paths.isEmpty && (range?.isEmpty ?? true) && (searchText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
 }
 
 enum DrillRequest: Hashable, Sendable {

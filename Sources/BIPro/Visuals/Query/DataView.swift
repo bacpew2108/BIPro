@@ -72,6 +72,16 @@ enum DataView: Hashable, Sendable {
     case matrix(MatrixData)
     /// Slicer: cây giá trị.
     case slicer(SlicerData)
+    /// Bảng phẳng (`tableEx`): hàng cột + dòng tổng cuối bảng.
+    case table(TableDataView)
+    /// Biểu đồ phân tán (`scatterChart`): toạ độ X/Y + kích thước bong bóng.
+    case scatter(ScatterData)
+    /// Đồng hồ đo (`gauge`): giá trị, khoảng Min/Max và đích Target.
+    case gauge(GaugeData)
+    /// Chỉ số KPI (`kpi`): giá trị hiện tại, mục tiêu và chuỗi xu hướng.
+    case kpi(KPIData)
+    /// Thẻ nhiều hàng (`multiRowCard`).
+    case multiRowCard(MultiRowCardData)
 }
 
 // MARK: - Card
@@ -183,4 +193,83 @@ struct SlicerData: Hashable, Sendable {
     /// Một cấp cho mỗi trường trong Values của slicer (ví dụ Năm › Quý › Tháng).
     var levels: [FieldInfo]
     var roots: [SlicerNode]
+    /// Biên toàn miền `[min, max]` cho slicer chế độ `'Between'` (số hoặc ngày).
+    var domainRange: SlicerRange? = nil
+    /// `true` nếu cột gốc của slicer là kiểu ngày giờ (`dateTime`).
+    var isDateColumn: Bool = false
+}
+
+// MARK: - Table (tableEx)
+
+struct TableDataView: Hashable, Sendable {
+    var columns: [FieldInfo]
+    var rows: [[DataCell]]
+    /// Dòng tổng cộng ở cuối bảng (cùng số phần tử với `columns`, ô cột danh mục là `.blank`).
+    var totals: [DataCell]?
+    var isReduced: Bool
+}
+
+// MARK: - Scatter (scatterChart)
+
+struct ScatterPoint: Hashable, Sendable {
+    var id: DataPointID
+    var categoryLabel: String
+    var seriesValue: Value?
+    var x: Double
+    var y: Double
+    var size: Double?
+    var xCell: DataCell
+    var yCell: DataCell
+    var sizeCell: DataCell?
+    var tooltips: [ScatterTooltipItem]
+}
+
+struct ScatterTooltipItem: Hashable, Sendable {
+    var label: String
+    var cell: DataCell
+}
+
+struct ScatterData: Hashable, Sendable {
+    var categoryField: FieldInfo?
+    var seriesField: FieldInfo?
+    var series: [Value]
+    var xField: FieldInfo?
+    var yField: FieldInfo?
+    var sizeField: FieldInfo?
+    var points: [ScatterPoint]
+    var isReduced: Bool
+}
+
+// MARK: - Gauge (gauge)
+
+struct GaugeData: Hashable, Sendable {
+    var valueField: FieldInfo
+    var value: DataCell
+    var min: DataCell?
+    var max: DataCell?
+    var target: DataCell?
+}
+
+// MARK: - KPI (kpi)
+
+struct KPITrendPoint: Hashable, Sendable {
+    var label: String
+    var value: Double
+}
+
+struct KPIData: Hashable, Sendable {
+    var indicatorField: FieldInfo
+    var trendField: FieldInfo?
+    var goalField: FieldInfo?
+    var latestValue: DataCell
+    var goalValue: DataCell?
+    var trendPoints: [KPITrendPoint]
+}
+
+// MARK: - Multi-row Card (multiRowCard)
+
+struct MultiRowCardData: Hashable, Sendable {
+    var fields: [FieldInfo]
+    var rows: [[DataCell]]
+    var isReduced: Bool
 }

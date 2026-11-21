@@ -167,7 +167,7 @@ import Testing
         #expect(same.isNoOp)
         #expect(plan("textbox", [], to: "card").blocked?.contains("Hộp văn bản") == true)
         #expect(plan("card", [], to: "textbox").blocked?.contains("Hộp văn bản") == true)
-        #expect(plan("lineChart", Self.combo, to: "scatterChart").blocked != nil)
+        #expect(plan("lineChart", Self.combo, to: "madeUpType").blocked != nil)
     }
 
     @Test func noticeListsEverythingThatWasDropped() {

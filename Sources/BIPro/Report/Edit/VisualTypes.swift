@@ -17,16 +17,21 @@ struct VisualTypeInfo: Equatable {
 
 enum VisualTypes {
     private static let families: [(type: String, family: VisualTypeInfo.Family)] = [
-        ("card", .value), ("cardVisual", .value), ("slicer", .slicer),
-        ("clusteredBarChart", .xy), ("clusteredColumnChart", .xy), ("columnChart", .xy), ("hundredPercentStackedColumnChart", .xy), ("lineChart", .xy),
+        ("card", .value), ("cardVisual", .value), ("multiRowCard", .value), ("gauge", .value), ("kpi", .value),
+        ("slicer", .slicer), ("advancedSlicerVisual", .slicer), ("listSlicer", .slicer), ("textSlicer", .slicer),
+        // VM-V11A: Stacked bar ghi `barChart`, 100% bar ghi `hundredPercentStackedBarChart`, Pie ghi `pieChart`.
+        ("barChart", .xy), ("stackedBarChart", .xy), ("clusteredBarChart", .xy), ("hundredPercentStackedBarChart", .xy),
+        ("clusteredColumnChart", .xy), ("columnChart", .xy), ("hundredPercentStackedColumnChart", .xy), ("lineChart", .xy),
         ("lineClusteredColumnComboChart", .xy), ("lineStackedColumnComboChart", .xy),
-        // VM-D15 mục 4: Desktop tạo các loại này với ô Category, Y, Tooltips (VM-D12) và BI Pro đã có bộ vẽ.
-        ("areaChart", .xy), ("stackedAreaChart", .xy), ("hundredPercentStackedAreaChart", .xy), ("ribbonChart", .xy), ("waterfallChart", .xy), ("funnel", .circular),
-        ("donutChart", .circular), ("treemap", .circular),
-        ("pivotTable", .matrix), ("shapeMap", .map), ("textbox", .text),
+        ("areaChart", .xy), ("stackedAreaChart", .xy), ("hundredPercentStackedAreaChart", .xy),
+        ("ribbonChart", .xy), ("waterfallChart", .xy), ("funnel", .circular), ("scatterChart", .xy),
+        ("pieChart", .circular), ("donutChart", .circular), ("treemap", .circular),
+        ("tableEx", .matrix), ("pivotTable", .matrix),
+        ("shapeMap", .map), ("map", .map), ("filledMap", .map),
+        ("textbox", .text), ("shape", .text), ("actionButton", .text), ("pageNavigator", .text), ("bookmarkNavigator", .text), ("image", .text),
     ]
 
-    /// Loại thêm được và đổi tới được ở bản đầu: loại có ô đã quan sát trong Nhom6 (`WellRules`) và hộp văn bản (R2).
+    /// Loại thêm được và đổi tới được (quan sát qua Nhom6, VM-D3/D15 và VM-V11A).
     static let supported: [String] = families.map(\.type)
 
     static func isSupported(_ type: String) -> Bool { supported.contains(type) }
@@ -38,14 +43,6 @@ enum VisualTypes {
 
     /// Lý do (tiếng Việt) một loại chưa thêm được hoặc chưa đổi tới được.
     static func refusal(for type: String) -> String {
-        let needsObservation: Set<String> = ["stackedColumnChart", "stackedBarChart", "hundredPercentStackedBarChart", "pieChart"]
-        let needsResources: Set<String> = ["image", "actionButton", "pageNavigator", "shape", "basicShape", "bookmarkNavigator"]
-        if needsObservation.contains(type) {
-            return "Loại này chưa có luật ô quan sát từ Power BI Desktop (chờ buổi VM-D3), nên chưa thêm hoặc đổi tới được."
-        }
-        if needsResources.contains(type) {
-            return "Loại này cần tài nguyên hoặc cấu hình riêng, chưa hỗ trợ ở lát này."
-        }
         if VisualCatalog.gallery.contains(where: { $0.type == type }) {
             return "BI Pro chưa vẽ được loại này, nên chưa thêm hoặc đổi tới được."
         }

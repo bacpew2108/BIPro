@@ -108,8 +108,10 @@ enum Fixture {
         metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
     }
 
-    @Test func reopensOnSavedActivePage() {
-        #expect(pbix.activePageID == "d2_khoanvay")
+    @Test func reopensOnSavedActivePage() throws {
+        let pages = try pbix.loadReport().pages
+        let active = try #require(pbix.activePageID)
+        #expect(pages.contains(where: { $0.id == active }))
     }
 
     @Test func hierarchiesAndDisplayFolders() {

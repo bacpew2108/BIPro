@@ -199,6 +199,12 @@ enum L10n {
         case a11yVisualTypeComboChart
         case a11yVisualTypeAreaChart
         case a11yVisualTypeDonutChart
+        case a11yVisualTypePieChart
+        case a11yVisualTypeScatterChart
+        case a11yVisualTypeGauge
+        case a11yVisualTypeKPI
+        case a11yVisualTypeMultiRowCard
+        case a11yVisualTypeMap
         case a11yVisualTypeTreemap
         case a11yVisualTypeShapeMap
         case a11yVisualTypeRibbonChart
@@ -411,6 +417,12 @@ enum L10n {
         case .a11yVisualTypeComboChart: ("Biểu đồ kết hợp", "Combo chart")
         case .a11yVisualTypeAreaChart: ("Biểu đồ vùng", "Area chart")
         case .a11yVisualTypeDonutChart: ("Biểu đồ vòng", "Donut chart")
+        case .a11yVisualTypePieChart: ("Biểu đồ tròn", "Pie chart")
+        case .a11yVisualTypeScatterChart: ("Biểu đồ phân tán", "Scatter chart")
+        case .a11yVisualTypeGauge: ("Đồng hồ đo", "Gauge")
+        case .a11yVisualTypeKPI: ("Chỉ số KPI", "KPI")
+        case .a11yVisualTypeMultiRowCard: ("Thẻ nhiều hàng", "Multi-row card")
+        case .a11yVisualTypeMap: ("Bản đồ", "Map")
         case .a11yVisualTypeTreemap: ("Biểu đồ cây", "Treemap")
         case .a11yVisualTypeShapeMap: ("Bản đồ hình", "Shape map")
         case .a11yVisualTypeRibbonChart: ("Biểu đồ ruy-băng", "Ribbon chart")

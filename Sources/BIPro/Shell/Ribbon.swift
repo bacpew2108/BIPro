@@ -164,21 +164,71 @@ private struct InsertCommands: View {
     let state: DocumentState
     var body: some View {
         RibbonGroup(title: bi("Trang", "Pages")) {
-            RibbonButton(title: tr(.ribbonNewPage), symbol: "doc.badge.plus", phase: "Phase D")
+            RibbonButton(title: tr(.ribbonNewPage), symbol: "doc.badge.plus",
+                         disabledReason: state.pageEditingBlocker) { state.addPage() }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Visual", "Visuals")) {
             RibbonButton(title: tr(.ribbonNewVisual), symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
-                         disabledReason: state.visualEditingBlocker) { state.insertVisual("cardVisual") }
-            RibbonButton(title: bi("Thêm visual", "More visuals"), symbol: "square.grid.3x3", phase: "Phase D")
+                         disabledReason: state.visualEditingBlocker) { state.insertVisual("clusteredColumnChart") }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Thành phần", "Elements")) {
             RibbonButton(title: tr(.ribbonTextBox), symbol: "textformat",
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
-            RibbonButton(title: bi("Nút", "Buttons"), symbol: "rectangle.and.hand.point.up.left", phase: "Phase D")
-            RibbonButton(title: bi("Hình", "Shapes"), symbol: "square.on.circle", phase: "Phase D")
-            RibbonButton(title: bi("Ảnh", "Image"), symbol: "photo", phase: "Phase D")
+            Menu {
+                Button { state.insertVisual("actionButton") } label: {
+                    Label(bi("Nút trống", "Blank button"), systemImage: "rectangle.and.hand.point.up.left")
+                }
+                Divider()
+                Button { state.insertVisual("pageNavigator") } label: {
+                    Label(bi("Điều hướng trang", "Page navigator"), systemImage: "rectangle.split.3x1")
+                }
+                Button { state.insertVisual("bookmarkNavigator") } label: {
+                    Label(bi("Điều hướng dấu trang", "Bookmark navigator"), systemImage: "bookmark.square")
+                }
+            } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "rectangle.and.hand.point.up.left").font(.system(size: 17)).foregroundStyle(DS.Palette.secondaryLabel).frame(height: 20)
+                    Text(bi("Nút", "Buttons")).font(DS.Typeface.label).foregroundStyle(DS.Palette.label)
+                }
+                .padding(.horizontal, 6)
+                .frame(minWidth: 44, minHeight: 50)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(state.visualEditingBlocker != nil)
+            .opacity(state.visualEditingBlocker != nil ? 0.55 : 1)
+            .help(state.visualEditingBlocker ?? bi("Chèn nút hành động hoặc thanh điều hướng", "Insert action button or navigator"))
+
+            Menu {
+                Button { state.insertShape("rectangle") } label: {
+                    Label(bi("Hình chữ nhật", "Rectangle"), systemImage: "rectangle")
+                }
+                Button { state.insertShape("oval") } label: {
+                    Label(bi("Hình tròn / Ôvan", "Oval"), systemImage: "circle")
+                }
+                Button { state.insertShape("line") } label: {
+                    Label(bi("Đường thẳng", "Line"), systemImage: "line.diagonal")
+                }
+            } label: {
+                VStack(spacing: 3) {
+                    Image(systemName: "square.on.circle").font(.system(size: 17)).foregroundStyle(DS.Palette.secondaryLabel).frame(height: 20)
+                    Text(bi("Hình", "Shapes")).font(DS.Typeface.label).foregroundStyle(DS.Palette.label)
+                }
+                .padding(.horizontal, 6)
+                .frame(minWidth: 44, minHeight: 50)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(state.visualEditingBlocker != nil)
+            .opacity(state.visualEditingBlocker != nil ? 0.55 : 1)
+            .help(state.visualEditingBlocker ?? bi("Chèn hình khối trang trí", "Insert shape"))
+
+            RibbonButton(title: bi("Ảnh", "Image"), symbol: "photo",
+                         disabledReason: state.visualEditingBlocker) { state.pickAndInsertImage() }
         }
     }
 }

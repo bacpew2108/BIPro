@@ -78,15 +78,33 @@ enum FormatCatalog {
     /// Cỡ chữ tiêu đề: Desktop kẹp 8 đến 60 (VM-D8).
     private static let titleFontSize = FormatKind.number(min: 8, max: 60, step: 1, tail: .d)
 
-    private static let axisCharts: Set<String> = ["clusteredColumnChart", "columnChart", "clusteredBarChart", "hundredPercentStackedColumnChart",
+    private static let axisCharts: Set<String> = ["clusteredColumnChart", "columnChart", "clusteredBarChart", "barChart", "stackedBarChart",
+                                                  "hundredPercentStackedBarChart", "hundredPercentStackedColumnChart",
                                                   "lineChart", "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
+                                                  "scatterChart",
                                                   // VM-D15 mục 4: khoá `categoryAxis`, `valueAxis`, `labels`… đã thấy trên các loại này (VM-D12).
                                                   "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart"]
 
     // MARK: Thẻ
 
     static func cards(for type: String, scope: FormatScope) -> [FormatCard] {
-        scope == .container ? containerCards : visualCards(for: type)
+        if scope == .container {
+            if type == "actionButton" {
+                return containerCards + [
+                    card(.container, "visualLink", "Hành động", [
+                        prop("show", "Bật hành động", .bool, "Nhom6, VM-V11A", cardSwitch: true, defaultOn: true),
+                        prop("type", "Loại hành động", .choice([
+                            FormatChoice(title: "Điều hướng trang", literal: "'PageNavigation'"),
+                            FormatChoice(title: "Dấu trang", literal: "'Bookmark'"),
+                        ]), "Nhom6, VM-V11A"),
+                        prop("navigationSection", "Trang đích", plainText, "VM-V11A"),
+                        prop("bookmark", "Mã dấu trang", plainText, "Nhom6"),
+                    ]),
+                ]
+            }
+            return containerCards
+        }
+        return visualCards(for: type)
     }
 
     /// Phạm vi Chung: giống nhau cho mọi loại visual.
@@ -220,7 +238,7 @@ enum FormatCatalog {
                     prop("fill", "Màu", .color, "\(nhom6), \(vm8)"),
                 ]),
             ]
-        case "donutChart":
+        case "donutChart", "pieChart":
             return [
                 card(.objects, "legend", "Chú giải", [
                     prop("show", "Hiện chú giải", .bool, "\(nhom6), \(vm12)", cardSwitch: true, defaultOn: true),
@@ -232,6 +250,57 @@ enum FormatCatalog {
                     prop("labelStyle", "Kiểu nhãn", .choice([FormatChoice(title: "Phần trăm tổng", literal: "'Percent of total'")]), nhom6),
                     prop("fontSize", "Cỡ chữ", fontSize, nhom6),
                     prop("labelDisplayUnits", "Đơn vị hiển thị", units, nhom6),
+                ]),
+            ]
+        case "tableEx":
+            return [
+                card(.objects, "columnHeaders", "Tiêu đề cột", [
+                    prop("fontSize", "Cỡ chữ", fontSize, "VM-V11A"),
+                ]),
+                card(.objects, "values", "Giá trị", [
+                    prop("fontSize", "Cỡ chữ", fontSize, "VM-V11A"),
+                ]),
+                card(.objects, "grid", "Lưới", [
+                    prop("rowPadding", "Đệm hàng (px)", .number(min: 0, max: 50, step: 1, tail: .d), "VM-V11A"),
+                ]),
+            ]
+        case "gauge":
+            return [
+                card(.objects, "labels", "Nhãn giá trị", [
+                    prop("color", "Màu", .color, "VM-V11A"),
+                    prop("labelDisplayUnits", "Đơn vị hiển thị", units, "VM-V11A"),
+                    prop("labelPrecision", "Số chữ số thập phân", precision, "VM-V11A"),
+                ]),
+            ]
+        case "kpi":
+            return [
+                card(.objects, "labels", "Giá trị chỉ số", [
+                    prop("labelDisplayUnits", "Đơn vị hiển thị", units, "VM-V11A"),
+                    prop("labelPrecision", "Số chữ số thập phân", precision, "VM-V11A"),
+                ]),
+            ]
+        case "shape":
+            return [
+                card(.objects, "shape", "Hình khối", [
+                    prop("tileShape", "Kiểu hình", .choice([
+                        FormatChoice(title: "Hình chữ nhật", literal: "'rectangle'"),
+                        FormatChoice(title: "Hình tròn / Ôvan", literal: "'oval'"),
+                        FormatChoice(title: "Đường thẳng", literal: "'line'"),
+                    ]), "VM-V11A"),
+                    prop("roundEdge", "Bo góc (px)", pixels, "VM-V11A"),
+                ]),
+                card(.objects, "fill", "Tô màu", [
+                    prop("show", "Hiện màu tô", .bool, "VM-V11A", cardSwitch: true, defaultOn: true),
+                    prop("fillColor", "Màu", .color, "VM-V11A"),
+                    prop("transparency", "Độ trong suốt (%)", percent, "VM-V11A"),
+                ]),
+                card(.objects, "outline", "Viền ngoài", [
+                    prop("show", "Hiện viền", .bool, "VM-V11A", cardSwitch: true, defaultOn: true),
+                    prop("lineColor", "Màu", .color, "VM-V11A"),
+                    prop("weight", "Độ dày (px)", .number(min: 0, max: 20, step: 1, tail: .d), "VM-V11A"),
+                ]),
+                card(.objects, "rotation", "Xoay", [
+                    prop("shapeAngle", "Góc xoay (độ)", .number(min: 0, max: 360, step: 1, tail: .l), "VM-V11A"),
                 ]),
             ]
         case "pivotTable":

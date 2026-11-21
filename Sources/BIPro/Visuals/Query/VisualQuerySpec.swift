@@ -241,12 +241,24 @@ enum QueryShape: Hashable, Sendable {
     case matrix
     /// Cột chồng 100%: giảm dữ liệu động viết bằng DAX (D2-100pct).
     case hundredPercent
+    /// Bảng phẳng (`tableEx`): cột danh mục + measure + dòng tổng cuối bảng.
+    case table
+    /// Biểu đồ phân tán (`scatterChart`): Category × Series × (X, Y, Size, Tooltips).
+    case scatter
+    /// Đồng hồ đo (`gauge`): 1 dòng tổng scalar (Y, MinValue, MaxValue, TargetValue).
+    case gauge
+    /// Chỉ số KPI (`kpi`): chuỗi Indicator (và Goal) tăng dần theo TrendLine.
+    case kpi
+    /// Thẻ nhiều hàng (`multiRowCard`): các cột & measure ở ô `Values` không dòng tổng.
+    case multiRowCard
 }
 
 struct VisualQuerySpec: Hashable, Sendable {
     var visualID: String
     var visualType: String
     var shape: QueryShape = .chart
+    /// Thứ tự nguyên gốc các trường trong ô `Values` cho `tableEx` và `multiRowCard` (cột và measure xen kẽ).
+    var orderedFields: [FieldInfo] = []
     /// Trục chính: Category (chart), Rows (matrix), Values (slicer).
     var primary: [GroupField]
     /// Trục phụ: Series (chart), Columns (matrix). Rỗng nếu không có.

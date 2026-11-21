@@ -11,15 +11,21 @@ struct VisualAccessibilitySummary: Equatable, Sendable {
 
     static func visualTypeName(_ type: String, language: ResolvedLanguage) -> String {
         let key: L10n.Key = switch type {
-        case "card", "cardVisual", "multiRowCard", "kpi": .a11yVisualTypeCard
+        case "card", "cardVisual": .a11yVisualTypeCard
+        case "multiRowCard": .a11yVisualTypeMultiRowCard
+        case "kpi": .a11yVisualTypeKPI
+        case "gauge": .a11yVisualTypeGauge
+        case "scatterChart": .a11yVisualTypeScatterChart
         case "clusteredBarChart", "barChart", "stackedBarChart", "hundredPercentStackedBarChart": .a11yVisualTypeBarChart
         case "clusteredColumnChart", "columnChart", "stackedColumnChart", "hundredPercentStackedColumnChart": .a11yVisualTypeColumnChart
         case "lineChart": .a11yVisualTypeLineChart
         case "lineClusteredColumnComboChart", "lineStackedColumnComboChart": .a11yVisualTypeComboChart
         case "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart": .a11yVisualTypeAreaChart
-        case "donutChart", "pieChart": .a11yVisualTypeDonutChart
+        case "donutChart": .a11yVisualTypeDonutChart
+        case "pieChart": .a11yVisualTypePieChart
         case "treemap": .a11yVisualTypeTreemap
         case "shapeMap": .a11yVisualTypeShapeMap
+        case "map", "filledMap": .a11yVisualTypeMap
         case "ribbonChart": .a11yVisualTypeRibbonChart
         case "waterfallChart": .a11yVisualTypeWaterfallChart
         case "funnel": .a11yVisualTypeFunnel
@@ -66,6 +72,19 @@ struct VisualAccessibilitySummary: Equatable, Sendable {
             } else {
                 value = L10n.format(.a11yVisualSlicerSelectedFormat, language: language, slicerSelectedCount)
             }
+        case .some(.table(let table)):
+            value = L10n.format(.a11yVisualMatrixFormat, language: language, table.rows.count, max(1, table.columns.count))
+        case .some(.scatter(let scatter)):
+            let seriesCount = max(1, scatter.series.count)
+            value = L10n.format(.a11yVisualCategoriesFormat, language: language, scatter.points.count, seriesCount)
+        case .some(.gauge(let gauge)):
+            let formatted = NumberDisplay.plain(gauge.value)
+            value = formatted.isEmpty ? L10n.string(.a11yVisualDataEmpty, language: language) : formatted
+        case .some(.kpi(let kpi)):
+            let formatted = NumberDisplay.plain(kpi.latestValue)
+            value = formatted.isEmpty ? L10n.string(.a11yVisualDataEmpty, language: language) : formatted
+        case .some(.multiRowCard(let card)):
+            value = L10n.format(.a11yVisualMatrixFormat, language: language, card.rows.count, max(1, card.fields.count))
         }
 
         let hint = L10n.string(.a11yVisualHint, language: language)

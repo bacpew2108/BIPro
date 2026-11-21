@@ -55,11 +55,13 @@ enum FieldEditor {
             return .changed(result)
         }
         let kind: ReportField.Kind = field.kind == .column ? .column : .measure
-        // Cột đầu của ô `active: true`, các cột sau `false` (Nhom6, VM-D3 mục B); measure không có cờ.
+        // VM-V11A: tableEx, multiRowCard, kpi, advancedSlicerVisual, listSlicer, textSlicer không ghi cờ `"active"` cho cột.
+        let omitsActive: Set<String> = ["tableEx", "multiRowCard", "kpi", "advancedSlicerVisual", "listSlicer", "textSlicer"]
         let hasColumn = wells.first { $0.role == role }?.elements.contains { $0.field.kind != .measure && $0.field.kind != .aggregation } ?? false
         let replacing = rule.isSingle
+        let activeFlag: Bool? = (kind == .column && !omitsActive.contains(visual.type)) ? (replacing || !hasColumn) : nil
         let element = PBIRQueryPatch.newElement(kind: kind, entity: field.entity, property: field.property, displayName: nil, role: role,
-                                                active: kind == .column ? (replacing || !hasColumn) : nil)
+                                                active: activeFlag)
         var result = wells
         if let index = result.firstIndex(where: { $0.role == role }) {
             if rule.isSingle { result[index].elements = [element] } else { result[index].elements.append(element) }

@@ -168,7 +168,8 @@ enum FilterTranslator {
     ) -> AssembledFilters {
         // Đích là slicer: chỉ nhận bộ lọc tĩnh (report/page/visual): không nhận lựa chọn của slicer khác,
         // lọc chéo hay drillthrough, và đương nhiên không tự lọc chính nó. // [SUY ĐOÁN]
-        if target.visualType == "slicer" {
+        let slicerTypes: Set<String> = ["slicer", "advancedSlicerVisual", "listSlicer", "textSlicer"]
+        if slicerTypes.contains(target.visualType) {
             var result: [QueryFilter] = []
             for scope in [FilterScope.visual, .page, .report] {
                 for sf in staticFilters where sf.scope == scope {
@@ -264,6 +265,29 @@ enum FilterTranslator {
             guard let slicer = state.slicers[id], !slicer.selection.isEmpty, !slicer.columns.isEmpty else {
                 continue
             }
+            // 1. Slicer khoảng ('Between') cho số hoặc ngày
+            if let range = slicer.selection.range, !range.isEmpty {
+                let c0 = slicer.columns[0]
+                var preds: [String] = []
+                if let minVal = range.min { preds.append("\(c0.dax) >= \(literal(minVal))") }
+                if let maxVal = range.max { preds.append("\(c0.dax) <= \(literal(maxVal))") }
+                if !preds.isEmpty {
+                    let pred = combineAnd(preds)
+                    let unmerged = "FILTER(KEEPFILTERS(VALUES(\(c0.dax))), \(pred))"
+                    plans.append(SlicerPlan(slicerID: id, columns: [c0], isHierarchical: false, predicate: pred, tableExpressionUnmerged: unmerged))
+                    continue
+                }
+            }
+            // 2. Text Slicer (tìm chuỗi con bằng CONTAINSSTRING)
+            if let rawText = slicer.selection.searchText?.trimmingCharacters(in: .whitespacesAndNewlines), !rawText.isEmpty {
+                let c0 = slicer.columns[0]
+                let escaped = rawText.replacingOccurrences(of: "\"", with: "\"\"")
+                let pred = "CONTAINSSTRING(\(c0.dax), \"\(escaped)\")"
+                let unmerged = "FILTER(KEEPFILTERS(VALUES(\(c0.dax))), \(pred))"
+                plans.append(SlicerPlan(slicerID: id, columns: [c0], isHierarchical: false, predicate: pred, tableExpressionUnmerged: unmerged))
+                continue
+            }
+            // 3. Slicer chọn danh sách / ô / phân cấp
             let maxLen = slicer.selection.paths.map(\.count).max() ?? 0
             guard maxLen > 0 else { continue }
 

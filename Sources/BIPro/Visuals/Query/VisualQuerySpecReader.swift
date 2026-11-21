@@ -55,6 +55,16 @@ struct VisualQuerySpecReader {
             spec.primary = Array(groupFields(queryState["Group"], role: "Group", activeOnly: false).prefix(1))
         case .donut:
             spec.primary = Array(groupFields(queryState["Category"], role: "Category", activeOnly: false).prefix(1))
+        case .table, .multiRowCard:
+            spec.primary = groupFields(queryState["Values"], role: "Values", activeOnly: false)
+        case .kpi:
+            spec.primary = groupFields(queryState["TrendLine"], role: "TrendLine", activeOnly: false)
+        case .gauge:
+            spec.primary = []
+            spec.secondary = []
+        case .scatter:
+            spec.primary = groupFields(queryState["Category"], role: "Category", activeOnly: true)
+            spec.secondary = groupFields(queryState["Series"], role: "Series", activeOnly: true)
         default:
             spec.primary = groupFields(queryState["Category"], role: "Category", activeOnly: true)
             // Thác nước dùng ô Breakdown thay cho Series (VM-D16: Category, Breakdown, Y).
@@ -62,28 +72,42 @@ struct VisualQuerySpecReader {
             spec.secondary = groupFields(queryState[legendRole], role: legendRole, activeOnly: true)
         }
 
-        // Measure theo thứ tự vai trò. Card và shape map: mọi measure IGNORE; Tooltips luôn IGNORE.
+        // Measure theo thứ tự vai trò. Card, gauge và shape map: mọi measure IGNORE; Tooltips luôn IGNORE.
         var used = Set<String>()
         var values: [QueryMeasure] = []
         var scoped: [QueryMeasure] = []
-        let roleOrder = ["Y", "Y2", "Values", "Data", "Value", "Tooltips"]
-        let allIgnored = shape == .card || shape == .shapeMap
+        let roleOrder = ["Y", "Y2", "X", "Size", "MinValue", "MaxValue", "TargetValue", "Indicator", "Goal", "Values", "Data", "Value", "Tooltips"]
+        let allIgnored = shape == .card || shape == .shapeMap || shape == .gauge
         let splitScope = shape == .chart && !spec.secondary.isEmpty && queryState["Y2"] != nil
         for role in roleOrder where !(shape.isSlicer) {
             for projection in queryState[role]?["projections"]?.array ?? [] {
                 if let aggregated = implicitAggregation(projection, role: role, ignore: allIgnored || role == "Tooltips",
                                                         used: &used) {
                     if splitScope && role == "Y2" { scoped.append(aggregated) } else { values.append(aggregated) }
+                    if (shape == .table || shape == .multiRowCard) && role == "Values" {
+                        spec.orderedFields.append(aggregated.field)
+                    }
                     continue
                 }
-                guard let (table, name) = Self.measureRef(projection["field"]) else { continue }
-                let field = FieldInfo(queryRef: projection["queryRef"]?.string ?? "\(table).\(name)",
-                                      displayName: projection["displayName"]?.string ?? name, role: role,
-                                      formatString: metadataMeasure(table, name)?.formatString, isMeasure: true)
-                let ignore = allIgnored || role == "Tooltips"
-                let group = measureWithFormat(table: table, name: name, field: field, ignore: ignore,
-                                              purpose: role == "Tooltips" ? .tooltip : .value, used: &used)
-                if splitScope && role == "Y2" { scoped += group } else { values += group }
+                if let (table, name) = Self.measureRef(projection["field"]) {
+                    let field = FieldInfo(queryRef: projection["queryRef"]?.string ?? "\(table).\(name)",
+                                          displayName: projection["displayName"]?.string ?? name, role: role,
+                                          formatString: metadataMeasure(table, name)?.formatString, isMeasure: true)
+                    let ignore = allIgnored || role == "Tooltips"
+                    let group = measureWithFormat(table: table, name: name, field: field, ignore: ignore,
+                                                  purpose: role == "Tooltips" ? .tooltip : .value, used: &used)
+                    if splitScope && role == "Y2" { scoped += group } else { values += group }
+                    if (shape == .table || shape == .multiRowCard) && role == "Values" {
+                        spec.orderedFields.append(field)
+                    }
+                } else if (shape == .table || shape == .multiRowCard) && role == "Values",
+                          let col = column(of: projection["field"]) {
+                    let meta = metadataColumn(col.table, col.column)
+                    let field = FieldInfo(queryRef: projection["queryRef"]?.string ?? "\(col.table).\(col.column)",
+                                          displayName: projection["displayName"]?.string ?? col.column, role: role,
+                                          formatString: meta?.formatString, isMeasure: false)
+                    spec.orderedFields.append(field)
+                }
             }
         }
         // Thuộc tính lấy từ measure (màu, icon). Card: đứng trước giá trị (D1-card-tienvao-delta, D3-card-khachhang-sub).
@@ -139,11 +163,16 @@ struct VisualQuerySpecReader {
     private static func shape(of type: String) -> QueryShape {
         switch type {
         case "card", "cardVisual": .card
-        case "slicer", "advancedSlicerVisual", "listSlicer": .slicer(top: 101)
+        case "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer": .slicer(top: 101)
         case "donutChart", "pieChart": .donut
         case "treemap": .treemap
         case "shapeMap", "filledMap": .shapeMap
         case "pivotTable", "matrix": .matrix
+        case "tableEx", "table": .table
+        case "scatterChart": .scatter
+        case "gauge": .gauge
+        case "kpi": .kpi
+        case "multiRowCard": .multiRowCard
         case "hundredPercentStackedColumnChart", "hundredPercentStackedBarChart": .hundredPercent
         default: .chart
         }
@@ -336,10 +365,12 @@ struct VisualQuerySpecReader {
 
     private func reduction(for spec: VisualQuerySpec, format: VisualFormat) -> DataReduction {
         switch spec.shape {
-        case .card: return .none
+        case .card, .gauge: return .none
         case .slicer(let top): return .top(top)
         case .donut, .treemap: return .top(1002)
-        case .shapeMap: return .top(3502)
+        case .shapeMap, .scatter: return .top(3502)
+        case .table, .multiRowCard: return .top(501)
+        case .kpi: return .top(1001)
         case .matrix: return .window(primary: spec.rowTotals ? 102 : 101, secondary: 102)
         case .hundredPercent: return .none
         case .chart:

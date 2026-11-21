@@ -47,7 +47,7 @@ import Testing
 
     @Test func invalidRequestsAreRejected() {
         expectInvalid("tên sai") { _ = try PBIRNewVisual.makeJSON(name: "ZZ", type: "card", x: 0, y: 0, width: 10, height: 10, z: 1, schema: nil) }
-        expectInvalid("loại không hỗ trợ") { _ = try make("scatterChart") }
+        expectInvalid("loại không hỗ trợ") { _ = try make("madeUpType") }
         expectInvalid("rộng 0") { _ = try make("card", w: 0) }
         expectInvalid("cao âm") { _ = try make("card", h: -3) }
         expectInvalid("x âm") { _ = try make("card", x: -1) }
@@ -81,7 +81,8 @@ import Testing
                      "lineClusteredColumnComboChart", "lineStackedColumnComboChart", "hundredPercentStackedColumnChart"] {
             #expect(PBIRNewVisual.defaultSize(for: type)! == (616, 380), Comment(rawValue: type))
         }
-        #expect(PBIRNewVisual.defaultSize(for: "image") == nil)
-        #expect(PBIRNewVisual.defaultSize(for: "scatterChart") == nil)
+        #expect(PBIRNewVisual.defaultSize(for: "image")! == (320, 240))
+        #expect(PBIRNewVisual.defaultSize(for: "scatterChart")! == (616, 380))
+        #expect(PBIRNewVisual.defaultSize(for: "madeUpType") == nil)
     }
 }

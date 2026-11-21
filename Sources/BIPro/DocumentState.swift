@@ -3,6 +3,7 @@ import AppKit
 import Observation
 import PBIXKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The five workspaces on the left rail.
 enum WorkspaceMode: String, CaseIterable, Identifiable {
@@ -329,6 +330,37 @@ final class DocumentState {
         guard let id = layout.insertVisual(type: type, visibleRect: visibleRect) else { return nil }
         visualID = id
         return id
+    }
+
+    /// Chèn hình khối (`rectangle`, `oval`, `line`) vào trang hiện tại (US4).
+    @discardableResult
+    func insertShape(_ shapeKind: String) -> String? {
+        if let blocker = visualEditingBlocker { layout.noteFieldRefusal(blocker); return nil }
+        guard let id = layout.insertVisual(type: "shape", visibleRect: visibleRect, shapeKind: shapeKind) else { return nil }
+        visualID = id
+        return id
+    }
+
+    /// Chèn ảnh nhúng từ dữ liệu sẵn có vào trang hiện tại (US4).
+    @discardableResult
+    func insertImage(data: Data, filename: String) -> String? {
+        if let blocker = visualEditingBlocker { layout.noteFieldRefusal(blocker); return nil }
+        guard let result = layout.insertImage(data: data, filename: filename, visibleRect: visibleRect) else { return nil }
+        workspace.registerSessionImage(data, named: result.itemName)
+        visualID = result.id
+        return result.id
+    }
+
+    /// Mở hộp chọn tệp PNG/JPEG/SVG và chèn vào trang hiện tại (US4).
+    func pickAndInsertImage() {
+        if let blocker = visualEditingBlocker { layout.noteFieldRefusal(blocker); return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .svg]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = bi("Chèn ảnh vào báo cáo", "Insert Image into Report")
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        insertImage(data: data, filename: url.lastPathComponent)
     }
 
     /// Đổi loại visual đang chọn sang `type` (D3). Trả lý do từ chối hoặc nil.

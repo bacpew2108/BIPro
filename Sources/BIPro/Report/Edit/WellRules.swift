@@ -35,44 +35,57 @@ struct WellRule: Equatable {
 }
 
 enum WellRules {
-    /// Bảng đã quan sát: (loại visual, ô) → (loại trường nhận, ô một trường). Nguồn: research R1 (Nhom6) và VM-D3
-    /// (donut → treemap giữ cả ba cấp ở `Category`/`Group`, nên hai ô đó nhận nhiều cột).
-    private static let observed: [String: [String: (kind: WellKind, single: Bool)]] = [
-        "card": ["Values": (.measure, true)],
-        // VM-D3 mục A, B: "Card" trong thư viện của Desktop ghi `cardVisual`, ô `Data`; mới thấy measure vào ô này.
-        "cardVisual": ["Data": (.measure, false)],
-        "slicer": ["Values": (.column, true)],
-        // VM-D3 (`R-D3-t-clusteredColumn`, `-stackedColumn`): cột xếp chồng của Desktop có visualType `columnChart`.
-        // VM-D9 mục 1: đổi đường sang cột nhóm, Desktop giữ `Tooltips`.
-        "clusteredColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Tooltips": (.measure, false)],
-        "columnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
-        "clusteredBarChart": ["Category": (.column, true), "Y": (.measure, false), "Series": (.column, true), "Tooltips": (.measure, false)],
-        "donutChart": ["Category": (.column, false), "Y": (.measure, false), "Tooltips": (.measure, false)],
-        "hundredPercentStackedColumnChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false)],
-        "lineChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false), "Y": (.measure, false),
-                      "Y2": (.measure, false)],   // VM-D3: combo → đường giữ Y2 ("Trục Y phụ")
-        "lineClusteredColumnComboChart": ["Category": (.column, true), "Tooltips": (.measure, false), "Y": (.measure, false), "Y2": (.measure, false)],
-        "lineStackedColumnComboChart": ["Category": (.column, true), "Series": (.column, true), "Tooltips": (.measure, false),
-                                        "Y": (.measure, false), "Y2": (.measure, false)],
-        // VM-D15 mục 4 (VM-D12 `retype-*`, tạo mới trong Desktop): vùng và ruy-băng có Category, Series (Legend), Y, Tooltips;
-        // thác nước có Category, Breakdown, Y, Tooltips (VM-D16 mục 3), phễu Category, Y, Tooltips.
-        "areaChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Y2": (.measure, false), "Tooltips": (.measure, false)],
-        "hundredPercentStackedAreaChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Y2": (.measure, false), "Tooltips": (.measure, false)],
-        "stackedAreaChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Y2": (.measure, false), "Tooltips": (.measure, false)],
-        "ribbonChart": ["Category": (.column, true), "Series": (.column, true), "Y": (.measure, false), "Tooltips": (.measure, false)],
-        "waterfallChart": ["Category": (.column, true), "Breakdown": (.column, true), "Y": (.measure, false), "Tooltips": (.measure, false)],
-        "funnel": ["Category": (.column, false), "Y": (.measure, false), "Tooltips": (.measure, false)],
-        "pivotTable": ["Columns": (.column, true), "Rows": (.column, true), "Values": (.measure, false)],
-        // VM-D12: bản đồ hình tạo trong Desktop có thêm `Series` (Chú giải) và `Value` (Độ bão hoà màu).
-        "shapeMap": ["Category": (.column, true), "Series": (.column, true), "Value": (.measure, true), "Tooltips": (.measure, false)],
-        "treemap": ["Group": (.column, false), "Tooltips": (.measure, false), "Values": (.measure, true)],
+    /// Bảng đã quan sát: (loại visual, ô) → (tập loại trường nhận, ô một trường). Nguồn: Nhom6, VM-D3/D15 và VM-V11A.
+    private static let observed: [String: [String: (accepts: Set<WellKind>, single: Bool)]] = [
+        "card": ["Values": ([.measure], true)],
+        // VM-D3 mục A, B: "Card" trong thư viện của Desktop ghi `cardVisual`, ô `Data`.
+        "cardVisual": ["Data": ([.measure], false)],
+        "multiRowCard": ["Values": ([.column, .measure], false)],
+        "slicer": ["Values": ([.column], true)],
+        // VM-V11A: Tile, List, Text slicer đều nhận 1 cột ở `Values`.
+        "advancedSlicerVisual": ["Values": ([.column], true)],
+        "listSlicer": ["Values": ([.column], true)],
+        "textSlicer": ["Values": ([.column], true)],
+        // VM-V11A: Stacked bar ghi `barChart` (tương thích ngược `stackedBarChart`).
+        "barChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "stackedBarChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "hundredPercentStackedBarChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "clusteredColumnChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "columnChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false)],
+        "clusteredBarChart": ["Category": ([.column], true), "Y": ([.measure], false), "Series": ([.column], true), "Tooltips": ([.measure], false)],
+        "pieChart": ["Category": ([.column], false), "Series": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "donutChart": ["Category": ([.column], false), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "hundredPercentStackedColumnChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false)],
+        "lineChart": ["Category": ([.column], true), "Series": ([.column], true), "Tooltips": ([.measure], false), "Y": ([.measure], false),
+                      "Y2": ([.measure], false)],
+        "lineClusteredColumnComboChart": ["Category": ([.column], true), "Tooltips": ([.measure], false), "Y": ([.measure], false), "Y2": ([.measure], false)],
+        "lineStackedColumnComboChart": ["Category": ([.column], true), "Series": ([.column], true), "Tooltips": ([.measure], false),
+                                        "Y": ([.measure], false), "Y2": ([.measure], false)],
+        "areaChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Y2": ([.measure], false), "Tooltips": ([.measure], false)],
+        "hundredPercentStackedAreaChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Y2": ([.measure], false), "Tooltips": ([.measure], false)],
+        "stackedAreaChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Y2": ([.measure], false), "Tooltips": ([.measure], false)],
+        "ribbonChart": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "waterfallChart": ["Category": ([.column], true), "Breakdown": ([.column], true), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        "funnel": ["Category": ([.column], false), "Y": ([.measure], false), "Tooltips": ([.measure], false)],
+        // VM-V11A Batch 2: tableEx, scatterChart, gauge, kpi, map, filledMap.
+        "tableEx": ["Values": ([.column, .measure], false)],
+        "scatterChart": ["Category": ([.column], true), "Series": ([.column], true), "X": ([.measure], true), "Y": ([.measure], true),
+                         "Size": ([.measure], true), "Tooltips": ([.measure], false)],
+        "gauge": ["Y": ([.measure], true), "MinValue": ([.measure], true), "MaxValue": ([.measure], true),
+                  "TargetValue": ([.measure], true), "Tooltips": ([.measure], false)],
+        "kpi": ["Indicator": ([.measure], true), "TrendLine": ([.column], true), "Goal": ([.measure], true)],
+        "pivotTable": ["Columns": ([.column], true), "Rows": ([.column], true), "Values": ([.measure], false)],
+        "shapeMap": ["Category": ([.column], true), "Series": ([.column], true), "Value": ([.measure], true), "Tooltips": ([.measure], false)],
+        "map": ["Category": ([.column], true), "Series": ([.column], true), "Size": ([.measure], true), "Tooltips": ([.measure], false)],
+        "filledMap": ["Category": ([.column], true), "Series": ([.column], true), "Y": ([.measure], true), "Tooltips": ([.measure], false)],
+        "treemap": ["Group": ([.column], false), "Tooltips": ([.measure], false), "Values": ([.measure], true)],
     ]
 
     /// Các ô của visual, theo thứ tự hiện trong Build pane, mỗi ô kèm luật.
     static func rules(for visual: ReportVisual) -> [WellRule] {
         VisualCatalog.wells(for: visual).map { well in
             if let hit = observed[visual.type]?[well.role] {
-                return WellRule(role: well.role, label: well.label, accepts: [hit.kind], isSingle: hit.single, status: .observed)
+                return WellRule(role: well.role, label: well.label, accepts: hit.accepts, isSingle: hit.single, status: .observed)
             }
             return WellRule(role: well.role, label: well.label, accepts: [.column, .measure], isSingle: false, status: .unverified)
         }

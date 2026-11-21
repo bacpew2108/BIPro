@@ -217,4 +217,10 @@ final class Workspace: @unchecked Sendable {
         lock.withLock { imageCache[name] = image }
         return image
     }
+
+    /// Đăng ký ảnh vừa chèn trong phiên (US4) để `ImageVisual` vẽ ngay trên canvas trước khi lưu file.
+    func registerSessionImage(_ data: Data, named name: String) {
+        guard let image = NSImage(data: data) else { return }
+        lock.withLock { imageCache[name] = image }
+    }
 }

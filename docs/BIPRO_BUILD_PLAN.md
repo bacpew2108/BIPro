@@ -204,6 +204,13 @@ Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào bá
 - [x] VoiceOver & trợ năng (`VisualAccessibilitySummary`, nhãn trợ năng toàn vỏ ứng dụng & visual, `AccessibilityAnnouncer`).
 - [x] Biểu tượng ứng dụng (`scripts/make-icon.swift` → `AppIcon.icns`), Hướng dẫn lần đầu (`OnboardingView` 3 bước) và đóng gói `build/BI Pro.app` phiên bản **1.0.0**.
 
+### Đợt 2 (v1.1a): Hoàn thiện Hệ Biểu đồ, Slicer nâng cao & Phần tử chèn ✅ 2026-11-21
+> **Đạt cổng Desktop 2.159 (2026-11-21)**: Spec Kit `specs/013-v11-bieu-do-visual/`, bằng chứng `docs/phase-v11-evidence/vm-v11a/` (`QUAN-SAT.md`, 32 tệp JSON PBIR, `gate-desktop.png` 19/19 visual), số đo `specs/013-v11-bieu-do-visual/measurements.md`.
+- [x] **2A:** `barChart` / `stackedBarChart`, `hundredPercentStackedBarChart`, `pieChart` (đồng bộ quy ước Desktop 2.159).
+- [x] **2B:** `tableEx` (bảng phẳng, sort cột, dòng `Total`, lọc chéo), `scatterChart` (1D/2D + bubble `Size` + `Series`), `gauge` (180°, mặc định `Max = 2 × Value`, vạch `Target`), `kpi` (sparkline + mục tiêu & % chênh lệch), `multiRowCard`.
+- [x] **2C:** Slicer nâng cao (`advancedSlicerVisual` Tile, `listSlicer`, `textSlicer` `CONTAINSSTRING`, `slicer` `'Between'` 2 đầu cho số & ngày) và Bản đồ ngoại tuyến 100% (`OfflineGeoAtlas` & `GeoMapView` cho `map` / `filledMap`).
+- [x] **2D:** Mở khoá ribbon **Chèn** (Trang mới, Hình khối `rectangle`/`oval`/`line`, Nút hành động, `pageNavigator`, `bookmarkNavigator`, Ảnh PNG/JPEG/SVG nhúng `RegisteredResources` + tự khai báo phần mở rộng vào `[Content_Types].xml`), `BookmarkNavigatorVisual`, mở rộng `FormatCatalog`, `VisualCSVExporter`, `AccessibilitySummary` song ngữ.
+
 ### Mốc thời gian
 | Mốc | Gồm | Tích luỹ |
 |---|---|---|

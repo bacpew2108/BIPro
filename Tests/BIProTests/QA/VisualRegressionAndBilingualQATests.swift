@@ -127,15 +127,51 @@ struct VisualRegressionAndBilingualQATests {
             #expect(metrics(of: rep).distinctColors >= 5, "\(name) vẽ ra ít màu bất thường")
         }
 
-        // 5. Toàn bộ 10 loại CartesianKind
+        // 5. Toàn bộ 12 loại CartesianKind (gồm stackedBar & hundredPercentStackedBar từ v1.1a)
         let kinds: [CartesianKind] = [
-            .clusteredBar, .clusteredColumn, .stackedColumn, .hundredPercentStackedColumn,
+            .clusteredBar, .stackedBar, .hundredPercentStackedBar,
+            .clusteredColumn, .stackedColumn, .hundredPercentStackedColumn,
             .line, .area, .stackedArea, .hundredPercentStackedArea,
             .comboClustered, .comboStacked,
         ]
         for kind in kinds {
             let rep = try renderPNG(CartesianChartView(data: cat, kind: kind, context: context, interactive: false).background(Color.white), size: size, scheme: .light)
             #expect(metrics(of: rep).distinctColors >= 5, "CartesianKind.\(kind) vẽ ra ít màu bất thường")
+        }
+
+        // 6. Các renderer mới của v1.1a (2A–2D): Pie, Table, Scatter, Gauge, KPI, MultiRowCard, 4 Slicer nâng cao, Map & FilledMap, Shape
+        let colF = FieldInfo(queryRef: "T.Region", displayName: "Region", role: "Values", formatString: nil, isMeasure: false)
+        let valF = FieldInfo(queryRef: "T.Sales", displayName: "Sales", role: "Y", formatString: "#,0", isMeasure: true)
+        let geoCat = CategoricalData(
+            categoryLevels: [FieldInfo(queryRef: "T.State", displayName: "State", role: "Category", formatString: nil, isMeasure: false)],
+            categories: [CategoryKey(values: [.string("California")]), CategoryKey(values: [.string("Texas")]), CategoryKey(values: [.string("New York")])],
+            seriesField: nil, series: [], measures: [valF],
+            values: [[[DataCell(.double(400)), DataCell(.double(250)), DataCell(.double(600))]]],
+            highlights: nil, isReduced: false
+        )
+        let rangeSlicer = SlicerData(
+            levels: [colF],
+            roots: [SlicerNode(.string("North")), SlicerNode(.string("South"))],
+            domainRange: SlicerRange(min: .integer(2020), max: .integer(2025)),
+            isDateColumn: false
+        )
+        let v11aViews: [(String, AnyView)] = [
+            ("Pie", AnyView(DonutChartView(data: cat, context: context, interactive: false, isPie: true))),
+            ("TableEx", AnyView(TableVisualView(data: TableDataView(columns: [colF, valF], rows: [[DataCell(.string("North")), DataCell(.double(120))]], totals: [.blank, DataCell(.double(120))], isReduced: false), context: context, scrollable: false))),
+            ("Scatter", AnyView(ScatterChartView(data: ScatterData(categoryField: colF, seriesField: nil, series: [], xField: valF, yField: valF, sizeField: nil, points: [ScatterPoint(id: DataPointID([:]), categoryLabel: "A", seriesValue: nil, x: 10, y: 20, size: 5, xCell: DataCell(.double(10)), yCell: DataCell(.double(20)), sizeCell: nil, tooltips: []), ScatterPoint(id: DataPointID([:]), categoryLabel: "B", seriesValue: nil, x: 40, y: 60, size: 12, xCell: DataCell(.double(40)), yCell: DataCell(.double(60)), sizeCell: nil, tooltips: [])], isReduced: false), context: context, interactive: false))),
+            ("Gauge", AnyView(GaugeVisualView(data: GaugeData(valueField: valF, value: DataCell(.double(5369)), min: nil, max: nil, target: DataCell(.double(8000))), context: context))),
+            ("KPI", AnyView(KPIVisualView(data: KPIData(indicatorField: valF, trendField: colF, goalField: valF, latestValue: DataCell(.double(1200)), goalValue: DataCell(.double(1000)), trendPoints: [.init(label: "Q1", value: 800), .init(label: "Q2", value: 1200)]), context: context))),
+            ("MultiRowCard", AnyView(MultiRowCardView(data: MultiRowCardData(fields: [colF, valF], rows: [[DataCell(.string("North")), DataCell(.double(120))]], isReduced: false), context: context, scrollable: false))),
+            ("TileSlicer", AnyView(TileSlicerView(data: rangeSlicer, context: context, scrollable: false))),
+            ("ListSlicer", AnyView(ListSlicerView(data: rangeSlicer, context: context, scrollable: false))),
+            ("TextSlicer", AnyView(TextSlicerView(data: rangeSlicer, context: context, interactive: false))),
+            ("RangeSlicer", AnyView(RangeSlicerView(data: rangeSlicer, context: context, interactive: false))),
+            ("GeoMap", AnyView(GeoMapView(data: geoCat, isFilled: false, topoMap: nil, context: context, interactive: false))),
+            ("FilledMap", AnyView(GeoMapView(data: geoCat, isFilled: true, topoMap: nil, context: context, interactive: false))),
+        ]
+        for (name, view) in v11aViews {
+            let rep = try renderPNG(view.background(Color.white), size: size, scheme: .light)
+            #expect(metrics(of: rep).distinctColors >= 4, "v1.1a \(name) vẽ ra ít màu bất thường")
         }
     }
 

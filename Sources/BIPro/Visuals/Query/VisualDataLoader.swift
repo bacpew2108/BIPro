@@ -80,6 +80,34 @@ actor VisualDataLoader {
         return (result.tables.first?.rows ?? []).compactMap(\.first)
     }
 
+    /// Biên toàn miền `[MIN, MAX]` của một cột số/ngày (cho slicer chế độ `'Between'`), tôn trọng bộ lọc tĩnh.
+    func columnRange(of column: QueryColumn, filters: [QueryFilter]) async throws -> SlicerRange? {
+        let query: String
+        if filters.isEmpty {
+            query = "EVALUATE ROW(\"Min\", MIN(\(column.dax)), \"Max\", MAX(\(column.dax)))"
+        } else {
+            let names = DAXQueryBuilder.filterNames(count: filters.count)
+            let vars = zip(names, filters).map { "\tVAR \($0) = \($1.tableExpression)" }.joined(separator: "\n")
+            let args = (names + ["\"Min\", MIN(\(column.dax))", "\"Max\", MAX(\(column.dax))"]).joined(separator: ", ")
+            query = "DEFINE\n\(vars)\nEVALUATE SUMMARIZECOLUMNS(\(args))"
+        }
+        let result: QueryResult
+        if let hit = cache[query] {
+            result = hit
+        } else {
+            await acquire()
+            defer { release() }
+            try Task.checkCancellation()
+            result = try await engine.execute(query)
+            store(result, for: query)
+        }
+        guard let row = result.tables.first?.rows.first, row.count >= 2 else { return nil }
+        let lo = row[0] == .blank ? nil : row[0]
+        let hi = row[1] == .blank ? nil : row[1]
+        guard lo != nil || hi != nil else { return nil }
+        return SlicerRange(min: lo, max: hi)
+    }
+
     func clearCache() {
         cache.removeAll()
         cacheOrder.removeAll()

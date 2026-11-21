@@ -218,9 +218,15 @@ private struct DonutArcShape: Shape {
         let sAngle = Angle(radians: startAngle + gapAngle / 2.0)
         let eAngle = Angle(radians: endAngle - gapAngle / 2.0)
 
-        path.addArc(center: center, radius: outerR, startAngle: sAngle, endAngle: eAngle, clockwise: false)
-        path.addArc(center: center, radius: innerR, startAngle: eAngle, endAngle: sAngle, clockwise: true)
-        path.closeSubpath()
+        if innerR <= 0.5 {
+            path.move(to: center)
+            path.addArc(center: center, radius: outerR, startAngle: sAngle, endAngle: eAngle, clockwise: false)
+            path.closeSubpath()
+        } else {
+            path.addArc(center: center, radius: outerR, startAngle: sAngle, endAngle: eAngle, clockwise: false)
+            path.addArc(center: center, radius: innerR, startAngle: eAngle, endAngle: sAngle, clockwise: true)
+            path.closeSubpath()
+        }
         return path
     }
 }
@@ -266,13 +272,15 @@ struct DonutChartView: View {
     let data: CategoricalData
     let context: VisualRenderContext
     let interactive: Bool
+    let isPie: Bool
 
     @State private var hoveredSliceIndex: Int? = nil
 
-    init(data: CategoricalData, context: VisualRenderContext, interactive: Bool = true) {
+    init(data: CategoricalData, context: VisualRenderContext, interactive: Bool = true, isPie: Bool = false) {
         self.data = data
         self.context = context
         self.interactive = interactive
+        self.isPie = isPie
     }
 
     private var roleYIndex: Int {
@@ -412,40 +420,52 @@ struct DonutChartView: View {
             let size = min(geo.size.width, geo.size.height)
             let center = CGPoint(x: geo.size.width / 2.0, y: geo.size.height / 2.0)
             let outerRadius = size * 0.38
-            let innerRadius = outerRadius * 0.80 // Vòng dày khoảng 1/5 bán kính
+            let innerRatio: CGFloat = isPie ? 0.0 : 0.80
+            let innerRadius = outerRadius * innerRatio // Donut: vòng dày ~1/5 bán kính; Pie: hình tròn đặc (innerRadius = 0)
 
             ZStack {
                 // Slices
                 ForEach(slices, id: \.index) { slice in
                     if data.highlights != nil {
-                        // Vòng ngoài: tổng ở opacity 0.4
+                        // Vòng ngoài (hoặc lát nền): tổng ở opacity 0.4
                         DonutArcShape(
                             startAngle: slice.startAngle,
                             endAngle: slice.endAngle,
-                            innerRadiusRatio: 0.80
+                            innerRadiusRatio: innerRatio
                         )
                         .fill(slice.color.opacity(0.40))
                         .frame(width: outerRadius * 2, height: outerRadius * 2)
                         .position(center)
 
-                        // Vòng trong: cùng độ dày, bán kính nhỏ hơn, phần tô sáng màu đậm
+                        // Phần tô sáng màu đậm
                         if let hlFrac = slice.highlightFraction, hlFrac > 0 {
                             let hlSpan = (slice.endAngle - slice.startAngle) * hlFrac
-                            DonutArcShape(
-                                startAngle: slice.startAngle,
-                                endAngle: slice.startAngle + hlSpan,
-                                innerRadiusRatio: 0.75
-                            )
-                            .fill(slice.color)
-                            .frame(width: (innerRadius * 2) * 0.98, height: (innerRadius * 2) * 0.98)
-                            .position(center)
+                            if isPie {
+                                DonutArcShape(
+                                    startAngle: slice.startAngle,
+                                    endAngle: slice.startAngle + hlSpan,
+                                    innerRadiusRatio: 0.0
+                                )
+                                .fill(slice.color)
+                                .frame(width: outerRadius * 2, height: outerRadius * 2)
+                                .position(center)
+                            } else {
+                                DonutArcShape(
+                                    startAngle: slice.startAngle,
+                                    endAngle: slice.startAngle + hlSpan,
+                                    innerRadiusRatio: 0.75
+                                )
+                                .fill(slice.color)
+                                .frame(width: (innerRadius * 2) * 0.98, height: (innerRadius * 2) * 0.98)
+                                .position(center)
+                            }
                         }
                     } else {
                         // Bình thường
                         DonutArcShape(
                             startAngle: slice.startAngle,
                             endAngle: slice.endAngle,
-                            innerRadiusRatio: 0.80
+                            innerRadiusRatio: innerRatio
                         )
                         .fill(slice.color.opacity(slice.opacity))
                         .frame(width: outerRadius * 2, height: outerRadius * 2)
@@ -462,8 +482,8 @@ struct DonutChartView: View {
                     }
                 }
 
-                // Tổng ở giữa vòng
-                if !centerString.isEmpty {
+                // Tổng ở giữa vòng (chỉ hiện với Donut, ẩn ở Pie)
+                if !isPie && !centerString.isEmpty {
                     VStack(spacing: 2) {
                         Text(centerString)
                             .font(.system(size: max(16, min(28, size * 0.08)), weight: .bold))

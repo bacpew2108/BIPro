@@ -74,7 +74,7 @@ import Testing
         #expect(rule?.status == .unverified)
         let reason = WellRules.refusal(adding: Self.column, to: "Series", in: v)
         #expect(reason?.contains("chưa kiểm") == true)
-        #expect(WellRules.refusal(adding: Self.column, to: "Y", in: Self.visual("scatterChart"))?.contains("chưa kiểm") == true)
+        #expect(WellRules.refusal(adding: Self.column, to: "Y", in: Self.visual("azureMap"))?.contains("chưa kiểm") == true)
         #expect(WellRules.refusal(adding: Self.measure, to: "NoSuchRole", in: v) != nil)
     }
 

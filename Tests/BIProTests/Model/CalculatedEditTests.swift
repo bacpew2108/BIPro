@@ -22,6 +22,7 @@ import Testing
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("calc-edit-\(UUID().uuidString)", isDirectory: true)
         let url = try UntitledDocuments.create(root: root)
         let state = DocumentState(workspace: try Workspace(data: Data(contentsOf: url)), fileName: url.lastPathComponent, fileURL: url)
+        state.editMode = true
         #expect(state.loadFromGetData([try sales()]) == nil)
         #expect(await state.addCalculatedColumn(table: "Sales", formula: "Doanh thu = Sales[Qty] * Sales[Price]") == nil)
         #expect(await state.addCalculatedColumn(table: "Sales", formula: "Lớn = IF(Sales[Doanh thu] >= 6, \"Có\", \"Không\")") == nil)

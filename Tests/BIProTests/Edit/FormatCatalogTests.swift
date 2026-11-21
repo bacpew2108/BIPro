@@ -49,6 +49,8 @@ import Testing
             "alignment": ["'left'", "'center'", "'right'"], "labelStyle": ["'Percent of total'"],
             "fontFamily": ["'Georgia'", "'''Segoe UI Semibold'', wf_segoe-ui_semibold, helvetica, arial, sans-serif'"], "heading": ["'Heading2'"],
             "layout": ["'Compact'", "'Outline'", "'Tabular'"],   // VM-D8 mục 6, VM-D8c mục 1
+            "tileShape": ["'rectangle'", "'oval'", "'line'"],   // VM-V11A
+            "type": ["'PageNavigation'", "'Bookmark'"],          // Nhom6, VM-V11A
         ]
         for card in Self.allCards {
             for property in card.properties {
@@ -93,7 +95,11 @@ import Testing
 
     @Test func theGeneralScopeIsTheSameForEveryType() {
         let expected = ["title", "subTitle", "divider", "background", "border", "dropShadow", "padding", "visualHeader"]
-        for type in Self.types { #expect(FormatCatalog.cards(for: type, scope: .container).map(\.objectKey) == expected, "\(type)") }
+        for type in Self.types {
+            let keys = FormatCatalog.cards(for: type, scope: .container).map(\.objectKey)
+            let target = type == "actionButton" ? expected + ["visualLink"] : expected
+            #expect(keys == target, "\(type)")
+        }
     }
 
     @Test func cardSwitchesMapToTheRealProperty() {

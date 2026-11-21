@@ -89,7 +89,7 @@ final class ReportInteraction {
     // MARK: - Trạng thái
 
     func state(for page: ReportPage) -> FilterState {
-        states[page.id] ?? FilterState(slicerOrder: page.visuals.filter { $0.type == "slicer" }.map(\.id))
+        states[page.id] ?? FilterState(slicerOrder: page.visuals.filter { Self.slicerTypes.contains($0.type) }.map(\.id))
     }
 
     func update(page: ReportPage, _ change: (inout FilterState) -> Void) {
@@ -400,9 +400,20 @@ final class ReportInteraction {
         spec.valueFilters = valueFilters(for: visual)
         spec.highlight = assembled.highlight
         let loaded = try await loader.load(spec)
-        recordLegendValues(of: visual.id, in: loaded.view)
-        loadedDataViews[visual.id] = loaded.view
-        return LiveVisualData(spec: spec, view: loaded.view, query: loaded.query, elapsed: loaded.elapsed)
+        var finalView = loaded.view
+        if case .slicer(var slicerData) = finalView, let col = spec.primary.first?.column {
+            let colIsDate = isDate(col)
+            let colIsNumeric = isNumeric(col)
+            slicerData.isDateColumn = colIsDate
+            let mode = visual.objects.string("data", "mode")
+            if visual.type == "slicer", mode == "Between" || (mode == nil && (colIsNumeric || colIsDate)) {
+                slicerData.domainRange = try? await loader.columnRange(of: col, filters: spec.filters)
+            }
+            finalView = .slicer(slicerData)
+        }
+        recordLegendValues(of: visual.id, in: finalView)
+        loadedDataViews[visual.id] = finalView
+        return LiveVisualData(spec: spec, view: finalView, query: loaded.query, elapsed: loaded.elapsed)
     }
 
     /// Bộ lọc theo measure của visual (Power BI: `__ValueFilterDM0`, xem `DAXQueryBuilder`).

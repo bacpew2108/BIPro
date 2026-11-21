@@ -42,6 +42,21 @@ enum VisualCSVExporter {
 
         case .slicer(let slicer):
             return slicerTable(slicer)
+
+        case .table(let table):
+            return flatTable(table)
+
+        case .scatter(let scatter):
+            return scatterTable(scatter)
+
+        case .gauge(let gauge):
+            return gaugeTable(gauge)
+
+        case .kpi(let kpi):
+            return kpiTable(kpi)
+
+        case .multiRowCard(let card):
+            return multiRowCardTable(card)
         }
     }
 
@@ -194,6 +209,80 @@ enum VisualCSVExporter {
 
         for root in slicer.roots {
             walk(root, depth: 0, prefix: [])
+        }
+        return (headers, rows)
+    }
+
+    private static func flatTable(_ table: TableDataView) -> (headers: [String], rows: [[String]]) {
+        let headers = table.columns.map(\.displayName)
+        var rows = table.rows.map { row in
+            table.columns.indices.map { idx in
+                idx < row.count ? formattedCell(row[idx]) : ""
+            }
+        }
+        if let totals = table.totals, !totals.isEmpty {
+            var totalRow = table.columns.indices.map { idx in
+                idx < totals.count ? formattedCell(totals[idx]) : ""
+            }
+            if !totalRow.isEmpty && totalRow[0].isEmpty { totalRow[0] = "Total" }
+            rows.append(totalRow)
+        }
+        return (headers, rows)
+    }
+
+    private static func scatterTable(_ scatter: ScatterData) -> (headers: [String], rows: [[String]]) {
+        var headers: [String] = []
+        if let cat = scatter.categoryField { headers.append(cat.displayName) }
+        if let ser = scatter.seriesField { headers.append(ser.displayName) }
+        if let x = scatter.xField { headers.append(x.displayName) }
+        if let y = scatter.yField { headers.append(y.displayName) }
+        if let sz = scatter.sizeField { headers.append(sz.displayName) }
+        let rows: [[String]] = scatter.points.map { pt in
+            var line: [String] = []
+            if scatter.categoryField != nil { line.append(pt.categoryLabel) }
+            if let ser = scatter.seriesField { line.append(pt.seriesValue.map { ser.text($0) } ?? "") }
+            if scatter.xField != nil { line.append(formattedCell(pt.xCell)) }
+            if scatter.yField != nil { line.append(formattedCell(pt.yCell)) }
+            if scatter.sizeField != nil { line.append(pt.sizeCell.map(formattedCell) ?? "") }
+            return line
+        }
+        return (headers, rows)
+    }
+
+    private static func gaugeTable(_ gauge: GaugeData) -> (headers: [String], rows: [[String]]) {
+        var headers = [gauge.valueField.displayName]
+        var row = [formattedCell(gauge.value)]
+        if let min = gauge.min { headers.append("Min"); row.append(formattedCell(min)) }
+        if let max = gauge.max { headers.append("Max"); row.append(formattedCell(max)) }
+        if let target = gauge.target { headers.append("Target"); row.append(formattedCell(target)) }
+        return (headers, [row])
+    }
+
+    private static func kpiTable(_ kpi: KPIData) -> (headers: [String], rows: [[String]]) {
+        if !kpi.trendPoints.isEmpty {
+            let trendHeader = kpi.trendField?.displayName ?? "Trend"
+            var headers = [trendHeader, kpi.indicatorField.displayName]
+            if let goal = kpi.goalField { headers.append(goal.displayName) }
+            let goalText = kpi.goalValue.map(formattedCell) ?? ""
+            let rows = kpi.trendPoints.enumerated().map { idx, pt -> [String] in
+                var line = [pt.label, formattedCell(DataCell(.double(pt.value), formatString: kpi.indicatorField.formatString))]
+                if kpi.goalField != nil { line.append(idx == kpi.trendPoints.count - 1 ? goalText : "") }
+                return line
+            }
+            return (headers, rows)
+        }
+        var headers = [kpi.indicatorField.displayName]
+        var row = [formattedCell(kpi.latestValue)]
+        if let goal = kpi.goalField { headers.append(goal.displayName); row.append(kpi.goalValue.map(formattedCell) ?? "") }
+        return (headers, [row])
+    }
+
+    private static func multiRowCardTable(_ card: MultiRowCardData) -> (headers: [String], rows: [[String]]) {
+        let headers = card.fields.map(\.displayName)
+        let rows = card.rows.map { row in
+            card.fields.indices.map { idx in
+                idx < row.count ? formattedCell(row[idx]) : ""
+            }
         }
         return (headers, rows)
     }

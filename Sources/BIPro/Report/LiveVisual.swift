@@ -133,11 +133,40 @@ struct LiveVisualView: View {
         case .single(let single):
             CardVisualView(data: single, context: context)
         case .slicer(let slicer):
-            DropdownSlicerView(data: slicer, title: nil, context: context)
+            slicerView(slicer, context: context)
         case .matrix(let matrix):
             MatrixVisualView(data: matrix, context: context, scrollable: !isExporting)
         case .categorical(let categorical):
             categoricalView(categorical, context: context)
+        case .table(let table):
+            TableVisualView(data: table, context: context, scrollable: !isExporting)
+        case .scatter(let scatter):
+            ScatterChartView(data: scatter, context: context, interactive: !isExporting)
+        case .gauge(let gauge):
+            GaugeVisualView(data: gauge, context: context)
+        case .kpi(let kpi):
+            KPIVisualView(data: kpi, context: context)
+        case .multiRowCard(let card):
+            MultiRowCardView(data: card, context: context, scrollable: !isExporting)
+        }
+    }
+
+    @ViewBuilder
+    private func slicerView(_ data: SlicerData, context: VisualRenderContext) -> some View {
+        switch visual.type {
+        case "advancedSlicerVisual":
+            TileSlicerView(data: data, context: context, scrollable: !isExporting)
+        case "listSlicer":
+            ListSlicerView(data: data, context: context, scrollable: !isExporting)
+        case "textSlicer":
+            TextSlicerView(data: data, context: context, interactive: !isExporting)
+        default:
+            let mode = visual.objects.string("data", "mode")
+            if (mode == "Between" || (mode == nil && data.domainRange != nil)), data.domainRange != nil {
+                RangeSlicerView(data: data, context: context, interactive: !isExporting)
+            } else {
+                DropdownSlicerView(data: data, title: nil, context: context)
+            }
         }
     }
 
@@ -146,7 +175,7 @@ struct LiveVisualView: View {
         let interactive = !isExporting
         switch visual.type {
         case "donutChart", "pieChart":
-            DonutChartView(data: data, context: context, interactive: interactive)
+            DonutChartView(data: data, context: context, interactive: interactive, isPie: visual.type == "pieChart")
         case "treemap":
             TreemapView(data: data, context: context, interactive: interactive)
         case "waterfallChart":
@@ -161,6 +190,10 @@ struct LiveVisualView: View {
             } else {
                 placeholder
             }
+        case "map":
+            GeoMapView(data: data, isFilled: false, topoMap: interaction.shapeMap(), context: context, interactive: interactive)
+        case "filledMap":
+            GeoMapView(data: data, isFilled: true, topoMap: interaction.shapeMap(), context: context, interactive: interactive)
         default:
             if let kind = CartesianKind(visualType: visual.type) {
                 CartesianChartView(data: data, kind: kind, context: context, interactive: interactive)

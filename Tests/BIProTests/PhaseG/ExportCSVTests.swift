@@ -81,6 +81,48 @@ struct ExportCSVTests {
         }
     }
 
+    @Test("v1.1a (T020): Xuất CSV cho 5 DataView mới (.table, .scatter, .gauge, .kpi, .multiRowCard)")
+    func v11aFiveNewDataViewsCSV() throws {
+        let reg = FieldInfo(queryRef: "Sales.Region", displayName: "Region", role: "Values", formatString: nil, isMeasure: false)
+        let rev = FieldInfo(queryRef: "Sales.Rev", displayName: "Revenue", role: "Y", formatString: "#,0", isMeasure: true)
+        let goal = FieldInfo(queryRef: "Sales.Goal", displayName: "Goal", role: "Goal", formatString: "#,0", isMeasure: true)
+
+        // 1. Table with Total row
+        let tv = TableDataView(columns: [reg, rev], rows: [[DataCell(.string("North")), DataCell(.integer(100))]],
+                               totals: [.blank, DataCell(.integer(100))], isReduced: false)
+        let (tH, tR) = try VisualCSVExporter.tabularRows(from: .table(tv))
+        #expect(tH == ["Region", "Revenue"])
+        #expect(tR == [["North", "100"], ["Total", "100"]])
+
+        // 2. Scatter
+        let sd = ScatterData(categoryField: reg, seriesField: nil, series: [], xField: rev, yField: goal, sizeField: nil,
+                             points: [ScatterPoint(id: DataPointID([:]), categoryLabel: "North", seriesValue: nil, x: 100, y: 80, size: nil,
+                                                   xCell: DataCell(.integer(100)), yCell: DataCell(.integer(80)), sizeCell: nil, tooltips: [])],
+                             isReduced: false)
+        let (sH, sR) = try VisualCSVExporter.tabularRows(from: .scatter(sd))
+        #expect(sH == ["Region", "Revenue", "Goal"])
+        #expect(sR == [["North", "100", "80"]])
+
+        // 3. Gauge
+        let gd = GaugeData(valueField: rev, value: DataCell(.integer(50)), min: DataCell(.integer(0)), max: DataCell(.integer(100)), target: DataCell(.integer(75)))
+        let (gH, gR) = try VisualCSVExporter.tabularRows(from: .gauge(gd))
+        #expect(gH == ["Revenue", "Min", "Max", "Target"])
+        #expect(gR == [["50", "0", "100", "75"]])
+
+        // 4. KPI
+        let kd = KPIData(indicatorField: rev, trendField: reg, goalField: goal, latestValue: DataCell(.integer(120)),
+                         goalValue: DataCell(.integer(100)), trendPoints: [.init(label: "2023", value: 90), .init(label: "2024", value: 120)])
+        let (kH, kR) = try VisualCSVExporter.tabularRows(from: .kpi(kd))
+        #expect(kH == ["Region", "Revenue", "Goal"])
+        #expect(kR.count == 2)
+
+        // 5. MultiRowCard
+        let mc = MultiRowCardData(fields: [reg, rev], rows: [[DataCell(.string("North")), DataCell(.integer(100))]], isReduced: false)
+        let (mH, mR) = try VisualCSVExporter.tabularRows(from: .multiRowCard(mc))
+        #expect(mH == ["Region", "Revenue"])
+        #expect(mR == [["North", "100"]])
+    }
+
     @Test("Nặng (SC-001): Xuất CSV từ Card, Biểu đồ và Matrix trên Nhom6_work.pbix khớp 100% DataView DAX")
     @MainActor
     func heavyNhom6CSVMatchesDAX() async throws {

@@ -373,9 +373,10 @@ public enum PBIRQueryPatch {
 
     /// Ô nhóm: cột ở đây định nghĩa trục, chuỗi hoặc hàng/cột của visual.
     private static let groupingRoles: Set<String> = ["Category", "Group", "Series", "Rows", "Columns", "Details"]
-    /// Loại có `sortDefinition` mặc định theo measure đầu tiên: biểu đồ có trục và `cardVisual` (Desktop ghi, VM-D3 B).
+    /// Loại có `sortDefinition` mặc định theo measure đầu tiên: biểu đồ có trục, tròn, đồng hồ đo và `cardVisual` (VM-D3 B, VM-V11A).
     private static func sortsByFirstMeasure(_ type: String) -> Bool {
-        type == "cardVisual" || type.hasSuffix("BarChart") || type.hasSuffix("ColumnChart") || type == "columnChart"
+        type == "cardVisual" || type == "barChart" || type == "pieChart" || type == "gauge"
+            || type.hasSuffix("BarChart") || type.hasSuffix("ColumnChart") || type == "columnChart"
             || type.contains("Combo") || type == "lineChart"
     }
 
@@ -651,5 +652,19 @@ public enum PBIRQueryPatch {
             throw WriteError.invalid("part is not a JSON object")
         }
         return root
+    }
+
+    /// Ghi `visual.objects.data[0].properties.mode = "'<mode>'"` cho `slicer` cổ điển khi chưa có `objects.data`
+    /// (VM-V11A `pop-slicer.visual.json`: cột số/ngày đặt mặc định `'Between'`). Đã có `objects.data` hoặc không phải `slicer` thì giữ nguyên byte.
+    public static func settingSlicerModeIfUnset(_ mode: String, in json: Data) throws -> Data {
+        guard let root = try? JSONValue.parse(json),
+              root["visual"]?["visualType"]?.string == "slicer",
+              root["visual"]?["objects"]?["data"] == nil else {
+            return json
+        }
+        return try PBIRFormatPatch.apply([
+            FormatEdit(scope: .objects, object: "data",
+                       action: .set(property: "mode", value: #"{"expr":{"Literal":{"Value":"'\#(mode)'"}}}"#))
+        ], to: json)
     }
 }

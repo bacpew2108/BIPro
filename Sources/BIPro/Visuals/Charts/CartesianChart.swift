@@ -6,10 +6,13 @@ import PBIXKit
 import SwiftUI
 
 enum CartesianKind: Hashable, Sendable {
-    case clusteredBar, clusteredColumn, stackedColumn, hundredPercentStackedColumn, line, comboClustered, comboStacked
+    case clusteredBar, stackedBar, hundredPercentStackedBar
+    case clusteredColumn, stackedColumn, hundredPercentStackedColumn, line, comboClustered, comboStacked
     /// Vùng chồng lên nhau và vùng xếp chồng (VM-D15 mục 4): vẽ như đường kèm tô phần dưới.
     case area, stackedArea, hundredPercentStackedArea
     
+    var isHorizontalBar: Bool { self == .clusteredBar || self == .stackedBar || self == .hundredPercentStackedBar }
+    var isStackedBar: Bool { self == .stackedBar || self == .hundredPercentStackedBar }
     var isLineLike: Bool { self == .line || isArea }
     var isArea: Bool { self == .area || self == .stackedArea || self == .hundredPercentStackedArea }
     var isStackedArea: Bool { self == .stackedArea || self == .hundredPercentStackedArea }
@@ -18,6 +21,10 @@ enum CartesianKind: Hashable, Sendable {
         switch visualType {
         case "clusteredBarChart", "clusteredBar":
             self = .clusteredBar
+        case "barChart", "stackedBarChart", "stackedBar":   // Desktop 2.159 ghi `barChart` cho thanh xếp chồng (VM-V11A)
+            self = .stackedBar
+        case "hundredPercentStackedBarChart", "hundredPercentStackedBar":
+            self = .hundredPercentStackedBar
         case "clusteredColumnChart", "clusteredColumn":
             self = .clusteredColumn
         case "stackedColumnChart", "stackedColumn", "columnChart":   // Desktop ghi `columnChart` cho cột xếp chồng (VM-D3)
@@ -596,9 +603,9 @@ struct PreparedChartLayout: Sendable {
             }
         }
         
-        // MARK: 3. Stacked Column & 100% Stacked & Combo Stacked
-        if kind == .stackedColumn || kind == .hundredPercentStackedColumn || kind == .comboStacked {
-            let isNorm = (kind == .hundredPercentStackedColumn)
+        // MARK: 3. Stacked Column / Stacked Bar / 100% Stacked / Combo Stacked
+        if kind == .stackedColumn || kind == .hundredPercentStackedColumn || kind == .comboStacked || kind.isStackedBar {
+            let isNorm = (kind == .hundredPercentStackedColumn || kind == .hundredPercentStackedBar)
             let mIdx = roleYIndices.first ?? 0
             let mField = data.measures.indices.contains(mIdx) ? data.measures[mIdx] : FieldInfo(queryRef: "", displayName: "", role: "Y", formatString: nil, isMeasure: true)
             // Chưa có measure ở Y (vừa thả trục X trước) thì không có chuỗi nào để xếp chồng (T038: trước đây đọc `roleYIndices[0]` khi rỗng).
@@ -764,13 +771,13 @@ struct PreparedChartLayout: Sendable {
             if let f = data.measures[mIdx].formatString, !f.isEmpty { return f }
             return data.values[mIdx].lazy.flatMap { $0 }.first { $0.formatString != nil }?.formatString ?? ""
         }
-        let primaryFormatString = axisFormat(roleYIndices.first ?? (kind == .clusteredBar ? data.measures.indices.first : nil))
+        let primaryFormatString = axisFormat(roleYIndices.first ?? (kind.isHorizontalBar ? data.measures.indices.first : nil))
         let secondaryFormatString = axisFormat(roleY2Indices.first)
         
         // Thang log (VM-D17): vạch tại các luỹ thừa của 10 bao trọn giá trị dương; Desktop chọn đơn vị theo vạch giữa
-        // (`$1M`, `$10M`, `$100M`, `$1,000M`). Không áp cho cột xếp chồng, vùng xếp chồng và combo xếp chồng.
-        let logAllowed = format.valueAxis.logScale == true && !kind.isStackedArea && kind != .stackedColumn
-            && kind != .hundredPercentStackedColumn && kind != .comboStacked
+        // (`$1M`, `$10M`, `$100M`, `$1,000M`). Không áp cho cột/thanh xếp chồng, vùng xếp chồng và combo xếp chồng.
+        let logAllowed = format.valueAxis.logScale == true && !kind.isStackedArea && !kind.isStackedBar
+            && kind != .stackedColumn && kind != .hundredPercentStackedColumn && kind != .comboStacked
         let positives = logAllowed ? roleYIndices.flatMap { m in
             data.values[m].flatMap { $0 }.compactMap { NumberDisplay.numericValue($0.value) }.filter { $0 > 0 }
         } : []
@@ -781,7 +788,7 @@ struct PreparedChartLayout: Sendable {
         // danh mục (nhãn ngang ≈ 18; nhãn xoay dọc: độ dài nhãn dài nhất đã cắt, cộng thanh cuộn 14). Thanh ngang: trục giá trị nằm ngang, không ước.
         let tickPlotHeight: Double? = {
             guard let size = context.visualSize, size.height > 0 else { return nil }
-            if kind == .clusteredBar {
+            if kind.isHorizontalBar {
                 // Thanh ngang: trục giá trị nằm ngang, vùng vẽ rộng = độ rộng visual − dải nhãn danh mục bên trái − lề (VM-D19).
                 let longest = catStrings.map(\.count).max() ?? 0
                 let labels = isScalar ? 30.0 : Swift.min(Double(size.width) * 0.25, Double(longest) * Double(catFontSize) * 0.6 + 10)
@@ -808,7 +815,7 @@ struct PreparedChartLayout: Sendable {
             self.useLogScale = true
             logActive = true
         } else {
-            if let plotHeight = tickPlotHeight, kind != .hundredPercentStackedArea {
+            if let plotHeight = tickPlotHeight, kind != .hundredPercentStackedArea, kind != .hundredPercentStackedBar {
                 // Đường (không cột): trục không bắt đầu từ 0 khi dữ liệu nằm xa 0 (VM-D19), kể cả dải dự báo ở cận dưới.
                 let lineValues = kind == .line ? roleYIndices.flatMap { m in data.values[m].flatMap { $0 }.compactMap { NumberDisplay.numericValue($0.value) } } : []
                 let floatLow = format.valueAxis.start == nil && format.valueAxis.end == nil && format.valueAxis.logScale != true
@@ -816,9 +823,9 @@ struct PreparedChartLayout: Sendable {
                 let fit = ChartAxis.fittingTicks(min: format.valueAxis.start ?? (floatLow.map { Swift.min($0, forecastRows.map(\.lower).min() ?? $0) } ?? minValY1),
                                                  max: format.valueAxis.end ?? maxValY1,
                                                  plotHeight: plotHeight,
-                                                 minSpacing: kind == .clusteredBar ? ChartAxis.minSpacingHorizontal : ChartAxis.minSpacingPrimary,
+                                                 minSpacing: kind.isHorizontalBar ? ChartAxis.minSpacingHorizontal : ChartAxis.minSpacingPrimary,
                                                  floating: floatLow != nil,
-                                                 extend: kind == .clusteredBar ? ChartAxis.horizontalDomainExtension : ChartAxis.domainExtension)
+                                                 extend: kind.isHorizontalBar ? ChartAxis.horizontalDomainExtension : ChartAxis.domainExtension)
                 y1Ticks = fit.ticks
                 fittedY1 = (fit.lower, fit.upper)
             } else {
@@ -993,7 +1000,7 @@ struct PreparedChartLayout: Sendable {
         self.columnYLabels = y1Labels
         self.columnYDomain = y1MinBound...y1MaxBound
         
-        if kind == .hundredPercentStackedColumn {
+        if kind == .hundredPercentStackedColumn || kind == .hundredPercentStackedBar {
             self.stackSegments = computedSegments
             let pctTicks = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
             self.stackYTicks = pctTicks
@@ -1156,7 +1163,7 @@ struct CartesianChartView: View {
     }
 
     private var needsCategoryScroll: Bool {
-        guard !layout.isScalarAxis, kind != .clusteredBar, plotWidth > 0, rotateCategoryLabels else { return false }
+        guard !layout.isScalarAxis, !kind.isHorizontalBar, plotWidth > 0, rotateCategoryLabels else { return false }
         return layout.categories.count > visibleCategoryCount
     }
 
@@ -1262,6 +1269,8 @@ struct CartesianChartView: View {
         switch kind {
         case .clusteredBar:
             barChart
+        case .stackedBar, .hundredPercentStackedBar:
+            stackedBarChart
         case .clusteredColumn:
             columnChart
         case .stackedColumn, .hundredPercentStackedColumn:
@@ -1355,6 +1364,83 @@ struct CartesianChartView: View {
         }
     }
     
+    private var stackedBarChart: some View {
+        let is100 = (kind == .hundredPercentStackedBar)
+        let xTicks = layout.stackYTicks
+        let xLabels = layout.stackYLabels
+        let xDomain = layout.stackYDomain
+        return Chart {
+            ForEach(layout.stackSegments) { seg in
+                BarMark(
+                    xStart: .value("X0", seg.y0),
+                    xEnd: .value("X1", seg.y1),
+                    y: .value("Category", seg.category),
+                    height: layout.isScalarAxis ? .ratio(0.85) : .automatic
+                )
+                .foregroundStyle(seg.color.opacity(layout.hasHighlights ? 0.4 : seg.opacity))
+                .annotation(position: .overlay, alignment: .center) {
+                    if let label = seg.dataLabel {
+                        Text(label)
+                            .font(.system(size: layout.dataLabelFontSize))
+                            .bold(layout.dataLabelBold)
+                            .foregroundColor(layout.dataLabelColor)
+                    }
+                }
+                if let hl = seg.highlightValue {
+                    let hlWidth = (seg.y1 - seg.y0) * (hl / Swift.max(1e-9, seg.value))
+                    BarMark(
+                        xStart: .value("X0", seg.y0),
+                        xEnd: .value("X1", seg.y0 + hlWidth),
+                        y: .value("Category", seg.category)
+                    )
+                    .foregroundStyle(seg.color)
+                }
+            }
+        }
+        .chartYScale(domain: layout.isScalarAxis ? axisCategories.reversed() : axisCategories)
+        .chartXScale(domain: xDomain, range: .plotDimension(endPadding: (is100 || layout.barLastLabelNearEdge) ? 24 : 0))
+        .chartYAxis {
+            if layout.isScalarAxis {
+                AxisMarks(preset: .extended, position: .leading, values: layout.scalarXTicks) { val in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: []))
+                        .foregroundStyle(Color.gray.opacity(0.18))
+                    AxisValueLabel(centered: true) {
+                        if let str = val.as(String.self), let year = layout.scalarXLabels[str] {
+                            Text(year)
+                                .font(.system(size: layout.categoryFontSize))
+                                .foregroundColor(Color(hex: "#252423") ?? .primary)
+                        }
+                    }
+                }
+            } else {
+                AxisMarks(preset: .extended, position: .leading, values: layout.categories) { val in
+                    AxisValueLabel(centered: true) {
+                        if let str = val.as(String.self) {
+                            Text(str)
+                                .font(.system(size: layout.categoryFontSize))
+                                .foregroundColor(Color(hex: "#252423") ?? .primary)
+                        }
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(position: .bottom, values: xTicks) { val in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: []))
+                    .foregroundStyle(Color.gray.opacity(0.18))
+                AxisValueLabel(anchor: .top, collisionResolution: .disabled) {
+                    if let d = val.as(Double.self) {
+                        let labelText = formattedTickLabel(d, ticks: xTicks, labels: xLabels)
+                        Text(labelText)
+                            .fixedSize()
+                            .font(.system(size: layout.categoryFontSize))
+                            .foregroundColor(Color(hex: "#252423") ?? .primary)
+                    }
+                }
+            }
+        }
+    }
+
     private var columnChart: some View {
         Chart {
             ForEach(layout.columns) { col in
@@ -1715,7 +1801,7 @@ struct CartesianChartView: View {
         guard !data.categories.isEmpty else { return nil }
         
         let cIdx: Int
-        if kind == .clusteredBar {
+        if kind.isHorizontalBar {
             guard let geo = geometry, let p = proxy, let plot = p.plotFrame else {
                 let normY = location.y / Swift.max(1, geometry?.size.height ?? 300)
                 let idx = Int(normY * CGFloat(data.categories.count))
@@ -1774,7 +1860,7 @@ struct CartesianChartView: View {
     /// Điểm để hiện tooltip: như `findPointID`, nhưng tháng dự báo và điểm neo (tháng cuối thật) mang thêm số dự báo
     /// (`VisualTooltip.forecastKey`). Tooltip của Power BI ở vùng dự báo: tên dự báo, Upper bound, Lower bound (VM C2 B6).
     private func hoverPointID(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) -> DataPointID? {
-        guard !layout.forecastPoints.isEmpty, kind != .clusteredBar,
+        guard !layout.forecastPoints.isEmpty, !kind.isHorizontalBar,
               let plot = proxy.plotFrame else { return findPointID(at: location, proxy: proxy, geometry: geometry) }
         let rect = geometry[plot]
         let relX = location.x - rect.origin.x

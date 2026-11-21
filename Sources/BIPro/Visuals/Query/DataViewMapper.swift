@@ -21,6 +21,16 @@ enum DataViewMapper {
             return categorical(body, spec: spec, series: secondary)
         case .donut, .treemap, .shapeMap:
             return categorical(body, spec: spec, series: nil)
+        case .table:
+            return flatTable(result, spec: spec)
+        case .scatter:
+            return scatter(body, spec: spec)
+        case .gauge:
+            return gauge(body, spec: spec)
+        case .kpi:
+            return kpi(body, spec: spec)
+        case .multiRowCard:
+            return multiRowCard(body, spec: spec)
         }
     }
 
@@ -250,5 +260,207 @@ enum DataViewMapper {
         return .matrix(MatrixData(rowLevels: spec.primary.map(\.field), columnLevels: (spec.matrixColumnDepth >= 2 ? spec.drillLevels.prefix(spec.matrixColumnDepth).map(\.field) : spec.secondary.map(\.field)),
                                   measures: measures.map(\.field), rows: headers, columns: columns, cells: cells,
                                   isReduced: false))
+    }
+
+    // MARK: - Table (tableEx)
+
+    private static func flatTable(_ result: QueryResult, spec: VisualQuerySpec) -> DataView {
+        guard let body = result.tables.last else { return .empty(reason: "Không có dữ liệu") }
+        let index = Index(body)
+        let measures = visibleMeasures(spec)
+        let ordered = spec.orderedFields.isEmpty ? (spec.primary.map(\.field) + measures.map(\.field)) : spec.orderedFields
+        guard !ordered.isEmpty else { return .empty(reason: "Bảng chưa có trường nào") }
+
+        let groupByRef = Dictionary(spec.primary.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
+        let measureByRef = Dictionary(measures.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
+
+        let rows: [[DataCell]] = body.rows.map { row in
+            ordered.map { field in
+                if !field.isMeasure, let g = groupByRef[field.queryRef], let colIdx = index.column(g.column), colIdx < row.count {
+                    return DataCell(row[colIdx], formatString: field.formatString)
+                }
+                if let m = measureByRef[field.queryRef] {
+                    return cell(m, row: row, index: index, spec: spec)
+                }
+                return .blank
+            }
+        }
+
+        var totals: [DataCell]? = nil
+        if result.tables.count >= 2, let totalTable = result.tables.first, let totalRow = totalTable.rows.first, !measures.isEmpty {
+            let tIndex = Index(totalTable)
+            totals = ordered.map { field in
+                if field.isMeasure, let m = measureByRef[field.queryRef] {
+                    return cell(m, row: totalRow, index: tIndex, spec: spec)
+                }
+                return .blank
+            }
+        }
+
+        let reduced: Bool = { if case .top(let n) = spec.reduction { body.rows.count >= n } else { false } }()
+        return .table(TableDataView(columns: ordered, rows: rows, totals: totals, isReduced: reduced))
+    }
+
+    // MARK: - Scatter (scatterChart)
+
+    private static func scatter(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
+        let index = Index(body)
+        let measures = visibleMeasures(spec)
+        let xM = measures.first { $0.field.role == "X" }
+        let yM = measures.first { $0.field.role == "Y" }
+        let sizeM = measures.first { $0.field.role == "Size" }
+        let tooltipMs = measures.filter { $0.field.role == "Tooltips" }
+        guard xM != nil || yM != nil else { return .empty(reason: "Biểu đồ phân tán cần trục X hoặc Y") }
+
+        let catGroup = spec.primary.first
+        let serGroup = spec.secondary.first
+        let catIdx = catGroup.flatMap { index.column($0.column) }
+        let serIdx = serGroup.flatMap { index.column($0.column) }
+
+        var seriesList: [Value] = []
+        var seenSeries = Set<Value>()
+        var points: [ScatterPoint] = []
+
+        for row in body.rows {
+            let xCell = xM.map { cell($0, row: row, index: index, spec: spec) } ?? .blank
+            let yCell = yM.map { cell($0, row: row, index: index, spec: spec) } ?? .blank
+            let xVal = NumberDisplay.numericValue(xCell.value)
+            let yVal = NumberDisplay.numericValue(yCell.value)
+            if xM != nil && xVal == nil && (yM == nil || yVal == nil) { continue }
+            if yM != nil && yVal == nil && (xM == nil || xVal == nil) { continue }
+
+            let sizeCell = sizeM.map { cell($0, row: row, index: index, spec: spec) }
+            let sizeVal = sizeCell.flatMap { NumberDisplay.numericValue($0.value) }
+
+            var ptDict: [String: Value] = [:]
+            var catLabel = ""
+            if let catGroup, let cIdx = catIdx, cIdx < row.count {
+                let v = row[cIdx]
+                ptDict[catGroup.field.queryRef] = v
+                catLabel = catGroup.field.text(v)
+            }
+            var serVal: Value? = nil
+            if let serGroup, let sIdx = serIdx, sIdx < row.count {
+                let v = row[sIdx]
+                serVal = v
+                ptDict[serGroup.field.queryRef] = v
+                if seenSeries.insert(v).inserted { seriesList.append(v) }
+            }
+            let tooltips = tooltipMs.map { tm in
+                ScatterTooltipItem(label: tm.field.displayName, cell: cell(tm, row: row, index: index, spec: spec))
+            }
+            points.append(ScatterPoint(
+                id: DataPointID(ptDict),
+                categoryLabel: catLabel,
+                seriesValue: serVal,
+                x: xVal ?? 0,
+                y: yVal ?? 0,
+                size: sizeVal,
+                xCell: xCell,
+                yCell: yCell,
+                sizeCell: sizeCell,
+                tooltips: tooltips
+            ))
+        }
+
+        let reduced: Bool = { if case .top(let n) = spec.reduction { body.rows.count >= n } else { false } }()
+        return .scatter(ScatterData(
+            categoryField: catGroup?.field,
+            seriesField: serGroup?.field,
+            series: seriesList,
+            xField: xM?.field,
+            yField: yM?.field,
+            sizeField: sizeM?.field,
+            points: points,
+            isReduced: reduced
+        ))
+    }
+
+    // MARK: - Gauge (gauge)
+
+    private static func gauge(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
+        let index = Index(body)
+        guard let row = body.rows.first else { return .empty(reason: "Không có dữ liệu") }
+        let measures = visibleMeasures(spec)
+        guard let yM = measures.first(where: { $0.field.role == "Y" }) ?? measures.first(where: { $0.purpose == .value }) else {
+            return .empty(reason: "Đồng hồ đo cần giá trị")
+        }
+        let minM = measures.first { $0.field.role == "MinValue" }
+        let maxM = measures.first { $0.field.role == "MaxValue" }
+        let targetM = measures.first { $0.field.role == "TargetValue" }
+        return .gauge(GaugeData(
+            valueField: yM.field,
+            value: cell(yM, row: row, index: index, spec: spec),
+            min: minM.map { cell($0, row: row, index: index, spec: spec) },
+            max: maxM.map { cell($0, row: row, index: index, spec: spec) },
+            target: targetM.map { cell($0, row: row, index: index, spec: spec) }
+        ))
+    }
+
+    // MARK: - KPI (kpi)
+
+    private static func kpi(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
+        let index = Index(body)
+        let measures = visibleMeasures(spec)
+        guard let indM = measures.first(where: { $0.field.role == "Indicator" }) ?? measures.first(where: { $0.purpose == .value }) else {
+            return .empty(reason: "KPI cần chỉ số (Indicator)")
+        }
+        let goalM = measures.first { $0.field.role == "Goal" }
+        let trendGroup = spec.primary.first
+        let trendIdx = trendGroup.flatMap { index.column($0.column) }
+
+        var trendPoints: [KPITrendPoint] = []
+        var lastValueCell: DataCell = .blank
+        var lastGoalCell: DataCell? = nil
+
+        for row in body.rows {
+            let vCell = cell(indM, row: row, index: index, spec: spec)
+            let gCell = goalM.map { cell($0, row: row, index: index, spec: spec) }
+            if vCell.value != .blank {
+                lastValueCell = vCell
+                if let gCell { lastGoalCell = gCell }
+            }
+            if let trendGroup, let tIdx = trendIdx, tIdx < row.count, let num = NumberDisplay.numericValue(vCell.value) {
+                trendPoints.append(KPITrendPoint(label: trendGroup.field.text(row[tIdx]), value: num))
+            }
+        }
+        if lastValueCell.value == .blank, let lastRow = body.rows.last {
+            lastValueCell = cell(indM, row: lastRow, index: index, spec: spec)
+            lastGoalCell = goalM.map { cell($0, row: lastRow, index: index, spec: spec) }
+        }
+        return .kpi(KPIData(
+            indicatorField: indM.field,
+            trendField: trendGroup?.field,
+            goalField: goalM?.field,
+            latestValue: lastValueCell,
+            goalValue: lastGoalCell,
+            trendPoints: trendPoints
+        ))
+    }
+
+    // MARK: - Multi-row Card (multiRowCard)
+
+    private static func multiRowCard(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
+        let index = Index(body)
+        let measures = visibleMeasures(spec)
+        let ordered = spec.orderedFields.isEmpty ? (spec.primary.map(\.field) + measures.map(\.field)) : spec.orderedFields
+        guard !ordered.isEmpty else { return .empty(reason: "Thẻ nhiều hàng chưa có trường nào") }
+
+        let groupByRef = Dictionary(spec.primary.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
+        let measureByRef = Dictionary(measures.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
+
+        let rows: [[DataCell]] = body.rows.map { row in
+            ordered.map { field in
+                if !field.isMeasure, let g = groupByRef[field.queryRef], let colIdx = index.column(g.column), colIdx < row.count {
+                    return DataCell(row[colIdx], formatString: field.formatString)
+                }
+                if let m = measureByRef[field.queryRef] {
+                    return cell(m, row: row, index: index, spec: spec)
+                }
+                return .blank
+            }
+        }
+        let reduced: Bool = { if case .top(let n) = spec.reduction { body.rows.count >= n } else { false } }()
+        return .multiRowCard(MultiRowCardData(fields: ordered, rows: rows, isReduced: reduced))
     }
 }

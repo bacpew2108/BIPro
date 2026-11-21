@@ -23,13 +23,14 @@ enum InteractionRules {
     static func canSelect(visualType: String) -> Bool {
         switch visualType {
         case "clusteredBarChart", "clusteredColumnChart",
-             "stackedBarChart", "stackedColumnChart", "columnChart",
+             "barChart", "stackedBarChart", "hundredPercentStackedBarChart",
+             "stackedColumnChart", "columnChart",
              "hundredPercentStackedColumnChart",
              "lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart", "ribbonChart", "waterfallChart", "funnel",
              "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
              "donutChart", "pieChart",
-             "treemap",
-             "shapeMap", "filledMap",
+             "treemap", "scatterChart",
+             "shapeMap", "map", "filledMap",
              "pivotTable", "tableEx":
             return true
         default:
@@ -46,7 +47,8 @@ enum InteractionRules {
             return true
         case "pieChart", "treemap", // [SUY ĐOÁN]
              "clusteredBarChart", "clusteredColumnChart", // [SUY ĐOÁN]
-             "stackedBarChart", "stackedColumnChart", "columnChart": // [SUY ĐOÁN]
+             "barChart", "stackedBarChart", "hundredPercentStackedBarChart", // [SUY ĐOÁN]
+             "stackedColumnChart", "columnChart": // [SUY ĐOÁN]
             return true
         default:
             return false
@@ -84,7 +86,8 @@ enum InteractionRules {
 
         // Mặc định: đích .none (slicer, textbox, actionButton, image, shape, basicShape, hoặc visualType lạ)
         switch target.visualType {
-        case "slicer", "textbox", "actionButton", "image", "shape", "basicShape": // [SUY ĐOÁN]
+        case "slicer", "advancedSlicerVisual", "listSlicer", "textSlicer",
+             "textbox", "actionButton", "pageNavigator", "bookmarkNavigator", "image", "shape", "basicShape": // [SUY ĐOÁN]
             return .none
         default:
             break
@@ -97,9 +100,10 @@ enum InteractionRules {
 
         // Đích lọc: [QUAN SÁT: card, shape map (xf-card.dax, dt-card.dax); phần còn lại SUY ĐOÁN.]
         switch target.visualType {
-        case "card", "shapeMap":
+        case "card", "cardVisual", "shapeMap":
             return .filter
-        case "multiRowCard", "filledMap", "lineChart", "areaChart", "pivotTable", "tableEx": // [SUY ĐOÁN]
+        case "multiRowCard", "map", "filledMap", "lineChart", "areaChart", "stackedAreaChart", "hundredPercentStackedAreaChart",
+             "ribbonChart", "waterfallChart", "funnel", "pivotTable", "tableEx", "scatterChart", "gauge", "kpi": // [SUY ĐOÁN]
             return .filter
         default: // Mọi visualType lạ -> .none // [SUY ĐOÁN]
             return .none
