@@ -12,6 +12,20 @@ extension LayoutEditor {
     /// tới không bị đụng. Tính lại từ đầu mỗi lần lưu nên lưu lần hai không ghi gì.
     func addResourceChanges(to changes: inout PBIXChanges, archive: ZipArchive) throws {
         if isLegacy { return }
+        // 0. Chủ đề tuỳ chỉnh áp dụng trong phiên (Wave 3B / VM-V11B): ghi tệp vào RegisteredResources và cập nhật report.json.
+        if let themeEdit = customTheme, var reportData = current(Self.reportJSONPath, in: changes, archive: archive) {
+            let partPath = "Report/StaticResources/RegisteredResources/\(themeEdit.name)"
+            if archive.entry(partPath) == nil {
+                changes.addedParts[partPath] = themeEdit.data
+            } else {
+                changes.reportParts[partPath] = themeEdit.data
+            }
+            let updated = try PBIRResourcePatch.settingCustomTheme(name: themeEdit.name, path: themeEdit.name, to: reportData)
+            if updated != reportData {
+                reportData = updated
+                store(reportData, at: Self.reportJSONPath, changes: &changes, archive: archive)
+            }
+        }
         // 1. Ảnh mới chèn trong phiên (US4): ghi tệp vào RegisteredResources và đăng ký vào report.json nếu còn visual nhắc tới.
         if !addedImages.isEmpty, var reportData = current(Self.reportJSONPath, in: changes, archive: archive) {
             var allVisualText = ""

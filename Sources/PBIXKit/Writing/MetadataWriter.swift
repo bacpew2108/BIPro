@@ -752,6 +752,13 @@ extension MetadataWriter {
         case .updateTable(let name, let patch):
             try transaction { db, now in
                 let id = try db.userTableID(named: name)
+                if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
+                    guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid("tên bảng không hợp lệ") }
+                    let clash = try db.int("SELECT COUNT(*) FROM [Table] WHERE Name = ? COLLATE NOCASE AND ID <> ?",
+                                           [.text(renamed), .int(Int64(id))]) ?? 0
+                    guard clash == 0 else { throw WriteError.invalid("mô hình đã có bảng tên '\(renamed)'") }
+                    try db.run("UPDATE [Table] SET Name = ?, ModifiedTime = ? WHERE ID = ?", [.text(renamed), .int(now), .int(Int64(id))])
+                }
                 if let hidden = patch.isHidden {
                     try db.run("UPDATE [Table] SET IsHidden = ?, ModifiedTime = ? WHERE ID = ?", [.int(hidden ? 1 : 0), .int(now), .int(Int64(id))])
                 }

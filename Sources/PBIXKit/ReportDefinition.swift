@@ -14,6 +14,24 @@ public struct ReportDefinition: Sendable {
     }
 }
 
+public enum PBIRInteractionType: String, Sendable, Equatable, Hashable, Codable {
+    case dataFilter = "DataFilter"
+    case highlightFilter = "HighlightFilter"
+    case noFilter = "NoFilter"
+}
+
+public struct PageVisualInteraction: Sendable, Equatable, Hashable {
+    public var source: String
+    public var target: String
+    public var type: PBIRInteractionType
+
+    public init(source: String, target: String, type: PBIRInteractionType) {
+        self.source = source
+        self.target = target
+        self.type = type
+    }
+}
+
 public struct ReportPage: Sendable, Identifiable, Hashable {
     public let id: String
     public var displayName: String
@@ -25,11 +43,15 @@ public struct ReportPage: Sendable, Identifiable, Hashable {
     /// Nhóm visual (PBIR `visualGroup`, D7): `type == "visualGroup"`, khung tuyệt đối trên trang, không có truy vấn.
     /// Các visual con nằm trong `visuals` với `parentGroup` và toạ độ tuyệt đối.
     public var groups: [ReportVisual]
+    /// Tương tác chéo tuỳ chỉnh giữa các visual trên trang (`page.json` `visualInteractions`, VM-V11B).
+    public var visualInteractions: [PageVisualInteraction]
 
     public init(id: String, displayName: String, width: Double, height: Double, isHidden: Bool = false,
-                objects: ObjectProperties = ObjectProperties(nil), visuals: [ReportVisual] = [], groups: [ReportVisual] = []) {
+                objects: ObjectProperties = ObjectProperties(nil), visuals: [ReportVisual] = [], groups: [ReportVisual] = [],
+                visualInteractions: [PageVisualInteraction] = []) {
         self.id = id; self.displayName = displayName; self.width = width; self.height = height
         self.isHidden = isHidden; self.objects = objects; self.visuals = visuals; self.groups = groups
+        self.visualInteractions = visualInteractions
     }
 }
 
@@ -207,12 +229,18 @@ extension PBIXFile {
                     containerObjects: ObjectProperties(visual["visualContainerObjects"]),
                     fields: Self.pbirFields(visual["query"]?["queryState"]), raw: v, parentGroup: parent))
             }
+            let interactions: [PageVisualInteraction] = (page["visualInteractions"]?.array ?? []).compactMap { row in
+                guard let src = row["source"]?.string, let tgt = row["target"]?.string,
+                      let rawType = row["type"]?.string, let kind = PBIRInteractionType(rawValue: rawType) else { return nil }
+                return PageVisualInteraction(source: src, target: tgt, type: kind)
+            }
             pages.append(ReportPage(
                 id: name, displayName: page["displayName"]?.string ?? name,
                 width: page["width"]?.number ?? 1280, height: page["height"]?.number ?? 720,
                 isHidden: page["visibility"]?.string == "HiddenInViewMode",
                 objects: ObjectProperties(page["objects"]),
-                visuals: visuals.sorted { $0.z < $1.z }, groups: groups.sorted { $0.z < $1.z }))
+                visuals: visuals.sorted { $0.z < $1.z }, groups: groups.sorted { $0.z < $1.z },
+                visualInteractions: interactions))
         }
 
         let themes = report["themeCollection"]
@@ -221,7 +249,7 @@ extension PBIXFile {
                                 customThemeName: themes?["customTheme"]?["name"]?.string)
     }
 
-    static func pbirFields(_ queryState: JSONValue?) -> [ReportField] {
+    public static func pbirFields(_ queryState: JSONValue?) -> [ReportField] {
         var fields: [ReportField] = []
         for (role, state) in (queryState?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
             for projection in state["projections"]?.array ?? [] {
@@ -372,6 +400,20 @@ public struct ReportTheme: Sendable {
     public static let fallback = ReportTheme(
         dataColors: ["#118DFF", "#12239E", "#E66C37", "#6B007B", "#E044A7", "#744EC2", "#D9B300", "#D64550"],
         background: "#FFFFFF", foreground: "#252423")
+
+    /// Áp tệp JSON chủ đề Power BI lên bản sao của theme hiện tại (Wave 3B).
+    public func applying(jsonData: Data) -> ReportTheme? {
+        guard let json = try? JSONValue.parse(jsonData) else { return nil }
+        var copy = self
+        let colors = json["dataColors"]?.array.compactMap(\.string) ?? []
+        if !colors.isEmpty { copy.dataColors = colors }
+        if let bg = json["background"]?.string { copy.background = bg }
+        if let fg = json["foreground"]?.string { copy.foreground = fg }
+        if let g = json["good"]?.string { copy.good = g }
+        if let n = json["neutral"]?.string { copy.neutral = n }
+        if let b = json["bad"]?.string { copy.bad = b }
+        return copy
+    }
 }
 
 extension PBIXFile {

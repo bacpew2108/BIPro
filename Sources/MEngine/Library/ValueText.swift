@@ -262,6 +262,87 @@ enum ValueText {
             let padNeeded = targetCount - s.count
             let padding = String(repeating: padChar, count: padNeeded)
             return .text(padding + s)
+        },
+
+        // Wave 3C (T021): Trích xuất chuỗi theo dấu phân cách / phạm vi
+        MFunction(
+            name: "Text.BeforeDelimiter",
+            parameters: [MParameter(name: "text"), MParameter(name: "delimiter"), MParameter(name: "index", isOptional: true)],
+            observed: false
+        ) { args in
+            if case .null = args[0] { return .null }
+            let s = try args.text(0, "Text.BeforeDelimiter")
+            let delim = try args.text(1, "Text.BeforeDelimiter")
+            guard !delim.isEmpty else { return .text(s) }
+            let skip = try args.optional(2).map { try MInt.from(MOperators.number($0) ?? 0, "Text.BeforeDelimiter") } ?? 0
+            let parts = s.components(separatedBy: delim)
+            guard skip >= 0, skip < parts.count - 1 else { return .text(s) }
+            return .text(parts.prefix(skip + 1).joined(separator: delim))
+        },
+
+        MFunction(
+            name: "Text.AfterDelimiter",
+            parameters: [MParameter(name: "text"), MParameter(name: "delimiter"), MParameter(name: "index", isOptional: true)],
+            observed: false
+        ) { args in
+            if case .null = args[0] { return .null }
+            let s = try args.text(0, "Text.AfterDelimiter")
+            let delim = try args.text(1, "Text.AfterDelimiter")
+            guard !delim.isEmpty else { return .text("") }
+            let skip = try args.optional(2).map { try MInt.from(MOperators.number($0) ?? 0, "Text.AfterDelimiter") } ?? 0
+            let parts = s.components(separatedBy: delim)
+            guard skip >= 0, skip + 1 < parts.count else { return .text("") }
+            return .text(parts.dropFirst(skip + 1).joined(separator: delim))
+        },
+
+        MFunction(
+            name: "Text.BetweenDelimiters",
+            parameters: [
+                MParameter(name: "text"),
+                MParameter(name: "startDelimiter"),
+                MParameter(name: "endDelimiter"),
+                MParameter(name: "startIndex", isOptional: true),
+                MParameter(name: "endIndex", isOptional: true)
+            ],
+            observed: false
+        ) { args in
+            if case .null = args[0] { return .null }
+            let s = try args.text(0, "Text.BetweenDelimiters")
+            let startDelim = try args.text(1, "Text.BetweenDelimiters")
+            let endDelim = try args.text(2, "Text.BetweenDelimiters")
+            guard !startDelim.isEmpty, !endDelim.isEmpty else { return .text("") }
+            let startSkip = try args.optional(3).map { try MInt.from(MOperators.number($0) ?? 0, "Text.BetweenDelimiters") } ?? 0
+            let endSkip = try args.optional(4).map { try MInt.from(MOperators.number($0) ?? 0, "Text.BetweenDelimiters") } ?? 0
+            let startParts = s.components(separatedBy: startDelim)
+            guard startSkip >= 0, startSkip + 1 < startParts.count else { return .text("") }
+            let remainder = startParts.dropFirst(startSkip + 1).joined(separator: startDelim)
+            let endParts = remainder.components(separatedBy: endDelim)
+            guard endSkip >= 0, endSkip < endParts.count - 1 else { return .text("") }
+            return .text(endParts.prefix(endSkip + 1).joined(separator: endDelim))
+        },
+
+        MFunction(
+            name: "Text.Range",
+            parameters: [MParameter(name: "text"), MParameter(name: "offset"), MParameter(name: "count", isOptional: true)],
+            observed: false
+        ) { args in
+            if case .null = args[0] { return .null }
+            let s = try args.text(0, "Text.Range")
+            let offset = try MInt.from(args.number(1, "Text.Range"), "Text.Range")
+            guard offset >= 0, offset <= s.count else {
+                throw MError.expression("Text.Range: offset \(offset) nằm ngoài độ dài chuỗi \(s.count)")
+            }
+            let startIdx = s.index(s.startIndex, offsetBy: offset)
+            if let countVal = args.optional(2) {
+                guard let n = MOperators.number(countVal) else { throw MError.expression("Text.Range: count phải là số") }
+                let count = try MInt.from(n, "Text.Range")
+                guard count >= 0, offset + count <= s.count else {
+                    throw MError.expression("Text.Range: count \(count) vượt quá cuối chuỗi")
+                }
+                let endIdx = s.index(startIdx, offsetBy: count)
+                return .text(String(s[startIdx..<endIdx]))
+            }
+            return .text(String(s[startIdx...]))
         }
     ]
 }

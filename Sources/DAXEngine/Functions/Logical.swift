@@ -27,6 +27,10 @@ public enum LogicalFunctions: FunctionFamily {
         FunctionSpec(name: "BLANK", params: [], impl: .scalar(LogicalFunctions.blankBody)),
         FunctionSpec(name: "COALESCE", params: [.lazy("value", repeats: true)],
                      impl: .scalar(LogicalFunctions.coalesceBody)),
+        FunctionSpec(name: "IFERROR", params: [.lazy("value"), .lazy("value_if_error")],
+                     impl: .scalar(LogicalFunctions.ifErrorBody)),
+        FunctionSpec(name: "ERROR", params: [.scalar("error_message")],
+                     impl: .scalar(LogicalFunctions.errorBody)),
     ]
 
     // MARK: - Thân hàm
@@ -93,5 +97,21 @@ public enum LogicalFunctions: FunctionFamily {
             if !giaTri.isBlank { return giaTri }
         }
         return .blank
+    }
+
+    /// IFERROR(value, value_if_error): bắt DAXError khi đánh giá value (trừ .cancelled) và trả value_if_error.
+    static func ifErrorBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        do throws(DAXError) {
+            return try frame.scalar(0)
+        } catch {
+            if error.kind == .cancelled { throw error }
+            return try frame.scalar(1)
+        }
+    }
+
+    /// ERROR(message): phát lỗi runtime với thông điệp do người dùng chỉ định.
+    static func errorBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let msg = try frame.scalar(0).asText()
+        throw DAXError(.runtime, msg.isEmpty ? "ERROR()" : msg)
     }
 }

@@ -58,11 +58,13 @@ public struct ColumnPatch: Sendable, Hashable {
     public var description: Assignment<String>?
     /// Chú thích của cột (`Annotation`, ObjectType 4), ví dụ `SummarizationSetBy`, `TemplateId` của cột bảng ngày.
     public var annotations: [String: Assignment<String>]
+    /// Cho phép đổi tên cột kể cả khi đang nằm trong quan hệ / phân cấp (Wave 3C Cascade Rename).
+    public var cascade: Bool
 
     public init(name: String? = nil, isHidden: Bool? = nil, formatString: Assignment<String>? = nil,
                 summarizeBy: Int? = nil, dataCategory: Assignment<String>? = nil, sortBy: Assignment<String>? = nil,
                 displayFolder: Assignment<String>? = nil, description: Assignment<String>? = nil,
-                annotations: [String: Assignment<String>] = [:]) {
+                annotations: [String: Assignment<String>] = [:], cascade: Bool = false) {
         self.name = name
         self.isHidden = isHidden
         self.formatString = formatString
@@ -72,11 +74,13 @@ public struct ColumnPatch: Sendable, Hashable {
         self.displayFolder = displayFolder
         self.description = description
         self.annotations = annotations
+        self.cascade = cascade
     }
 }
 
 /// Sửa thuộc tính của một bảng. Trường `nil` giữ nguyên.
 public struct TablePatch: Sendable, Hashable {
+    public var name: String?
     public var isHidden: Bool?
     /// `Table.IsPrivate` (bảng mẫu `DateTableTemplate_…`). Bật cờ này hoặc `showAsVariationsOnly` thì bộ ghi đặt `SystemFlags = 2` cho
     /// phân vùng và các cột của bảng như Desktop (f11, w8.3), nên áp sau khi đã thêm đủ cột.
@@ -86,8 +90,9 @@ public struct TablePatch: Sendable, Hashable {
     /// Chú thích của bảng (`Annotation`, ObjectType 3), ví dụ `__PBI_LocalDateTable`.
     public var annotations: [String: Assignment<String>]
 
-    public init(isHidden: Bool? = nil, isPrivate: Bool? = nil, showAsVariationsOnly: Bool? = nil,
+    public init(name: String? = nil, isHidden: Bool? = nil, isPrivate: Bool? = nil, showAsVariationsOnly: Bool? = nil,
                 annotations: [String: Assignment<String>] = [:]) {
+        self.name = name
         self.isHidden = isHidden
         self.isPrivate = isPrivate
         self.showAsVariationsOnly = showAsVariationsOnly

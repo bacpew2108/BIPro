@@ -317,6 +317,8 @@ struct PreparedChartLayout: Sendable {
     var trendPoints: [ChartTrendPointDatum]
     var showTrend: Bool
     var forecastPoints: [ChartForecastDatum]
+    /// Đường tham chiếu Analytics (`y1AxisReferenceLine` & `referenceLine`, Wave 3B / VM-V11B).
+    var referenceLines: [ResolvedReferenceLine]
     /// Trục Y theo thang log (`valueAxis.logAxisScale`, VM-D17).
     var useLogScale: Bool
     var isScalarAxis: Bool
@@ -1017,6 +1019,11 @@ struct PreparedChartLayout: Sendable {
         self.trendPoints = computedTrend
         self.showTrend = showTrend
         self.forecastPoints = forecastRows
+        let plottedValues: [Double] = {
+            if !computedLines.isEmpty { return computedLines.flatMap { $0.points.map(\.value) } }
+            return computedBars.map(\.value)
+        }()
+        self.referenceLines = ChartReferenceLines.resolve(format: format.analytics, values: plottedValues)
         
         // Desktop (VM-D21): trục phụ chỉ hiện khi miền của nó khác miền trục chính; trùng miền thì chỉ một trục (D3 "TB 3 tháng" cùng 0…600
         // với cột; đặt Maximum của trục chính 300 thì trục phải 0…600 hiện ra). Đường đã quy về thang chính nên vẽ y hệt.
@@ -1567,6 +1574,9 @@ struct CartesianChartView: View {
                     .foregroundStyle(Color(hex: "#333333") ?? .secondary)
                     .lineStyle(StrokeStyle(lineWidth: 2, dash: [4, 4]))
                 }
+            }
+            if !layout.referenceLines.isEmpty {
+                ChartReferenceLines.chartMarks(lines: layout.referenceLines, theme: context.theme)
             }
 
             // Dự báo: dải tin cậy xám và đường mảnh đen (Power BI, d1.png).

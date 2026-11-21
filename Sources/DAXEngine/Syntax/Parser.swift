@@ -432,7 +432,19 @@ struct DAXParser {
         }
         while true {
             var row: [Expr]?
-            if isSymbol("(") {
+            if isSymbol("{") {
+                _ = next()
+                var items: [Expr] = []
+                if !isSymbol("}") {
+                    items.append(try parseExpr())
+                    while isSymbol(",") {
+                        _ = next()
+                        items.append(try parseExpr())
+                    }
+                }
+                try expectSymbol("}")
+                row = items
+            } else if isSymbol("(") {
                 let save = pos
                 do {
                     row = try parseTuple()

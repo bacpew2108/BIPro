@@ -258,27 +258,23 @@ struct AdvancedFilterEditor: View {
     @State private var loaded = false
 
     private var numeric: Bool { measure || interaction.isNumeric(column) }
-    private var unsupported: Bool { !measure && interaction.isDate(column) }
+    private var isDate: Bool { !measure && interaction.isDate(column) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if unsupported {
-                Text(bi("Advanced filter cho cột ngày chưa hỗ trợ.", "Advanced filtering for date columns is not supported yet.")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
-            } else {
-                Text(bi("Hiện các mục khi giá trị", "Show items when the value")).font(.system(size: 12))
-                conditionRow($first)
-                HStack(spacing: 12) {
-                    radio(bi("Và", "And"), on: !useOr) { useOr = false }
-                    radio(bi("Hoặc", "Or"), on: useOr) { useOr = true }
-                }
-                conditionRow($second)
-                HStack {
-                    Button(bi("Áp dụng bộ lọc", "Apply filter"), action: apply)
-                        .buttonStyle(.borderedProminent).controlSize(.small)
-                    if interaction.effectiveUserFilters[key]?.rule != nil {
-                        Button(bi("Bỏ lọc", "Clear filter")) { interaction.setUserFilter(UserFilter(column: column, isMeasure: measure), for: key) }
-                            .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
-                    }
+            Text(bi("Hiện các mục khi giá trị", "Show items when the value")).font(.system(size: 12))
+            conditionRow($first)
+            HStack(spacing: 12) {
+                radio(bi("Và", "And"), on: !useOr) { useOr = false }
+                radio(bi("Hoặc", "Or"), on: useOr) { useOr = true }
+            }
+            conditionRow($second)
+            HStack {
+                Button(bi("Áp dụng bộ lọc", "Apply filter"), action: apply)
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+                if interaction.effectiveUserFilters[key]?.rule != nil {
+                    Button(bi("Bỏ lọc", "Clear filter")) { interaction.setUserFilter(UserFilter(column: column, isMeasure: measure), for: key) }
+                        .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
                 }
             }
         }
@@ -288,9 +284,9 @@ struct AdvancedFilterEditor: View {
     private func load() {
         guard !loaded else { return }
         loaded = true
-        let kinds = ComparisonKind.available(numeric: numeric)
+        let kinds = ComparisonKind.available(numeric: numeric, isDate: isDate)
         first.kind = kinds[0]; second.kind = kinds[0]
-        if case .advanced(let a, let b, let or, _)? = existing {
+        if case .advanced(let a, let b, let or, _, _)? = existing {
             first = a
             if let b { second = b }
             useOr = or
@@ -301,26 +297,47 @@ struct AdvancedFilterEditor: View {
         guard !first.kind.needsOperand || !first.operand.isEmpty else { return }
         // Điều kiện thứ hai để trống (phép cần toán hạng mà chưa nhập) thì bỏ qua.
         let secondUsed = !second.kind.needsOperand || !second.operand.isEmpty
-        let rule = FilterRule.advanced(first: first, second: secondUsed ? second : nil, useOr: useOr, numeric: numeric)
+        let rule = FilterRule.advanced(first: first, second: secondUsed ? second : nil, useOr: useOr, numeric: numeric, isDate: isDate)
         interaction.setUserFilter(UserFilter(column: column, rule: rule, isMeasure: measure), for: key)
+    }
+
+    private func dateBinding(for text: Binding<String>) -> Binding<Date> {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.dateFormat = "yyyy-MM-dd"
+        return Binding<Date>(
+            get: { fmt.date(from: String(text.wrappedValue.prefix(10))) ?? Date() },
+            set: { text.wrappedValue = fmt.string(from: $0) }
+        )
     }
 
     private func conditionRow(_ condition: Binding<FilterCondition>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Menu {
-                ForEach(ComparisonKind.available(numeric: numeric), id: \.self) { kind in
-                    Button(kind.title) { condition.wrappedValue.kind = kind }
+                ForEach(ComparisonKind.available(numeric: numeric, isDate: isDate), id: \.self) { kind in
+                    Button(kind.title(isDate: isDate)) { condition.wrappedValue.kind = kind }
                 }
             } label: {
-                HStack { Text(condition.wrappedValue.kind.title).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
+                HStack { Text(condition.wrappedValue.kind.title(isDate: isDate)).font(.system(size: 12)); Spacer(); Image(systemName: "chevron.down").font(.system(size: 9)) }
                     .padding(.horizontal, 8).frame(height: 24)
                     .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
             }
             .menuStyle(.button).buttonStyle(.plain)
             if condition.wrappedValue.kind.needsOperand {
-                TextField(numeric ? bi("Nhập số", "Enter number") : bi("Nhập giá trị", "Enter value"), text: condition.operand)
-                    .textFieldStyle(.roundedBorder).font(.system(size: 12))
-                    .onSubmit(apply)
+                if isDate {
+                    HStack(spacing: 4) {
+                        TextField("YYYY-MM-DD", text: condition.operand)
+                            .textFieldStyle(.roundedBorder).font(.system(size: 12))
+                            .onSubmit(apply)
+                        DatePicker("", selection: dateBinding(for: condition.operand), displayedComponents: .date)
+                            .labelsHidden().controlSize(.small)
+                    }
+                } else {
+                    TextField(numeric ? bi("Nhập số", "Enter number") : bi("Nhập giá trị", "Enter value"), text: condition.operand)
+                        .textFieldStyle(.roundedBorder).font(.system(size: 12))
+                        .onSubmit(apply)
+                }
             }
         }
     }

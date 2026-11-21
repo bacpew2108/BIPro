@@ -4,36 +4,69 @@ import SwiftUI
 /// Format pane sửa được (D4): `specs/006-d4-format-pane/`. Thẻ và thuộc tính lấy từ `FormatCatalog`; mỗi lần sửa đi qua
 /// `DocumentState.setFormat/resetFormat` thành một bước hoàn tác.
 struct FormatPane: View {
+    enum Tab: Hashable { case objects, container, analytics }
     @Bindable var state: DocumentState
-    @State private var scope: FormatScope = .objects
+    @State private var tab: Tab = .objects
+    @State private var showCF = false
 
     var body: some View {
         if let visual = state.visual, let format = state.formatState {
             let blocker = state.formatEditingBlocker
+            let hasAnalytics = AnalyticsPane.supportsAnalytics(visual.type)
+            let isTableOrMatrix = visual.type == "tableEx" || visual.type == "pivotTable"
+            let options: [SegmentedPill<Tab>.Option] = hasAnalytics
+                ? [.init(value: .objects, title: "Visual"),
+                   .init(value: .container, title: bi("Chung", "General")),
+                   .init(value: .analytics, title: bi("Phân tích", "Analytics"))]
+                : [.init(value: .objects, title: "Visual"),
+                   .init(value: .container, title: bi("Chung", "General"))]
+            let effectiveTab: Tab = (!hasAnalytics && tab == .analytics) ? .objects : tab
             VStack(spacing: 8) {
-                SegmentedPill(selection: $scope, options: [
-                    .init(value: .objects, title: "Visual"),
-                    .init(value: .container, title: bi("Chung", "General")),
-                ], fill: true)
+                SegmentedPill(selection: $tab, options: options, fill: true)
                 FieldMessages(layout: state.layout)
                 if let blocker {
                     Text(blocker).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                let cards = (scope == .objects ? format.objects : format.container)
-                if scope == .objects, cards.isEmpty {
-                    Text(bi("Loại visual này chưa có thẻ định dạng đã quan sát.", "No observed formatting cards for this visual type yet."))
-                        .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
-                } else if scope == .objects, needsFields(visual) {
-                    Text(bi("Thêm trường vào visual để bắt đầu định dạng.", "Add fields to this visual to begin formatting."))
-                        .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
+                if effectiveTab == .analytics {
+                    AnalyticsPane(state: state, visual: visual, blocker: blocker)
                 } else {
-                    ForEach(cards, id: \.card.objectKey) { cardState in
-                        FormatCardView(state: state, cardState: cardState, blocker: blocker)
+                    if effectiveTab == .objects && isTableOrMatrix {
+                        Button { showCF = true } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "slider.horizontal.below.square.filled.and.square")
+                                    .font(.system(size: 12))
+                                Text(bi("Định dạng có điều kiện…", "Conditional formatting…"))
+                                    .font(.system(size: 12, weight: .medium))
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
+                            }
+                            .padding(.horizontal, 10).frame(height: 32)
+                            .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas))
+                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(blocker != nil)
+                        .sheet(isPresented: $showCF) {
+                            ConditionalFormattingSheet(state: state, visual: visual, isPresented: $showCF)
+                        }
                     }
+                    let scope: FormatScope = effectiveTab == .container ? .container : .objects
+                    let cards = (scope == .objects ? format.objects : format.container)
+                    if scope == .objects, cards.isEmpty {
+                        Text(bi("Loại visual này chưa có thẻ định dạng đã quan sát.", "No observed formatting cards for this visual type yet."))
+                            .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
+                    } else if scope == .objects, needsFields(visual) {
+                        Text(bi("Thêm trường vào visual để bắt đầu định dạng.", "Add fields to this visual to begin formatting."))
+                            .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
+                    } else {
+                        ForEach(cards, id: \.card.objectKey) { cardState in
+                            FormatCardView(state: state, cardState: cardState, blocker: blocker)
+                        }
+                    }
+                    let readOnly = format.readOnly.filter { $0.scope == scope }
+                    if !readOnly.isEmpty { ReadOnlySection(items: readOnly) }
                 }
-                let readOnly = format.readOnly.filter { $0.scope == scope }
-                if !readOnly.isEmpty { ReadOnlySection(items: readOnly) }
             }
             .padding(.horizontal, 10)
             .padding(.bottom, 12)

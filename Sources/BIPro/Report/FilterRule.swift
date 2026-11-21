@@ -30,11 +30,31 @@ enum ComparisonKind: String, CaseIterable, Hashable, Sendable {
 
     var needsOperand: Bool { self != .isBlank && self != .isNotBlank }
 
-    /// Phép có trong Power BI: cột chữ có chứa/bắt đầu bằng, cột số có so sánh thứ tự.
-    static func available(numeric: Bool) -> [ComparisonKind] {
-        numeric
+    /// Phép có trong Power BI: cột chữ có chứa/bắt đầu bằng, cột số/ngày có so sánh thứ tự.
+    static func available(numeric: Bool, isDate: Bool = false) -> [ComparisonKind] {
+        if isDate {
+            return [.greaterThan, .greaterOrEqual, .lessThan, .lessOrEqual, .isEqual, .isNot, .isBlank, .isNotBlank]
+        }
+        return numeric
             ? [.lessThan, .lessOrEqual, .greaterThan, .greaterOrEqual, .isEqual, .isNot, .isBlank, .isNotBlank]
             : [.contains, .doesNotContain, .startsWith, .doesNotStartWith, .isEqual, .isNot, .isBlank, .isNotBlank]
+    }
+
+    /// Nhãn hiển thị riêng cho cột ngày (sau / từ ngày / trước / đến ngày).
+    @MainActor
+    func title(isDate: Bool) -> String {
+        guard isDate else { return title }
+        switch self {
+        case .isEqual: return bi("là ngày", "is")
+        case .isNot: return bi("không phải ngày", "is not")
+        case .greaterThan: return bi("sau ngày", "is after")
+        case .greaterOrEqual: return bi("từ ngày trở đi", "is on or after")
+        case .lessThan: return bi("trước ngày", "is before")
+        case .lessOrEqual: return bi("đến ngày trở về trước", "is on or before")
+        case .isBlank: return bi("trống", "is blank")
+        case .isNotBlank: return bi("không trống", "is not blank")
+        default: return title
+        }
     }
 }
 
@@ -46,12 +66,16 @@ struct FilterCondition: Hashable, Sendable {
     func predicate(column: QueryColumn, numeric: Bool) -> String? { predicate(expression: column.dax, numeric: numeric) }
 
     /// Như trên nhưng trên một biểu thức bất kỳ (cột, hoặc cột kết quả `[ValueFilterDM0]` của bộ lọc theo measure).
-    func predicate(expression col: String, numeric: Bool) -> String? {
+    func predicate(expression col: String, numeric: Bool, isDate: Bool = false) -> String? {
         guard kind.needsOperand else { return kind == .isBlank ? "ISBLANK(\(col))" : "NOT(ISBLANK(\(col)))" }
         let text = operand.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return nil }
         let literal: String
-        if numeric {
+        if isDate {
+            let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
+            guard parts.count == 3 else { return nil }
+            literal = "DATE(\(parts[0]), \(parts[1]), \(parts[2]))"
+        } else if numeric {
             guard let n = Double(text) else { return nil }
             literal = n == n.rounded() && abs(n) < 1e15 ? String(Int64(n)) : String(n)
         } else {
@@ -94,7 +118,7 @@ struct TopNRule: Hashable, Sendable {
 }
 
 enum FilterRule: Hashable, Sendable {
-    case advanced(first: FilterCondition, second: FilterCondition?, useOr: Bool, numeric: Bool)
+    case advanced(first: FilterCondition, second: FilterCondition?, useOr: Bool, numeric: Bool, isDate: Bool = false)
     case topN(TopNRule)
 
     func predicate(column: QueryColumn) -> String? {
@@ -106,11 +130,11 @@ enum FilterRule: Hashable, Sendable {
 
     /// Vị từ Advanced trên một biểu thức; Top N không có dạng này (nil).
     func predicate(expression: String) -> String? {
-        guard case .advanced(let first, let second, let useOr, let numeric) = self else { return nil }
-        guard let a = first.predicate(expression: expression, numeric: numeric) else { return nil }
+        guard case .advanced(let first, let second, let useOr, let numeric, let isDate) = self else { return nil }
+        guard let a = first.predicate(expression: expression, numeric: numeric, isDate: isDate) else { return nil }
         guard let second else { return a }
         // Điều kiện thứ hai còn dở thì chưa áp dụng cả bộ lọc, để không lọc nhầm một nửa.
-        guard let b = second.predicate(expression: expression, numeric: numeric) else { return nil }
+        guard let b = second.predicate(expression: expression, numeric: numeric, isDate: isDate) else { return nil }
         return "\(useOr ? "OR" : "AND")(\(a), \(b))"
     }
 
@@ -118,7 +142,7 @@ enum FilterRule: Hashable, Sendable {
         switch self {
         case .topN(let rule):
             return rule.summary
-        case .advanced(let first, let second, let useOr, _):
+        case .advanced(let first, let second, let useOr, _, _):
             guard let second else { return first.summary }
             return "\(first.summary) \(useOr ? "hoặc" : "và") \(second.summary)"
         }
@@ -134,14 +158,14 @@ extension FilterRule {
         guard let condition else { return nil }
         if let and = condition["And"] ?? condition["Or"] {
             guard let a = single(and["Left"]), let b = single(and["Right"]) else { return nil }
-            // "trống" so với `null` nên không cho biết kiểu: lấy kiểu của điều kiện còn lại.
             let aTyped = a.condition.kind.needsOperand, bTyped = b.condition.kind.needsOperand
-            guard !(aTyped && bTyped) || a.numeric == b.numeric else { return nil }
+            guard !(aTyped && bTyped) || (a.numeric == b.numeric && a.isDate == b.isDate) else { return nil }
             let numeric = aTyped ? a.numeric : (bTyped ? b.numeric : false)
-            return .advanced(first: a.condition, second: b.condition, useOr: condition["Or"] != nil, numeric: numeric)
+            let isDate = aTyped ? a.isDate : (bTyped ? b.isDate : false)
+            return .advanced(first: a.condition, second: b.condition, useOr: condition["Or"] != nil, numeric: numeric, isDate: isDate)
         }
         guard let one = single(condition) else { return nil }
-        return .advanced(first: one.condition, second: nil, useOr: false, numeric: one.numeric)
+        return .advanced(first: one.condition, second: nil, useOr: false, numeric: one.numeric, isDate: one.isDate)
     }
 
     /// Đọc `filter` của thẻ Top N (VM-D6, VM-D8): truy vấn con trong `From` chọn `Top` giá trị theo một measure;
@@ -162,11 +186,11 @@ extension FilterRule {
         return .topN(TopNRule(count: Int(count), top: direction == 2, measureTable: table, measureName: name))
     }
 
-    private static func single(_ json: JSONValue?) -> (condition: FilterCondition, numeric: Bool)? {
+    private static func single(_ json: JSONValue?) -> (condition: FilterCondition, numeric: Bool, isDate: Bool)? {
         guard let json else { return nil }
         if let inner = json["Not"]?["Expression"] {
             guard let parsed = single(inner), let flipped = negated(parsed.condition.kind) else { return nil }
-            return (FilterCondition(kind: flipped, operand: parsed.condition.operand), parsed.numeric)
+            return (FilterCondition(kind: flipped, operand: parsed.condition.operand), parsed.numeric, parsed.isDate)
         }
         if let comparison = json["Comparison"] {
             guard let kind = comparison["ComparisonKind"]?.number.map { Int($0) }, let right = literal(comparison["Right"]) else { return nil }
@@ -179,13 +203,13 @@ extension FilterRule {
             case 4: mapped = .lessOrEqual
             default: return nil
             }
-            return (FilterCondition(kind: mapped, operand: right.text), right.numeric)
+            return (FilterCondition(kind: mapped, operand: right.text), right.numeric, right.isDate)
         }
         if let contains = json["Contains"], let right = literal(contains["Right"]) {
-            return (FilterCondition(kind: .contains, operand: right.text), false)
+            return (FilterCondition(kind: .contains, operand: right.text), false, false)
         }
         if let starts = json["StartsWith"], let right = literal(starts["Right"]) {
-            return (FilterCondition(kind: .startsWith, operand: right.text), false)
+            return (FilterCondition(kind: .startsWith, operand: right.text), false, false)
         }
         return nil
     }
@@ -200,12 +224,16 @@ extension FilterRule {
         }
     }
 
-    private static func literal(_ json: JSONValue?) -> (text: String, numeric: Bool, isNull: Bool)? {
+    private static func literal(_ json: JSONValue?) -> (text: String, numeric: Bool, isDate: Bool, isNull: Bool)? {
         guard let raw = json?["Literal"]?["Value"]?.string else { return nil }
+        if raw.hasPrefix("datetime'") && raw.hasSuffix("'") {
+            let iso = String(raw.dropFirst("datetime'".count).dropLast())
+            return (String(iso.prefix(10)), false, true, false)
+        }
         switch ReportLiteral(literal: raw) {
-        case .string(let s): return (s, false, false)
-        case .number(let n): return (n == n.rounded() && abs(n) < 1e15 ? String(Int64(n)) : String(n), true, false)
-        case .null: return ("", false, true)
+        case .string(let s): return (s, false, false, false)
+        case .number(let n): return (n == n.rounded() && abs(n) < 1e15 ? String(Int64(n)) : String(n), true, false, false)
+        case .null: return ("", false, false, true)
         default: return nil
         }
     }

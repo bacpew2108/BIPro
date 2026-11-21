@@ -211,6 +211,13 @@ Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào bá
 - [x] **2C:** Slicer nâng cao (`advancedSlicerVisual` Tile, `listSlicer`, `textSlicer` `CONTAINSSTRING`, `slicer` `'Between'` 2 đầu cho số & ngày) và Bản đồ ngoại tuyến 100% (`OfflineGeoAtlas` & `GeoMapView` cho `map` / `filledMap`).
 - [x] **2D:** Mở khoá ribbon **Chèn** (Trang mới, Hình khối `rectangle`/`oval`/`line`, Nút hành động, `pageNavigator`, `bookmarkNavigator`, Ảnh PNG/JPEG/SVG nhúng `RegisteredResources` + tự khai báo phần mở rộng vào `[Content_Types].xml`), `BookmarkNavigatorVisual`, mở rộng `FormatCatalog`, `VisualCSVExporter`, `AccessibilitySummary` song ngữ.
 
+### Đợt 3 (v1.1b): Tương tác nâng cao, CF/Analytics/Theme, One-Click Refresh, Cascade Rename & DAX Engine ✅ 2026-11-21
+> **Đạt cổng Desktop 2.159 (2026-11-21)**: Spec Kit `specs/014-v11-tinh-nang-nang-cao/`, bằng chứng `docs/phase-v11-evidence/vm-v11b/` (`QUAN-SAT.md`, `dax-golden.json` 21/21, `gate-desktop.png` 0 lỗi), số đo `specs/014-v11-tinh-nang-nang-cao/measurements.md`.
+- [x] **3D (DAX Engine):** ~56 hàm mới (Date/Time, 23 Time Intelligence, Error/Type, Lookup/Set/Table/Stats, Window `OFFSET`/`INDEX`/`WINDOW` + `ORDERBY`/`PARTITIONBY`) khớp 100% oracle Desktop 2.159.
+- [x] **3A (Tương tác & Matrix & Bộ lọc):** Edit Interactions (`visualInteractions`), Matrix phân cấp hàng (`expansionStates`), kéo-thả trường vào `FiltersPane`, Date Advanced Filter (`datetime'...'`), mở rộng Bookmark Data.
+- [x] **3B (CF, Analytics & Theme):** Conditional Formatting (Rules/Gradient/Field value/Data Bars), Analytics Pane (Constant/Average/Min/Max + Trend/Forecast), Theme Switcher (6 preset + Nhập/Xuất JSON + `RegisteredResources` + Undo/Redo).
+- [x] **3C (Refresh, Cascade Rename & PQ Extra):** One-Click Refresh (`⇧⌘R`, giữ quan hệ/measure/visual & dữ liệu cũ khi lỗi), Cascade Rename bảng/cột/measure đang dùng (DAX token + PBIR + ⌘Z), Power Query Extra Transforms (Split nâng cao, Fill Down/Up, Replace Errors, Extract, Date).
+
 ### Mốc thời gian
 | Mốc | Gồm | Tích luỹ |
 |---|---|---|

@@ -129,12 +129,124 @@ struct SlicerFormat: Hashable, Sendable {
     var headerTextSize: Double?
 }
 
+/// Quy tắc định dạng có điều kiện (Rules — `expr.Conditional.Cases`, VM-V11B).
+enum RuleComparisonOp: Int, Hashable, Sendable, CaseIterable {
+    case equal = 0
+    case greaterThan = 1
+    case greaterOrEqual = 2
+    case lessThan = 3
+    case lessOrEqual = 4
+
+    var symbol: String {
+        switch self {
+        case .equal: "="
+        case .greaterThan: ">"
+        case .greaterOrEqual: ">="
+        case .lessThan: "<"
+        case .lessOrEqual: "<="
+        }
+    }
+
+    func matches(_ lhs: Double, _ rhs: Double) -> Bool {
+        switch self {
+        case .equal: abs(lhs - rhs) < 1e-9
+        case .greaterThan: lhs > rhs
+        case .greaterOrEqual: lhs >= rhs
+        case .lessThan: lhs < rhs
+        case .lessOrEqual: lhs <= rhs
+        }
+    }
+}
+
+struct ConditionalRuleCase: Hashable, Sendable {
+    var minOp: RuleComparisonOp?
+    var minValue: Double?
+    var minIsPercent: Bool = false
+    var maxOp: RuleComparisonOp?
+    var maxValue: Double?
+    var maxIsPercent: Bool = false
+    var color: ReportLiteral
+}
+
+struct ConditionalColorRule: Hashable, Sendable {
+    var property: String          // "backColor" hoặc "fontColor"
+    var target: String?           // selector.metadata
+    var sourceTable: String
+    var sourceMeasure: String
+    var cases: [ConditionalRuleCase]
+    var matchingOption: Int = 1   // 1 = Values only, 2 = Values & totals, 3 = Totals only
+}
+
+/// Thanh dữ liệu (`objects.columnFormatting[].properties.dataBars`, VM-V11B).
+struct DataBarRule: Hashable, Sendable {
+    var target: String            // selector.metadata
+    var positiveColor: ReportLiteral
+    var negativeColor: ReportLiteral
+    var axisColor: ReportLiteral
+    var reverseDirection: Bool = false
+    var hideText: Bool = false
+    var totalMatchingOption: Int = 1
+    var minValue: Double? = nil
+    var maxValue: Double? = nil
+}
+
+enum AnalyticsLineStyle: String, Hashable, Sendable, CaseIterable {
+    case dashed, solid, dotted
+}
+
+/// Đường hằng số trục Y (`objects.y1AxisReferenceLine`, VM-V11B `b2-q11.visual.json`).
+struct ConstantReferenceLine: Hashable, Sendable, Identifiable {
+    var id: String
+    var displayName: String
+    var show: Bool = true
+    var value: Double
+    var color: ReportLiteral? = nil
+    var style: AnalyticsLineStyle = .dashed
+    var transparency: Double = 0
+}
+
+/// Đường tham chiếu động (`objects.referenceLine`, `Aggregation.Function`: 1 = Average, 3 = Min, 4 = Max — VM-V11B).
+enum DynamicReferenceKind: Int, Hashable, Sendable, CaseIterable {
+    case average = 1
+    case min = 3
+    case max = 4
+
+    var defaultDisplayName: String {
+        switch self {
+        case .average: "Average"
+        case .min: "Min"
+        case .max: "Max"
+        }
+    }
+
+    @MainActor
+    var title: String {
+        switch self {
+        case .average: bi("Trung bình", "Average")
+        case .min: bi("Nhỏ nhất", "Min")
+        case .max: bi("Lớn nhất", "Max")
+        }
+    }
+}
+
+struct DynamicReferenceLine: Hashable, Sendable, Identifiable {
+    var id: String
+    var displayName: String
+    var show: Bool = true
+    var kind: DynamicReferenceKind
+    var target: String? = nil
+    var color: ReportLiteral? = nil
+    var style: AnalyticsLineStyle = .dashed
+}
+
 struct AnalyticsFormat: Hashable, Sendable {
     var trendShow: Bool?
     var forecastShow: Bool?
     var forecastDisplayName: String?
     /// Tham số `transform.parameters` của forecast: "Unit", "ForecastLength", "IgnoreLast", "ConfidenceLevel".
     var forecastParameters: [String: Double] = [:]
+    var constantLines: [ConstantReferenceLine] = []
+    var dynamicLines: [DynamicReferenceLine] = []
 }
 
 struct ShapeMapFormat: Hashable, Sendable {
@@ -159,6 +271,8 @@ struct VisualFormat: Hashable, Sendable {
     var shapeMap = ShapeMapFormat()
     var measureDriven: [MeasureDrivenProperty] = []
     var gradients: [GradientRule] = []
+    var conditionalRules: [ConditionalColorRule] = []
+    var dataBars: [DataBarRule] = []
 
     init() {}
 
@@ -198,13 +312,19 @@ struct VisualFormat: Hashable, Sendable {
                               headerFontColor: o.color("header", "fontColor"), headerTextSize: o.number("header", "textSize"))
         analytics = AnalyticsFormat(trendShow: o.bool("trend", "show"), forecastShow: o.bool("forecast", "show"),
                                     forecastDisplayName: o.string("forecast", "displayName"),
-                                    forecastParameters: Self.forecastParameters(o))
+                                    forecastParameters: Self.forecastParameters(o),
+                                    constantLines: Self.constantLines(o),
+                                    dynamicLines: Self.dynamicLines(o))
         shapeMap = ShapeMapFormat(
             mapResource: o.raw("shape", "map")?["geoJson"]?["name"]?["expr"].flatMap { ReportLiteral(expression: $0)?.string },
             projection: o.string("shape", "projectionEnum"), defaultColor: o.color("defaultColors", "defaultColor"),
             defaultShow: o.bool("defaultColors", "defaultShow"))
         dataPoint = Self.dataPoints(o)
-        (measureDriven, gradients) = Self.conditional(o)
+        let parsedCond = Self.conditional(o)
+        measureDriven = parsedCond.driven
+        gradients = parsedCond.gradients
+        conditionalRules = parsedCond.rules
+        dataBars = Self.dataBarRules(o)
     }
 
     // MARK: - Đọc chi tiết
@@ -267,12 +387,69 @@ struct VisualFormat: Hashable, Sendable {
         return (table, name)
     }
 
-    private static func conditional(_ o: ObjectProperties) -> ([MeasureDrivenProperty], [GradientRule]) {
+    private static func constantLines(_ o: ObjectProperties) -> [ConstantReferenceLine] {
+        var out: [ConstantReferenceLine] = []
+        for (idx, item) in instances(o, "y1AxisReferenceLine").enumerated() {
+            let props = item["properties"]
+            let show = ReportLiteral(expression: props?["show"]?["expr"])?.bool ?? true
+            let name = ReportLiteral(expression: props?["displayName"]?["expr"])?.string ?? "Constant Line \(idx + 1)"
+            let value = ReportLiteral(expression: props?["value"]?["expr"])?.number ?? 0
+            let color = ReportLiteral(expression: props?["lineColor"]?["solid"]?["color"]?["expr"])
+            let styleRaw = ReportLiteral(expression: props?["style"]?["expr"])?.string?.lowercased() ?? "dashed"
+            let style = AnalyticsLineStyle(rawValue: styleRaw) ?? .dashed
+            let trans = ReportLiteral(expression: props?["transparency"]?["expr"])?.number ?? 0
+            let id = item["selector"]?["id"]?.string ?? "\(idx + 1)"
+            out.append(ConstantReferenceLine(id: id, displayName: name, show: show, value: value, color: color, style: style, transparency: trans))
+        }
+        return out
+    }
+
+    private static func dynamicLines(_ o: ObjectProperties) -> [DynamicReferenceLine] {
+        var out: [DynamicReferenceLine] = []
+        for (idx, item) in instances(o, "referenceLine").enumerated() {
+            let props = item["properties"]
+            let show = ReportLiteral(expression: props?["show"]?["expr"])?.bool ?? true
+            guard let agg = props?["value"]?["expr"]?["Aggregation"],
+                  let fnCode = agg["Function"]?.number.map({ Int($0) }),
+                  let kind = DynamicReferenceKind(rawValue: fnCode) else { continue }
+            let name = ReportLiteral(expression: props?["displayName"]?["expr"])?.string ?? "\(kind.defaultDisplayName) \(idx + 1)"
+            let target = item["selector"]?["metadata"]?.string ?? agg["Expression"]?["SelectRef"]?["ExpressionName"]?.string
+            let color = ReportLiteral(expression: props?["lineColor"]?["solid"]?["color"]?["expr"])
+            let styleRaw = ReportLiteral(expression: props?["style"]?["expr"])?.string?.lowercased() ?? "dashed"
+            let style = AnalyticsLineStyle(rawValue: styleRaw) ?? .dashed
+            let id = item["selector"]?["id"]?.string ?? "\(idx + 1)"
+            out.append(DynamicReferenceLine(id: id, displayName: name, show: show, kind: kind, target: target, color: color, style: style))
+        }
+        return out
+    }
+
+    private static func dataBarRules(_ o: ObjectProperties) -> [DataBarRule] {
+        var out: [DataBarRule] = []
+        for item in instances(o, "columnFormatting") {
+            guard let target = item["selector"]?["metadata"]?.string,
+                  let bars = item["properties"]?["dataBars"] else { continue }
+            let pos = ReportLiteral(expression: bars["positiveColor"]?["solid"]?["color"]?["expr"]) ?? .string("maxColor")
+            let neg = ReportLiteral(expression: bars["negativeColor"]?["solid"]?["color"]?["expr"]) ?? .string("minColor")
+            let axis = ReportLiteral(expression: bars["axisColor"]?["solid"]?["color"]?["expr"]) ?? .string("foreground")
+            let rev = ReportLiteral(expression: bars["reverseDirection"]?["expr"])?.bool ?? false
+            let hide = ReportLiteral(expression: bars["hideText"]?["expr"])?.bool ?? false
+            let matchOpt = ReportLiteral(expression: bars["totalMatchingOption"]?["expr"])?.number.map { Int($0) } ?? 1
+            let minV = ReportLiteral(expression: bars["lowValue"]?["expr"])?.number
+            let maxV = ReportLiteral(expression: bars["highValue"]?["expr"])?.number
+            out.append(DataBarRule(target: target, positiveColor: pos, negativeColor: neg, axisColor: axis,
+                                   reverseDirection: rev, hideText: hide, totalMatchingOption: matchOpt, minValue: minV, maxValue: maxV))
+        }
+        return out
+    }
+
+    private static func conditional(_ o: ObjectProperties) -> (driven: [MeasureDrivenProperty], gradients: [GradientRule], rules: [ConditionalColorRule]) {
         var driven: [MeasureDrivenProperty] = []
         var gradients: [GradientRule] = []
+        var rules: [ConditionalColorRule] = []
         for (object, list) in o.json.object.sorted(by: { $0.key < $1.key }) {
             for item in list.array {
                 let target = item["selector"]?["metadata"]?.string
+                let matchOpt = item["selector"]?["data"]?[0]?["dataViewWildcard"]?["matchingOption"]?.number.map { Int($0) } ?? 1
                 for (property, value) in (item["properties"]?.object ?? [:]).sorted(by: { $0.key < $1.key }) {
                     let expr = value["solid"]?["color"]?["expr"] ?? value["value"]?["expr"]
                     if let (table, name) = measureRef(expr) {
@@ -286,10 +463,43 @@ struct VisualFormat: Hashable, Sendable {
                             property: property, target: target, inputTable: table, inputMeasure: name, minColor: minC,
                             midColor: ReportLiteral(expression: g?["mid"]?["color"]), maxColor: maxC,
                             nullStrategy: ReportLiteral(expression: g?["nullColoringStrategy"]?["strategy"])?.string))
+                    } else if let cond = expr?["Conditional"], let rawCases = cond["Cases"]?.array, !rawCases.isEmpty {
+                        var parsedCases: [ConditionalRuleCase] = []
+                        var srcTable = "", srcMeasure = ""
+                        for c in rawCases {
+                            guard let color = ReportLiteral(expression: c["Value"]) else { continue }
+                            let condObj = c["Condition"]
+                            var cMinOp: RuleComparisonOp?; var cMinVal: Double?
+                            var cMaxOp: RuleComparisonOp?; var cMaxVal: Double?
+                            func parseComp(_ comp: JSONValue?) {
+                                guard let cmp = comp?["Comparison"],
+                                      let k = cmp["ComparisonKind"]?.number.map({ Int($0) }),
+                                      let op = RuleComparisonOp(rawValue: k),
+                                      let num = ReportLiteral(expression: cmp["Right"])?.number else { return }
+                                if let (t, m) = measureRef(cmp["Left"]), srcMeasure.isEmpty { srcTable = t; srcMeasure = m }
+                                switch op {
+                                case .greaterThan, .greaterOrEqual: cMinOp = op; cMinVal = num
+                                case .lessThan, .lessOrEqual: cMaxOp = op; cMaxVal = num
+                                case .equal: cMinOp = .equal; cMinVal = num
+                                }
+                            }
+                            if let andObj = condObj?["And"] {
+                                parseComp(andObj["Left"]); parseComp(andObj["Right"])
+                            } else {
+                                parseComp(condObj)
+                            }
+                            if cMinOp != nil || cMaxOp != nil {
+                                parsedCases.append(ConditionalRuleCase(minOp: cMinOp, minValue: cMinVal, maxOp: cMaxOp, maxValue: cMaxVal, color: color))
+                            }
+                        }
+                        if !parsedCases.isEmpty {
+                            rules.append(ConditionalColorRule(property: property, target: target, sourceTable: srcTable, sourceMeasure: srcMeasure,
+                                                              cases: parsedCases, matchingOption: matchOpt))
+                        }
                     }
                 }
             }
         }
-        return (driven, gradients)
+        return (driven, gradients, rules)
     }
 }

@@ -32,7 +32,10 @@ public struct QueryRibbonContext: Sendable {
     public var replaceNew: String?
     public var filterValues: [MLiteral]?
     public var delimiter: String?
+    public var endDelimiter: String?
+    public var charCount: Int?
     public var splitColumnCount: Int?
+    public var replaceErrorText: String?
     public var customColumnName: String?
     public var customColumnFormula: String?
 
@@ -45,7 +48,10 @@ public struct QueryRibbonContext: Sendable {
         replaceNew: String? = nil,
         filterValues: [MLiteral]? = nil,
         delimiter: String? = nil,
+        endDelimiter: String? = nil,
+        charCount: Int? = nil,
         splitColumnCount: Int? = nil,
+        replaceErrorText: String? = nil,
         customColumnName: String? = nil,
         customColumnFormula: String? = nil
     ) {
@@ -57,7 +63,10 @@ public struct QueryRibbonContext: Sendable {
         self.replaceNew = replaceNew
         self.filterValues = filterValues
         self.delimiter = delimiter
+        self.endDelimiter = endDelimiter
+        self.charCount = charCount
         self.splitColumnCount = splitColumnCount
+        self.replaceErrorText = replaceErrorText
         self.customColumnName = customColumnName
         self.customColumnFormula = customColumnFormula
     }
@@ -85,12 +94,28 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
     case reverseRows
     case fillDown
     case fillUp
+    case replaceErrors
     case formatLowercase
     case formatUppercase
     case formatCapitalizeEachWord
     case formatTrim
     case formatClean
     case splitByDelimiter
+    case splitByNumberOfChars
+    case extractLength
+    case extractFirstChars
+    case extractLastChars
+    case extractBeforeDelimiter
+    case extractAfterDelimiter
+    case extractBetweenDelimiters
+    case dateYear
+    case dateQuarter
+    case dateMonth
+    case dateMonthName
+    case dateDay
+    case dateDayName
+    case dateStartOfMonth
+    case dateEndOfMonth
     case groupByCount
     case unpivotOtherColumns
     case pivot
@@ -99,6 +124,20 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
     case addIndexColumnFrom0
     case addIndexColumnFrom1
     case addCustomColumn
+    case addExtractLength
+    case addExtractFirstChars
+    case addExtractLastChars
+    case addExtractBeforeDelimiter
+    case addExtractAfterDelimiter
+    case addExtractBetweenDelimiters
+    case addDateYear
+    case addDateQuarter
+    case addDateMonth
+    case addDateMonthName
+    case addDateDay
+    case addDateDayName
+    case addDateStartOfMonth
+    case addDateEndOfMonth
 
     public var title: String {
         localizedTitle(language: .vi)
@@ -125,12 +164,28 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
         case .reverseRows: return en ? "Reverse Rows" : "Đảo thứ tự dòng"
         case .fillDown: return en ? "Fill Down" : "Điền xuống"
         case .fillUp: return en ? "Fill Up" : "Điền lên"
+        case .replaceErrors: return en ? "Replace Errors" : "Thay lỗi"
         case .formatLowercase: return en ? "lowercase" : "chữ thường"
         case .formatUppercase: return en ? "UPPERCASE" : "CHỮ HOA"
         case .formatCapitalizeEachWord: return en ? "Capitalize Each Word" : "Viết Hoa Mỗi Từ"
         case .formatTrim: return en ? "Trim" : "Cắt khoảng trắng"
         case .formatClean: return en ? "Clean" : "Làm sạch"
-        case .splitByDelimiter: return en ? "Split Column by Delimiter" : "Tách cột theo dấu phân cách"
+        case .splitByDelimiter: return en ? "By Delimiter" : "Theo dấu phân cách"
+        case .splitByNumberOfChars: return en ? "By Number of Characters" : "Theo số ký tự"
+        case .extractLength, .addExtractLength: return en ? "Length" : "Độ dài"
+        case .extractFirstChars, .addExtractFirstChars: return en ? "First Characters" : "Ký tự đầu"
+        case .extractLastChars, .addExtractLastChars: return en ? "Last Characters" : "Ký tự cuối"
+        case .extractBeforeDelimiter, .addExtractBeforeDelimiter: return en ? "Text Before Delimiter" : "Trước dấu phân cách"
+        case .extractAfterDelimiter, .addExtractAfterDelimiter: return en ? "Text After Delimiter" : "Sau dấu phân cách"
+        case .extractBetweenDelimiters, .addExtractBetweenDelimiters: return en ? "Text Between Delimiters" : "Giữa 2 dấu phân cách"
+        case .dateYear, .addDateYear: return en ? "Year" : "Năm"
+        case .dateQuarter, .addDateQuarter: return en ? "Quarter" : "Quý"
+        case .dateMonth, .addDateMonth: return en ? "Month" : "Tháng"
+        case .dateMonthName, .addDateMonthName: return en ? "Name of Month" : "Tên tháng"
+        case .dateDay, .addDateDay: return en ? "Day" : "Ngày"
+        case .dateDayName, .addDateDayName: return en ? "Name of Day" : "Tên thứ"
+        case .dateStartOfMonth, .addDateStartOfMonth: return en ? "Start of Month" : "Đầu tháng"
+        case .dateEndOfMonth, .addDateEndOfMonth: return en ? "End of Month" : "Cuối tháng"
         case .groupByCount: return en ? "Group By" : "Nhóm theo"
         case .unpivotOtherColumns: return en ? "Unpivot Other Columns" : "Bỏ xoay các cột khác"
         case .pivot: return en ? "Pivot Column" : "Xoay cột"
@@ -147,11 +202,15 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
              .changeTypeText, .changeTypeDate, .changeTypeDateTime, .changeTypeLogical,
              .replaceValue, .filterEquals:
             return .home
-        case .reverseRows, .fillDown, .fillUp, .formatLowercase, .formatUppercase,
-             .formatCapitalizeEachWord, .formatTrim, .formatClean, .splitByDelimiter,
+        case .reverseRows, .fillDown, .fillUp, .replaceErrors, .formatLowercase, .formatUppercase,
+             .formatCapitalizeEachWord, .formatTrim, .formatClean, .splitByDelimiter, .splitByNumberOfChars,
+             .extractLength, .extractFirstChars, .extractLastChars, .extractBeforeDelimiter, .extractAfterDelimiter, .extractBetweenDelimiters,
+             .dateYear, .dateQuarter, .dateMonth, .dateMonthName, .dateDay, .dateDayName, .dateStartOfMonth, .dateEndOfMonth,
              .groupByCount, .unpivotOtherColumns, .pivot:
             return .transform
-        case .addIndexColumnFrom0, .addIndexColumnFrom1, .addCustomColumn:
+        case .addIndexColumnFrom0, .addIndexColumnFrom1, .addCustomColumn,
+             .addExtractLength, .addExtractFirstChars, .addExtractLastChars, .addExtractBeforeDelimiter, .addExtractAfterDelimiter, .addExtractBetweenDelimiters,
+             .addDateYear, .addDateQuarter, .addDateMonth, .addDateMonthName, .addDateDay, .addDateDayName, .addDateStartOfMonth, .addDateEndOfMonth:
             return .addColumn
         }
     }
@@ -180,9 +239,16 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
         case .reverseRows: return "arrow.up.arrow.down"
         case .fillDown: return "arrow.down.to.line.compact"
         case .fillUp: return "arrow.up.to.line.compact"
+        case .replaceErrors: return "exclamationmark.arrow.triangle.2.circlepath"
         case .formatLowercase, .formatUppercase, .formatCapitalizeEachWord, .formatTrim, .formatClean:
             return "textformat"
-        case .splitByDelimiter: return "rectangle.split.2x1"
+        case .splitByDelimiter, .splitByNumberOfChars: return "rectangle.split.2x1"
+        case .extractLength, .extractFirstChars, .extractLastChars, .extractBeforeDelimiter, .extractAfterDelimiter, .extractBetweenDelimiters,
+             .addExtractLength, .addExtractFirstChars, .addExtractLastChars, .addExtractBeforeDelimiter, .addExtractAfterDelimiter, .addExtractBetweenDelimiters:
+            return "scissors"
+        case .dateYear, .dateQuarter, .dateMonth, .dateMonthName, .dateDay, .dateDayName, .dateStartOfMonth, .dateEndOfMonth,
+             .addDateYear, .addDateQuarter, .addDateMonth, .addDateMonthName, .addDateDay, .addDateDayName, .addDateStartOfMonth, .addDateEndOfMonth:
+            return "calendar"
         case .groupByCount: return "rectangle.3.group"
         case .unpivotOtherColumns: return "tablecells.badge.ellipsis"
         case .pivot: return "tablecells"
@@ -193,7 +259,11 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
 
     public var needsParameters: Bool {
         switch self {
-        case .keepTopRows, .removeTopRows, .replaceValue, .filterEquals, .splitByDelimiter, .addCustomColumn, .groupByCount:
+        case .keepTopRows, .removeTopRows, .replaceValue, .replaceErrors, .filterEquals,
+             .splitByDelimiter, .splitByNumberOfChars,
+             .extractFirstChars, .extractLastChars, .extractBeforeDelimiter, .extractAfterDelimiter, .extractBetweenDelimiters,
+             .addExtractFirstChars, .addExtractLastChars, .addExtractBeforeDelimiter, .addExtractAfterDelimiter, .addExtractBetweenDelimiters,
+             .addCustomColumn, .groupByCount:
             return true
         default:
             return false
@@ -277,6 +347,23 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
             guard !context.selectedColumns.isEmpty else { return nil }
             return .fillUp(context.selectedColumns)
 
+        case .replaceErrors:
+            guard !context.selectedColumns.isEmpty, let raw = context.replaceErrorText else { return nil }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lit: MLiteral
+            if trimmed.isEmpty || trimmed.lowercased() == "null" {
+                lit = .null
+            } else if let num = Double(trimmed) {
+                lit = .number(num)
+            } else if trimmed.lowercased() == "true" {
+                lit = .logical(true)
+            } else if trimmed.lowercased() == "false" {
+                lit = .logical(false)
+            } else {
+                lit = .text(raw)
+            }
+            return .replaceErrors(context.selectedColumns.map { ErrorReplacement(column: $0, value: lit) })
+
         case .formatLowercase:
             guard !context.selectedColumns.isEmpty,
                   context.selectedColumns.allSatisfy({ context.columnTypes[$0] == .string }) else { return nil }
@@ -311,6 +398,76 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
             let into = (1...n).map { "\(col).\($0)" }
             return .splitByDelimiter(column: col, delimiter: d, into: into)
 
+        case .splitByNumberOfChars:
+            guard context.selectedColumns.count == 1,
+                  let col = context.selectedColumns.first,
+                  context.columnTypes[col] == .string,
+                  let len = context.charCount, len >= 1,
+                  let n = context.splitColumnCount, n >= 2 else { return nil }
+            let into = (1...n).map { "\(col).\($0)" }
+            return .splitByRepeatedLengths(column: col, length: len, into: into)
+
+        case .extractLength, .addExtractLength:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first, context.columnTypes[col] == .string else { return nil }
+            let newName = self == .addExtractLength ? StepFactory.uniqueName("Length", existing: Set(context.allColumns)) : nil
+            return .extractText(column: col, kind: .length, newColumnName: newName)
+
+        case .extractFirstChars, .addExtractFirstChars:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first, context.columnTypes[col] == .string,
+                  let n = context.charCount, n >= 0 else { return nil }
+            let newName = self == .addExtractFirstChars ? StepFactory.uniqueName("First Characters", existing: Set(context.allColumns)) : nil
+            return .extractText(column: col, kind: .firstCharacters(n), newColumnName: newName)
+
+        case .extractLastChars, .addExtractLastChars:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first, context.columnTypes[col] == .string,
+                  let n = context.charCount, n >= 0 else { return nil }
+            let newName = self == .addExtractLastChars ? StepFactory.uniqueName("Last Characters", existing: Set(context.allColumns)) : nil
+            return .extractText(column: col, kind: .lastCharacters(n), newColumnName: newName)
+
+        case .extractBeforeDelimiter, .addExtractBeforeDelimiter:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first, context.columnTypes[col] == .string,
+                  let d = context.delimiter, !d.isEmpty else { return nil }
+            let newName = self == .addExtractBeforeDelimiter ? StepFactory.uniqueName("Text Before Delimiter", existing: Set(context.allColumns)) : nil
+            return .extractText(column: col, kind: .beforeDelimiter(d), newColumnName: newName)
+
+        case .extractAfterDelimiter, .addExtractAfterDelimiter:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first, context.columnTypes[col] == .string,
+                  let d = context.delimiter, !d.isEmpty else { return nil }
+            let newName = self == .addExtractAfterDelimiter ? StepFactory.uniqueName("Text After Delimiter", existing: Set(context.allColumns)) : nil
+            return .extractText(column: col, kind: .afterDelimiter(d), newColumnName: newName)
+
+        case .extractBetweenDelimiters, .addExtractBetweenDelimiters:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first, context.columnTypes[col] == .string,
+                  let s = context.delimiter, !s.isEmpty, let e = context.endDelimiter, !e.isEmpty else { return nil }
+            let newName = self == .addExtractBetweenDelimiters ? StepFactory.uniqueName("Text Between Delimiters", existing: Set(context.allColumns)) : nil
+            return .extractText(column: col, kind: .betweenDelimiters(start: s, end: e), newColumnName: newName)
+
+        case .dateYear, .dateQuarter, .dateMonth, .dateMonthName, .dateDay, .dateDayName, .dateStartOfMonth, .dateEndOfMonth,
+             .addDateYear, .addDateQuarter, .addDateMonth, .addDateMonthName, .addDateDay, .addDateDayName, .addDateStartOfMonth, .addDateEndOfMonth:
+            guard context.selectedColumns.count == 1, let col = context.selectedColumns.first,
+                  context.columnTypes[col] == .dateTime else { return nil }
+            let (kind, isAdd): (DateExtractKind, Bool) = switch self {
+            case .dateYear: (.year, false)
+            case .dateQuarter: (.quarter, false)
+            case .dateMonth: (.month, false)
+            case .dateMonthName: (.monthName, false)
+            case .dateDay: (.day, false)
+            case .dateDayName: (.dayOfWeekName, false)
+            case .dateStartOfMonth: (.startOfMonth, false)
+            case .dateEndOfMonth: (.endOfMonth, false)
+            case .addDateYear: (.year, true)
+            case .addDateQuarter: (.quarter, true)
+            case .addDateMonth: (.month, true)
+            case .addDateMonthName: (.monthName, true)
+            case .addDateDay: (.day, true)
+            case .addDateDayName: (.dayOfWeekName, true)
+            case .addDateStartOfMonth: (.startOfMonth, true)
+            case .addDateEndOfMonth: (.endOfMonth, true)
+            default: (.year, false)
+            }
+            let newName = isAdd ? StepFactory.uniqueName(kind.defaultColumnName, existing: Set(context.allColumns)) : nil
+            return .extractDate(column: col, kind: kind, newColumnName: newName)
+
         case .groupByCount:
             guard !context.selectedColumns.isEmpty else { return nil }
             return .groupByCount(keys: context.selectedColumns, newColumn: "Count")
@@ -344,11 +501,13 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
             switch self {
             case .keepTopRows, .removeTopRows, .addCustomColumn, .groupByCount:
                 return true
-            case .replaceValue:
+            case .replaceValue, .replaceErrors:
                 return !context.selectedColumns.isEmpty
             case .filterEquals:
                 return context.selectedColumns.count == 1
-            case .splitByDelimiter:
+            case .splitByDelimiter, .splitByNumberOfChars,
+                 .extractFirstChars, .extractLastChars, .extractBeforeDelimiter, .extractAfterDelimiter, .extractBetweenDelimiters,
+                 .addExtractFirstChars, .addExtractLastChars, .addExtractBeforeDelimiter, .addExtractAfterDelimiter, .addExtractBetweenDelimiters:
                 guard context.selectedColumns.count == 1, let col = context.selectedColumns.first else { return false }
                 return context.columnTypes[col] == .string
             default:

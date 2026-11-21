@@ -176,6 +176,99 @@ enum ValueDate {
             } ?? 0
             let adjusted = ((sundayZeroDOW - firstDay) % 7 + 7) % 7
             return .number(Double(adjusted))
+        },
+
+        // Wave 3C (T021): Các hàm trích xuất ngày bổ sung
+        MFunction(
+            name: "Date.QuarterOfYear",
+            parameters: [MParameter(name: "dateTime")],
+            observed: false
+        ) { args in
+            switch args[0] {
+            case .null: return .null
+            case .date(let d), .dateTime(let d):
+                let civil = ValueDateHelper.civilFromSerial(d)
+                return .number(Double((civil.month - 1) / 3 + 1))
+            default:
+                throw MError.expression("Date.QuarterOfYear: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+            }
+        },
+
+        MFunction(
+            name: "Date.StartOfMonth",
+            parameters: [MParameter(name: "dateTime")],
+            observed: false
+        ) { args in
+            switch args[0] {
+            case .null: return .null
+            case .date(let d):
+                let civil = ValueDateHelper.civilFromSerial(d)
+                guard let serial = MDates.serial(year: civil.year, month: civil.month, day: 1) else { return .null }
+                return .date(serial)
+            case .dateTime(let d):
+                let civil = ValueDateHelper.civilFromSerial(d)
+                guard let serial = MDates.serial(year: civil.year, month: civil.month, day: 1) else { return .null }
+                return .dateTime(serial)
+            default:
+                throw MError.expression("Date.StartOfMonth: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+            }
+        },
+
+        MFunction(
+            name: "Date.EndOfMonth",
+            parameters: [MParameter(name: "dateTime")],
+            observed: false
+        ) { args in
+            switch args[0] {
+            case .null: return .null
+            case .date(let d):
+                let civil = ValueDateHelper.civilFromSerial(d)
+                let last = MDates.daysInMonth(year: civil.year, month: civil.month)
+                guard let serial = MDates.serial(year: civil.year, month: civil.month, day: last) else { return .null }
+                return .date(serial)
+            case .dateTime(let d):
+                let civil = ValueDateHelper.civilFromSerial(d)
+                let last = MDates.daysInMonth(year: civil.year, month: civil.month)
+                guard let serial = MDates.serial(year: civil.year, month: civil.month, day: last) else { return .null }
+                return .dateTime(serial + (86399.0 / 86400.0))
+            default:
+                throw MError.expression("Date.EndOfMonth: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+            }
+        },
+
+        MFunction(
+            name: "Date.MonthName",
+            parameters: [MParameter(name: "date"), MParameter(name: "culture", isOptional: true)],
+            observed: false
+        ) { args in
+            let names = ["January", "February", "March", "April", "May", "June",
+                         "July", "August", "September", "October", "November", "December"]
+            switch args[0] {
+            case .null: return .null
+            case .date(let d), .dateTime(let d):
+                let civil = ValueDateHelper.civilFromSerial(d)
+                let idx = max(1, min(12, civil.month)) - 1
+                return .text(names[idx])
+            default:
+                throw MError.expression("Date.MonthName: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+            }
+        },
+
+        MFunction(
+            name: "Date.DayOfWeekName",
+            parameters: [MParameter(name: "date"), MParameter(name: "culture", isOptional: true)],
+            observed: false
+        ) { args in
+            let names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+            switch args[0] {
+            case .null: return .null
+            case .date(let d), .dateTime(let d):
+                let serialInt = try MInt.from(floor(d), "Date.DayOfWeekName")
+                let idx = ((serialInt + 6) % 7 + 7) % 7
+                return .text(names[idx])
+            default:
+                throw MError.expression("Date.DayOfWeekName: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+            }
         }
     ]
 }

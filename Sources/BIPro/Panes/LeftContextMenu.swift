@@ -159,6 +159,7 @@ public enum LeftMenuBuilder {
         onCollapseAll: @escaping () -> Void = {},
         onExpandAll: @escaping () -> Void = {},
         onNewMeasure: (() -> Void)? = nil,
+        onRename: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
     ) -> [LeftMenuItem] {
         (onNewMeasure.map { [LeftMenuItem.action("Measure mới", isEnabled: true, $0), .separator] } ?? []) + [
@@ -167,7 +168,7 @@ public enum LeftMenuBuilder {
                 .separator,
                 .action("Định nghĩa measure mới", isEnabled: true, onDefineNewMeasure)
             ]),
-            .action("Đổi tên", isEnabled: false, {}),
+            .action("Đổi tên", isEnabled: onRename != nil, onRename ?? {}),
             .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
             .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
             .separator,
@@ -186,6 +187,7 @@ public enum LeftMenuBuilder {
         onExpandAll: @escaping () -> Void = {},
         onCopyFormula: @escaping () -> Void,
         onEdit: (() -> Void)? = nil,
+        onRename: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
         onToggleHidden: (() -> Void)? = nil,
         hiddenTitle: String = "Ẩn trong chế độ báo cáo"
@@ -199,7 +201,7 @@ public enum LeftMenuBuilder {
                 .action("Định nghĩa measure mới", isEnabled: true, onDefineNewMeasure),
                 .action("Định nghĩa mọi measure trong mô hình", isEnabled: true, onDefineAllMeasures)
             ]),
-            .action("Đổi tên", isEnabled: onEdit != nil, onEdit ?? {}),
+            .action("Đổi tên", isEnabled: (onRename ?? onEdit) != nil, (onRename ?? onEdit) ?? {}),
             .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
             .action(hiddenTitle, isEnabled: onToggleHidden != nil, onToggleHidden ?? {}),
             .separator,
@@ -219,13 +221,14 @@ public enum LeftMenuBuilder {
         onCollapseAll: @escaping () -> Void = {},
         onExpandAll: @escaping () -> Void = {},
         onCopyFormula: (() -> Void)? = nil,
+        onRename: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
     ) -> [LeftMenuItem] {
         var items: [LeftMenuItem] = [
             .submenu("Truy vấn nhanh", [
                 .action("Xem trước dữ liệu", isEnabled: true, onPreviewData)
             ]),
-            .action("Đổi tên", isEnabled: false, {}),
+            .action("Đổi tên", isEnabled: onRename != nil, onRename ?? {}),
             .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
             .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
             .separator,

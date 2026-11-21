@@ -69,6 +69,10 @@ struct EditCommands: Commands {
                 .disabled(state?.ungroupBlocker != nil)
             Button(bi("Gộp vào nhóm", "Merge into Group")) { state?.mergeSelection() }
                 .disabled(state?.mergeBlocker != nil)
+            Divider()
+            Button(bi("Làm mới dữ liệu", "Refresh Data")) { state?.startRefreshAll() }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(state?.refreshBlocker != nil)
         }
         CommandGroup(replacing: .undoRedo) {
             Button(tr(.menuUndo)) { perform(text: Selector(("undo:"))) { $0.undoLayout() } }

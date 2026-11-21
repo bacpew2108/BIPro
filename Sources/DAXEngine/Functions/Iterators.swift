@@ -36,6 +36,10 @@ public enum IteratorFunctions: FunctionFamily {
                                              .keyword("order", ["ASC", "DESC"], optional: true),
                                              .keyword("ties", ["DENSE", "SKIP"], optional: true)],
                      impl: .scalar(rankxBody)),
+        // Wave 3 (v1.1b — đối chiếu VM-V11B dax-golden.json)
+        FunctionSpec(name: "COUNTX", params: [.table("table"), .lazy("expression")], impl: .scalar(countxBody(includeBooleans: false))),
+        FunctionSpec(name: "COUNTAX", params: [.table("table"), .lazy("expression")], impl: .scalar(countxBody(includeBooleans: true))),
+        FunctionSpec(name: "PRODUCTX", params: [.table("table"), .lazy("expression")], impl: .scalar(productxBody)),
     ]
 
     // MARK: SUMX, AVERAGEX
@@ -217,6 +221,35 @@ public enum IteratorFunctions: FunctionFamily {
             if dense { betterValues.insert(candidate) }
         }
         return .integer(1 + (dense ? Int64(betterValues.count) : betterCount))
+    }
+
+    // MARK: COUNTX, COUNTAX, PRODUCTX (Wave 3)
+
+    private static func countxBody(includeBooleans: Bool) -> FunctionSpec.ScalarBody {
+        return { (frame: CallFrame) throws(DAXError) -> Value in
+            var count: Int64 = 0
+            try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
+                let v = try frame.scalar(1, in: inner)
+                switch v {
+                case .blank: break
+                case .boolean: if includeBooleans { count += 1 }
+                case .integer, .double, .currency, .dateTime, .string: count += 1
+                }
+            }
+            return count == 0 ? .blank : .integer(count)
+        }
+    }
+
+    private static let productxBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        var product = 1.0
+        var count = 0
+        try frame.iterateArgument(0) { (inner: EvalContext) throws(DAXError) in
+            let v = try frame.scalar(1, in: inner)
+            if v.isBlank { return }
+            product *= try v.asDouble()
+            count += 1
+        }
+        return count == 0 ? .blank : .double(product)
     }
 }
 

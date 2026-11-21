@@ -20,6 +20,7 @@ struct UserBookmark: Identifiable, Hashable, Sendable {
     var drillDepth: [String: Int] = [:]
     var slicerExpansion: [String: [Value]] = [:]
     var matrixExpansion: [String: [[Value]]] = [:]
+    var matrixRowExpansion: [String: [[Value]]] = [:]
     var visibility = VisibilityState()
 }
 
@@ -139,6 +140,7 @@ extension ReportInteraction {
             drillDepth = bookmark.drillDepth
             slicerExpansion = bookmark.slicerExpansion
             matrixExpansion = bookmark.matrixExpansion
+            matrixRowExpansion = bookmark.matrixRowExpansion
         }
         if bookmark.display { visibility.restore(bookmark.visibility) }
         visibility.markActive(bookmark.id)
@@ -165,6 +167,7 @@ extension ReportInteraction {
         bookmark.drillDepth = drillDepth
         bookmark.slicerExpansion = slicerExpansion
         bookmark.matrixExpansion = matrixExpansion
+        bookmark.matrixRowExpansion = matrixRowExpansion
         bookmark.visibility = visibility
         return bookmark
     }

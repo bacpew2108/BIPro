@@ -237,6 +237,7 @@ struct QueryRibbonView: View {
                 RibbonStack {
                     button(for: .fillDown, size: .small)
                     button(for: .fillUp, size: .small)
+                    button(for: .replaceErrors, size: .small)
                 }
                 RibbonStack {
                     button(for: .unpivotOtherColumns, size: .small)
@@ -248,8 +249,16 @@ struct QueryRibbonView: View {
 
             // Text Column Group
             RibbonGroup(title: bi("Cột văn bản", "Text Column")) {
-                button(for: .splitByDelimiter, size: .large)
+                splitColumnMenu
                 formatMenu
+                extractMenu(addColumn: false)
+            }
+
+            RibbonDivider()
+
+            // Date & Time Column Group
+            RibbonGroup(title: bi("Ngày & Giờ", "Date & Time")) {
+                dateMenu(addColumn: false)
             }
         }
     }
@@ -268,6 +277,20 @@ struct QueryRibbonView: View {
             // Custom Column Group
             RibbonGroup(title: bi("Tuỳ chỉnh", "Custom")) {
                 button(for: .addCustomColumn, size: .large)
+            }
+
+            RibbonDivider()
+
+            // From Text Group
+            RibbonGroup(title: bi("Từ văn bản", "From Text")) {
+                extractMenu(addColumn: true)
+            }
+
+            RibbonDivider()
+
+            // From Date & Time Group
+            RibbonGroup(title: bi("Từ ngày & giờ", "From Date & Time")) {
+                dateMenu(addColumn: true)
             }
         }
     }
@@ -424,6 +447,75 @@ struct QueryRibbonView: View {
                 size: .large,
                 disabledReason: isEnabled ? nil : bi("Chọn ít nhất một cột kiểu văn bản", "Select at least one text column")
             )
+        }
+    }
+
+    @ViewBuilder
+    private var splitColumnMenu: some View {
+        let isEnabled = context.selectedColumns.count == 1 &&
+            context.selectedColumns.first.flatMap { context.columnTypes[$0] } == .string
+        let reason = isEnabled ? nil : bi("Chọn 1 cột kiểu văn bản", "Select a single text column")
+        if scrollable {
+            Menu {
+                Button(bi("Theo dấu phân cách…", "By Delimiter…")) { onCommand(.splitByDelimiter) }
+                Button(bi("Theo số ký tự…", "By Number of Characters…")) { onCommand(.splitByNumberOfChars) }
+            } label: {
+                RibbonButton(title: bi("Tách cột", "Split Column"), symbol: "rectangle.split.2x1", size: .large, disabledReason: reason)
+            }
+            .menuStyle(.borderlessButton)
+            .disabled(!isEnabled)
+        } else {
+            RibbonButton(title: bi("Tách cột", "Split Column"), symbol: "rectangle.split.2x1", size: .large, disabledReason: reason)
+        }
+    }
+
+    @ViewBuilder
+    private func extractMenu(addColumn: Bool) -> some View {
+        let isEnabled = context.selectedColumns.count == 1 &&
+            context.selectedColumns.first.flatMap { context.columnTypes[$0] } == .string
+        let reason = isEnabled ? nil : bi("Chọn 1 cột kiểu văn bản", "Select a single text column")
+        if scrollable {
+            Menu {
+                Button(bi("Độ dài (Length)", "Length")) { onCommand(addColumn ? .addExtractLength : .extractLength) }
+                Button(bi("Ký tự đầu…", "First Characters…")) { onCommand(addColumn ? .addExtractFirstChars : .extractFirstChars) }
+                Button(bi("Ký tự cuối…", "Last Characters…")) { onCommand(addColumn ? .addExtractLastChars : .extractLastChars) }
+                Divider()
+                Button(bi("Trước dấu phân cách…", "Text Before Delimiter…")) { onCommand(addColumn ? .addExtractBeforeDelimiter : .extractBeforeDelimiter) }
+                Button(bi("Sau dấu phân cách…", "Text After Delimiter…")) { onCommand(addColumn ? .addExtractAfterDelimiter : .extractAfterDelimiter) }
+                Button(bi("Giữa 2 dấu phân cách…", "Text Between Delimiters…")) { onCommand(addColumn ? .addExtractBetweenDelimiters : .extractBetweenDelimiters) }
+            } label: {
+                RibbonButton(title: bi("Trích xuất", "Extract"), symbol: "scissors", size: .large, disabledReason: reason)
+            }
+            .menuStyle(.borderlessButton)
+            .disabled(!isEnabled)
+        } else {
+            RibbonButton(title: bi("Trích xuất", "Extract"), symbol: "scissors", size: .large, disabledReason: reason)
+        }
+    }
+
+    @ViewBuilder
+    private func dateMenu(addColumn: Bool) -> some View {
+        let isEnabled = context.selectedColumns.count == 1 &&
+            context.selectedColumns.first.flatMap { context.columnTypes[$0] } == .dateTime
+        let reason = isEnabled ? nil : bi("Chọn 1 cột kiểu Ngày/Giờ", "Select a single Date/DateTime column")
+        if scrollable {
+            Menu {
+                Button(bi("Năm (Year)", "Year")) { onCommand(addColumn ? .addDateYear : .dateYear) }
+                Button(bi("Quý (Quarter)", "Quarter")) { onCommand(addColumn ? .addDateQuarter : .dateQuarter) }
+                Button(bi("Tháng (Month)", "Month")) { onCommand(addColumn ? .addDateMonth : .dateMonth) }
+                Button(bi("Tên tháng (Name of Month)", "Name of Month")) { onCommand(addColumn ? .addDateMonthName : .dateMonthName) }
+                Button(bi("Ngày (Day)", "Day")) { onCommand(addColumn ? .addDateDay : .dateDay) }
+                Button(bi("Tên thứ (Name of Day)", "Name of Day")) { onCommand(addColumn ? .addDateDayName : .dateDayName) }
+                Divider()
+                Button(bi("Đầu tháng (Start of Month)", "Start of Month")) { onCommand(addColumn ? .addDateStartOfMonth : .dateStartOfMonth) }
+                Button(bi("Cuối tháng (End of Month)", "End of Month")) { onCommand(addColumn ? .addDateEndOfMonth : .dateEndOfMonth) }
+            } label: {
+                RibbonButton(title: bi("Ngày", "Date"), symbol: "calendar", size: .large, disabledReason: reason)
+            }
+            .menuStyle(.borderlessButton)
+            .disabled(!isEnabled)
+        } else {
+            RibbonButton(title: bi("Ngày", "Date"), symbol: "calendar", size: .large, disabledReason: reason)
         }
     }
 

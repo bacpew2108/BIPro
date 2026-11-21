@@ -128,11 +128,12 @@ extension DocumentState {
             return
         }
         guard !parts.expression.isEmpty else { draft.message = "Biểu thức đang trống."; return }
-        // Đổi tên chỉ khi không còn nơi dùng (FR-020).
+        // Đổi tên chỉ khi không còn nơi dùng (FR-020); nếu còn nơi dùng mở hộp xác nhận Cascade Rename (Wave 3C / T020).
         if case .edit(let table, let old) = draft.mode, parts.name != old, let model = workspace.metadata {
             let usages = ModelReferences.usages(ofMeasure: table, name: old, in: model, documents: ModelReferences.documents(layout: layout, workspace: workspace))
             if !usages.isEmpty {
                 draft.message = "Không đổi tên được: " + ModelReferences.message(usages, what: "measure \(old)")
+                pendingCascadeRename = .measure(table: table, old: old, new: parts.name)
                 return
             }
         }
@@ -208,7 +209,10 @@ extension DocumentState {
         if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
             let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                                 documents: ModelReferences.documents(layout: layout, workspace: workspace))
-            if !usages.isEmpty { return "Không đổi tên được: " + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
+            if !usages.isEmpty {
+                pendingCascadeRename = .column(table: table, old: name, new: renamed)
+                return "Không đổi tên được: " + ModelReferences.message(usages, what: "cột \(table)[\(name)]")
+            }
         }
         if let reason = modelEditor.apply(.updateColumn(table: table, name: name, patch: patch), coalesceKey: coalesceKey) { return reason }
         if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name, self.table == table, column == name {
@@ -225,6 +229,49 @@ extension DocumentState {
             relationshipNotice = reason
             return reason
         }
+        return nil
+    }
+
+    /// Mở hộp xác nhận Đổi tên lan truyền (Wave 3C / T020) cho bảng, cột hoặc measure.
+    func requestCascadeRename(_ target: CascadeRenameTarget) {
+        guard modelEditingBlocker == nil else {
+            if let blocker = modelEditingBlocker { layout.noteFieldRefusal(blocker) }
+            return
+        }
+        pendingCascadeRename = target
+    }
+
+    /// Thực thi Đổi tên lan truyền nguyên khối (mô hình + công thức DAX + PBIR visual/filter/bookmark) trong 1 bước ⌘Z.
+    @discardableResult
+    func executeCascadeRename(_ plan: CascadeRenamePlan) -> String? {
+        if let blocker = modelEditingBlocker { return blocker }
+        if let err = plan.validationError { return err }
+        guard let runtime = workspace.runtime else { return bi("File không có mô hình dữ liệu.", "File has no data model.") }
+        var proposed = layout.modelEdits
+        for edit in plan.modelEdits { proposed = proposed.appending(edit) }
+        do {
+            try runtime.validate(proposed)
+            try runtime.validateCalculations(proposed)
+        } catch let error as ModelEditError {
+            return error.reason
+        } catch {
+            return String(describing: error)
+        }
+        let visualPayload = plan.visualUpdates.map { (pageID: $0.pageID, visualID: $0.visualID, data: $0.data) }
+        layout.commitCascadeRename(model: proposed, visualUpdates: visualPayload, partOverrides: plan.partOverrides)
+        switch plan.target {
+        case .table(let old, let new):
+            if self.table == old { self.table = new }
+        case .column(let t, let old, let new):
+            if self.table == t && self.column == old { self.column = new }
+        case .measure(let t, let old, let new):
+            if self.table == t && self.measure == old { self.measure = new }
+            if let draft = measureDraft, case .edit(let dt, let dn) = draft.mode, dt == t, dn == old {
+                draft.didApply(table: t, name: new)
+                draft.message = nil
+            }
+        }
+        interaction.modelVersion += 1
         return nil
     }
 

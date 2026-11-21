@@ -125,7 +125,7 @@ struct UserFilter: Hashable, Sendable {
             let conditions = filter.raw["filter"]?["Where"]?.array ?? []
             if conditions.isEmpty { return UserFilter(column: column, isMeasure: true) }
             guard conditions.count == 1,
-                  case .advanced(let first, let second, let useOr, _)? = FilterRule.parseAdvanced(conditions[0]["Condition"]) else { return nil }
+                  case .advanced(let first, let second, let useOr, _, _)? = FilterRule.parseAdvanced(conditions[0]["Condition"]) else { return nil }
             return UserFilter(column: column, rule: .advanced(first: first, second: second, useOr: useOr, numeric: true), isMeasure: true)
         }
         guard let field = expression?["Column"], let table = field["Expression"]?["SourceRef"]?["Entity"]?.string,

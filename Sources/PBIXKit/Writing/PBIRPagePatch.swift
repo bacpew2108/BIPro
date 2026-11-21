@@ -92,6 +92,43 @@ public enum PBIRPagePatch {
         return Data(bytes)
     }
 
+    /// Đặt mảng `visualInteractions` trong `page.json` theo đúng định dạng PBIR (VM-V11B `b2-d1.page.json`).
+    /// Mảng rỗng thì gỡ khoá `visualInteractions`; giữ nguyên từng byte các khoá khác.
+    public static func settingVisualInteractions(_ interactions: [PageVisualInteraction], in pageJSON: Data) throws -> Data {
+        let root = try parseObject(pageJSON)
+        var bytes = [UInt8](pageJSON)
+        func tok(_ s: String) -> String { String(decoding: PBIRPatch.jsonStringToken(s), as: UTF8.self) }
+        var expected = root
+
+        if interactions.isEmpty {
+            if let kids = JSONCursor.children(at: [], in: bytes),
+               let index = kids.firstIndex(where: { $0.key.flatMap { JSONCursor.string(in: bytes, $0) } == "visualInteractions" }) {
+                bytes = JSONCursor.removing([index], from: kids, in: bytes)
+            }
+            expected["visualInteractions"] = nil
+        } else {
+            let items = interactions.map { item in
+                #"{"source":\#(tok(item.source)),"target":\#(tok(item.target)),"type":\#(tok(item.type.rawValue))}"#
+            }
+            let arrayText = "[" + items.joined(separator: ",") + "]"
+            if let range = JSONCursor.locate([.key("visualInteractions")][...], in: bytes) {
+                bytes.replaceSubrange(range, with: Array(arrayText.utf8))
+            } else {
+                guard let close = bytes.lastIndex(of: UInt8(ascii: "}")) else {
+                    throw WriteError.invalid("page.json is not an object")
+                }
+                let kids = JSONCursor.children(at: [], in: bytes) ?? []
+                let prefix = kids.isEmpty ? "" : ","
+                bytes.insert(contentsOf: Array("\(prefix)\"visualInteractions\":\(arrayText)".utf8), at: close)
+            }
+            expected["visualInteractions"] = interactions.map {
+                ["source": $0.source, "target": $0.target, "type": $0.type.rawValue]
+            }
+        }
+        try verify(Data(bytes), equals: expected, what: "page.json visualInteractions")
+        return Data(bytes)
+    }
+
     /// A copy of `source` (a `page.json`) for a new page: `name` and `displayName` replaced, `pageBinding` dropped (a
     /// copy is not a second drillthrough page), and the visual ids in `visualInteractions` mapped to the copies' ids.
     public static func duplicatedPageJSON(_ source: Data, newName: String, displayName: String, visualIDMap: [String: String]) throws -> Data {

@@ -301,6 +301,23 @@ extension ModelEdits {
                 if table.enableLoad, let data = table.attachment as? TableData { byName[key(table.name)] = data }
             case .dropTable(let name):
                 byName[key(name)] = nil
+            case .updateTable(let old, let patch):
+                if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !renamed.isEmpty, renamed.lowercased() != old.lowercased(),
+                   let existing = byName.removeValue(forKey: key(old)) {
+                    byName[key(renamed)] = existing
+                }
+            case .updateColumn(let table, let old, let patch):
+                if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !renamed.isEmpty, renamed != old,
+                   let existing = byName[key(table)] {
+                    let cols = existing.columns.map { col in
+                        col.name == old ? TableColumn(name: renamed, data: col.data) : col
+                    }
+                    if let updated = try? TableData(columns: cols) {
+                        byName[key(table)] = updated
+                    }
+                }
             default:
                 break
             }

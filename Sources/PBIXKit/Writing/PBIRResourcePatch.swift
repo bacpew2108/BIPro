@@ -136,4 +136,71 @@ public enum PBIRResourcePatch {
         }
         return result
     }
+
+    /// Đặt `customTheme` (tên tệp trong `RegisteredResources`) vào `report.json`: cập nhật `themeCollection.customTheme`
+    /// và thay thế/thêm mục `{"name": name, "path": path, "type": "CustomTheme"}` trong `resourcePackages[RegisteredResources]`
+    /// (khớp hoàn toàn `VM-V11B` `b1-report.json` / `b4-report.json`).
+    public static func settingCustomTheme(name: String, path: String, to report: Data) throws -> Data {
+        guard !name.isEmpty, !path.isEmpty else { throw WriteError.invalid("custom theme needs name and path") }
+        guard (try? JSONSerialization.jsonObject(with: report)) is [String: Any] else {
+            throw WriteError.invalid("report.json is not an object")
+        }
+        func tok(_ s: String) -> String { String(decoding: PBIRPatch.jsonStringToken(s), as: UTF8.self) }
+        var bytes = [UInt8](report)
+
+        // 1. Cập nhật `themeCollection.customTheme`
+        let customThemeText = #"{"name":\#(tok(name)),"reportVersionAtImport":{"visual":"2.13.0","report":"3.4.0","page":"2.3.1"},"type":"RegisteredResources"}"#
+        if let range = JSONCursor.locate([.key("themeCollection"), .key("customTheme")][...], in: bytes) {
+            bytes.replaceSubrange(range, with: Array(customThemeText.utf8))
+        } else if let tcRange = JSONCursor.locate([.key("themeCollection")][...], in: bytes) {
+            let kids = JSONCursor.children(at: [.key("themeCollection")], in: bytes) ?? []
+            let prefix = kids.isEmpty ? "" : ","
+            bytes.insert(contentsOf: Array("\(prefix)\"customTheme\":\(customThemeText)".utf8), at: tcRange.upperBound - 1)
+        } else {
+            throw WriteError.invalid("report.json has no themeCollection")
+        }
+
+        // 2. Cập nhật `resourcePackages`: bỏ mục CustomTheme cũ trong RegisteredResources rồi thêm mục mới
+        let itemText = #"{"name":\#(tok(name)),"path":\#(tok(path)),"type":"CustomTheme"}"#
+        guard let packagesRange = JSONCursor.locate([.key("resourcePackages")][...], in: bytes),
+              let packages = JSONCursor.children(at: [.key("resourcePackages")], in: bytes) else {
+            throw WriteError.invalid("report.json has no resourcePackages array")
+        }
+        if let idx = packages.indices.first(where: { p in
+            guard let r = JSONCursor.locate([.key("resourcePackages"), .index(p), .key("name")][...], in: bytes) else { return false }
+            return JSONCursor.string(in: bytes, r) == "RegisteredResources"
+        }) {
+            let itemsPath: [JSONPathStep] = [.key("resourcePackages"), .index(idx), .key("items")]
+            guard let kids = JSONCursor.children(at: itemsPath, in: bytes) else {
+                throw WriteError.invalid("RegisteredResources has no items array")
+            }
+            let drop = Set(kids.indices.filter { k in
+                let raw = Data(bytes[kids[k].value])
+                let obj = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any]
+                return (obj?["type"] as? String) == "CustomTheme"
+            })
+            if !drop.isEmpty { bytes = JSONCursor.removing(drop, from: kids, in: bytes) }
+            guard let itemsRange = JSONCursor.locate(itemsPath[...], in: bytes),
+                  let freshKids = JSONCursor.children(at: itemsPath, in: bytes) else {
+                throw WriteError.invalid("RegisteredResources items missing")
+            }
+            let prefix = freshKids.isEmpty ? "" : ","
+            bytes.insert(contentsOf: Array((prefix + itemText).utf8), at: itemsRange.upperBound - 1)
+        } else {
+            let pkgText = #"{"name":"RegisteredResources","type":"RegisteredResources","items":[\#(itemText)]}"#
+            let prefix = packages.isEmpty ? "" : ","
+            bytes.insert(contentsOf: Array((prefix + pkgText).utf8), at: packagesRange.upperBound - 1)
+        }
+
+        // Verify JSON validity & expected customTheme
+        let result = Data(bytes)
+        guard let actual = (try? JSONSerialization.jsonObject(with: result)) as? [String: Any],
+              let tc = actual["themeCollection"] as? [String: Any],
+              let ct = tc["customTheme"] as? [String: Any],
+              (ct["name"] as? String) == name,
+              items(in: result).contains(where: { $0.package == "RegisteredResources" && $0.name == name && $0.type == "CustomTheme" }) else {
+            throw WriteError.verificationFailed("custom theme splice verification failed")
+        }
+        return result
+    }
 }

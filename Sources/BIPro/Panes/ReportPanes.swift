@@ -105,11 +105,12 @@ struct FiltersPane: View {
     }
 }
 
-/// Ô "Thêm field dữ liệu vào đây": chọn cột từ danh sách (Power BI kéo field từ pane Dữ liệu; kéo thả chưa làm).
+/// Ô "Thêm field dữ liệu vào đây": vừa chọn cột từ menu vừa hỗ trợ kéo-thả trực tiếp từ pane Dữ liệu (Wave 3A).
 struct AddFieldMenu: View {
     let interaction: ReportInteraction
     let level: ReportFilter.Level
     let scope: String
+    @State private var isDropTargeted = false
 
     var body: some View {
         Menu {
@@ -121,13 +122,26 @@ struct AddFieldMenu: View {
                 }
             }
         } label: {
-            Text(bi("Thêm field dữ liệu vào đây", "Add data fields here")).font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
+            Text(isDropTargeted ? bi("Thả trường để thêm bộ lọc", "Drop field to add filter") : bi("Thêm field dữ liệu vào đây", "Add data fields here"))
+                .font(.system(size: 12))
+                .foregroundStyle(isDropTargeted ? DS.Palette.accent : DS.Palette.secondaryLabel)
                 .frame(maxWidth: .infinity).frame(height: 40)
-                .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
-                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
+                .background(RoundedRectangle(cornerRadius: 3).fill(isDropTargeted ? DS.Palette.accent.opacity(0.08) : DS.Palette.canvas))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(isDropTargeted ? DS.Palette.accent : DS.Palette.separator,
+                                                                       style: isDropTargeted ? StrokeStyle(lineWidth: 1.5, dash: [4, 3]) : StrokeStyle(lineWidth: 1)))
         }
         .menuStyle(.button).buttonStyle(.plain)
-        .help(bi("Chọn cột để thêm bộ lọc", "Choose a column to add a filter"))
+        .onDrop(of: [.utf8PlainText], isTargeted: $isDropTargeted) { providers in
+            BuildDrop.load(from: providers) { drops in
+                for drop in drops {
+                    if case .field(let ref) = drop, ref.kind == .column {
+                        interaction.addFilter(column: QueryColumn(table: ref.entity, column: ref.property), level: level, scope: scope)
+                    }
+                }
+            }
+            return true
+        }
+        .help(bi("Chọn hoặc kéo-thả cột từ pane Dữ liệu để thêm bộ lọc", "Pick or drag a column from the Data pane to add a filter"))
     }
 }
 

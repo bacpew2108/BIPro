@@ -23,6 +23,16 @@ struct PageEdit: Equatable {
     /// Phần sửa định dạng đã gộp của visual có trong file (mã visual → danh sách `FormatEdit`), D4. Visual mới nằm trong `added`
     /// (định dạng đã nằm trong byte), nên không có khoá ở đây.
     var formats: [String: [FormatEdit]] = [:]
+    /// Tương tác chéo tuỳ chỉnh trên trang (`page.json` `visualInteractions`, Wave 3A / VM-V11B). nil = chưa sửa.
+    var visualInteractions: [PageVisualInteraction]? = nil
+    /// Sửa mảng đối tượng định dạng phức tạp trong `visual.objects` (Wave 3B: `values` CF, `columnFormatting` dataBars,
+    /// `y1AxisReferenceLine`, `referenceLine`, `trend`, `forecast`). visualID → objectKey → arrayJSON (nil = xoá khoá).
+    var rawObjectEdits: [String: [String: String?]] = [:]
+}
+
+struct CustomThemeEdit: Equatable {
+    var name: String
+    var data: Data
 }
 
 /// Công thức đổi loại một visual đã có trong file: loại mới và các khoá `visual.objects` cần bỏ (tích luỹ qua các lần đổi).
@@ -51,6 +61,10 @@ struct LayoutSnapshot {
     var diagram = DiagramEdits()
     /// Ảnh nhúng mới thêm trong phiên (US4): tên tài nguyên RegisteredResources → dữ liệu ảnh gốc.
     var addedImages: [String: Data] = [:]
+    /// Chủ đề tuỳ chỉnh áp dụng trong phiên (Wave 3B).
+    var customTheme: CustomThemeEdit? = nil
+    /// Ghi đè byte PBIR cấp trang/báo cáo/bookmark (Wave 3C Cascade Rename).
+    var pbirPartOverrides: [String: Data] = [:]
 }
 
 /// Bố cục có thể sửa của báo cáo. `Workspace` giữ bản gốc bất biến; mọi thay đổi nằm ở đây
@@ -84,6 +98,12 @@ final class LayoutEditor {
     private(set) var savedModelEdits = ModelEdits()
     /// Ảnh nhúng mới thêm trong phiên (US4): tên trong `RegisteredResources` → dữ liệu ảnh (hoàn tác cùng visual).
     private(set) var addedImages: [String: Data] = [:]
+    /// Chủ đề tuỳ chỉnh áp dụng trong phiên (Wave 3B, hoàn tác cùng lịch sử tài liệu).
+    private(set) var customTheme: CustomThemeEdit? = nil
+    /// Gọi khi đổi hoặc hoàn tác chủ đề để `DocumentState`/`Workspace` cập nhật bảng màu ngay.
+    @ObservationIgnored var customThemeChanged: (CustomThemeEdit?) -> Void = { _ in }
+    /// Ghi đè byte PBIR (`page.json`, `report.json`, `bookmark.json`) từ Cascade Rename (Wave 3C).
+    private(set) var pbirPartOverrides: [String: Data] = [:]
     /// Vị trí thẻ bảng và thu phóng Model view chưa lưu (Phase E). Chung ngăn xếp hoàn tác.
     private(set) var diagramEdits = DiagramEdits()
     /// `diagramEdits` ở lần lưu thành công gần nhất (giữ cả vị trí gốc, để hoàn tác sau lưu ghi lại được vị trí cũ).
@@ -115,6 +135,8 @@ final class LayoutEditor {
     private(set) var notice: String?
     /// Lý do gần nhất một thao tác sửa trường bị từ chối (D2); nil khi thao tác gần nhất được chấp nhận.
     private(set) var fieldRefusal: String?
+    /// Chế độ Sửa tương tác chéo trên canvas (Wave 3A): hiện huy hiệu Lọc/Tô sáng/Không trên từng visual đích.
+    var isEditingInteractions = false
 
     // Hoàn tác
     private var undoStack: [LayoutSnapshot] = []
@@ -287,8 +309,142 @@ final class LayoutEditor {
     func page(_ pageID: String) -> ReportPage? {
         guard var page = basePage(pageID) else { return nil }
         if let name = structure.renamed[pageID] { page.displayName = name }
-        if let edit = edited[pageID] { page.visuals = edit.visuals; page.groups = edit.groups }
+        if let edit = edited[pageID] {
+            page.visuals = edit.visuals
+            page.groups = edit.groups
+            if let interactions = edit.visualInteractions { page.visualInteractions = interactions }
+        }
         return page
+    }
+
+    /// Danh sách tương tác chéo hiệu lực trên trang `pageID`.
+    func visualInteractions(on pageID: String) -> [PageVisualInteraction] {
+        edited[pageID]?.visualInteractions ?? basePage(pageID)?.visualInteractions ?? []
+    }
+
+    /// Đặt hiệu ứng tương tác từ `source` tới `target` trên trang `pageID` (có hoàn tác ⌘Z, lưu vào `page.json`).
+    func setVisualInteraction(source: String, target: String, type: PBIRInteractionType, on pageID: String) {
+        guard source != target, let base = page(pageID) else { return }
+        var list = visualInteractions(on: pageID)
+        if let idx = list.firstIndex(where: { $0.source == source && $0.target == target }) {
+            if list[idx].type == type { return }
+            list[idx].type = type
+        } else {
+            list.append(PageVisualInteraction(source: source, target: target, type: type))
+        }
+        if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+        undoStack.append(snapshot(of: pageID))
+        if undoStack.count > Self.historyLimit {
+            undoStack.removeFirst()
+            cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+        }
+        redoStack.removeAll()
+        lastCoalesce = nil
+        var edit = edited[pageID] ?? PageEdit(visuals: base.visuals, groups: base.groups)
+        edit.visualInteractions = list
+        edited[pageID] = edit
+    }
+
+    /// Đặt nguyên mảng đối tượng định dạng `visual.objects.<object>` cho visual `id` (Wave 3B: CF Rules/Gradient, Data Bars, Analytics lines).
+    func setRawObjectArray(object: String, arrayJSON: String?, visual id: String) {
+        guard let pageID = currentPageID, let base = page(pageID),
+              let idx = base.visuals.firstIndex(where: { $0.id == id }) else { return }
+        if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+        undoStack.append(snapshot(of: pageID))
+        if undoStack.count > Self.historyLimit {
+            undoStack.removeFirst()
+            cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+        }
+        redoStack.removeAll()
+        lastCoalesce = nil
+
+        var edit = edited[pageID] ?? PageEdit(visuals: base.visuals, groups: base.groups)
+        var visual = edit.visuals[idx]
+        // Cập nhật ngay trên `visual.objects` và `visual.raw` trong bộ nhớ để canvas vẽ tức thời
+        var objDict = visual.objects.json.object
+        if let arrayJSON, let parsed = try? JSONValue.parse(Data(arrayJSON.utf8)) {
+            objDict[object] = parsed
+        } else {
+            objDict[object] = nil
+        }
+        visual.objects = ObjectProperties(.object(objDict))
+        edit.visuals[idx] = visual
+        if let addedBytes = edit.added[id],
+           let patched = try? PBIRFormatPatch.replacingObject(object, scope: .objects, arrayJSON: arrayJSON, in: addedBytes) {
+            edit.added[id] = patched
+        } else {
+            var map = edit.rawObjectEdits[id] ?? [:]
+            map[object] = arrayJSON
+            edit.rawObjectEdits[id] = map
+        }
+        edited[pageID] = edit
+    }
+
+    /// Đổi chủ đề toàn báo cáo (Wave 3B): ghi vào `RegisteredResources/<name>` và `report.json`, hỗ trợ Undo/Redo.
+    func setCustomTheme(name: String, data: Data) {
+        let pageID = currentPageID ?? structure.order.first ?? ""
+        if !redoStack.isEmpty, cleanMark > undoStack.count { cleanMark = -1 }
+        undoStack.append(snapshot(of: pageID))
+        if undoStack.count > Self.historyLimit {
+            undoStack.removeFirst()
+            cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+        }
+        redoStack.removeAll()
+        lastCoalesce = nil
+        let next = CustomThemeEdit(name: name, data: data)
+        customTheme = next
+        customThemeChanged(next)
+    }
+
+    /// Byte JSON hiện hành của một visual (ưu tiên bản đã sửa/thêm trong phiên).
+    func visualJSONBytes(pageID: String, visualID: String) -> Data? {
+        if let added = edited[pageID]?.added[visualID] { return added }
+        return sourceJSON(pageID, visualID)
+    }
+
+    /// Ghi nguyên khối Cascade Rename (Wave 3C): cập nhật `modelEdits`, JSON các visual và các phần PBIR khác trong một bước hoàn tác ⌘Z.
+    func commitCascadeRename(
+        model: ModelEdits,
+        visualUpdates: [(pageID: String, visualID: String, data: Data)],
+        partOverrides: [String: Data]
+    ) {
+        let pageID = currentPageID ?? structure.order.first ?? ""
+        undoStack.append(snapshot(of: pageID))
+        if undoStack.count > Self.historyLimit {
+            undoStack.removeFirst()
+            cleanMark = cleanMark > 0 ? cleanMark - 1 : -1
+        }
+        redoStack.removeAll()
+        lastCoalesce = nil
+
+        modelEdits = model
+        modelEditsChanged(modelEdits)
+
+        for update in visualUpdates {
+            let baseVisuals = basePage(update.pageID)?.visuals ?? []
+            let baseGroups = basePage(update.pageID)?.groups ?? []
+            var pageEdit = edited[update.pageID] ?? PageEdit(visuals: baseVisuals, groups: baseGroups)
+            pageEdit.added[update.visualID] = update.data
+            if let vIdx = pageEdit.visuals.firstIndex(where: { $0.id == update.visualID }),
+               let parsed = try? JSONValue.parse(update.data),
+               let vNode = parsed["visual"] {
+                let old = pageEdit.visuals[vIdx]
+                pageEdit.visuals[vIdx] = ReportVisual(
+                    id: old.id, type: vNode["visualType"]?.string ?? old.type,
+                    x: old.x, y: old.y, z: old.z, width: old.width, height: old.height,
+                    isHidden: old.isHidden,
+                    objects: ObjectProperties(vNode["objects"]),
+                    containerObjects: ObjectProperties(vNode["visualContainerObjects"]),
+                    fields: PBIXFile.pbirFields(vNode["query"]?["queryState"]),
+                    raw: parsed,
+                    parentGroup: old.parentGroup
+                )
+            }
+            edited[update.pageID] = pageEdit
+        }
+        for (path, bytes) in partOverrides {
+            pbirPartOverrides[path] = bytes
+        }
     }
 
     /// Các trang theo thứ tự tab, đã sửa (thêm, xoá, đổi tên, đổi thứ tự, bố cục).
@@ -1113,7 +1269,8 @@ final class LayoutEditor {
 
     private func snapshot(of pageID: String) -> LayoutSnapshot {
         LayoutSnapshot(pageID: pageID, edited: edited, structure: structure, selection: selection, primary: primary, edits: reportEdits,
-                       model: modelEdits, diagram: diagramEdits, addedImages: addedImages)
+                       model: modelEdits, diagram: diagramEdits, addedImages: addedImages, customTheme: customTheme,
+                       pbirPartOverrides: pbirPartOverrides)
     }
 
     private func restore(_ step: LayoutSnapshot) {
@@ -1121,6 +1278,11 @@ final class LayoutEditor {
         structure = step.structure
         reportEdits = step.edits
         addedImages = step.addedImages
+        pbirPartOverrides = step.pbirPartOverrides
+        if customTheme != step.customTheme {
+            customTheme = step.customTheme
+            customThemeChanged(customTheme)
+        }
         if modelEdits != step.model {
             modelEdits = step.model
             modelEditsChanged(modelEdits)
@@ -1502,6 +1664,11 @@ final class LayoutEditor {
                     if let lines = edit.texts[visual.id] { json = try PBIRVisualPatch.setText(in: json, lines: lines) }
                     if let wells = edit.queries[visual.id] { json = try applyQuery(wells, to: json, retype: edit.retyped[visual.id]) }
                     if let formats = edit.formats[visual.id] { json = try PBIRFormatPatch.apply(formats, to: json) }
+                    if let rawMap = edit.rawObjectEdits[visual.id] {
+                        for (objKey, arrayJSON) in rawMap.sorted(by: { $0.key < $1.key }) {
+                            json = try PBIRFormatPatch.replacingObject(objKey, scope: .objects, arrayJSON: arrayJSON, in: json)
+                        }
+                    }
                     if let patched = try Self.patch(json, to: visual, group: group) { json = patched }
                     if json != onDisk { changes.reportParts[path] = json }
                 } else if let data = edit.added[visual.id] {
@@ -1520,21 +1687,31 @@ final class LayoutEditor {
             }
         }
 
-        // Trang (D5): tên và trang mới, so với file trên đĩa.
+        // Trang (D5 + Wave 3A): tên, trang mới và `visualInteractions`, so với file trên đĩa.
         for pageID in order {
             let path = Self.pagePath(pageID)
+            let editedInteractions = edited[pageID]?.visualInteractions
             if let created = structure.created[pageID] {
+                var targetJSON = created.pageJSON
+                if let interactions = editedInteractions {
+                    targetJSON = try PBIRPagePatch.settingVisualInteractions(interactions, in: targetJSON)
+                }
                 if archive.entry(path) == nil {
-                    changes.addedParts[path] = created.pageJSON
+                    changes.addedParts[path] = targetJSON
                 } else {
                     let onDisk = try archive.read(path)
-                    if onDisk != created.pageJSON { changes.reportParts[path] = created.pageJSON }
+                    if onDisk != targetJSON { changes.reportParts[path] = targetJSON }
                 }
             } else if exists(path), let name = page(pageID)?.displayName {
                 let onDisk = try bytes(path)
-                if (try? JSONValue.parse(onDisk))?["displayName"]?.string != name {
-                    changes.reportParts[path] = try PBIRPagePatch.setPageDisplayName(name, in: onDisk)
+                var updated = onDisk
+                if (try? JSONValue.parse(updated))?["displayName"]?.string != name {
+                    updated = try PBIRPagePatch.setPageDisplayName(name, in: updated)
                 }
+                if let interactions = editedInteractions {
+                    updated = try PBIRPagePatch.settingVisualInteractions(interactions, in: updated)
+                }
+                if updated != onDisk { changes.reportParts[path] = updated }
             }
         }
         // Trang bị xoá: mọi part của nó; visual của nó tính là visual bị xoá (dọn bookmark như D1).
@@ -1626,6 +1803,13 @@ final class LayoutEditor {
             }
         }
         saveNotes = try addReportChanges(to: &changes, archive: archive)
+        for (path, bytes) in pbirPartOverrides where !changes.removedParts.contains(path) {
+            if archive.entry(path) != nil {
+                changes.reportParts[path] = bytes
+            } else {
+                changes.addedParts[path] = bytes
+            }
+        }
         try addSettingsChanges(to: &changes, archive: archive)
         changes.modelEdits = try writableModelDelta()
         if changes.modelEdits.hasCalculatedEdits { changes.calculatedData = try calculatedValues(changes.modelEdits) }

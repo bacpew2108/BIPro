@@ -8,7 +8,9 @@ import PBIXKit
 final class Workspace: @unchecked Sendable {
     let pbix: PBIXFile
     let report: ReportDefinition
-    let theme: ReportTheme
+    let baseTheme: ReportTheme
+    var theme: ReportTheme
+    var sessionCustomThemeName: String? = nil
     let abf: ABFBackup?
     /// Mô hình hiệu lực (gốc cộng `ModelEdits` của phiên); nil khi file không có mô hình.
     var metadata: ModelMetadata? { runtime?.metadata }
@@ -32,7 +34,9 @@ final class Workspace: @unchecked Sendable {
     init(data: Data) throws {
         pbix = try PBIXFile(data: data)
         report = (try? pbix.loadReport()) ?? ReportDefinition(pages: [])
-        theme = pbix.loadTheme(for: report)
+        let loadedTheme = pbix.loadTheme(for: report)
+        baseTheme = loadedTheme
+        theme = loadedTheme
         (reportFilters, pageFilters, visualFilters) = pbix.loadFilters(report: report)
         bookmarks = pbix.loadBookmarks()
         diagramLayout = pbix.loadDiagramLayout()
@@ -68,6 +72,21 @@ final class Workspace: @unchecked Sendable {
     }()
 
     var visiblePages: [ReportPage] { report.pages.filter { !$0.isHidden } }
+
+    /// Áp dụng chủ đề JSON ngay trong phiên (Wave 3B: đổi theme tức thời trên canvas).
+    @discardableResult
+    func applySessionTheme(name: String, data: Data) -> Bool {
+        guard let updated = baseTheme.applying(jsonData: data) else { return false }
+        theme = updated
+        sessionCustomThemeName = name
+        return true
+    }
+
+    /// Khôi phục chủ đề gốc của tài liệu (khi Undo về trạng thái ban đầu).
+    func resetSessionTheme() {
+        theme = baseTheme
+        sessionCustomThemeName = nil
+    }
 
     func page(id: String) -> ReportPage? { report.pages.first { $0.id == id } }
 

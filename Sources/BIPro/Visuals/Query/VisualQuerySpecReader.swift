@@ -49,7 +49,12 @@ struct VisualQuerySpecReader {
                 spec.expanded = Self.expandedRoots(body["expansionStates"])
             }
         case .matrix:
-            spec.primary = Array(groupFields(queryState["Rows"], role: "Rows", activeOnly: false).prefix(1))
+            let allRows = groupFields(queryState["Rows"], role: "Rows", activeOnly: false)
+            spec.primary = Array(allRows.prefix(1))
+            if allRows.count >= 2 {
+                spec.rowDrillLevels = allRows
+                spec.rowExpandedPaths = Self.expandedPaths(in: body["expansionStates"], role: "Rows")
+            }
             spec.secondary = Array(groupFields(queryState["Columns"], role: "Columns", activeOnly: false).prefix(1))
         case .treemap:
             spec.primary = Array(groupFields(queryState["Group"], role: "Group", activeOnly: false).prefix(1))
@@ -305,10 +310,19 @@ struct VisualQuerySpecReader {
 
     /// Giá trị cấp gốc đang mở nút trong `expansionStates` của slicer (nút `isToggled`).
     static func expandedRoots(_ states: JSONValue?) -> [Value] {
-        let children = states?[0]?["root"]?["children"]?.array ?? []
-        return children.compactMap { child -> Value? in
-            guard child["isToggled"]?.bool == true,
-                  let raw = child["identityValues"]?[0]?["Literal"]?["Value"]?.string else { return nil }
+        expandedPaths(in: states, role: "Values").compactMap(\.first)
+    }
+
+    /// Đọc toàn bộ đường giá trị đang mở (`isToggled: true`) trong `expansionStates` theo vai trò (`"Rows"`, `"Columns"`, `"Values"` — VM-V11B).
+    static func expandedPaths(in states: JSONValue?, role: String) -> [[Value]] {
+        guard let list = states?.array else { return [] }
+        let matched = list.first { entry in
+            let roles = entry["roles"]?.array.compactMap(\.string) ?? []
+            return roles.contains(role) || (role == "Values" && roles.isEmpty)
+        } ?? (role == "Values" ? list.first : nil)
+        guard let root = matched?["root"] else { return [] }
+        var out: [[Value]] = []
+        func decode(_ raw: String) -> Value? {
             switch ReportLiteral(literal: raw) {
             case .number(let n): return n == n.rounded() && abs(n) < 1e15 ? .integer(Int64(n)) : .double(n)
             case .string(let t): return .string(t)
@@ -316,6 +330,17 @@ struct VisualQuerySpecReader {
             default: return nil
             }
         }
+        func walk(_ node: JSONValue, prefix: [Value]) {
+            for child in node["children"]?.array ?? [] {
+                guard let raw = child["identityValues"]?[0]?["Literal"]?["Value"]?.string,
+                      let val = decode(raw) else { continue }
+                let path = prefix + [val]
+                if child["isToggled"]?.bool == true { out.append(path) }
+                walk(child, prefix: path)
+            }
+        }
+        walk(root, prefix: [])
+        return out
     }
 
     /// Đưa spec xuống cấp `depth` của hierarchy (0 = cấp gốc). Chart nhóm theo mọi cấp từ gốc tới `depth` (C1.md §2.2:

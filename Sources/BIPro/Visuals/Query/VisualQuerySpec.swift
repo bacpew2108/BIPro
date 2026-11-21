@@ -290,13 +290,24 @@ struct VisualQuerySpec: Hashable, Sendable {
     var expanded: [Value] = []
     /// Matrix: các nút cột đang mở, mỗi nút là đường giá trị từ cấp gốc ([vùng], [vùng, bang]…). Mở nút nhiều cấp.
     var expandedPaths: [[Value]] = []
+    /// Matrix phân cấp hàng (Wave 3A, VM-V11B): danh sách cấp trong ô `Rows` khi có ≥ 2 trường.
+    var rowDrillLevels: [GroupField] = []
+    /// Matrix: các nút hàng đang mở (`expansionStates` với `roles: ["Rows"]`), mỗi nút là đường giá trị từ cấp gốc.
+    var rowExpandedPaths: [[Value]] = []
     /// Số cấp cột đang hiện của matrix khi có nút mở (1 = chưa mở gì).
     var matrixColumnDepth: Int {
         guard drillLevels.count >= 2, !expandedPaths.isEmpty, secondary.count == 1 else { return 1 }
         return min(drillLevels.count, (expandedPaths.map(\.count).max() ?? 1) + 1)
     }
+    /// Số cấp hàng đang hiện của matrix khi có nút hàng mở (1 = chưa mở gì).
+    var matrixRowDepth: Int {
+        guard rowDrillLevels.count >= 2, !rowExpandedPaths.isEmpty, primary.count == 1 else { return 1 }
+        return min(rowDrillLevels.count, (rowExpandedPaths.map(\.count).max() ?? 1) + 1)
+    }
     /// Tên cờ tổng của cấp cột thứ `j` khi mở nút: cấp 0 là tổng chung, các cấp sau `IsDM2Total`, `IsDM4Total`… (VM C2 b5-1, b5-2).
     static func columnFlagName(_ j: Int) -> String { j == 0 ? "IsGrandTotalColumnTotal" : "IsDM\(2 * j)Total" }
+    /// Tên cờ tổng của cấp hàng thứ `j` khi mở nút hàng: cấp 0 là `IsGrandTotalRowTotal`, các cấp sau `IsDM1Total`, `IsDM3Total`…
+    static func rowFlagName(_ j: Int) -> String { j == 0 ? "IsGrandTotalRowTotal" : "IsDM\(2 * j - 1)Total" }
 
     init(visualID: String, visualType: String, primary: [GroupField] = [], secondary: [GroupField] = [],
          measures: [QueryMeasure] = [], filters: [QueryFilter] = [], rowTotals: Bool = false, columnTotals: Bool = false,

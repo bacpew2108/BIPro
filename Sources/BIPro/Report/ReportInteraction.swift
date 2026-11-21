@@ -51,6 +51,8 @@ final class ReportInteraction {
     var slicerExpansion: [String: [Value]] = [:]
     /// Matrix: các nút cột đang mở (đường giá trị từ cấp gốc) do người dùng đặt, khoá = id visual.
     var matrixExpansion: [String: [[Value]]] = [:]
+    /// Matrix: các nút hàng đang mở (đường giá trị từ cấp gốc, Wave 3A / VM-V11B), khoá = id visual.
+    var matrixRowExpansion: [String: [[Value]]] = [:]
 
     /// Ẩn/hiện visual do Selection pane và bookmark đặt (gói P).
     var visibility = VisibilityState()
@@ -306,6 +308,18 @@ final class ReportInteraction {
         matrixExpansion[visual.id] = current
     }
 
+    /// Matrix phân cấp hàng (Wave 3A): bấm + mở nút hàng `path`, bấm − đóng nút đó cùng mọi nút con đang mở.
+    func expandMatrixRow(visual: ReportVisual, spec: VisualQuerySpec, path: [Value]) {
+        guard !path.isEmpty, path.count < spec.rowDrillLevels.count else { return }
+        var current = matrixRowExpansion[visual.id] ?? spec.rowExpandedPaths
+        if current.contains(path) {
+            current.removeAll { $0.count >= path.count && Array($0.prefix(path.count)) == path }
+        } else {
+            current.append(path)
+        }
+        matrixRowExpansion[visual.id] = current
+    }
+
     // MARK: - Drill
 
     func depth(of visual: ReportVisual) -> Int { drillDepth[visual.id] ?? 0 }
@@ -391,11 +405,24 @@ final class ReportInteraction {
         let (reader, loader) = try await services()
         var spec = try reader.spec(for: visual, filters: [])
         let statics = staticFilters(page: page, visual: visual)
+        var effectiveState = state
+        if !page.visualInteractions.isEmpty {
+            let pageOverrides = page.visualInteractions.map { item -> InteractionOverride in
+                let effect: InteractionEffect = switch item.type {
+                case .dataFilter: .filter
+                case .highlightFilter: .highlight
+                case .noFilter: .none
+                }
+                return InteractionOverride(sourceID: item.source, targetID: item.target, effect: effect)
+            }
+            effectiveState.overrides = pageOverrides + state.overrides
+        }
         let assembled = FilterTranslator.assemble(
-            for: InteractionTarget(visualID: visual.id, visualType: visual.type), staticFilters: statics, state: state)
+            for: InteractionTarget(visualID: visual.id, visualType: visual.type), staticFilters: statics, state: effectiveState)
         VisualQuerySpecReader.applyDrill(&spec, depth: depth(of: visual))
         if let expanded = slicerExpansion[visual.id] { spec.expanded = expanded }
         if let paths = matrixExpansion[visual.id] { spec.expandedPaths = paths }
+        if let rowPaths = matrixRowExpansion[visual.id] { spec.rowExpandedPaths = rowPaths }
         spec.filters = assembled.filters
         spec.valueFilters = valueFilters(for: visual)
         spec.highlight = assembled.highlight

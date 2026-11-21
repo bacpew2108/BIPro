@@ -586,8 +586,18 @@ public struct QueryEditorWindow: View {
                 activePopover = PopoverInfo(command: command, type: .removeTopRows)
             case .replaceValue:
                 activePopover = PopoverInfo(command: command, type: .replaceValue)
+            case .replaceErrors:
+                activePopover = PopoverInfo(command: command, type: .replaceErrors)
             case .splitByDelimiter:
                 activePopover = PopoverInfo(command: command, type: .splitByDelimiter)
+            case .splitByNumberOfChars:
+                activePopover = PopoverInfo(command: command, type: .splitByNumberOfChars)
+            case .extractFirstChars, .extractLastChars, .addExtractFirstChars, .addExtractLastChars:
+                activePopover = PopoverInfo(command: command, type: .charCount)
+            case .extractBeforeDelimiter, .extractAfterDelimiter, .addExtractBeforeDelimiter, .addExtractAfterDelimiter:
+                activePopover = PopoverInfo(command: command, type: .singleDelimiter)
+            case .extractBetweenDelimiters, .addExtractBetweenDelimiters:
+                activePopover = PopoverInfo(command: command, type: .betweenDelimiters)
             case .addCustomColumn:
                 activeSheet = .customColumn
             case .groupByCount:

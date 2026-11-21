@@ -54,6 +54,10 @@ public enum AggregationFunctions: FunctionFamily {
         FunctionSpec(name: "STDEV.P", params: [.column("column")],
                      impl: .scalar(statisticBody("STDEV.P", { populationVariance($0).squareRoot() }))),
         FunctionSpec(name: "VAR.P", params: [.column("column")], impl: .scalar(statisticBody("VAR.P", populationVariance))),
+        // Wave 3 (v1.1b — đối chiếu VM-V11B dax-golden.json)
+        FunctionSpec(name: "COUNTBLANK", params: [.column("column")], impl: .scalar(countBlankBody)),
+        FunctionSpec(name: "STDEV.S", params: [.column("column")], impl: .scalar(sampleStatisticBody("STDEV.S", root: true))),
+        FunctionSpec(name: "VAR.S", params: [.column("column")], impl: .scalar(sampleStatisticBody("VAR.S", root: false))),
     ]
 
     // MARK: MEDIAN, STDEV.P, VAR.P
@@ -98,6 +102,48 @@ public enum AggregationFunctions: FunctionFamily {
         var squares = FKNeumaier()
         values.forEach { squares.add(($0 - mean) * ($0 - mean)) }
         return squares.value / Double(values.count)
+    }
+
+    /// COUNTBLANK(cột): đếm ô BLANK thấy được. Khi không có ô trống nào, DAX trả BLANK() (KHÔNG trả 0 — VM-V11B!).
+    private static let countBlankBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        let column = try frame.column(0)
+        let (data, rows) = try visibleColumn(frame, column)
+        var blanks: Int64 = 0
+        rows.forEach { r in
+            if case .blank = data.value(at: r) { blanks += 1 }
+        }
+        return blanks == 0 ? .blank : .integer(blanks)
+    }
+
+    /// VAR.S / STDEV.S: phương sai và độ lệch chuẩn mẫu (chia cho n − 1). Ít hơn 2 giá trị trả BLANK.
+    private static func sampleStatisticBody(_ name: String, root: Bool) -> FunctionSpec.ScalarBody {
+        return { (frame: CallFrame) throws(DAXError) -> Value in
+            let column = try frame.column(0)
+            let (data, rows) = try visibleColumn(frame, column)
+            let kind = data.type
+            guard kind == .integer || kind == .currency || kind == .double else {
+                let store = try fkEvaluator(frame).store
+                let label = store.schema.column(column)?.name ?? "\(column)"
+                throw DAXError(.typeMismatch, "\(name) không hỗ trợ cột \(label) có kiểu \(kind)")
+            }
+            var values: [Double] = []
+            try fkForEachRow(rows) { (r: Int) throws(DAXError) in
+                switch data.value(at: r) {
+                case .integer(let v): values.append(kind == .currency ? Double(v) / 10_000 : Double(v))
+                case .currency(let v): values.append(Double(v) / 10_000)
+                case .double(let d): values.append(d)
+                default: break
+                }
+            }
+            guard values.count >= 2 else { return .blank }
+            var total = FKNeumaier()
+            values.forEach { total.add($0) }
+            let mean = total.value / Double(values.count)
+            var squares = FKNeumaier()
+            values.forEach { squares.add(($0 - mean) * ($0 - mean)) }
+            let variance = squares.value / Double(values.count - 1)
+            return .double(root ? variance.squareRoot() : variance)
+        }
     }
 
     // MARK: SUM

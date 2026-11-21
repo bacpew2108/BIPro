@@ -87,6 +87,65 @@ enum ValueReplacerSplitter {
             return .function(inner)
         },
 
+        // Wave 3C (T021): Splitter theo số ký tự lặp lại và theo danh sách vị trí
+        MFunction(
+            name: "Splitter.SplitTextByRepeatedLengths",
+            parameters: [MParameter(name: "length")],
+            observed: false
+        ) { args in
+            let length = try MInt.from(args.number(0, "Splitter.SplitTextByRepeatedLengths"), "Splitter.SplitTextByRepeatedLengths")
+            guard length > 0 else { throw MError.expression("Splitter.SplitTextByRepeatedLengths: length phải > 0") }
+            let inner = MFunction(
+                name: "Splitter.SplitTextByRepeatedLengths_inner",
+                parameters: [MParameter(name: "text")],
+                observed: false
+            ) { innerArgs in
+                if case .null = innerArgs[0] { return .null }
+                let text = try innerArgs.text(0, "Splitter.SplitTextByRepeatedLengths")
+                if text.isEmpty { return .list([.text("")]) }
+                let chars = Array(text)
+                var parts: [MValue] = []
+                var i = 0
+                while i < chars.count {
+                    let end = min(i + length, chars.count)
+                    parts.append(.text(String(chars[i..<end])))
+                    i = end
+                }
+                return .list(parts)
+            }
+            return .function(inner)
+        },
+
+        MFunction(
+            name: "Splitter.SplitTextByPositions",
+            parameters: [MParameter(name: "positions"), MParameter(name: "startAtEnd", isOptional: true)],
+            observed: false
+        ) { args in
+            let posList = try args.list(0, "Splitter.SplitTextByPositions")
+            let positions = try posList.map { v -> Int in
+                guard let n = MOperators.number(v) else { throw MError.expression("Splitter.SplitTextByPositions: vị trí phải là số") }
+                return try MInt.from(n, "Splitter.SplitTextByPositions")
+            }.sorted()
+            let inner = MFunction(
+                name: "Splitter.SplitTextByPositions_inner",
+                parameters: [MParameter(name: "text")],
+                observed: false
+            ) { innerArgs in
+                if case .null = innerArgs[0] { return .null }
+                let text = try innerArgs.text(0, "Splitter.SplitTextByPositions")
+                let chars = Array(text)
+                guard !positions.isEmpty else { return .list([.text(text)]) }
+                var parts: [MValue] = []
+                for idx in positions.indices {
+                    let s = min(max(positions[idx], 0), chars.count)
+                    let e = idx + 1 < positions.count ? min(max(positions[idx + 1], s), chars.count) : chars.count
+                    parts.append(.text(String(chars[s..<e])))
+                }
+                return .list(parts)
+            }
+            return .function(inner)
+        },
+
         // [SUY ĐOÁN]
         MFunction(
             name: "Combiner.CombineTextByDelimiter",

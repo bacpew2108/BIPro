@@ -469,6 +469,43 @@ struct BindScope {
             let index = Int(fid.raw)
             guard index >= 0, index < FunctionRegistry.all.count else { return nil }
             let spec = FunctionRegistry.all[index]
+            if spec.name == "CALENDAR" || spec.name == "CALENDARAUTO" {
+                return ["date"]
+            }
+            if spec.name == "GENERATESERIES" {
+                return ["value"]
+            }
+            if spec.name == "DATATABLE", args.count >= 3 {
+                var cols = Set<String>()
+                var i = 0
+                while i + 1 < args.count - 1 {
+                    if let a = args[i], case .literal(.string(let name)) = a {
+                        cols.insert(bare(name))
+                    }
+                    i += 2
+                }
+                return cols
+            }
+            if spec.name == "SELECTCOLUMNS", args.count >= 3 {
+                var cols = Set<String>()
+                var i = 1
+                while i < args.count {
+                    if let a = args[i], case .literal(.string(let name)) = a {
+                        cols.insert(bare(name))
+                    }
+                    i += 2
+                }
+                return cols
+            }
+            if ["UNION", "INTERSECT", "EXCEPT"].contains(spec.name), let first = args.first, let firstArg = first {
+                return staticVirtualColumns(of: firstArg)
+            }
+            if ["OFFSET", "INDEX"].contains(spec.name), args.count >= 2, let rel = args[1] {
+                return staticVirtualColumns(of: rel)
+            }
+            if spec.name == "WINDOW", args.count >= 5, let rel = args[4] {
+                return staticVirtualColumns(of: rel)
+            }
             if ["KEEPFILTERS", "FILTER", "CALCULATETABLE", "ALL", "ALLSELECTED"].contains(spec.name),
                let first = args.first, let firstArg = first {
                 return staticVirtualColumns(of: firstArg)
@@ -545,6 +582,8 @@ struct BindScope {
     /// Từ khoá đối số (DESC, DENSE, YEAR…) khi tham số không khai báo kiểu keyword.
     static let keywordWords: Set<String> = [
         "ASC", "DESC", "DENSE", "SKIP", "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "ALPHABETICAL",
+        "STRING", "INTEGER", "DOUBLE", "BOOLEAN", "DATETIME", "CURRENCY",
+        "ABS", "REL", "BLANKS", "KEEP", "DEFAULT", "FIRST", "LAST",
     ]
 
     /// Tên hàm thường → chỉ số trong FunctionRegistry.all. Trùng tên thì lấy mục đầu tiên.
@@ -568,7 +607,7 @@ final class ArgumentMatcher {
         case pair(Int, Int)
     }
 
-    private static let pairNames: Set<String> = ["value|result", "name|expression", "orderBy|order"]
+    private static let pairNames: Set<String> = ["value|result", "name|expression", "orderBy|order", "colName|colType", "searchCol|searchVal"]
 
     private let params: [Param]
     private let args: [Expr?]
@@ -636,8 +675,9 @@ final class ArgumentMatcher {
             if case .identifier(let word, _) = arg { return words.contains(word.uppercased()) }
             return false
         }
-        // ASC, DESC, DENSE, SKIP không bao giờ là biểu thức; để chúng cho tham số từ khoá.
-        if case .identifier(let word, _) = arg, ["ASC", "DESC", "DENSE", "SKIP"].contains(word.uppercased()) {
+        // ASC, DESC, DENSE, SKIP không bao giờ là biểu thức; để chúng cho tham số từ khoá (trừ orderBy_item của ORDERBY).
+        if param.name != "orderBy_item",
+           case .identifier(let word, _) = arg, ["ASC", "DESC", "DENSE", "SKIP"].contains(word.uppercased()) {
             return false
         }
         // Nhóm cột lặp (SUMMARIZE, ALL…) dừng trước chuỗi, số, logic: đó là tên hoặc giá trị của cặp

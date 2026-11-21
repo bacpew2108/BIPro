@@ -96,6 +96,25 @@ struct ShellView: View {
                 .preferredColorScheme(preferences.preferredColorScheme)
             }
         }
+        .sheet(isPresented: Binding(get: { state.refreshProgress != nil }, set: { if !$0 { state.closeRefreshSheet() } })) {
+            if let progress = state.refreshProgress {
+                RefreshProgressSheet(
+                    progress: progress,
+                    onCancel: { progress.isCancelled = true },
+                    onClose: { state.closeRefreshSheet() }
+                )
+                .preferredColorScheme(preferences.preferredColorScheme)
+                .interactiveDismissDisabled(progress.isRunning)
+            }
+        }
+        .sheet(isPresented: Binding(get: { state.pendingCascadeRename != nil }, set: { if !$0 { state.pendingCascadeRename = nil } })) {
+            if let target = state.pendingCascadeRename {
+                RenameConfirmationSheet(state: state, initialTarget: target) {
+                    state.pendingCascadeRename = nil
+                }
+                .preferredColorScheme(preferences.preferredColorScheme)
+            }
+        }
     }
 
     @ViewBuilder private var workspace: some View {

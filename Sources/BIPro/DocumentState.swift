@@ -155,6 +155,18 @@ final class DocumentState {
     var showBookmarks = false
     var visualizationsTab: VisualizationsTab = .build
 
+    /// Tên chủ đề đang áp dụng (Wave 3B: chủ đề mới chọn trong phiên hoặc chủ đề gốc của báo cáo).
+    var currentThemeName: String? {
+        layout.customTheme?.name ?? workspace.sessionCustomThemeName ?? workspace.report.customThemeName
+    }
+
+    /// Áp dụng chủ đề JSON cho toàn báo cáo (Wave 3B): đổi màu live + ghi undoable vào `LayoutEditor`.
+    func applyTheme(name: String, data: Data) {
+        guard workspace.applySessionTheme(name: name, data: data) else { return }
+        layout.setCustomTheme(name: name, data: data)
+        interaction.modelVersion += 1
+    }
+
     // Table / model
     var table: String?
     var column: String?
@@ -180,6 +192,10 @@ final class DocumentState {
     var enterData: EnterDataTable?
     /// Hộp "Tuỳ chọn tệp" đang mở (T033).
     var showFileOptions = false
+    /// Tiến trình Làm mới dữ liệu (Wave 3C / T019); nil khi đóng.
+    var refreshProgress: RefreshProgressState? = nil
+    /// Yêu cầu xác nhận Đổi tên lan truyền (Wave 3C / T020); nil khi đóng.
+    var pendingCascadeRename: CascadeRenameTarget? = nil
     /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 
@@ -214,6 +230,14 @@ final class DocumentState {
         Self.applyColumnKinds(to: layout, metadata: workspace.metadata)
         let interaction = self.interaction
         layout.legendValuesProvider = { [weak interaction] id in interaction?.legendValues[id] ?? [] }
+        layout.customThemeChanged = { [weak workspace, weak interaction] edit in
+            if let edit {
+                workspace?.applySessionTheme(name: edit.name, data: edit.data)
+            } else {
+                workspace?.resetSessionTheme()
+            }
+            interaction?.modelVersion += 1
+        }
         self.interaction.pagesProvider = { layout.pages }
         self.interaction.removedBookmarksProvider = { layout.structure.removedBookmarks }
         self.interaction.pageJSONProvider = { layout.structure.created[$0]?.pageJSON }

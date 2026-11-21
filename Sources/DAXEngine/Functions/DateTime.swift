@@ -22,6 +22,25 @@ public enum DateTimeFunctions: FunctionFamily {
                      impl: .scalar(DateTimeFunctions.dateDiffBody)),
         FunctionSpec(name: "CALENDAR", params: [.scalar("start_date"), .scalar("end_date")],
                      impl: .table(DateTimeFunctions.calendarBody)),
+        // Wave 3 (v1.1b — đối chiếu VM-V11B dax-golden.json)
+        FunctionSpec(name: "TODAY", params: [], impl: .scalar(DateTimeFunctions.todayBody)),
+        FunctionSpec(name: "NOW", params: [], impl: .scalar(DateTimeFunctions.nowBody)),
+        FunctionSpec(name: "WEEKDAY", params: [.scalar("date"), .scalar("return_type", optional: true)],
+                     impl: .scalar(DateTimeFunctions.weekdayBody)),
+        FunctionSpec(name: "WEEKNUM", params: [.scalar("date"), .scalar("return_type", optional: true)],
+                     impl: .scalar(DateTimeFunctions.weeknumBody)),
+        FunctionSpec(name: "EOMONTH", params: [.scalar("start_date"), .scalar("months")],
+                     impl: .scalar(DateTimeFunctions.eomonthBody)),
+        FunctionSpec(name: "EDATE", params: [.scalar("start_date"), .scalar("months")],
+                     impl: .scalar(DateTimeFunctions.edateBody)),
+        FunctionSpec(name: "MINUTE", params: [.scalar("datetime")], impl: .scalar(DateTimeFunctions.minuteBody)),
+        FunctionSpec(name: "SECOND", params: [.scalar("datetime")], impl: .scalar(DateTimeFunctions.secondBody)),
+        FunctionSpec(name: "TIME", params: [.scalar("hour"), .scalar("minute"), .scalar("second")],
+                     impl: .scalar(DateTimeFunctions.timeBody)),
+        FunctionSpec(name: "YEARFRAC", params: [.scalar("start_date"), .scalar("end_date"), .scalar("basis", optional: true)],
+                     impl: .scalar(DateTimeFunctions.yearfracBody)),
+        FunctionSpec(name: "CALENDARAUTO", params: [.scalar("fiscal_year_end_month", optional: true)],
+                     impl: .table(DateTimeFunctions.calendarAutoBody)),
     ]
 
     /// CALENDAR(đầu, cuối): bảng một cột `[Date]`, mỗi ngày một dòng từ ngày đầu tới ngày cuối (cắt phần giờ), tăng dần
@@ -97,6 +116,209 @@ public enum DateTimeFunctions: FunctionFamily {
         default:
             throw DAXError(.typeMismatch, "DATEDIFF: đơn vị \(donVi) không được hỗ trợ")
         }
+    }
+
+    // MARK: - Wave 3 (v1.1b) DateTime functions
+
+    static func todayBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let comps = Calendar(identifier: .gregorian).dateComponents(in: TimeZone.current, from: Date())
+        let serial = ngayTuNam(comps.year ?? 2000, comps.month ?? 1, comps.day ?? 1) + soNgayTuEpochOLE
+        return .dateTime(Double(serial))
+    }
+
+    static func nowBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let comps = Calendar(identifier: .gregorian).dateComponents(in: TimeZone.current, from: Date())
+        let daySerial = ngayTuNam(comps.year ?? 2000, comps.month ?? 1, comps.day ?? 1) + soNgayTuEpochOLE
+        let sec = (comps.hour ?? 0) * 3600 + (comps.minute ?? 0) * 60 + (comps.second ?? 0)
+        return .dateTime(Double(daySerial) + Double(sec) / 86_400.0)
+    }
+
+    /// WEEKDAY(date, [return_type = 1]): 1 = CN(1)..T7(7); 2 = T2(1)..CN(7); 3 = T2(0)..CN(6).
+    static func weekdayBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let ms = try milliGiay(try serialCua(try frame.scalar(0)))
+        let unixDays = chiLam(ms, mocMotNgayMs) - soNgayTuEpochOLE
+        // 1970-01-01 là Thứ Năm (weekday 0=CN, 1=T2, 2=T3, 3=T4, 4=T5, 5=T6, 6=T7)
+        let dowSun0 = duLam(unixDays + 4, 7)
+        let rtype = frame.isBlankArgument(1) ? 1 : try soNguyenCua(try frame.scalar(1))
+        switch rtype {
+        case 1: return .integer(Int64(dowSun0 + 1))
+        case 2: return .integer(Int64(dowSun0 == 0 ? 7 : dowSun0))
+        case 3: return .integer(Int64(dowSun0 == 0 ? 6 : dowSun0 - 1))
+        default: throw DAXError(.runtime, "WEEKDAY: return_type phải là 1, 2 hoặc 3")
+        }
+    }
+
+    /// WEEKNUM(date, [return_type = 1]): 1 = tuần bắt đầu CN; 2 = T2; 21 = ISO 8601 (VM-V11B).
+    static func weeknumBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let ms = try milliGiay(try serialCua(try frame.scalar(0)))
+        let unixDays = chiLam(ms, mocMotNgayMs) - soNgayTuEpochOLE
+        let rtype = frame.isBlankArgument(1) ? 1 : try soNguyenCua(try frame.scalar(1))
+        if rtype == 21 {
+            // ISO 8601: tuần 1 là tuần Thứ Hai..CN chứa Thứ Năm đầu tiên của năm.
+            let dowMon0 = duLam(unixDays + 3, 7) // 0=T2..6=CN
+            let thursdayUnix = unixDays - dowMon0 + 3
+            let thursCal = lichTuNgay(thursdayUnix)
+            let jan4Unix = ngayTuNam(thursCal.year, 1, 4)
+            let jan4DowMon0 = duLam(jan4Unix + 3, 7)
+            let week1Monday = jan4Unix - jan4DowMon0
+            return .integer(Int64((unixDays - week1Monday) / 7 + 1))
+        }
+        let cal = lichTuNgay(unixDays)
+        let jan1Unix = ngayTuNam(cal.year, 1, 1)
+        let doy0 = unixDays - jan1Unix
+        let jan1Dow: Int
+        switch rtype {
+        case 1: jan1Dow = duLam(jan1Unix + 4, 7)          // CN = 0
+        case 2: jan1Dow = duLam(jan1Unix + 3, 7)          // T2 = 0
+        default: throw DAXError(.runtime, "WEEKNUM: return_type \(rtype) không được hỗ trợ")
+        }
+        return .integer(Int64((doy0 + jan1Dow) / 7 + 1))
+    }
+
+    static func eomonthBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let cal = try lichCua(try frame.scalar(0))
+        let offset = try soNguyenCua(try frame.scalar(1))
+        let total = cal.year * 12 + (cal.month - 1) + offset
+        let y = chiLam(total, 12)
+        let m = duLam(total, 12) + 1
+        let lastDay = soNgayTrongThang(y, m)
+        return .dateTime(Double(ngayTuNam(y, m, lastDay) + soNgayTuEpochOLE))
+    }
+
+    static func edateBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let cal = try lichCua(try frame.scalar(0))
+        let offset = try soNguyenCua(try frame.scalar(1))
+        let total = cal.year * 12 + (cal.month - 1) + offset
+        let y = chiLam(total, 12)
+        let m = duLam(total, 12) + 1
+        let d = min(cal.day, soNgayTrongThang(y, m))
+        return .dateTime(Double(ngayTuNam(y, m, d) + soNgayTuEpochOLE))
+    }
+
+    static func minuteBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let ms = try milliGiay(try serialCua(try frame.scalar(0)))
+        return .integer(Int64((duLam(ms, mocMotNgayMs) % 3_600_000) / 60_000))
+    }
+
+    static func secondBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let ms = try milliGiay(try serialCua(try frame.scalar(0)))
+        return .integer(Int64((duLam(ms, mocMotNgayMs) % 60_000) / 1_000))
+    }
+
+    /// TIME(h, m, s): trả phần thời gian trên ngày 0 (1899-12-30), tràn modulo 86400s (VM-V11B).
+    static func timeBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let h = try soNguyenCua(try frame.scalar(0))
+        let m = try soNguyenCua(try frame.scalar(1))
+        let s = try soNguyenCua(try frame.scalar(2))
+        let totalSec = duLam(h * 3600 + m * 60 + s, 86_400)
+        return .dateTime(Double(totalSec) / 86_400.0)
+    }
+
+    /// YEARFRAC(start_date, end_date, [basis = 0]): khớp công thức Excel/DAX basis 0..4 (VM-V11B).
+    static func yearfracBody(_ frame: CallFrame) throws(DAXError) -> Value {
+        let s0 = (try serialCua(try frame.scalar(0))).rounded(.down)
+        let s1 = (try serialCua(try frame.scalar(1))).rounded(.down)
+        let (a, b) = s0 <= s1 ? (s0, s1) : (s1, s0)
+        let basis = frame.isBlankArgument(2) ? 0 : try soNguyenCua(try frame.scalar(2))
+        let uA = Int(a) - soNgayTuEpochOLE
+        let uB = Int(b) - soNgayTuEpochOLE
+        let cA = lichTuNgay(uA)
+        let cB = lichTuNgay(uB)
+        let days = Double(uB - uA)
+        switch basis {
+        case 0: // US (NASD) 30/360
+            var d1 = cA.day, d2 = cB.day
+            let febEndA = (cA.month == 2 && d1 == soNgayTrongThang(cA.year, 2))
+            let febEndB = (cB.month == 2 && d2 == soNgayTrongThang(cB.year, 2))
+            if febEndA && febEndB { d2 = 30 }
+            if d1 == 31 || febEndA { d1 = 30 }
+            if d2 == 31 && d1 == 30 { d2 = 30 }
+            let n30 = (cB.year - cA.year) * 360 + (cB.month - cA.month) * 30 + (d2 - d1)
+            return .double(Double(n30) / 360.0)
+        case 1: // Actual/Actual (Excel/DAX quy ước)
+            let denom: Double
+            let spansMoreThanYear = (cB.year > cA.year + 1)
+                || (cB.year == cA.year + 1 && (cB.month > cA.month || (cB.month == cA.month && cB.day > cA.day)))
+            if spansMoreThanYear {
+                var totalDays = 0.0
+                for yr in cA.year...cB.year { totalDays += namNhuan(yr) ? 366.0 : 365.0 }
+                denom = totalDays / Double(cB.year - cA.year + 1)
+            } else {
+                var hasFeb29 = false
+                if namNhuan(cA.year) {
+                    let feb29 = ngayTuNam(cA.year, 2, 29)
+                    if feb29 >= uA && feb29 <= uB { hasFeb29 = true }
+                }
+                if !hasFeb29 && cB.year != cA.year && namNhuan(cB.year) {
+                    let feb29 = ngayTuNam(cB.year, 2, 29)
+                    if feb29 >= uA && feb29 <= uB { hasFeb29 = true }
+                }
+                denom = hasFeb29 ? 366.0 : 365.0
+            }
+            return .double(days / denom)
+        case 2: // Actual/360
+            return .double(days / 360.0)
+        case 3: // Actual/365
+            return .double(days / 365.0)
+        case 4: // European 30/360
+            let d1 = min(cA.day, 30)
+            let d2 = min(cB.day, 30)
+            let n30 = (cB.year - cA.year) * 360 + (cB.month - cA.month) * 30 + (d2 - d1)
+            return .double(Double(n30) / 360.0)
+        default:
+            throw DAXError(.runtime, "YEARFRAC: basis phải từ 0 đến 4")
+        }
+    }
+
+    /// CALENDARAUTO([fiscal_year_end_month = 12]): quét toàn bộ cột ngày của model (VM-V11B).
+    static let calendarAutoBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        let fyEnd = frame.isBlankArgument(0) ? 12 : try soNguyenCua(try frame.scalar(0))
+        guard (1...12).contains(fyEnd) else {
+            throw DAXError(.runtime, "CALENDARAUTO: tháng kết thúc năm tài chính phải từ 1 đến 12")
+        }
+        let evaluator = try fkEvaluator(frame)
+        let store = evaluator.store
+        var minDay: Int?
+        var maxDay: Int?
+        for table in store.schema.tables {
+            for col in table.columns where col.type == .dateTime {
+                guard let data = try? store.column(col.id) else { continue }
+                for r in 0..<data.rowCount {
+                    if case .dateTime(let d) = data.value(at: r), d.isFinite {
+                        let day = Int(d.rounded(.down))
+                        if minDay == nil || day < minDay! { minDay = day }
+                        if maxDay == nil || day > maxDay! { maxDay = day }
+                    }
+                }
+            }
+        }
+        guard let lo = minDay, let hi = maxDay else {
+            throw DAXError(.runtime, "CALENDARAUTO: không tìm thấy cột ngày có dữ liệu trong mô hình")
+        }
+        let cLo = lichTuNgay(lo - soNgayTuEpochOLE)
+        let cHi = lichTuNgay(hi - soNgayTuEpochOLE)
+        let startMonth = (fyEnd % 12) + 1
+        let startYear = (fyEnd == 12) ? cLo.year : (cLo.month >= startMonth ? cLo.year : cLo.year - 1)
+        let endYear = (fyEnd == 12) ? cHi.year : (cHi.month <= fyEnd ? cHi.year : cHi.year + 1)
+        let firstSerial = ngayTuNam(startYear, startMonth, 1) + soNgayTuEpochOLE
+        let lastSerial = ngayTuNam(endYear, fyEnd, soNgayTrongThang(endYear, fyEnd)) + soNgayTuEpochOLE
+        guard firstSerial <= lastSerial, lastSerial - firstSerial < 10_000_000 else {
+            throw DAXError(.runtime, "CALENDARAUTO: khoảng ngày không hợp lệ")
+        }
+        let rows = (firstSerial...lastSerial).map { [Value.dateTime(Double($0))] }
+        return TableValue(columns: ["[Date]"], rows: rows)
+    }
+}
+
+private func namNhuan(_ year: Int) -> Bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+private func soNgayTrongThang(_ year: Int, _ month: Int) -> Int {
+    switch month {
+    case 2: return namNhuan(year) ? 29 : 28
+    case 4, 6, 9, 11: return 30
+    default: return 31
     }
 }
 

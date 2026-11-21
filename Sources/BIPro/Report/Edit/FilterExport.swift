@@ -25,13 +25,17 @@ enum FilterExport {
 
     /// Một điều kiện của Filters pane → điều kiện ghi được. nil khi điều kiện còn dở (thiếu toán hạng, cột số mà toán hạng không phải số):
     /// khi đó cả thẻ chưa lọc gì, như `FilterRule.predicate`.
-    private static func condition(_ condition: FilterCondition, numeric: Bool, decimal: Bool, currency: Bool) -> PBIRFilterPatch.AdvancedCondition? {
+    private static func condition(_ condition: FilterCondition, numeric: Bool, isDate: Bool, decimal: Bool, currency: Bool) -> PBIRFilterPatch.AdvancedCondition? {
         if condition.kind == .isBlank { return .init(.blank) }
         if condition.kind == .isNotBlank { return .init(.blank, negated: true) }
         let text = condition.operand.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return nil }
         let literal: FilterLiteral
-        if numeric {
+        if isDate {
+            let ymd = String(text.prefix(10))
+            guard ymd.split(separator: "-").count == 3 else { return nil }
+            literal = .dateTime("\(ymd)T00:00:00")
+        } else if numeric {
             if currency, let d = Double(text), d.isFinite { literal = .currency(d) }
             else if !decimal, let n = Int64(text) { literal = .integer(n) }
             else if let d = Double(text), d.isFinite { literal = .decimal(d) }
@@ -81,11 +85,11 @@ enum FilterExport {
                                                   measureEntity: top.measureTable, measureProperty: top.measureName, count: top.count,
                                                   bottom: !top.top)
             return .writable(spec(type: "TopN", filter: json))
-        case .advanced(let first, let second, let useOr, let numeric):
+        case .advanced(let first, let second, let useOr, let numeric, let isDate):
             var conditions: [PBIRFilterPatch.AdvancedCondition] = []
             for item in [first] + (second.map { [$0] } ?? []) {
                 // Điều kiện còn dở: thẻ chưa lọc gì.
-                guard let ready = condition(item, numeric: numeric, decimal: decimal, currency: currency) else { return .writable(spec(type: "Advanced")) }
+                guard let ready = condition(item, numeric: numeric, isDate: isDate, decimal: decimal, currency: currency) else { return .writable(spec(type: "Advanced")) }
                 conditions.append(ready)
             }
             guard let json = PBIRFilterPatch.advancedFilter(kind: kind, entity: column.table, property: column.column,

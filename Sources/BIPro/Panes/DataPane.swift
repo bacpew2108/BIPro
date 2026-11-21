@@ -247,6 +247,8 @@ struct DataPane: View {
                     onExpandAll: { expandAll() },
                     onNewMeasure: purpose != .query && state.modelEditingBlocker == nil
                         ? { purpose == .table ? state.beginNewMeasure(table: table.name) : state.newMeasureInTableView(table: table.name) } : nil,
+                    onRename: purpose != .query && state.modelEditingBlocker == nil
+                        ? { state.requestCascadeRename(.table(old: table.name, new: table.name)) } : nil,
                     onDelete: purpose != .query && state.modelEditingBlocker == nil && table.isCalculatedUserTable
                         ? { deleting = PendingDeletion(table: table.name, column: nil) } : nil
                 )
@@ -328,6 +330,8 @@ struct DataPane: View {
                     },
                     onEdit: purpose != .query && state.modelEditingBlocker == nil
                         ? { purpose == .table ? state.selectMeasure(table: table, name: m.name) : state.editMeasureInTableView(table: table, name: m.name) } : nil,
+                    onRename: purpose != .query && state.modelEditingBlocker == nil
+                        ? { state.requestCascadeRename(.measure(table: table, old: m.name, new: m.name)) } : nil,
                     onDelete: purpose != .query && state.modelEditingBlocker == nil ? { state.deleteMeasure(table: table, name: m.name) } : nil,
                     onToggleHidden: purpose != .query && state.modelEditingBlocker == nil
                         ? { state.updateMeasure(table: table, name: m.name, patch: MeasurePatch(isHidden: !m.isHidden)) } : nil,
@@ -368,6 +372,8 @@ struct DataPane: View {
                             NSPasteboard.general.setString(expr, forType: .string)
                         }
                     },
+                    onRename: purpose != .query && state.modelEditingBlocker == nil
+                        ? { state.requestCascadeRename(.column(table: table, old: c.name, new: c.name)) } : nil,
                     onDelete: purpose != .query && state.modelEditingBlocker == nil && c.kind == .calculated
                         ? { deleting = PendingDeletion(table: table, column: c.name) } : nil
                 )

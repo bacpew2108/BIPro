@@ -51,7 +51,7 @@ struct RibbonView: View {
         case (.report, .insert): InsertCommands(state: state)
         case (_, .modeling): ModelingCommands(state: state)
         case (.report, .view): ReportViewCommands(state: state)
-        case (.report, .format): FormatCommands()
+        case (.report, .format): FormatCommands(state: state)
         case (.report, .dataDrill): DataDrillCommands()
         case (.table, .home): DataSourceCommands(state: state)
         case (.table, .tableTools): TableToolsCommands(state: state)
@@ -85,7 +85,8 @@ private struct DataSourceCommands: View {
         RibbonGroup(title: bi("Truy vấn", "Queries")) {
             RibbonButton(title: tr(.ribbonTransformData), symbol: "slider.horizontal.3",
                          disabledReason: state.queryEditorBlocker) { state.showQueryEditor() }
-            RibbonButton(title: bi("Làm mới", "Refresh"), symbol: "arrow.clockwise", phase: "Phase F")
+            RibbonButton(title: bi("Làm mới", "Refresh"), symbol: "arrow.clockwise", tint: DS.Palette.accent,
+                         disabledReason: state.refreshBlocker) { state.startRefreshAll() }
         }
     }
 }
@@ -297,7 +298,17 @@ private struct GenericViewCommands: View {
 
 private struct ReportViewCommands: View {
     @Bindable var state: DocumentState
+    @State private var showThemes = false
     var body: some View {
+        RibbonGroup(title: bi("Chủ đề", "Themes")) {
+            RibbonButton(title: bi("Chủ đề", "Themes"), symbol: "paintpalette", tint: DS.Palette.accent) {
+                showThemes.toggle()
+            }
+            .popover(isPresented: $showThemes) {
+                ThemePickerPopover(state: state, isPresented: $showThemes)
+            }
+        }
+        RibbonDivider()
         RibbonGroup(title: bi("Ngăn", "Show panes")) {
             RibbonButton(title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", isOn: state.showFilters) { state.showFilters.toggle() }
             RibbonButton(title: tr(.paneVisualizations), symbol: "chart.bar", isOn: state.showVisualizations) { state.showVisualizations.toggle() }
@@ -318,15 +329,21 @@ private struct ReportViewCommands: View {
 }
 
 private struct FormatCommands: View {
+    @Bindable var state: DocumentState
     var body: some View {
         RibbonGroup(title: bi("Tương tác", "Interactions")) {
-            RibbonButton(title: bi("Sửa tương tác", "Edit interactions"), symbol: "arrow.triangle.branch", phase: "Phase C")
+            let blocker: String? = !state.editMode
+                ? bi("Bật chế độ Sửa (⌘E) để sửa tương tác", "Enable Edit mode (⌘E) to edit interactions")
+                : (state.layout.selection.count != 1 ? bi("Chọn một visual nguồn để cấu hình tương tác", "Select a source visual to configure interactions") : nil)
+            RibbonButton(title: bi("Sửa tương tác", "Edit interactions"), symbol: "arrow.triangle.branch",
+                         tint: DS.Palette.accent, isOn: state.layout.isEditingInteractions,
+                         disabledReason: state.layout.isEditingInteractions ? nil : blocker) {
+                state.layout.isEditingInteractions.toggle()
+            }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Sắp xếp", "Arrange")) {
-            RibbonButton(title: bi("Đưa lên trước", "Bring forward"), symbol: "square.2.layers.3d.top.filled", phase: "Phase D")
-            RibbonButton(title: bi("Đưa ra sau", "Send backward"), symbol: "square.2.layers.3d.bottom.filled", phase: "Phase D")
-            RibbonButton(title: bi("Căn chỉnh", "Align"), symbol: "align.horizontal.left", phase: "Phase D")
+            ArrangeCommands(state: state)
         }
     }
 }

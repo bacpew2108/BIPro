@@ -313,6 +313,28 @@ public enum TableFunctions: FunctionFamily {
         FunctionSpec(name: "RELATEDTABLE", params: [.table("tableName")], impl: .table(relatedTableBody)),
         FunctionSpec(name: "EARLIER", params: [.column("column"), .scalar("number", optional: true)], impl: .scalar(earlierBody)),
         FunctionSpec(name: "EARLIEST", params: [.column("column")], impl: .scalar(earliestBody)),
+        // Wave 3 (v1.1b — đối chiếu VM-V11B dax-golden.json)
+        FunctionSpec(name: "LOOKUPVALUE",
+                     params: [.column("result_column"), .column("searchCol", repeats: true),
+                              .scalar("searchVal", repeats: true), .scalar("alternateResult", optional: true)],
+                     impl: .scalar(lookupValueBody)),
+        FunctionSpec(name: "SELECTCOLUMNS",
+                     params: [.table("table"), .scalar("name", repeats: true), .lazy("expression", repeats: true)],
+                     impl: .table(selectColumnsBody)),
+        FunctionSpec(name: "UNION", params: [.table("table1"), .table("table2", repeats: true)],
+                     impl: .table(unionBody)),
+        FunctionSpec(name: "INTERSECT", params: [.table("left"), .table("right")],
+                     impl: .table(intersectBody)),
+        FunctionSpec(name: "EXCEPT", params: [.table("left"), .table("right")],
+                     impl: .table(exceptBody)),
+        FunctionSpec(name: "GENERATESERIES",
+                     params: [.scalar("startValue"), .scalar("endValue"), .scalar("incrementValue", optional: true)],
+                     impl: .table(generateSeriesBody)),
+        FunctionSpec(name: "DATATABLE",
+                     params: [.scalar("colName", repeats: true),
+                              .keyword("colType", ["STRING", "INTEGER", "DOUBLE", "BOOLEAN", "DATETIME", "CURRENCY"], optional: false, repeats: true),
+                              .table("data")],
+                     impl: .table(dataTableBody)),
     ]
 
     // MARK: EARLIER, EARLIEST (Phase F, T081)
@@ -672,5 +694,184 @@ public enum TableFunctions: FunctionFamily {
             ctx.filter = try evaluator.transitioned(ctx.filter)
         }
         return try evaluator.table(expr, in: ctx)
+    }
+
+    // MARK: Wave 3 — LOOKUPVALUE, SELECTCOLUMNS, UNION, INTERSECT, EXCEPT, GENERATESERIES, DATATABLE
+
+    /// LOOKUPVALUE(resultCol, searchCol1, searchVal1, ..., [alternateResult]): tra toàn bộ bảng bỏ filter context.
+    private static let lookupValueBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        let evaluator = try fkEvaluator(frame)
+        let resultCol = try frame.column(0)
+        let tailCount = frame.args.count - 1
+        let hasAlt = tailCount % 2 == 1
+        let pairCount = tailCount / 2
+        guard pairCount >= 1 else {
+            throw DAXError(.arity, "LOOKUPVALUE cần ít nhất một cặp (search_column, search_value)")
+        }
+        var searchCols: [ColumnID] = []
+        var searchVals: [Value] = []
+        for k in 0..<pairCount {
+            let col = try frame.column(1 + 2 * k)
+            let val = try frame.scalar(2 + 2 * k)
+            searchCols.append(col)
+            searchVals.append(val)
+        }
+        let tableID = resultCol.table
+        let rowCount = try evaluator.runtimeCall { try evaluator.store.rowCount(tableID) }
+        let resData = try evaluator.columnData(resultCol)
+        var colDatas: [ColumnData] = []
+        for col in searchCols { colDatas.append(try evaluator.columnData(col)) }
+
+        var matchedValue: Value?
+        for r in 0..<rowCount {
+            var ok = true
+            for k in 0..<pairCount {
+                let cell = Value(stored: colDatas[k].value(at: r))
+                guard case .boolean(true) = try Value.compare(.equal, cell, searchVals[k]) else {
+                    ok = false; break
+                }
+            }
+            if ok {
+                let v = Value(stored: resData.value(at: r))
+                if let prev = matchedValue {
+                    if prev != v {
+                        if hasAlt { return try frame.scalar(frame.args.count - 1) }
+                        throw DAXError(.multipleValues, "LOOKUPVALUE: có nhiều giá trị khác nhau khớp điều kiện")
+                    }
+                } else {
+                    matchedValue = v
+                }
+            }
+        }
+        if let found = matchedValue { return found }
+        return hasAlt ? try frame.scalar(frame.args.count - 1) : .blank
+    }
+
+    /// SELECTCOLUMNS(table, name, expression, ...): giống ADDCOLUMNS nhưng chỉ giữ các cột mới tạo.
+    private static let selectColumnsBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        let evaluator = try fkEvaluator(frame)
+        let pairs = try fkNamedPairs(frame, from: 1)
+        var rows: [[Value]] = []
+        let visit: (EvalContext) throws(DAXError) -> Void = { (inner: EvalContext) throws(DAXError) in
+            var row: [Value] = []
+            row.reserveCapacity(pairs.count)
+            for pair in pairs { row.append(try evaluator.scalar(pair.expr, in: inner)) }
+            rows.append(row)
+        }
+        if let sourceExpr = fkArg(frame, 0), try fkPhysicalSource(sourceExpr, evaluator, frame.ctx) != nil {
+            try frame.iterateArgument(0, visit)
+        } else {
+            let source = try frame.table(0)
+            try frame.iterate(source, visit)
+        }
+        return TableValue(columns: pairs.map(\.name), rows: rows, lineage: Array(repeating: nil, count: pairs.count))
+    }
+
+    /// UNION(t1, t2, ...): nối giữ nguyên bản sao (multiset — VM-V11B!).
+    private static let unionBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        guard frame.args.count >= 2 else { throw DAXError(.arity, "UNION cần ít nhất hai bảng") }
+        let first = try frame.table(0)
+        var rows = first.rows
+        for i in 1..<frame.args.count {
+            let next = try frame.table(i)
+            guard next.columns.count == first.columns.count else {
+                throw DAXError(.arity, "UNION: các bảng phải có cùng số cột (\(first.columns.count) và \(next.columns.count))")
+            }
+            rows += next.rows
+        }
+        return TableValue(columns: first.columns, rows: rows, lineage: Array(repeating: nil, count: first.columns.count))
+    }
+
+    /// INTERSECT(left, right): giữ các dòng của `left` có xuất hiện trong `right`, giữ bản sao theo `left` (VM-V11B!).
+    private static let intersectBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        let left = try frame.table(0)
+        let right = try frame.table(1)
+        guard left.columns.count == right.columns.count else {
+            throw DAXError(.arity, "INTERSECT: hai bảng phải có cùng số cột")
+        }
+        let rightSet = Set(right.rows)
+        let kept = left.rows.filter { rightSet.contains($0) }
+        return TableValue(columns: left.columns, rows: kept, lineage: left.lineage)
+    }
+
+    /// EXCEPT(left, right): giữ các dòng của `left` không xuất hiện trong `right`, giữ bản sao theo `left` (VM-V11B!).
+    private static let exceptBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        let left = try frame.table(0)
+        let right = try frame.table(1)
+        guard left.columns.count == right.columns.count else {
+            throw DAXError(.arity, "EXCEPT: hai bảng phải có cùng số cột")
+        }
+        let rightSet = Set(right.rows)
+        let kept = left.rows.filter { !rightSet.contains($0) }
+        return TableValue(columns: left.columns, rows: kept, lineage: left.lineage)
+    }
+
+    /// GENERATESERIES(start, end, [increment = 1]): bảng 1 cột `[Value]`.
+    private static let generateSeriesBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        let sVal = try frame.scalar(0)
+        let eVal = try frame.scalar(1)
+        let incVal = frame.isBlankArgument(2) ? Value.integer(1) : try frame.scalar(2)
+        let allInt: Bool
+        if case .integer = sVal, case .integer = eVal, case .integer = incVal { allInt = true } else { allInt = false }
+        let start = try sVal.asDouble()
+        let end = try eVal.asDouble()
+        let inc = try incVal.asDouble()
+        guard inc > 0 else { throw DAXError(.runtime, "GENERATESERIES: incrementValue phải lớn hơn 0") }
+        guard start <= end else { return TableValue(columns: ["[Value]"], rows: []) }
+        var rows: [[Value]] = []
+        var cur = start
+        let eps = inc * 1e-9
+        while cur <= end + eps {
+            guard rows.count < 1_000_000 else { throw DAXError(.runtime, "GENERATESERIES: quá 1 triệu dòng") }
+            rows.append([allInt ? .integer(Int64(cur.rounded())) : .double(cur)])
+            cur += inc
+        }
+        return TableValue(columns: ["[Value]"], rows: rows)
+    }
+
+    /// DATATABLE(col1, TYPE1, ..., {{row1}, {row2}}): ép kiểu từng ô theo TYPE khai báo.
+    private static let dataTableBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
+        guard frame.args.count >= 3, (frame.args.count - 1) % 2 == 0 else {
+            throw DAXError(.arity, "DATATABLE cần các cặp (tên cột, kiểu) và mảng dữ liệu cuối")
+        }
+        let colCount = (frame.args.count - 1) / 2
+        var names: [String] = []
+        var types: [String] = []
+        for k in 0..<colCount {
+            let nVal = try frame.scalar(2 * k)
+            guard case .string(let name) = nVal else {
+                throw DAXError(.typeMismatch, "DATATABLE: tên cột phải là chuỗi")
+            }
+            guard let t = frame.keyword(2 * k + 1)?.uppercased() else {
+                throw DAXError(.typeMismatch, "DATATABLE: kiểu cột phải là STRING, INTEGER, DOUBLE, BOOLEAN, DATETIME hoặc CURRENCY")
+            }
+            names.append(name)
+            types.append(t)
+        }
+        let raw = try frame.table(frame.args.count - 1)
+        var coercedRows: [[Value]] = []
+        coercedRows.reserveCapacity(raw.rows.count)
+        for row in raw.rows {
+            guard row.count == colCount else {
+                throw DAXError(.arity, "DATATABLE: dòng có \(row.count) giá trị, cần \(colCount)")
+            }
+            var out: [Value] = []
+            for (c, v) in row.enumerated() {
+                if v.isBlank { out.append(.blank); continue }
+                switch types[c] {
+                case "STRING": out.append(.string(v.asText()))
+                case "INTEGER": out.append(.integer(Int64((try v.asDouble()).rounded(.towardZero))))
+                case "DOUBLE": out.append(.double(try v.asDouble()))
+                case "BOOLEAN": out.append(.boolean(try v.asLogical()))
+                case "DATETIME":
+                    if case .dateTime = v { out.append(v) } else { out.append(.dateTime(try v.asDouble())) }
+                case "CURRENCY":
+                    if case .currency = v { out.append(v) } else { out.append(.currency(Int64((try v.asDouble() * 10_000.0).rounded()))) }
+                default: out.append(v)
+                }
+            }
+            coercedRows.append(out)
+        }
+        return TableValue(columns: names, rows: coercedRows, lineage: Array(repeating: nil, count: colCount))
     }
 }

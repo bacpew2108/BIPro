@@ -1,0 +1,549 @@
+﻿{
+    "desktop_version":  "2.159",
+    "source_model":  "Nhom6_Dashboard_chiase.pbix",
+    "date_column":  "Dim_Date[full_date]",
+    "tables":  {
+                   "ok":  true,
+                   "rows":  [
+                                [
+                                    "Fact_Transaction",
+                                    null
+                                ],
+                                [
+                                    "Fact_Loan",
+                                    null
+                                ],
+                                [
+                                    "Fact_CRM_Complaint",
+                                    null
+                                ],
+                                [
+                                    "Dim_Date",
+                                    "Time"
+                                ],
+                                [
+                                    "Dim_Client",
+                                    null
+                                ],
+                                [
+                                    "Dim_Account",
+                                    null
+                                ],
+                                [
+                                    "Dim_District",
+                                    null
+                                ],
+                                [
+                                    "Dim_Loan_Profile",
+                                    null
+                                ],
+                                [
+                                    "Dim_CRM_Issue",
+                                    null
+                                ],
+                                [
+                                    "Dim_CRM_Channel_Response",
+                                    null
+                                ],
+                                [
+                                    "Dim_Trans_Type",
+                                    null
+                                ]
+                            ],
+                   "columns":  [
+                                   "Name",
+                                   "DataCategory"
+                               ]
+               },
+    "dim_date_columns":  {
+                             "ok":  true,
+                             "rows":  [
+                                          [
+                                              20110704,
+                                              "2011-07-04T00:00:00",
+                                              4,
+                                              "Monday",
+                                              1,
+                                              "False",
+                                              27,
+                                              7,
+                                              "July",
+                                              3,
+                                              "Q3",
+                                              2011,
+                                              "2011-07",
+                                              24139,
+                                              "2011-07-01T00:00:00"
+                                          ]
+                                      ],
+                             "columns":  [
+                                             "Dim_Date[date_key]",
+                                             "Dim_Date[full_date]",
+                                             "Dim_Date[day_of_month]",
+                                             "Dim_Date[day_name]",
+                                             "Dim_Date[day_of_week]",
+                                             "Dim_Date[is_weekend]",
+                                             "Dim_Date[week_of_year]",
+                                             "Dim_Date[month_num]",
+                                             "Dim_Date[month_name]",
+                                             "Dim_Date[quarter_num]",
+                                             "Dim_Date[quarter_name]",
+                                             "Dim_Date[year]",
+                                             "Dim_Date[year_month]",
+                                             "Dim_Date[MonthIndex]",
+                                             "Dim_Date[month_start]"
+                                         ]
+                         },
+    "date_range":  {
+                       "ok":  true,
+                       "rows":  [
+                                    [
+                                        "2011-01-01T00:00:00",
+                                        "2018-12-31T00:00:00",
+                                        2922
+                                    ]
+                                ],
+                       "columns":  [
+                                       "[MinDate]",
+                                       "[MaxDate]",
+                                       "[Rows]"
+                                   ]
+                   },
+    "queries":  {
+                    "weekday_1_2_3":  {
+                                          "ok":  true,
+                                          "rows":  [
+                                                       [
+                                                           1,
+                                                           2,
+                                                           1,
+                                                           7,
+                                                           0,
+                                                           6,
+                                                           1
+                                                       ]
+                                                   ],
+                                          "columns":  [
+                                                          "[sun_t1]",
+                                                          "[mon_t1]",
+                                                          "[mon_t2]",
+                                                          "[sun_t2]",
+                                                          "[mon_t3]",
+                                                          "[sun_t3]",
+                                                          "[default]"
+                                                      ]
+                                      },
+                    "weeknum_1_2":  {
+                                        "ok":  true,
+                                        "rows":  [
+                                                     [
+                                                         1,
+                                                         2,
+                                                         1,
+                                                         1,
+                                                         52
+                                                     ]
+                                                 ],
+                                        "columns":  [
+                                                        "[jan1_2024_t1]",
+                                                        "[jan7_2024_t1]",
+                                                        "[jan7_2024_t2]",
+                                                        "[dec31_2024_t21]",
+                                                        "[jan1_2023_t21]"
+                                                    ]
+                                    },
+                    "eomonth":  {
+                                    "ok":  true,
+                                    "rows":  [
+                                                 [
+                                                     "2024-01-31T00:00:00",
+                                                     "2024-02-29T00:00:00",
+                                                     "2023-12-31T00:00:00",
+                                                     "2023-02-28T00:00:00"
+                                                 ]
+                                             ],
+                                    "columns":  [
+                                                    "[jan15_0]",
+                                                    "[jan15_1]",
+                                                    "[jan15_m1]",
+                                                    "[feb10_2023_0]"
+                                                ]
+                                },
+                    "edate":  {
+                                  "ok":  true,
+                                  "rows":  [
+                                               [
+                                                   "2024-02-29T00:00:00",
+                                                   "2023-02-28T00:00:00",
+                                                   "2024-02-29T00:00:00",
+                                                   "2025-02-28T00:00:00"
+                                               ]
+                                           ],
+                                  "columns":  [
+                                                  "[jan31_1]",
+                                                  "[jan31_1_2023]",
+                                                  "[mar31_m1]",
+                                                  "[feb29_12]"
+                                              ]
+                              },
+                    "time_min_sec":  {
+                                         "ok":  true,
+                                         "rows":  [
+                                                      [
+                                                          "1899-12-30T14:30:45",
+                                                          14,
+                                                          30,
+                                                          45,
+                                                          "1899-12-30T02:11:20"
+                                                      ]
+                                                  ],
+                                         "columns":  [
+                                                         "[t]",
+                                                         "[h]",
+                                                         "[m]",
+                                                         "[s]",
+                                                         "[overflow]"
+                                                     ]
+                                     },
+                    "yearfrac":  {
+                                     "ok":  true,
+                                     "rows":  [
+                                                  [
+                                                      0.5,
+                                                      0.49726775956284153,
+                                                      0.49863013698630138,
+                                                      0.49589041095890413
+                                                  ]
+                                              ],
+                                     "columns":  [
+                                                     "[b0]",
+                                                     "[b1]",
+                                                     "[b3]",
+                                                     "[b1_2023]"
+                                                 ]
+                                 },
+                    "calendarauto":  {
+                                         "ok":  true,
+                                         "rows":  [
+                                                      [
+                                                          "1931-01-01T00:00:00",
+                                                          "2018-12-31T00:00:00",
+                                                          32142
+                                                      ]
+                                                  ],
+                                         "columns":  [
+                                                         "[Min]",
+                                                         "[Max]",
+                                                         "[Rows]"
+                                                     ]
+                                     },
+                    "calendarauto_fy3":  {
+                                             "ok":  true,
+                                             "rows":  [
+                                                          [
+                                                              "1931-04-01T00:00:00",
+                                                              "2019-03-31T00:00:00",
+                                                              32142
+                                                          ]
+                                                      ],
+                                             "columns":  [
+                                                             "[Min]",
+                                                             "[Max]",
+                                                             "[Rows]"
+                                                         ]
+                                         },
+                    "error_and_type":  {
+                                           "ok":  true,
+                                           "rows":  [
+                                                        [
+                                                            5,
+                                                            -1,
+                                                            false,
+                                                            true,
+                                                            true,
+                                                            false,
+                                                            false,
+                                                            true,
+                                                            false,
+                                                            false,
+                                                            true,
+                                                            false
+                                                        ]
+                                                    ],
+                                           "columns":  [
+                                                           "[iferr_ok]",
+                                                           "[iferr_err]",
+                                                           "[iserr_ok]",
+                                                           "[iserr_err]",
+                                                           "[isnum_int]",
+                                                           "[isnum_str]",
+                                                           "[isnum_blank]",
+                                                           "[istxt_str]",
+                                                           "[istxt_num]",
+                                                           "[istxt_blank]",
+                                                           "[islog_t]",
+                                                           "[islog_1]"
+                                                       ]
+                                       },
+                    "ti_ytd_qtd_mtd":  {
+                                           "ok":  true,
+                                           "rows":  [
+                                                        [
+                                                            143207,
+                                                            50931,
+                                                            12930,
+                                                            51204
+                                                        ]
+                                                    ],
+                                           "columns":  [
+                                                           "[ytd_2018_05]",
+                                                           "[qtd_2018_05]",
+                                                           "[mtd_2018_05_15]",
+                                                           "[ytd_fy6]"
+                                                       ]
+                                       },
+                    "ti_dates_ytd_qtd_mtd":  {
+                                                 "ok":  true,
+                                                 "rows":  [
+                                                              [
+                                                                  135,
+                                                                  45,
+                                                                  15,
+                                                                  46
+                                                              ]
+                                                          ],
+                                                 "columns":  [
+                                                                 "[dytd_cnt]",
+                                                                 "[dqtd_cnt]",
+                                                                 "[dmtd_cnt]",
+                                                                 "[dytd_fy6_cnt]"
+                                                             ]
+                                             },
+                    "ti_datesbetween_inperiod":  {
+                                                     "ok":  true,
+                                                     "rows":  [
+                                                                  [
+                                                                      28,
+                                                                      741,
+                                                                      90,
+                                                                      10
+                                                                  ]
+                                                              ],
+                                                     "columns":  [
+                                                                     "[between_cnt]",
+                                                                     "[between_blank_start]",
+                                                                     "[inperiod_m3]",
+                                                                     "[inperiod_d10]"
+                                                                 ]
+                                                 },
+                    "ti_prev_next_parallel":  {
+                                                  "ok":  true,
+                                                  "rows":  [
+                                                               [
+                                                                   null,
+                                                                   28,
+                                                                   90,
+                                                                   365,
+                                                                   null,
+                                                                   28,
+                                                                   91,
+                                                                   365,
+                                                                   31
+                                                               ]
+                                                           ],
+                                                  "columns":  [
+                                                                  "[prev_day]",
+                                                                  "[prev_month_cnt]",
+                                                                  "[prev_qtr_cnt]",
+                                                                  "[prev_yr_cnt]",
+                                                                  "[next_day]",
+                                                                  "[next_month_cnt]",
+                                                                  "[next_qtr_cnt]",
+                                                                  "[next_yr_cnt]",
+                                                                  "[parallel_m2]"
+                                                              ]
+                                              },
+                    "ti_start_end":  {
+                                         "ok":  true,
+                                         "rows":  [
+                                                      [
+                                                          "2018-02-01T00:00:00",
+                                                          "2018-02-28T00:00:00",
+                                                          "2018-04-01T00:00:00",
+                                                          "2018-06-30T00:00:00",
+                                                          "2018-01-01T00:00:00",
+                                                          "2018-12-31T00:00:00"
+                                                      ]
+                                                  ],
+                                         "columns":  [
+                                                         "[som]",
+                                                         "[eom]",
+                                                         "[soq]",
+                                                         "[eoq]",
+                                                         "[soy]",
+                                                         "[eoy]"
+                                                     ]
+                                     },
+                    "lookupvalue":  {
+                                        "ok":  true,
+                                        "rows":  [
+                                                     [
+                                                         2018,
+                                                         null,
+                                                         -1
+                                                     ]
+                                                 ],
+                                        "columns":  [
+                                                        "[found]",
+                                                        "[missing_blank]",
+                                                        "[missing_alt]"
+                                                    ]
+                                    },
+                    "selectcolumns":  {
+                                          "ok":  true,
+                                          "rows":  [
+                                                       [
+                                                           "South",
+                                                           5
+                                                       ],
+                                                       [
+                                                           "Midwest",
+                                                           7
+                                                       ],
+                                                       [
+                                                           "Northeast",
+                                                           9
+                                                       ]
+                                                   ],
+                                          "columns":  [
+                                                          "[R]",
+                                                          "[Len]"
+                                                      ]
+                                      },
+                    "set_union_intersect_except":  {
+                                                       "ok":  true,
+                                                       "rows":  [
+                                                                    [
+                                                                        7,
+                                                                        17,
+                                                                        3,
+                                                                        7,
+                                                                        1,
+                                                                        1
+                                                                    ]
+                                                                ],
+                                                       "columns":  [
+                                                                       "[union_cnt]",
+                                                                       "[union_sum]",
+                                                                       "[intersect_cnt]",
+                                                                       "[intersect_sum]",
+                                                                       "[except_cnt]",
+                                                                       "[except_sum]"
+                                                                   ]
+                                                   },
+                    "generateseries":  {
+                                           "ok":  true,
+                                           "rows":  [
+                                                        [
+                                                            5,
+                                                            25,
+                                                            4,
+                                                            5
+                                                        ]
+                                                    ],
+                                           "columns":  [
+                                                           "[cnt]",
+                                                           "[sum]",
+                                                           "[fcnt]",
+                                                           "[fsum]"
+                                                       ]
+                                       },
+                    "datatable":  {
+                                      "ok":  true,
+                                      "rows":  [
+                                                   [
+                                                       3,
+                                                       40
+                                                   ]
+                                               ],
+                                      "columns":  [
+                                                      "[cnt]",
+                                                      "[sum]"
+                                                  ]
+                                  },
+                    "countblank_countx_productx_stats":  {
+                                                             "ok":  true,
+                                                             "rows":  [
+                                                                          [
+                                                                              3,
+                                                                              4,
+                                                                              24,
+                                                                              2.291530605463735,
+                                                                              5.2511125157769927,
+                                                                              null
+                                                                          ]
+                                                                      ],
+                                                             "columns":  [
+                                                                             "[countx]",
+                                                                             "[countax]",
+                                                                             "[productx]",
+                                                                             "[stdevs]",
+                                                                             "[vars]",
+                                                                             "[countblank_reg]"
+                                                                         ]
+                                                         },
+                    "window_offset_index_window":  {
+                                                       "ok":  true,
+                                                       "rows":  [
+                                                                    [
+                                                                        "Midwest",
+                                                                        546,
+                                                                        null,
+                                                                        "Midwest",
+                                                                        "West",
+                                                                        546
+                                                                    ],
+                                                                    [
+                                                                        "Northeast",
+                                                                        2804,
+                                                                        546,
+                                                                        "Midwest",
+                                                                        "West",
+                                                                        3350
+                                                                    ],
+                                                                    [
+                                                                        "South",
+                                                                        1086,
+                                                                        2804,
+                                                                        "Midwest",
+                                                                        "West",
+                                                                        4436
+                                                                    ],
+                                                                    [
+                                                                        "Unknown",
+                                                                        1,
+                                                                        1086,
+                                                                        "Midwest",
+                                                                        "West",
+                                                                        4437
+                                                                    ],
+                                                                    [
+                                                                        "West",
+                                                                        933,
+                                                                        1,
+                                                                        "Midwest",
+                                                                        "West",
+                                                                        5370
+                                                                    ]
+                                                                ],
+                                                       "columns":  [
+                                                                       "Dim_Client[client_region]",
+                                                                       "[C]",
+                                                                       "[PrevC]",
+                                                                       "[FirstR]",
+                                                                       "[LastR]",
+                                                                       "[RunSum]"
+                                                                   ]
+                                                   }
+                }
+}

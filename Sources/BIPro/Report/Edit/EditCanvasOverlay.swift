@@ -60,6 +60,9 @@ struct EditCanvasOverlay: View {
                     .offset(x: CGFloat(marquee.x), y: CGFloat(marquee.y))
                     .allowsHitTesting(false)
             }
+            if editor.isEditingInteractions {
+                interactionBadges
+            }
         }
         .frame(width: page.width, height: page.height, alignment: .topLeading)
         .coordinateSpace(name: Self.space)
@@ -119,6 +122,62 @@ struct EditCanvasOverlay: View {
         if selected.count == 1, let visual = selected.first, !editor.isLockedByGroup(visual.id) {
             handles(for: visual)
         }
+    }
+
+    // MARK: - Edit Interactions badges (Wave 3A, VM-V11B)
+
+    @ViewBuilder private var interactionBadges: some View {
+        if selectedVisuals.count == 1, let source = selectedVisuals.first,
+           InteractionRules.canSelect(visualType: source.type) {
+            let overrides = editor.visualInteractions(on: page.id).map { item -> InteractionOverride in
+                let eff: InteractionEffect = switch item.type {
+                case .dataFilter: .filter
+                case .highlightFilter: .highlight
+                case .noFilter: .none
+                }
+                return InteractionOverride(sourceID: item.source, targetID: item.target, effect: eff)
+            }
+            let srcTarget = InteractionTarget(visualID: source.id, visualType: source.type)
+            ForEach(page.visuals.filter { $0.id != source.id && !isHidden($0) }) { target in
+                let f = frame(of: target)
+                let tgt = InteractionTarget(visualID: target.id, visualType: target.type)
+                let current = InteractionRules.effect(of: srcTarget, on: tgt, overrides: overrides)
+                let canHighlight = InteractionRules.supportsHighlight(visualType: target.type)
+                HStack(spacing: 3 / scale) {
+                    interactionPill(symbol: "line.3.horizontal.decrease.circle", active: current == .filter,
+                                    tip: bi("Lọc (Filter)", "Filter")) {
+                        editor.setVisualInteraction(source: source.id, target: target.id, type: .dataFilter, on: page.id)
+                    }
+                    if canHighlight {
+                        interactionPill(symbol: "chart.pie", active: current == .highlight,
+                                        tip: bi("Tô sáng (Highlight)", "Highlight")) {
+                            editor.setVisualInteraction(source: source.id, target: target.id, type: .highlightFilter, on: page.id)
+                        }
+                    }
+                    interactionPill(symbol: "nosign", active: current == .none,
+                                    tip: bi("Không tương tác (None)", "None")) {
+                        editor.setVisualInteraction(source: source.id, target: target.id, type: .noFilter, on: page.id)
+                    }
+                }
+                .padding(.horizontal, 4 / scale)
+                .padding(.vertical, 2 / scale)
+                .background(Capsule().fill(Color.white.opacity(0.95)).shadow(color: .black.opacity(0.18), radius: 2 / scale))
+                .position(x: CGFloat(f.x + f.width) - CGFloat(canHighlight ? 38 : 26) / scale,
+                          y: max(CGFloat(12 / scale), CGFloat(f.y) - CGFloat(10 / scale)))
+            }
+        }
+    }
+
+    private func interactionPill(symbol: String, active: Bool, tip: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: CGFloat(11 / scale), weight: active ? .bold : .regular))
+                .foregroundStyle(active ? Color.white : Color.secondary)
+                .frame(width: CGFloat(18 / scale), height: CGFloat(18 / scale))
+                .background(Circle().fill(active ? DS.Palette.accent : Color.clear))
+        }
+        .buttonStyle(.plain)
+        .help(tip)
     }
 
     private func handles(for visual: ReportVisual) -> some View {

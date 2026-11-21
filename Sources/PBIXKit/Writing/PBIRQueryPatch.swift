@@ -667,4 +667,55 @@ public enum PBIRQueryPatch {
                        action: .set(property: "mode", value: #"{"expr":{"Literal":{"Value":"'\#(mode)'"}}}"#))
         ], to: json)
     }
+
+    /// Ghi `visual.expansionStates` cho phân cấp hàng Matrix (`roles: ["Rows"]`, VM-V11B `b3-*-928f08c931d640590cd0.visual.json`).
+    /// `expandedLiterals`: danh sách giá trị cấp 0 đang mở (vd `["'Midwest'"]`). Rỗng thì gỡ `expansionStates`.
+    public static func settingRowExpansionStates(
+        levels: [(entity: String, property: String, queryRef: String)],
+        expandedLiterals: [String],
+        in json: Data
+    ) throws -> Data {
+        guard var root = try? JSONSerialization.jsonObject(with: json, options: []) as? [String: Any],
+              var visual = root["visual"] as? [String: Any] else {
+            throw WriteError.invalid("visual.json has no visual object")
+        }
+        var bytes = [UInt8](json)
+        func tok(_ s: String) -> String { String(decoding: PBIRPatch.jsonStringToken(s), as: UTF8.self) }
+
+        let visualPath: [JSONPathStep] = [.key("visual")]
+        if expandedLiterals.isEmpty || levels.count < 2 {
+            if let kids = JSONCursor.children(at: visualPath, in: bytes),
+               let idx = kids.firstIndex(where: { key(of: $0, in: bytes) == "expansionStates" }) {
+                bytes = JSONCursor.removing([idx], from: kids, in: bytes)
+            }
+            visual["expansionStates"] = nil
+        } else {
+            let levelObjs = levels.enumerated().map { (i, lvl) -> String in
+                if i < levels.count - 1 {
+                    return #"{"queryRefs":[\#(tok(lvl.queryRef))],"isCollapsed":true,"identityKeys":[{"Column":{"Expression":{"SourceRef":{"Entity":\#(tok(lvl.entity))}},"Property":\#(tok(lvl.property))}}],"isPinned":true}"#
+                } else {
+                    return #"{"queryRefs":[\#(tok(lvl.queryRef))],"isCollapsed":true,"isPinned":true}"#
+                }
+            }
+            let childrenObjs = expandedLiterals.map { lit in
+                #"{"identityValues":[{"Literal":{"Value":\#(tok(lit))}}],"isToggled":true}"#
+            }
+            let stateText = #"[{"roles":["Rows"],"levels":[\#(levelObjs.joined(separator: ","))],"root":{"children":[\#(childrenObjs.joined(separator: ","))]}}]"#
+            let path = visualPath + [.key("expansionStates")]
+            if let range = JSONCursor.locate(path[...], in: bytes) {
+                bytes.replaceSubrange(range, with: Array(stateText.utf8))
+            } else if let vRange = JSONCursor.locate(visualPath[...], in: bytes) {
+                let kids = JSONCursor.children(at: visualPath, in: bytes) ?? []
+                let prefix = kids.isEmpty ? "" : ","
+                bytes.insert(contentsOf: Array("\(prefix)\"expansionStates\":\(stateText)".utf8), at: vRange.upperBound - 1)
+            }
+            visual["expansionStates"] = try JSONSerialization.jsonObject(with: Data(stateText.utf8), options: [])
+        }
+        root["visual"] = visual
+        guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
+              (root as NSDictionary).isEqual(to: actual) else {
+            throw WriteError.verificationFailed("expansionStates splice changed other content")
+        }
+        return Data(bytes)
+    }
 }

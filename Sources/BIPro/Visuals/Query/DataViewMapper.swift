@@ -231,19 +231,39 @@ enum DataViewMapper {
         let columnCount = max(1, columns.count)
 
         // Tiêu đề hàng theo thứ tự thân; dòng tổng chung (đứng đầu trong truy vấn) chuyển xuống cuối như Power BI vẽ.
+        let rowDepth = spec.matrixRowDepth
+        let rowFlags = (0..<rowDepth).map { index.result(VisualQuerySpec.rowFlagName($0)) }
+        let rowLevelIdx = (0..<(rowDepth >= 2 ? rowDepth : 0)).map { j in index.column(spec.rowDrillLevels[j].column) }
+        let canExpandRows = spec.rowDrillLevels.count >= 2
+
         var headers: [MatrixHeader] = []
         var rowOf: [[Value]: Int] = [:]
         var totalRow: Int?
         var cells: [[[DataCell]]] = []
         for r in body.rows {
             let isTotal = rowTotal.map { isTrue(r[$0]) } ?? false
-            let path = isTotal ? [] : rowIdx.map { $0.map { r[$0] } ?? .blank }
-            let key = isTotal ? [Value.string("\u{0}total")] : path
+            let header: MatrixHeader
+            let key: [Value]
+            if isTotal {
+                header = MatrixHeader(path: [], level: -1, isGrandTotal: true)
+                key = [Value.string("\u{0}total")]
+            } else if rowDepth >= 2 {
+                var level = 0
+                for j in 1..<rowDepth { if let f = rowFlags[j], !isTrue(r[f]) { level = j } }
+                let path = (0...level).map { j in rowLevelIdx[j].map { r[$0] } ?? .blank }
+                header = MatrixHeader(path: path, level: level, hasChildren: level + 1 < spec.rowDrillLevels.count,
+                                      isExpanded: spec.rowExpandedPaths.contains(path))
+                key = [Value.integer(Int64(level))] + path
+            } else {
+                let path = rowIdx.map { $0.map { r[$0] } ?? .blank }
+                header = MatrixHeader(path: path, level: 0, hasChildren: canExpandRows, isExpanded: false)
+                key = path
+            }
             let i: Int
             if let existing = rowOf[key] { i = existing } else {
                 i = headers.count
                 rowOf[key] = i
-                headers.append(isTotal ? MatrixHeader(path: [], level: -1, isGrandTotal: true) : MatrixHeader(path: path, level: 0))
+                headers.append(header)
                 cells.append(Array(repeating: Array(repeating: .blank, count: measures.count), count: columnCount))
                 if isTotal { totalRow = i }
             }
@@ -257,7 +277,8 @@ enum DataViewMapper {
             cells.append(cells.remove(at: t))
         }
         // Cột tổng (cờ ASC nên đã ở cuối trong secondary).
-        return .matrix(MatrixData(rowLevels: spec.primary.map(\.field), columnLevels: (spec.matrixColumnDepth >= 2 ? spec.drillLevels.prefix(spec.matrixColumnDepth).map(\.field) : spec.secondary.map(\.field)),
+        let outRowLevels = rowDepth >= 2 ? spec.rowDrillLevels.prefix(rowDepth).map(\.field) : spec.primary.map(\.field)
+        return .matrix(MatrixData(rowLevels: outRowLevels, columnLevels: (spec.matrixColumnDepth >= 2 ? spec.drillLevels.prefix(spec.matrixColumnDepth).map(\.field) : spec.secondary.map(\.field)),
                                   measures: measures.map(\.field), rows: headers, columns: columns, cells: cells,
                                   isReduced: false))
     }

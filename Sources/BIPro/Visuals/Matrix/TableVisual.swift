@@ -183,12 +183,40 @@ struct TableVisualView: View {
         }
     }
 
+    private func columnMinMax(for colIndex: Int) -> (min: Double, max: Double)? {
+        var lo = Double.infinity, hi = -Double.infinity
+        for row in data.rows where colIndex < row.count {
+            if let v = NumberDisplay.numericValue(row[colIndex].value), v.isFinite {
+                if v < lo { lo = v }
+                if v > hi { hi = v }
+            }
+        }
+        return lo.isFinite && hi.isFinite ? (lo, hi) : nil
+    }
+
     private func dataCellView(row: [DataCell], colIndex: Int, col: FieldInfo, width: CGFloat, fontSize: CGFloat, height: CGFloat) -> some View {
         let cell = colIndex < row.count ? row[colIndex] : .blank
-        let text = Self.cellText(cell, field: col)
+        let numVal = NumberDisplay.numericValue(cell.value)
+        let mm = columnMinMax(for: colIndex)
+        let dataBar = mm.flatMap {
+            CellFormatting.evaluateDataBar(
+                targetQueryRef: col.queryRef, numericValue: numVal,
+                columnMin: $0.min, columnMax: $0.max, isTotal: false,
+                format: context.format, theme: context.theme
+            )
+        }
+        let text = (dataBar?.hideText == true) ? "" : Self.cellText(cell, field: col)
         let right = Self.isRightAligned(cell, field: col)
-        let fg: Color = cell.fontColor.flatMap { Color(hex: $0) } ?? (Color(hex: "#252423") ?? .primary)
-        let bg: Color = cell.backColor.flatMap { Color(hex: $0) } ?? Color.clear
+        let fg: Color = CellFormatting.evaluateConditionalColor(
+            property: "fontColor", targetQueryRef: col.queryRef, numericValue: numVal,
+            minVal: mm?.min, maxVal: mm?.max, isTotal: false,
+            cellOverrideHex: cell.fontColor, format: context.format, theme: context.theme
+        ) ?? (Color(hex: "#252423") ?? .primary)
+        let bg: Color = CellFormatting.evaluateConditionalColor(
+            property: "backColor", targetQueryRef: col.queryRef, numericValue: numVal,
+            minVal: mm?.min, maxVal: mm?.max, isTotal: false,
+            cellOverrideHex: cell.backColor, format: context.format, theme: context.theme
+        ) ?? Color.clear
         return Text(text)
             .font(.system(size: fontSize).monospacedDigit())
             .foregroundStyle(fg)
@@ -198,6 +226,7 @@ struct TableVisualView: View {
             .padding(.horizontal, 8)
             .frame(width: width, height: height)
             .background(bg)
+            .overlay(CellFormatting.dataBarOverlay(dataBar))
     }
 
     private func totalRow(totals: [DataCell], widths: [CGFloat], fontSize: CGFloat, height: CGFloat, accent: Color) -> some View {

@@ -32,6 +32,20 @@ struct MatrixVisualView: View {
         self.gradientMinMax = minMaxDict
     }
 
+    static func columnMinMax(data: MatrixData, measureIndex m: Int) -> (min: Double, max: Double)? {
+        var lo = Double.infinity, hi = -Double.infinity
+        for (r, row) in data.rows.enumerated() where !row.isGrandTotal && !row.isSubtotal {
+            for c in 0..<data.columnCount {
+                if c < data.columns.count && (data.columns[c].isGrandTotal || data.columns[c].isSubtotal) { continue }
+                if let v = NumberDisplay.numericValue(data.cell(row: r, column: c, measure: m).value), v.isFinite {
+                    if v < lo { lo = v }
+                    if v > hi { hi = v }
+                }
+            }
+        }
+        return lo.isFinite && hi.isFinite ? (lo, hi) : nil
+    }
+
     var body: some View {
         if scrollable {
             ScrollView([.horizontal, .vertical]) {
@@ -310,25 +324,28 @@ struct MatrixGridView: View {
         let pointID = cellPointID(row: r, col: c)
         let isSelected = context.selection.contains(pointID)
 
-        // Tính màu nền: cell.backColor > gradient > white
-        let backColor: Color
-        if let hex = cell.backColor, let c = Color(hex: hex) {
-            backColor = c
-        } else if !isTotal,
-                  let rule = context.format.gradients.first(where: { $0.property == "backColor" }),
-                  let (minVal, maxVal) = gradientMinMax[m] {
-            let num = NumberDisplay.numericValue(cell.value)
-            backColor = MatrixGradient.color(value: num, min: minVal, max: maxVal, rule: rule, theme: context.theme) ?? .white
-        } else {
-            backColor = .white
-        }
+        // Tính màu nền, màu chữ và thanh dữ liệu theo Conditional Formatting (Rules > Field value > Gradient, Wave 3B / VM-V11B)
+        let measureRef = m < data.measures.count ? data.measures[m].queryRef : ""
+        let numVal = NumberDisplay.numericValue(cell.value)
+        let mm = gradientMinMax[m] ?? MatrixVisualView.columnMinMax(data: data, measureIndex: m)
+        let backColor: Color = CellFormatting.evaluateConditionalColor(
+            property: "backColor", targetQueryRef: measureRef, numericValue: numVal,
+            minVal: mm?.min, maxVal: mm?.max, isTotal: isTotal,
+            cellOverrideHex: cell.backColor, format: context.format, theme: context.theme
+        ) ?? .white
 
-        // Tính màu chữ: cell.fontColor > mặc định
-        let fontColor: Color
-        if let hex = cell.fontColor, let c = Color(hex: hex) {
-            fontColor = c
-        } else {
-            fontColor = context.theme.foregroundColor
+        let fontColor: Color = CellFormatting.evaluateConditionalColor(
+            property: "fontColor", targetQueryRef: measureRef, numericValue: numVal,
+            minVal: mm?.min, maxVal: mm?.max, isTotal: isTotal,
+            cellOverrideHex: cell.fontColor, format: context.format, theme: context.theme
+        ) ?? context.theme.foregroundColor
+
+        let dataBar = mm.flatMap {
+            CellFormatting.evaluateDataBar(
+                targetQueryRef: measureRef, numericValue: numVal,
+                columnMin: $0.min, columnMax: $0.max, isTotal: isTotal,
+                format: context.format, theme: context.theme
+            )
         }
 
         // Icon từ measure (nếu có SVG data URI)
@@ -339,7 +356,7 @@ struct MatrixGridView: View {
             iconImage = nil
         }
 
-        let displayText = cell.value == .blank ? "" : NumberDisplay.plain(cell)
+        let displayText = (dataBar?.hideText == true || cell.value == .blank) ? "" : NumberDisplay.plain(cell)
 
         return HStack(spacing: 3) {
             Spacer(minLength: 0)
@@ -362,6 +379,7 @@ struct MatrixGridView: View {
         .padding(.horizontal, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(backColor)
+        .overlay(CellFormatting.dataBarOverlay(dataBar))
         .overlay(selectionOverlay(isSelected))
         .contentShape(Rectangle())
         .onTapGesture {

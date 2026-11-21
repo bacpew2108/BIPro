@@ -17,6 +17,10 @@ public enum InformationFunctions: FunctionFamily {
         FunctionSpec(name: "HASONEVALUE", params: [.column("columnName")], impl: .scalar(hasOneValueBody)),
         FunctionSpec(name: "SELECTEDVALUE", params: [.column("columnName"), .scalar("alternateResult", optional: true)],
                      impl: .scalar(selectedValueBody)),
+        FunctionSpec(name: "ISERROR", params: [.lazy("value")], impl: .scalar(isErrorBody)),
+        FunctionSpec(name: "ISNUMBER", params: [.scalar("value")], impl: .scalar(isNumberBody)),
+        FunctionSpec(name: "ISTEXT", params: [.scalar("value")], impl: .scalar(isTextBody)),
+        FunctionSpec(name: "ISLOGICAL", params: [.scalar("value")], impl: .scalar(isLogicalBody)),
     ]
 
     /// ISBLANK chỉ đúng với BLANK thật. ISBLANK(0) là FALSE, ISBLANK("") là FALSE (architecture.md §5.5).
@@ -68,5 +72,36 @@ public enum InformationFunctions: FunctionFamily {
         if values.count == 1 { return values[0] }
         if frame.isBlankArgument(1) { return .blank }
         return try frame.scalar(1)
+    }
+
+    /// ISERROR(value): TRUE nếu đánh giá value ném DAXError (trừ .cancelled).
+    private static let isErrorBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        do throws(DAXError) {
+            _ = try frame.scalar(0)
+            return .boolean(false)
+        } catch {
+            if error.kind == .cancelled { throw error }
+            return .boolean(true)
+        }
+    }
+
+    /// ISNUMBER(value): TRUE với integer, double, currency, dateTime (DAX coi ngày là số serial); FALSE với string/bool/BLANK.
+    private static let isNumberBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        switch try frame.scalar(0) {
+        case .integer, .double, .currency, .dateTime: return .boolean(true)
+        case .blank, .string, .boolean: return .boolean(false)
+        }
+    }
+
+    /// ISTEXT(value): chỉ TRUE với .string (BLANK là FALSE).
+    private static let isTextBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        if case .string = try frame.scalar(0) { return .boolean(true) }
+        return .boolean(false)
+    }
+
+    /// ISLOGICAL(value): chỉ TRUE với .boolean (1 và BLANK là FALSE).
+    private static let isLogicalBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
+        if case .boolean = try frame.scalar(0) { return .boolean(true) }
+        return .boolean(false)
     }
 }

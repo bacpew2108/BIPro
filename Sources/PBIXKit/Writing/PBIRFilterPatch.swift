@@ -8,6 +8,8 @@ public enum FilterLiteral: Equatable, Sendable {
     /// Cột tiền tệ (Fixed decimal number): `…M` (VM-D10).
     case currency(Double)
     case boolean(Bool)
+    /// Cột ngày giờ (`datetime'YYYY-MM-DDT00:00:00'`, VM-V11B).
+    case dateTime(String)
 
     var text: String {
         switch self {
@@ -16,6 +18,7 @@ public enum FilterLiteral: Equatable, Sendable {
         case .decimal(let d): (d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : "\(d)") + "D"
         case .currency(let d): (d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : "\(d)") + "M"
         case .boolean(let b): b ? "true" : "false"
+        case .dateTime(let iso): "datetime'\(iso)'"
         }
     }
 }

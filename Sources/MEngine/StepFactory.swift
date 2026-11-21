@@ -124,6 +124,106 @@ public struct GroupAggregate: Sendable, Equatable {
     }
 }
 
+/// Phép trích xuất chuỗi (Wave 3C / T021).
+public enum TextExtractKind: Sendable, Equatable {
+    case length
+    case firstCharacters(Int)
+    case lastCharacters(Int)
+    case beforeDelimiter(String)
+    case afterDelimiter(String)
+    case betweenDelimiters(start: String, end: String)
+
+    public var stepName: String {
+        switch self {
+        case .length: "Calculated Text Length"
+        case .firstCharacters: "Extracted First Characters"
+        case .lastCharacters: "Extracted Last Characters"
+        case .beforeDelimiter: "Extracted Text Before Delimiter"
+        case .afterDelimiter: "Extracted Text After Delimiter"
+        case .betweenDelimiters: "Extracted Text Between Delimiters"
+        }
+    }
+
+    public var defaultColumnName: String {
+        switch self {
+        case .length: "Length"
+        case .firstCharacters: "First Characters"
+        case .lastCharacters: "Last Characters"
+        case .beforeDelimiter: "Text Before Delimiter"
+        case .afterDelimiter: "Text After Delimiter"
+        case .betweenDelimiters: "Text Between Delimiters"
+        }
+    }
+
+    public var resultType: String {
+        if case .length = self { return "Int64.Type" }
+        return "type text"
+    }
+
+    func transformExpression(_ arg: String) -> String {
+        switch self {
+        case .length: "Text.Length(\(arg))"
+        case .firstCharacters(let n): "Text.Start(\(arg), \(n))"
+        case .lastCharacters(let n): "Text.End(\(arg), \(n))"
+        case .beforeDelimiter(let d): "Text.BeforeDelimiter(\(arg), \(StepFactory.quote(d)))"
+        case .afterDelimiter(let d): "Text.AfterDelimiter(\(arg), \(StepFactory.quote(d)))"
+        case .betweenDelimiters(let s, let e): "Text.BetweenDelimiters(\(arg), \(StepFactory.quote(s)), \(StepFactory.quote(e)))"
+        }
+    }
+}
+
+/// Phép trích xuất ngày (Wave 3C / T021).
+public enum DateExtractKind: String, Sendable, Equatable, CaseIterable {
+    case year, quarter, month, monthName, day, dayOfWeekName, startOfMonth, endOfMonth
+
+    public var stepName: String {
+        switch self {
+        case .year: "Extracted Year"
+        case .quarter: "Extracted Quarter"
+        case .month: "Extracted Month"
+        case .monthName: "Extracted Month Name"
+        case .day: "Extracted Day"
+        case .dayOfWeekName: "Extracted Day Name"
+        case .startOfMonth: "Calculated Start of Month"
+        case .endOfMonth: "Calculated End of Month"
+        }
+    }
+
+    public var defaultColumnName: String {
+        switch self {
+        case .year: "Year"
+        case .quarter: "Quarter"
+        case .month: "Month"
+        case .monthName: "Month Name"
+        case .day: "Day"
+        case .dayOfWeekName: "Day Name"
+        case .startOfMonth: "Start of Month"
+        case .endOfMonth: "End of Month"
+        }
+    }
+
+    public var functionName: String {
+        switch self {
+        case .year: "Date.Year"
+        case .quarter: "Date.QuarterOfYear"
+        case .month: "Date.Month"
+        case .monthName: "Date.MonthName"
+        case .day: "Date.Day"
+        case .dayOfWeekName: "Date.DayOfWeekName"
+        case .startOfMonth: "Date.StartOfMonth"
+        case .endOfMonth: "Date.EndOfMonth"
+        }
+    }
+
+    public var resultType: String {
+        switch self {
+        case .year, .quarter, .month, .day: "Int64.Type"
+        case .monthName, .dayOfWeekName: "type text"
+        case .startOfMonth, .endOfMonth: "type date"
+        }
+    }
+}
+
 public enum StepCommand: Sendable, Equatable {
     case promoteHeaders
     case changeType([ColumnTypeChange])
@@ -162,6 +262,12 @@ public enum StepCommand: Sendable, Equatable {
     case append(queries: [String])
     /// Group By nhiều khoá, nhiều phép tổng hợp (Desktop, VM-F4: bước `Grouped Rows`; Count Rows quan sát nguyên văn, Sum/Average/... theo dạng đã biết [SUY ĐOÁN]).
     case groupBy(keys: [String], aggregates: [GroupAggregate])
+    /// Wave 3C (T021): Tách cột theo số ký tự lặp lại.
+    case splitByRepeatedLengths(column: String, length: Int, into: [String])
+    /// Wave 3C (T021): Trích xuất chuỗi (Transform tại chỗ hoặc Add Column thành cột mới).
+    case extractText(column: String, kind: TextExtractKind, newColumnName: String? = nil)
+    /// Wave 3C (T021): Trích xuất phần ngày (Transform tại chỗ hoặc Add Column thành cột mới).
+    case extractDate(column: String, kind: DateExtractKind, newColumnName: String? = nil)
 }
 
 public enum StepFactory {
@@ -247,6 +353,26 @@ public enum StepFactory {
             return [make("Appended Query", "Table.Combine({\(items)})")]
         case .groupBy(let keys, let aggregates):
             return [make("Grouped Rows", "Table.Group(\(p), \(list(keys)), {\(aggregates.map(\.m).joined(separator: ", "))})")]
+        case .splitByRepeatedLengths(let column, let length, let into):
+            let split = make("Split Column by Position",
+                             "Table.SplitColumn(\(p), \(quote(column)), Splitter.SplitTextByRepeatedLengths(\(length)), \(list(into)))")
+            let retype = make("Changed Type", "Table.TransformColumnTypes(\(MQuery.reference(to: split.name)),\(typePairs(into.map { ColumnTypeChange(column: $0, type: .text) })))",
+                              taken: [split.name])
+            return [split, retype]
+        case .extractText(let column, let kind, let newColumnName):
+            if let colName = newColumnName {
+                let expr = kind.transformExpression("[\(column)]")
+                return [make("Inserted \(kind.defaultColumnName)", "Table.AddColumn(\(p), \(quote(colName)), each \(expr), \(kind.resultType))")]
+            } else {
+                let expr = kind.transformExpression("_")
+                return [make(kind.stepName, "Table.TransformColumns(\(p), {{\(quote(column)), each \(expr), \(kind.resultType)}})")]
+            }
+        case .extractDate(let column, let kind, let newColumnName):
+            if let colName = newColumnName {
+                return [make("Inserted \(kind.defaultColumnName)", "Table.AddColumn(\(p), \(quote(colName)), each \(kind.functionName)([\(column)]), \(kind.resultType))")]
+            } else {
+                return [make(kind.stepName, "Table.TransformColumns(\(p), {{\(quote(column)), \(kind.functionName), \(kind.resultType)}})")]
+            }
         }
     }
 

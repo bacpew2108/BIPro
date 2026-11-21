@@ -8,7 +8,12 @@ enum PopoverCommandType {
     case keepTopRows
     case removeTopRows
     case replaceValue
+    case replaceErrors
     case splitByDelimiter
+    case splitByNumberOfChars
+    case charCount
+    case singleDelimiter
+    case betweenDelimiters
     case filterEquals(distribution: [ProfileBucket], columnType: DAXType)
 }
 
@@ -25,7 +30,10 @@ struct QueryCommandPopoverView: View {
     @State private var rowCountText: String = "10"
     @State private var replaceOldText: String = ""
     @State private var replaceNewText: String = ""
+    @State private var replaceErrorText: String = "0"
     @State private var delimiterText: String = " "
+    @State private var endDelimiterText: String = ")"
+    @State private var charCountText: String = "3"
     @State private var splitCountText: String = "2"
     @State private var selectedFilterLabels: Set<String> = []
 
@@ -63,9 +71,21 @@ struct QueryCommandPopoverView: View {
         case .replaceValue:
             ctx.replaceOld = replaceOldText
             ctx.replaceNew = replaceNewText
+        case .replaceErrors:
+            ctx.replaceErrorText = replaceErrorText
         case .splitByDelimiter:
             ctx.delimiter = delimiterText
             ctx.splitColumnCount = Int(splitCountText)
+        case .splitByNumberOfChars:
+            ctx.charCount = Int(charCountText)
+            ctx.splitColumnCount = Int(splitCountText)
+        case .charCount:
+            ctx.charCount = Int(charCountText)
+        case .singleDelimiter:
+            ctx.delimiter = delimiterText
+        case .betweenDelimiters:
+            ctx.delimiter = delimiterText
+            ctx.endDelimiter = endDelimiterText
         case .filterEquals(_, let colType):
             let literals = buildFilterLiterals(colType: colType)
             ctx.filterValues = literals.isEmpty ? nil : literals
@@ -164,21 +184,91 @@ struct QueryCommandPopoverView: View {
                 }
             }
 
+        case .replaceErrors:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(bi("Giá trị thay thế lỗi (để trống = null):", "Value to replace errors (empty = null):"))
+                    .font(DS.Typeface.labelSmall)
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                TextField("0", text: $replaceErrorText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(DS.Typeface.body)
+            }
+
         case .splitByDelimiter:
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Dấu phân cách:")
+                    Text(bi("Dấu phân cách:", "Delimiter:"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
-                    TextField("Dấu phân cách", text: $delimiterText)
+                    TextField(bi("Dấu phân cách", "Delimiter"), text: $delimiterText)
                         .textFieldStyle(.roundedBorder)
                         .font(DS.Typeface.body)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Số cột (tối thiểu 2):")
+                    Text(bi("Số cột (tối thiểu 2):", "Number of columns (min 2):"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
                     TextField("2", text: $splitCountText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(DS.Typeface.body)
+                }
+            }
+
+        case .splitByNumberOfChars:
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(bi("Số ký tự mỗi phần:", "Characters per split:"))
+                        .font(DS.Typeface.labelSmall)
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                    TextField("3", text: $charCountText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(DS.Typeface.body)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(bi("Số cột (tối thiểu 2):", "Number of columns (min 2):"))
+                        .font(DS.Typeface.labelSmall)
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                    TextField("2", text: $splitCountText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(DS.Typeface.body)
+                }
+            }
+
+        case .charCount:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(bi("Số ký tự:", "Count:"))
+                    .font(DS.Typeface.labelSmall)
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                TextField("3", text: $charCountText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(DS.Typeface.body)
+            }
+
+        case .singleDelimiter:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(bi("Dấu phân cách:", "Delimiter:"))
+                    .font(DS.Typeface.labelSmall)
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                TextField("-", text: $delimiterText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(DS.Typeface.body)
+            }
+
+        case .betweenDelimiters:
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(bi("Dấu phân cách đầu:", "Start delimiter:"))
+                        .font(DS.Typeface.labelSmall)
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                    TextField("(", text: $delimiterText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(DS.Typeface.body)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(bi("Dấu phân cách cuối:", "End delimiter:"))
+                        .font(DS.Typeface.labelSmall)
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                    TextField(")", text: $endDelimiterText)
                         .textFieldStyle(.roundedBorder)
                         .font(DS.Typeface.body)
                 }

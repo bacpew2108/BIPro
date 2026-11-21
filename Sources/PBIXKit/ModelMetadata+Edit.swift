@@ -118,14 +118,78 @@ extension ModelMetadata {
         case .updateTable(let name, let patch):
             guard let index = tables.firstIndex(where: { $0.name == name && $0.isUserTable }) else { throw ModelEditError("Không có bảng \(name)") }
             let old = tables[index]
+            var newName = old.name
+            if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != old.name {
+                guard !renamed.isEmpty, !renamed.contains("\0") else { throw ModelEditError("Tên bảng không hợp lệ") }
+                let key = renamed.lowercased()
+                if tables.contains(where: { $0.id != old.id && $0.name.lowercased() == key }) {
+                    throw ModelEditError("Mô hình đã có bảng tên \(renamed)")
+                }
+                newName = renamed
+            }
             var copy = tables
             // Như bộ đọc: bảng tính toán có cờ hay chú thích của Auto date/time không còn là bảng người dùng.
             let autoDate = patch.isPrivate == true || patch.showAsVariationsOnly == true
                 || ["__PBI_LocalDateTable", "__PBI_TemplateDateTable"].contains { if case .set = patch.annotations[$0] { true } else { false } }
-            copy[index] = Table(id: old.id, name: old.name, isHidden: patch.isHidden ?? old.isHidden, systemFlags: old.systemFlags,
+            copy[index] = Table(id: old.id, name: newName, isHidden: patch.isHidden ?? old.isHidden, systemFlags: old.systemFlags,
                                 description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory,
                                 isCalculatedUserTable: old.isCalculatedUserTable && !autoDate)
-            return ModelMetadata(copying: self, tables: copy)
+            if newName == old.name {
+                return ModelMetadata(copying: self, tables: copy)
+            }
+            let updatedColumns = columns.map { c in
+                c.tableName == old.name
+                    ? Column(id: c.id, tableID: c.tableID, tableName: newName, name: c.name, kind: c.kind, dataType: c.dataType,
+                             isHidden: c.isHidden, expression: c.expression, formatString: c.formatString,
+                             sortByColumnID: c.sortByColumnID, summarizeBy: c.summarizeBy, dataCategory: c.dataCategory,
+                             displayFolder: c.displayFolder, isKey: c.isKey, sourceColumn: c.sourceColumn,
+                             description: c.description, lineageTag: c.lineageTag)
+                    : c
+            }
+            let updatedMeasures = measures.map { m in
+                m.tableName == old.name
+                    ? Measure(tableName: newName, name: m.name, expression: m.expression, formatString: m.formatString,
+                              displayFolder: m.displayFolder, isHidden: m.isHidden, description: m.description,
+                              lineageTag: m.lineageTag, dataType: m.dataType, state: m.state,
+                              formatStringDefinition: m.formatStringDefinition)
+                    : m
+            }
+            let updatedRels = relationships.map { r in
+                (r.fromTable == old.name || r.toTable == old.name)
+                    ? Relationship(name: r.name, fromTable: r.fromTable == old.name ? newName : r.fromTable, fromColumn: r.fromColumn,
+                                   toTable: r.toTable == old.name ? newName : r.toTable, toColumn: r.toColumn,
+                                   isActive: r.isActive, cardinality: r.cardinality,
+                                   crossFilteringBehavior: r.crossFilteringBehavior, joinOnDateBehavior: r.joinOnDateBehavior)
+                    : r
+            }
+            let updatedDateRels = dateTableRelationships.map { r in
+                (r.fromTable == old.name || r.toTable == old.name)
+                    ? Relationship(name: r.name, fromTable: r.fromTable == old.name ? newName : r.fromTable, fromColumn: r.fromColumn,
+                                   toTable: r.toTable == old.name ? newName : r.toTable, toColumn: r.toColumn,
+                                   isActive: r.isActive, cardinality: r.cardinality,
+                                   crossFilteringBehavior: r.crossFilteringBehavior, joinOnDateBehavior: r.joinOnDateBehavior)
+                    : r
+            }
+            let updatedHierarchies = hierarchies.map { h in
+                h.tableName == old.name
+                    ? Hierarchy(tableName: newName, name: h.name, isHidden: h.isHidden, displayFolder: h.displayFolder,
+                                lineageTag: h.lineageTag, levels: h.levels)
+                    : h
+            }
+            let updatedVariations = variations.map { v in
+                v.table == old.name
+                    ? Variation(table: newName, column: v.column, name: v.name, relationship: v.relationship,
+                                hierarchy: v.hierarchy, isDefault: v.isDefault)
+                    : v
+            }
+            var updatedPartitions = partitionQueries
+            if let pq = updatedPartitions.removeValue(forKey: old.name) { updatedPartitions[newName] = pq }
+            var updatedCalcExprs = calculatedTableExpressions
+            if let ce = updatedCalcExprs.removeValue(forKey: old.name) { updatedCalcExprs[newName] = ce }
+            return ModelMetadata(copying: self, columns: updatedColumns, measures: updatedMeasures,
+                                 relationships: updatedRels, tables: copy, hierarchies: updatedHierarchies,
+                                 partitionQueries: updatedPartitions, calculatedTableExpressions: updatedCalcExprs,
+                                 dateTableRelationships: updatedDateRels, variations: updatedVariations)
 
         case .addRelationship(let new):
             try validate(new)
@@ -228,7 +292,7 @@ extension ModelMetadata {
             let old = columns[index]
             var newName = old.name
             if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != old.name {
-                try validateColumnRename(old, to: renamed)
+                try validateColumnRename(old, to: renamed, allowUsed: patch.cascade)
                 newName = renamed
             }
             var sortID = old.sortByColumnID
@@ -254,7 +318,47 @@ extension ModelMetadata {
                 displayFolder: patch.displayFolder.resolved(old.displayFolder), isKey: old.isKey,
                 sourceColumn: old.sourceColumn, description: patch.description.resolved(old.description),
                 lineageTag: old.lineageTag)
-            return ModelMetadata(copying: self, columns: copy)
+            if newName == old.name {
+                return ModelMetadata(copying: self, columns: copy)
+            }
+            let updatedRels = relationships.map { r in
+                (r.fromTable == table && r.fromColumn == old.name) || (r.toTable == table && r.toColumn == old.name)
+                    ? Relationship(name: r.name, fromTable: r.fromTable,
+                                   fromColumn: (r.fromTable == table && r.fromColumn == old.name) ? newName : r.fromColumn,
+                                   toTable: r.toTable,
+                                   toColumn: (r.toTable == table && r.toColumn == old.name) ? newName : r.toColumn,
+                                   isActive: r.isActive, cardinality: r.cardinality,
+                                   crossFilteringBehavior: r.crossFilteringBehavior, joinOnDateBehavior: r.joinOnDateBehavior)
+                    : r
+            }
+            let updatedDateRels = dateTableRelationships.map { r in
+                (r.fromTable == table && r.fromColumn == old.name) || (r.toTable == table && r.toColumn == old.name)
+                    ? Relationship(name: r.name, fromTable: r.fromTable,
+                                   fromColumn: (r.fromTable == table && r.fromColumn == old.name) ? newName : r.fromColumn,
+                                   toTable: r.toTable,
+                                   toColumn: (r.toTable == table && r.toColumn == old.name) ? newName : r.toColumn,
+                                   isActive: r.isActive, cardinality: r.cardinality,
+                                   crossFilteringBehavior: r.crossFilteringBehavior, joinOnDateBehavior: r.joinOnDateBehavior)
+                    : r
+            }
+            let updatedHierarchies = hierarchies.map { h in
+                h.tableName == table
+                    ? Hierarchy(tableName: h.tableName, name: h.name, isHidden: h.isHidden, displayFolder: h.displayFolder,
+                                lineageTag: h.lineageTag,
+                                levels: h.levels.map { l in
+                                    l.columnName == old.name ? Hierarchy.Level(name: l.name, columnName: newName, lineageTag: l.lineageTag) : l
+                                })
+                    : h
+            }
+            let updatedVariations = variations.map { v in
+                (v.table == table && v.column == old.name)
+                    ? Variation(table: v.table, column: newName, name: v.name, relationship: v.relationship,
+                                hierarchy: v.hierarchy, isDefault: v.isDefault)
+                    : v
+            }
+            return ModelMetadata(copying: self, columns: copy, relationships: updatedRels,
+                                 hierarchies: updatedHierarchies, dateTableRelationships: updatedDateRels,
+                                 variations: updatedVariations)
         }
     }
 
@@ -288,8 +392,8 @@ extension ModelMetadata {
         }
     }
 
-    /// Đổi tên cột: tên không rỗng, không trùng cột hoặc measure cùng bảng, và cột không còn là đầu quan hệ hay cấp phân cấp.
-    private func validateColumnRename(_ column: Column, to name: String) throws {
+    /// Đổi tên cột: tên không rỗng, không trùng cột hoặc measure cùng bảng; khi không cascade (`allowUsed == false`), từ chối cột trong quan hệ/phân cấp.
+    private func validateColumnRename(_ column: Column, to name: String, allowUsed: Bool = false) throws {
         guard !name.isEmpty else { throw ModelEditError("Tên cột không được để trống") }
         guard !name.contains("\0") else { throw ModelEditError("Tên cột chứa ký tự NUL") }
         let key = name.lowercased()
@@ -297,6 +401,7 @@ extension ModelMetadata {
             || measures.contains(where: { $0.tableName == column.tableName && $0.name.lowercased() == key }) {
             throw ModelEditError("Bảng \(column.tableName) đã có cột hoặc measure tên \(name)")
         }
+        guard !allowUsed else { return }
         if relationships.contains(where: {
             ($0.fromTable == column.tableName && $0.fromColumn == column.name) || ($0.toTable == column.tableName && $0.toColumn == column.name)
         }) {

@@ -95,6 +95,49 @@ public enum PBIRFormatPatch {
         return Data(bytes)
     }
 
+    /// Thay nguyên mảng `visual.<scope>.<object>` bằng chuỗi JSON mảng `arrayJSON` (hoặc gỡ khoá khi nil).
+    /// Dùng cho các đối tượng định dạng phức tạp đã quan sát ở `VM-V11B`: `columnFormatting` (dataBars), `values` (Conditional/FillRule),
+    /// `y1AxisReferenceLine`, `referenceLine`.
+    public static func replacingObject(_ object: String, scope: FormatScope = .objects, arrayJSON: String?, in json: Data) throws -> Data {
+        guard var root = try? JSONSerialization.jsonObject(with: json, options: []) as? [String: Any],
+              var visual = root["visual"] as? [String: Any] else {
+            throw WriteError.invalid("visual.json has no visual object")
+        }
+        var bytes = [UInt8](json)
+        let scopeKey = scope.key
+        let scopePath: [JSONPathStep] = [.key("visual"), .key(scopeKey)]
+        let objPath: [JSONPathStep] = scopePath + [.key(object)]
+        var scopeDict = (visual[scopeKey] as? [String: Any]) ?? [:]
+
+        if let arrayJSON {
+            let parsedArray = try JSONSerialization.jsonObject(with: Data(arrayJSON.utf8), options: [])
+            if let range = JSONCursor.locate(objPath[...], in: bytes) {
+                bytes.replaceSubrange(range, with: Array(arrayJSON.utf8))
+            } else if JSONCursor.locate(scopePath[...], in: bytes) != nil {
+                try appendMember("\(String(decoding: PBIRPatch.jsonStringToken(object), as: UTF8.self)):\(arrayJSON)", to: scopePath, in: &bytes)
+            } else {
+                let objTok = String(decoding: PBIRPatch.jsonStringToken(object), as: UTF8.self)
+                let scopeTok = String(decoding: PBIRPatch.jsonStringToken(scopeKey), as: UTF8.self)
+                try appendMember("\(scopeTok):{\(objTok):\(arrayJSON)}", to: [.key("visual")], in: &bytes)
+            }
+            scopeDict[object] = parsedArray
+            visual[scopeKey] = scopeDict
+        } else {
+            if let kids = JSONCursor.children(at: scopePath, in: bytes),
+               let idx = kids.firstIndex(where: { key(of: $0, in: bytes) == object }) {
+                bytes = JSONCursor.removing([idx], from: kids, in: bytes)
+            }
+            scopeDict[object] = nil
+            if scopeDict.isEmpty { visual[scopeKey] = visual[scopeKey] != nil ? [:] : nil } else { visual[scopeKey] = scopeDict }
+        }
+        root["visual"] = visual
+        guard let actual = try? JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any],
+              (root as NSDictionary).isEqual(to: actual) else {
+            throw WriteError.verificationFailed("visual.json replacingObject(\(object)) splice mismatch")
+        }
+        return Data(bytes)
+    }
+
     // MARK: - Byte
 
     private static let visualPath: [JSONPathStep] = [.key("visual")]
