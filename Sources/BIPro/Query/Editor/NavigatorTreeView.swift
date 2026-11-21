@@ -16,7 +16,7 @@ struct NavigatorTreeView: View {
             return "\(address.server): \(address.database)"
         }
         let name = URL(fileURLWithPath: state.location).lastPathComponent
-        return name.isEmpty ? "Nguồn dữ liệu" : name
+        return name.isEmpty ? bi("Nguồn dữ liệu", "Data Source") : name
     }
 
     private var filteredItems: [NavigatorItem] {
@@ -75,13 +75,13 @@ struct NavigatorTreeView: View {
     private var filterHeader: some View {
         Group {
             if scrollable {
-                SearchField(text: $searchText, prompt: "Tìm bảng và trang tính")
+                SearchField(text: $searchText, prompt: bi("Tìm bảng và trang tính", "Search tables and sheets"))
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 12))
                         .foregroundStyle(DS.Palette.tertiaryLabel)
-                    Text("Tìm bảng và trang tính...")
+                    Text(bi("Tìm bảng và trang tính...", "Search tables and sheets..."))
                         .font(DS.Typeface.body)
                         .foregroundStyle(DS.Palette.tertiaryLabel)
                     Spacer()
@@ -142,7 +142,7 @@ struct NavigatorTreeView: View {
                 // Group 2: Named Tables and Views
                 if !namedItems.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("BẢNG ĐẶT TÊN VÀ KHUNG NHÌN")
+                        Text(bi("BẢNG ĐẶT TÊN VÀ KHUNG NHÌN", "NAMED TABLES AND VIEWS"))
                             .font(DS.Typeface.labelSmall)
                             .tracking(0.5)
                             .foregroundStyle(DS.Palette.tertiaryLabel)
@@ -241,7 +241,7 @@ struct NavigatorTreeView: View {
                 .fill(DS.Palette.accent)
                 .frame(width: 8, height: 8)
 
-            Text(NavigatorFormat.selectedSummary(checked: state.checkedItemIDs.count, total: state.items.count))
+            Text(NavigatorFormat.selectedSummary(checked: state.checkedItemIDs.count, total: state.items.count, language: AppPreferences.shared.effectiveLanguage))
                 .font(DS.Typeface.labelSmall)
                 .foregroundStyle(DS.Palette.secondaryLabel)
 

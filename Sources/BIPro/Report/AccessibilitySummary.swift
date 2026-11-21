@@ -73,6 +73,39 @@ struct VisualAccessibilitySummary: Equatable, Sendable {
     }
 }
 
+/// Nhãn trợ năng VoiceOver cho từng dòng cây trong ngăn Dữ liệu (DataPane — FR-041).
+enum DataTreeAccessibility {
+    enum Kind: Sendable, Equatable {
+        case table, folder, column, measure, hierarchy, hierarchyLevel
+    }
+
+    static func label(kind: Kind, name: String, language: ResolvedLanguage) -> String {
+        let prefix: String = switch kind {
+        case .table: L10n.string(.a11yTable, language: language)
+        case .folder: language == .en ? "Folder" : "Thư mục"
+        case .column: L10n.string(.a11yColumn, language: language)
+        case .measure: L10n.string(.a11yMeasure, language: language)
+        case .hierarchy: L10n.string(.a11yHierarchy, language: language)
+        case .hierarchyLevel: language == .en ? "Level" : "Cấp"
+        }
+        return "\(prefix): \(name)"
+    }
+
+    static func value(isHidden: Bool, isSelected: Bool, isChecked: Bool?, language: ResolvedLanguage) -> String {
+        var parts: [String] = []
+        if isChecked == true {
+            parts.append(language == .en ? "In visual" : "Đang dùng")
+        }
+        if isSelected {
+            parts.append(L10n.string(.a11ySelected, language: language))
+        }
+        if isHidden {
+            parts.append(L10n.string(.a11yHidden, language: language))
+        }
+        return parts.joined(separator: ", ")
+    }
+}
+
 /// Phát thông báo VoiceOver khi có sự kiện quan trọng (đổi trang, bật/tắt Sửa, lưu xong, xuất xong — FR-042).
 @MainActor
 enum AccessibilityAnnouncer {

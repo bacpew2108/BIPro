@@ -68,7 +68,7 @@ struct AppliedStepsView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(DS.Palette.secondaryLabel)
 
-            Text("Cài đặt truy vấn")
+            Text(bi("Cài đặt truy vấn", "Query Settings"))
                 .font(DS.Typeface.headlineSmall)
                 .foregroundStyle(DS.Palette.label)
 
@@ -109,13 +109,13 @@ struct AppliedStepsView: View {
         VStack(alignment: .leading, spacing: 14) {
             // Section 1: Thuộc tính
             VStack(alignment: .leading, spacing: 6) {
-                Text("THUỘC TÍNH")
+                Text(bi("THUỘC TÍNH", "PROPERTIES"))
                     .font(DS.Typeface.labelSmall)
                     .tracking(0.5)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Tên")
+                    Text(bi("Tên", "Name"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -151,7 +151,7 @@ struct AppliedStepsView: View {
 
             // Section 2: Các bước đã áp dụng
             VStack(alignment: .leading, spacing: 6) {
-                Text("CÁC BƯỚC ĐÃ ÁP DỤNG")
+                Text(bi("CÁC BƯỚC ĐÃ ÁP DỤNG", "APPLIED STEPS"))
                     .font(DS.Typeface.labelSmall)
                     .tracking(0.5)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
@@ -179,7 +179,7 @@ struct AppliedStepsView: View {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(isSelected ? Color.white.opacity(0.8) : DS.Palette.tertiaryLabel)
-                    .help("Bước do nguồn tạo, chưa sửa được")
+                    .help(bi("Bước do nguồn tạo, chưa sửa được", "Source-generated step, cannot be edited"))
             } else if scrollable, let enterData = state.enterDataSource(at: index) {
                 // Enter Data (VM-F11a, ảnh a7): bánh răng bước Source mở lại hộp "Tạo bảng" (OK / Huỷ, không có ô Tên).
                 Button { editingEnterData = enterData } label: {
@@ -188,7 +188,7 @@ struct AppliedStepsView: View {
                         .foregroundStyle(isSelected ? Color.white.opacity(0.8) : DS.Palette.accent)
                 }
                 .buttonStyle(.plain)
-                .help("Sửa bảng nhập tay")
+                .help(bi("Sửa bảng nhập tay", "Edit entered table"))
             } else {
                 Image(systemName: "gearshape")
                     .font(.system(size: 11))
@@ -234,7 +234,7 @@ struct AppliedStepsView: View {
                         .frame(width: 16, height: 16)
                 }
                 .buttonStyle(.plain)
-                .help("Xoá bước này")
+                .help(bi("Xoá bước này", "Delete this step"))
             }
         }
         .padding(.horizontal, 8)
@@ -249,13 +249,13 @@ struct AppliedStepsView: View {
         }
         .contextMenu {
             if !isLocked {
-                Button("Đổi tên…") {
+                Button(bi("Đổi tên…", "Rename…")) {
                     renamingStepIndex = index
                     stepRenameText = step.name
                     noticeMessage = nil
                 }
 
-                Button("Xoá") {
+                Button(bi("Xoá", "Delete")) {
                     if let reason = state.deleteStep(at: index) {
                         noticeMessage = reason
                     } else {
@@ -263,7 +263,7 @@ struct AppliedStepsView: View {
                     }
                 }
 
-                Button("Chuyển lên") {
+                Button(bi("Chuyển lên", "Move up")) {
                     if let reason = state.moveStep(at: index, by: -1) {
                         noticeMessage = reason
                     } else {
@@ -271,7 +271,7 @@ struct AppliedStepsView: View {
                     }
                 }
 
-                Button("Chuyển xuống") {
+                Button(bi("Chuyển xuống", "Move down")) {
                     if let reason = state.moveStep(at: index, by: 1) {
                         noticeMessage = reason
                     } else {
@@ -289,7 +289,7 @@ struct AppliedStepsView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.uturn.backward")
-                    Text("Hoàn tác")
+                    Text(bi("Hoàn tác", "Undo"))
                 }
             }
             .buttonStyle(SecondaryButtonStyle())
@@ -301,7 +301,7 @@ struct AppliedStepsView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.uturn.forward")
-                    Text("Làm lại")
+                    Text(bi("Làm lại", "Redo"))
                 }
             }
             .buttonStyle(SecondaryButtonStyle())

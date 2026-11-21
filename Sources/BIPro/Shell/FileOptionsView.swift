@@ -15,14 +15,14 @@ struct FileOptionsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(tr(.fileOptionsTitle)).font(DS.Typeface.headlineMedium).foregroundStyle(DS.Palette.label)
-            section("Trí tuệ thời gian") {
-                Toggle(tr(.autoDateTimeLabel), isOn: $options.autoDateTime)
-                    .disabled(autoDateTimeBlocker != nil)
-                    .help(autoDateTimeBlocker ?? "Mỗi cột ngày có một bảng ngày ẩn và phân cấp Năm, Quý, Tháng, Ngày.")
+            section(bi("Trí tuệ thời gian", "Time intelligence")) {
+                checkboxRow(title: tr(.autoDateTimeLabel), isOn: $options.autoDateTime, disabled: autoDateTimeBlocker != nil)
+                    .help(autoDateTimeBlocker ?? bi("Mỗi cột ngày có một bảng ngày ẩn và phân cấp Năm, Quý, Tháng, Ngày.",
+                                                    "Creates a hidden date table and Year/Quarter/Month/Day hierarchy for each date column."))
                 if let autoDateTimeBlocker { note(autoDateTimeBlocker) }
             }
-            section("Quan hệ") {
-                Toggle(tr(.autoDetectRelLabel), isOn: $options.autodetectRelationships)
+            section(bi("Quan hệ", "Relationships")) {
+                checkboxRow(title: tr(.autoDetectRelLabel), isOn: $options.autodetectRelationships, disabled: false)
             }
             if let message { note(message, color: DS.Palette.danger) }
             HStack {
@@ -44,9 +44,26 @@ struct FileOptionsView: View {
 
     private func section(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(DS.Typeface.headlineSmall)
-            content().toggleStyle(.checkbox)
+            Text(title).font(DS.Typeface.headlineSmall).foregroundStyle(DS.Palette.label)
+            content()
         }
+    }
+
+    private func checkboxRow(title: String, isOn: Binding<Bool>, disabled: Bool) -> some View {
+        Button {
+            if !disabled { isOn.wrappedValue.toggle() }
+        } label: {
+            HStack(spacing: 8) {
+                CheckboxMark(isOn: isOn.wrappedValue)
+                Text(title)
+                    .font(DS.Typeface.body)
+                    .foregroundStyle(disabled ? DS.Palette.tertiaryLabel : DS.Palette.label)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.6 : 1)
     }
 
     private func note(_ text: String, color: Color = DS.Palette.secondaryLabel) -> some View {

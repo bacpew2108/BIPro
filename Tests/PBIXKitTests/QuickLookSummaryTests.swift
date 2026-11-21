@@ -31,6 +31,56 @@ struct QuickLookSummaryTests {
         #expect(errImg.width == 640)
     }
 
+    @Test("Quick Look Preview vẽ sơ đồ nhiều visual phân biệt rõ nền Sáng và Tối")
+    func previewRendersMultiVisualPageLightAndDark() throws {
+        try FileManager.default.createDirectory(at: Self.outputDir, withIntermediateDirectories: true)
+        let page = PBIXQuickLookSummary.PageOutline(
+            name: "Executive Overview",
+            isHidden: false,
+            width: 1280,
+            height: 720,
+            visuals: [
+                .init(type: "card", title: "Total Revenue", x: 40, y: 40, width: 260, height: 120),
+                .init(type: "slicer", title: "Region", x: 320, y: 40, width: 260, height: 120),
+                .init(type: "clusteredColumnChart", title: "Revenue by Month", x: 40, y: 190, width: 580, height: 480),
+                .init(type: "pivotTable", title: "Breakdown", x: 650, y: 190, width: 590, height: 480),
+            ]
+        )
+        let summary = PBIXQuickLookSummary(
+            fileName: "Executive.pbix",
+            formatLabel: "PBIR",
+            pages: [page],
+            activePageIndex: 0,
+            tableCount: 6,
+            columnCount: 48,
+            measureCount: 18,
+            relationshipCount: 5,
+            hasDataModel: true,
+            modelError: nil
+        )
+        let light = try #require(PBIXQuickLookRenderer.renderPreview(summary: summary, dark: false))
+        let dark = try #require(PBIXQuickLookRenderer.renderPreview(summary: summary, dark: true))
+        #expect(light.width == 900 && light.height == 640)
+        #expect(dark.width == 900 && dark.height == 640)
+        try Self.writePNG(dark, to: Self.outputDir.appendingPathComponent("synthetic-preview-dark.png"))
+
+        // Góc trên trái (x=4, y=4) của nền Light phải sáng (> 0.8), nền Dark phải tối (< 0.25)
+        let lightLum = try Self.cornerLuminance(light)
+        let darkLum = try Self.cornerLuminance(dark)
+        #expect(lightLum > 0.80, "Nền Light Preview quá tối: \(lightLum)")
+        #expect(darkLum < 0.25, "Nền Dark Preview quá sáng: \(darkLum)")
+    }
+
+    private static func cornerLuminance(_ image: CGImage) throws -> Double {
+        var pixel: [UInt8] = [0, 0, 0, 0]
+        let ctx = try #require(CGContext(
+            data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        ctx.draw(image, in: CGRect(x: -4, y: -4, width: CGFloat(image.width), height: CGFloat(image.height)))
+        return (0.2126 * Double(pixel[0]) + 0.7152 * Double(pixel[1]) + 0.0722 * Double(pixel[2])) / 255.0
+    }
+
     @Test("File .pbix hỏng báo lỗi an toàn, không sập")
     func corruptFileThrowsSafely() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("corrupt-\(UUID().uuidString).pbix")

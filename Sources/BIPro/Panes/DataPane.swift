@@ -24,26 +24,27 @@ struct DataPane: View {
     private var deletionMessage: String {
         guard let target = deleting else { return "" }
         let cascade = target.column.map { state.deletionCascade(table: target.table, name: $0) } ?? []
-        let base = "Bạn có chắc muốn xoá '\(target.name)'?"
-        guard !cascade.isEmpty else { return base + " Có thể hoàn tác bằng ⌘Z." }
-        return base + " Sẽ bỏ kèm: " + cascade.joined(separator: "; ") + ". Có thể hoàn tác bằng ⌘Z."
+        let base = bi("Bạn có chắc muốn xoá '\(target.name)'?", "Are you sure you want to delete '\(target.name)'?")
+        guard !cascade.isEmpty else { return base + bi(" Có thể hoàn tác bằng ⌘Z.", " You can undo with ⌘Z.") }
+        return base + bi(" Sẽ bỏ kèm: ", " Will also remove: ") + cascade.joined(separator: "; ") + bi(". Có thể hoàn tác bằng ⌘Z.", ". You can undo with ⌘Z.")
     }
 
     private struct PendingDeletion {
         let table: String
         let column: String?
-        var title: String { column == nil ? "Xoá bảng" : "Xoá cột" }
+        @MainActor var title: String { column == nil ? bi("Xoá bảng", "Delete table") : bi("Xoá cột", "Delete column") }
         var name: String { column ?? table }
     }
 
     var body: some View {
         let _ = state.modelVersion   // vẽ lại khi mô hình đổi (Phase E)
+        let measureCount = state.workspace.metadata?.measures.count ?? 0
         VStack(spacing: 0) {
             headerView
             if purpose == .query {
                 tabBar
             }
-            SearchField(text: $search, prompt: "Tìm field…")
+            SearchField(text: $search, prompt: bi("Tìm field…", "Search fields…"))
                 .padding(.horizontal, 10)
                 .padding(.bottom, 6)
 
@@ -71,11 +72,11 @@ struct DataPane: View {
                 }
                 .padding(.bottom, 8)
             }
-            PaneFooter(text: "\(tables.count) bảng · \(state.workspace.metadata?.measures.count ?? 0) measure")
+            PaneFooter(text: bi("\(tables.count) bảng · \(measureCount) measure", "\(tables.count) tables · \(measureCount) measures"))
         }
         .background(DS.Palette.chrome)
         .alert(deleting?.title ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
-            Button("Có", role: .destructive) {
+            Button(bi("Có", "Yes"), role: .destructive) {
                 if let target = deleting {
                     let reason = target.column.map { state.deleteCalculatedColumn(table: target.table, name: $0) }
                         ?? state.deleteCalculatedTable(name: target.table)
@@ -83,12 +84,12 @@ struct DataPane: View {
                 }
                 deleting = nil
             }
-            Button("Huỷ", role: .cancel) { deleting = nil }
+            Button(bi("Huỷ", "Cancel"), role: .cancel) { deleting = nil }
         } message: {
             Text(deletionMessage)
         }
-        .alert("Không xoá được", isPresented: Binding(get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
-            Button("OK", role: .cancel) { refusal = nil }
+        .alert(bi("Không xoá được", "Cannot delete"), isPresented: Binding(get: { refusal != nil }, set: { if !$0 { refusal = nil } })) {
+            Button(tr(.ok), role: .cancel) { refusal = nil }
         } message: {
             Text(refusal ?? "")
         }
@@ -104,7 +105,7 @@ struct DataPane: View {
     private var headerView: some View {
         if purpose == .query {
             HStack(spacing: 6) {
-                Text("Dữ liệu")
+                Text(tr(.paneData))
                     .font(DS.Typeface.headlineSmall)
                     .fontWeight(.bold)
                     .foregroundStyle(DS.Palette.label)
@@ -115,20 +116,20 @@ struct DataPane: View {
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(GhostIconButtonStyle())
-                    .help("Thu gọn")
+                    .help(bi("Thu gọn", "Collapse"))
                 }
             }
             .padding(.horizontal, 10)
             .frame(height: 38)
         } else {
-            PaneHeader(title: "Dữ liệu", symbol: "cylinder.split.1x2", collapse: collapse)
+            PaneHeader(title: tr(.paneData), symbol: "cylinder.split.1x2", collapse: collapse)
         }
     }
 
     private var tabBar: some View {
         HStack(spacing: 16) {
-            tabButton(title: "Bảng", tab: .tables)
-            tabButton(title: "Mô hình", tab: .model)
+            tabButton(title: bi("Bảng", "Tables"), tab: .tables)
+            tabButton(title: bi("Mô hình", "Model"), tab: .model)
             Spacer()
         }
         .padding(.horizontal, 10)
@@ -226,7 +227,8 @@ struct DataPane: View {
                 title: table.name,
                 isHidden: table.isHidden,
                 isSelected: purpose == .table && state.table == table.name && state.column == nil,
-                trailing: purpose == .report ? nil : state.workspace.rowCount(table.name).formatted(.number.notation(.compactName))
+                trailing: purpose == .report ? nil : state.workspace.rowCount(table.name).formatted(.number.notation(.compactName)),
+                accessibilityKind: .table
             ) {
                 toggle(table.name)
                 if purpose == .table { state.select(table: table.name) }
@@ -239,7 +241,7 @@ struct DataPane: View {
                         openNewQueryTab(title: table.name, text: QuickQueries.top100Rows(table: table.name, columns: cols), run: true)
                     },
                     onDefineNewMeasure: {
-                        openNewQueryTab(title: "Measure mới", text: QuickQueries.defineNewMeasure(tableName: table.name), run: false)
+                        openNewQueryTab(title: bi("Measure mới", "New Measure"), text: QuickQueries.defineNewMeasure(tableName: table.name), run: false)
                     },
                     onCollapseAll: { collapseAll() },
                     onExpandAll: { expandAll() },
@@ -264,7 +266,7 @@ struct DataPane: View {
             let isOpen = expanded.contains(key) || !search.isEmpty
             return AnyView(VStack(alignment: .leading, spacing: 0) {
                 TreeRow(level: level, isExpanded: isOpen, hasChildren: true, symbol: "folder", tint: DS.Palette.secondaryLabel,
-                        title: name) { toggle(key) }
+                        title: name, accessibilityKind: .folder) { toggle(key) }
                 if isOpen {
                     ForEach(children) { child in node(child, table: table, level: level + 1) }
                 }
@@ -275,7 +277,8 @@ struct DataPane: View {
                                    isSelected: purpose == .table && state.measure == m.name && state.table == table,
                                    help: m.expression.trimmingCharacters(in: .whitespacesAndNewlines),
                                    dragField: purpose == .report && !m.isHidden ? FieldRef(measure: m) : nil,
-                                   onCheck: purpose == .report ? { toggleUsage(FieldRef(measure: m)) } : nil) {
+                                   onCheck: purpose == .report ? { toggleUsage(FieldRef(measure: m)) } : nil,
+                                   accessibilityKind: .measure) {
                 if purpose == .query {
                     state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
                 }
@@ -304,7 +307,7 @@ struct DataPane: View {
                     },
                     onDefineNewMeasure: {
                         openNewQueryTab(
-                            title: "Measure mới",
+                            title: bi("Measure mới", "New Measure"),
                             text: QuickQueries.defineNewMeasure(tableName: m.tableName),
                             run: false
                         )
@@ -328,7 +331,7 @@ struct DataPane: View {
                     onDelete: purpose != .query && state.modelEditingBlocker == nil ? { state.deleteMeasure(table: table, name: m.name) } : nil,
                     onToggleHidden: purpose != .query && state.modelEditingBlocker == nil
                         ? { state.updateMeasure(table: table, name: m.name, patch: MeasurePatch(isHidden: !m.isHidden)) } : nil,
-                    hiddenTitle: m.isHidden ? "Hiện trong chế độ báo cáo" : "Ẩn trong chế độ báo cáo"
+                    hiddenTitle: m.isHidden ? bi("Hiện trong chế độ báo cáo", "Unhide in report view") : bi("Ẩn trong chế độ báo cáo", "Hide in report view")
                 )
             })
         case .column(let c):
@@ -345,7 +348,8 @@ struct DataPane: View {
                               isSelected: purpose == .table && state.table == table && state.column == c.name,
                               help: c.expression,
                               dragField: purpose == .report ? ref : nil,
-                              onCheck: purpose == .report ? { toggleUsage(ref) } : nil) {
+                              onCheck: purpose == .report ? { toggleUsage(ref) } : nil,
+                              accessibilityKind: .column) {
                 if dateHierarchy != nil { toggle(dateKey) }
                 if purpose == .table { state.select(table: table, column: c.name) }
             }
@@ -375,11 +379,13 @@ struct DataPane: View {
                 TreeRow(level: level + 1, isExpanded: expanded.contains(hierarchyKey), hasChildren: true, symbol: "list.bullet.indent",
                         tint: DS.Palette.secondaryLabel, title: dateHierarchy.property, checkbox: fieldChecked(dateHierarchy),
                         dragField: purpose == .report ? dateHierarchy : nil,
-                        onCheck: purpose == .report ? { toggleUsage(dateHierarchy) } : nil) { toggle(hierarchyKey) }
+                        onCheck: purpose == .report ? { toggleUsage(dateHierarchy) } : nil,
+                        accessibilityKind: .hierarchy) { toggle(hierarchyKey) }
                 if expanded.contains(hierarchyKey) {
                     ForEach(dateHierarchy.levels, id: \.self) { name in
                         TreeRow(level: level + 2, symbol: "smallcircle.filled.circle", tint: DS.Palette.tertiaryLabel, title: name,
-                                checkbox: purpose == .report ? state.visual?.fields.contains { $0.queryRef == dateHierarchy.queryRef + "." + name } ?? false : nil) {}
+                                checkbox: purpose == .report ? state.visual?.fields.contains { $0.queryRef == dateHierarchy.queryRef + "." + name } ?? false : nil,
+                                accessibilityKind: .hierarchyLevel) {}
                     }
                 }
             })
@@ -390,11 +396,13 @@ struct DataPane: View {
                 TreeRow(level: level, isExpanded: isOpen, hasChildren: true, symbol: "list.bullet.indent", tint: DS.Palette.secondaryLabel,
                         title: h.name, isHidden: h.isHidden, checkbox: hierarchyChecked(table, h),
                         dragField: purpose == .report && !h.isHidden ? FieldRef(hierarchy: h) : nil,
-                        onCheck: purpose == .report ? { toggleUsage(FieldRef(hierarchy: h)) } : nil) { toggle(key) }
+                        onCheck: purpose == .report ? { toggleUsage(FieldRef(hierarchy: h)) } : nil,
+                        accessibilityKind: .hierarchy) { toggle(key) }
                 if isOpen {
                     ForEach(h.levels, id: \.name) { level2 in
                         TreeRow(level: level + 1, symbol: "smallcircle.filled.circle", tint: DS.Palette.tertiaryLabel, title: level2.name,
-                                checkbox: checkbox(table, level2.name)) {}
+                                checkbox: checkbox(table, level2.name),
+                                accessibilityKind: .hierarchyLevel) {}
                     }
                 }
             })
@@ -528,23 +536,48 @@ struct TreeRow: View {
     var dragField: FieldRef?
     /// Bấm vào ô tick (chỉ pane Dữ liệu của báo cáo): thêm hoặc bỏ trường khỏi visual đang chọn.
     var onCheck: (() -> Void)?
+    /// Loại mục trong cây dữ liệu để VoiceOver đọc rõ vai trò (Bảng / Thư mục / Cột / Measure / Phân cấp).
+    var accessibilityKind: DataTreeAccessibility.Kind? = nil
     var action: () -> Void
 
     @State private var hovering = false
 
-    var body: some View {
-        if let dragField {
-            row
-                .onTapGesture(perform: action)
-                .onDrag { dragField.itemProvider }
-                .onHover { hovering = $0 }
-                .help(help ?? title)
-        } else {
-            Button(action: action) { row }
-                .buttonStyle(.plain)
-                .onHover { hovering = $0 }
-                .help(help ?? title)
+    private var accessibilityLabelText: String {
+        let lang = AppPreferences.shared.effectiveLanguage
+        if let kind = accessibilityKind {
+            return DataTreeAccessibility.label(kind: kind, name: title, language: lang)
         }
+        return title
+    }
+
+    private var accessibilityValueText: String {
+        DataTreeAccessibility.value(
+            isHidden: isHidden,
+            isSelected: isSelected,
+            isChecked: checkbox,
+            language: AppPreferences.shared.effectiveLanguage
+        )
+    }
+
+    var body: some View {
+        Group {
+            if let dragField {
+                row
+                    .onTapGesture(perform: action)
+                    .onDrag { dragField.itemProvider }
+                    .onHover { hovering = $0 }
+                    .help(help ?? title)
+            } else {
+                Button(action: action) { row }
+                    .buttonStyle(.plain)
+                    .onHover { hovering = $0 }
+                    .help(help ?? title)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabelText)
+        .accessibilityValue(accessibilityValueText)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var row: some View {
@@ -562,7 +595,7 @@ struct TreeRow: View {
                     if let onCheck {
                         Button(action: onCheck) { CheckboxMark(isOn: checkbox).frame(width: 18, height: 18).contentShape(Rectangle()) }
                             .buttonStyle(.plain)
-                            .help("Thêm hoặc bỏ khỏi visual đang chọn")
+                            .help(bi("Thêm hoặc bỏ khỏi visual đang chọn", "Add or remove from selected visual"))
                     } else {
                         CheckboxMark(isOn: checkbox)
                     }
@@ -585,7 +618,7 @@ struct TreeRow: View {
             .padding(.trailing, 8)
             .frame(height: DS.Metrics.treeRow)
             .background(RoundedRectangle(cornerRadius: DS.Radius.control)
-                .fill(isSelected ? DS.Palette.accent : (hovering ? Color.black.opacity(0.04) : .clear))
+                .fill(isSelected ? DS.Palette.accent : (hovering ? DS.Palette.controlFill.opacity(0.6) : .clear))
                 .padding(.horizontal, 4))
             .contentShape(Rectangle())
     }

@@ -63,4 +63,20 @@ struct AccessibilitySummaryTests {
         AccessibilityAnnouncer.announce("")
         #expect(received == ["Đã chuyển sang trang D1"])
     }
+
+    @Test("DataTreeAccessibility sinh nhãn và trạng thái chuẩn cho đủ 6 loại nút ở vi và en")
+    func dataTreeAccessibilityLabelsAndValues() {
+        #expect(DataTreeAccessibility.label(kind: .table, name: "Sales", language: .vi) == "Bảng: Sales")
+        #expect(DataTreeAccessibility.label(kind: .table, name: "Sales", language: .en) == "Table: Sales")
+        #expect(DataTreeAccessibility.label(kind: .folder, name: "KPIs", language: .en) == "Folder: KPIs")
+        #expect(DataTreeAccessibility.label(kind: .column, name: "OrderDate", language: .vi) == "Cột: OrderDate")
+        #expect(DataTreeAccessibility.label(kind: .column, name: "OrderDate", language: .en) == "Column: OrderDate")
+        #expect(DataTreeAccessibility.label(kind: .measure, name: "Revenue", language: .en) == "Measure: Revenue")
+        #expect(DataTreeAccessibility.label(kind: .hierarchy, name: "Date Hierarchy", language: .vi) == "Phân cấp: Date Hierarchy")
+        #expect(DataTreeAccessibility.label(kind: .hierarchyLevel, name: "Year", language: .en) == "Level: Year")
+
+        #expect(DataTreeAccessibility.value(isHidden: true, isSelected: true, isChecked: true, language: .vi) == "Đang dùng, Đang chọn, Đang ẩn")
+        #expect(DataTreeAccessibility.value(isHidden: true, isSelected: false, isChecked: true, language: .en) == "In visual, Hidden")
+        #expect(DataTreeAccessibility.value(isHidden: false, isSelected: false, isChecked: false, language: .en).isEmpty)
+    }
 }

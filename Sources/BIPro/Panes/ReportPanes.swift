@@ -13,7 +13,7 @@ struct FiltersPane: View {
         let w = state.workspace
         VStack(spacing: 0) {
             PaneHeader(title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", collapse: collapse)
-            SearchField(text: $search, prompt: "Tìm bộ lọc").padding(.horizontal, 10).padding(.bottom, 6)
+            SearchField(text: $search, prompt: bi("Tìm bộ lọc", "Search filters")).padding(.horizontal, 10).padding(.bottom, 6)
             if let reason = state.reportEditingBlocker {
                 Text(reason).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 6)
@@ -21,15 +21,15 @@ struct FiltersPane: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     if let visual = state.visual {
-                        section("Bộ lọc trên visual này", filters: visualLevelFilters(visual), scope: visual.id, level: .visual, empty: "Visual chưa có field")
+                        section(bi("Bộ lọc trên visual này", "Filters on this visual"), filters: visualLevelFilters(visual), scope: visual.id, level: .visual, empty: bi("Visual chưa có field", "Visual has no fields"))
                     }
-                    section("Bộ lọc trên trang này", filters: state.pageID.map { state.interaction.pageFilters(of: $0) } ?? [], scope: state.pageID ?? "",
-                            level: .page, empty: "Chưa có bộ lọc trang")
-                    section("Bộ lọc trên mọi trang", filters: w.reportFilters, scope: "", level: .report, empty: "Chưa có bộ lọc báo cáo")
+                    section(bi("Bộ lọc trên trang này", "Filters on this page"), filters: state.pageID.map { state.interaction.pageFilters(of: $0) } ?? [], scope: state.pageID ?? "",
+                            level: .page, empty: bi("Chưa có bộ lọc trang", "No page filters"))
+                    section(bi("Bộ lọc trên mọi trang", "Filters on all pages"), filters: w.reportFilters, scope: "", level: .report, empty: bi("Chưa có bộ lọc báo cáo", "No report filters"))
                 }
                 .padding(.bottom, 10)
             }
-            PaneFooter(text: "\(activeCount) bộ lọc đang áp dụng")
+            PaneFooter(text: bi("\(activeCount) bộ lọc đang áp dụng", "\(activeCount) active filters"))
         }
         .background(DS.Palette.chrome)
     }
@@ -121,13 +121,13 @@ struct AddFieldMenu: View {
                 }
             }
         } label: {
-            Text("Thêm field dữ liệu vào đây").font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
+            Text(bi("Thêm field dữ liệu vào đây", "Add data fields here")).font(.system(size: 12)).foregroundStyle(DS.Palette.secondaryLabel)
                 .frame(maxWidth: .infinity).frame(height: 40)
                 .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
         }
         .menuStyle(.button).buttonStyle(.plain)
-        .help("Chọn cột để thêm bộ lọc")
+        .help(bi("Chọn cột để thêm bộ lọc", "Choose a column to add a filter"))
     }
 }
 
@@ -179,18 +179,18 @@ struct FilterCard: View {
             }
             Spacer(minLength: 0)
             if let reason = unsavedReason {
-                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange).help("Chưa lưu được vào file: \(reason)")
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange).help(bi("Chưa lưu được vào file: \(reason)", "Cannot save to file: \(reason)"))
             }
             if interaction.effectiveUserFilters[key] != nil, !key.filterID.hasPrefix("added-") {
                 Button { interaction.setUserFilter(nil, for: key) } label: { Image(systemName: "eraser") }
-                    .buttonStyle(.plain).help("Đặt lại về bộ lọc trong file").disabled(interaction.editing?.blocker() != nil)
+                    .buttonStyle(.plain).help(bi("Đặt lại về bộ lọc trong file", "Reset to file filter")).disabled(interaction.editing?.blocker() != nil)
             }
             if removable {
                 Button { interaction.removeFilter(key) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).help("Bỏ bộ lọc này").disabled(interaction.editing?.blocker() != nil)
+                    .buttonStyle(.plain).help(bi("Bỏ bộ lọc này", "Remove this filter")).disabled(interaction.editing?.blocker() != nil)
             }
-            if filter.isHidden { Image(systemName: "eye.slash").help("Ẩn khi xem báo cáo") }
-            if filter.isLocked { Image(systemName: "lock").help("Bị khoá khi xem báo cáo") }
+            if filter.isHidden { Image(systemName: "eye.slash").help(bi("Ẩn khi xem báo cáo", "Hidden in report view")) }
+            if filter.isLocked { Image(systemName: "lock").help(bi("Bị khoá khi xem báo cáo", "Locked in report view")) }
         }
         .font(.system(size: 11))
         .foregroundStyle(DS.Palette.secondaryLabel)
@@ -216,7 +216,7 @@ struct VisualizationsPane: View {
             ScrollView {
                 if state.visualizationsTab == .build { build } else { format }
             }
-            PaneFooter(text: state.visual.map { VisualCatalog.name($0.type) } ?? "Chưa chọn visual")
+            PaneFooter(text: state.visual.map { VisualCatalog.name($0.type) } ?? bi("Chưa chọn visual", "No visual selected"))
         }
         .background(DS.Palette.chrome)
     }
@@ -229,7 +229,7 @@ struct VisualizationsPane: View {
         let supported = VisualTypes.isSupported(entry.type)
         let blocker = state.visualEditingBlocker
         let enabled = supported && blocker == nil
-        let help = blocker ?? (supported ? (state.layout.selection.isEmpty ? "Thêm \(entry.name)" : (selected ? entry.name : "Đổi thành \(entry.name)"))
+        let help = blocker ?? (supported ? (state.layout.selection.isEmpty ? bi("Thêm \(entry.name)", "Add \(entry.name)") : (selected ? entry.name : bi("Đổi thành \(entry.name)", "Change to \(entry.name)")))
                                          : VisualTypes.refusal(for: entry.type))
         Button { galleryTap(entry.type) } label: {
             Image(systemName: entry.symbol)
@@ -266,7 +266,7 @@ struct VisualizationsPane: View {
             if let visual = state.visual {
                 BuildWells(state: state, visual: visual)
             } else {
-                Text("Chọn một visual trên trang để xem các field của nó.")
+                Text(bi("Chọn một visual trên trang để xem các field của nó.", "Select a visual on the page to view its fields."))
                     .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                     .padding(12)
             }
@@ -289,7 +289,7 @@ struct FieldMessages: View {
                 Text(message).font(DS.Typeface.bodySmall).foregroundStyle(Color.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .onTapGesture { layout.clearFieldRefusal() }
-                    .help("Bấm để ẩn")
+                    .help(bi("Bấm để ẩn", "Click to dismiss"))
             }
             if let notice = layout.notice {
                 Text(notice).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
@@ -345,9 +345,11 @@ struct SelectionPane: View {
     }
 
     var body: some View {
+        let total = state.page?.visuals.count ?? 0
+        let hiddenCount = (state.page?.visuals ?? []).filter { state.interaction.isHidden($0) }.count
         VStack(spacing: 0) {
             PaneHeader(title: tr(.paneSelection), symbol: "square.3.layers.3d", collapse: collapse)
-            SectionLabel(text: "Thứ tự lớp")
+            SectionLabel(text: bi("Thứ tự lớp", "Layer order"))
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(rows) { row in
@@ -370,7 +372,7 @@ struct SelectionPane: View {
                                 Image(systemName: "line.3.horizontal").font(.system(size: 9)).foregroundStyle(DS.Palette.tertiaryLabel)
                                 Image(systemName: visual.isGroup ? "square.on.square.dashed" : VisualCatalog.symbol(visual.type)).font(.system(size: 11))
                                     .foregroundStyle(selected ? .white : DS.Palette.secondaryLabel).frame(width: 14)
-                                Text(visual.isGroup ? (visual.groupDisplayName ?? "Nhóm") : VisualCatalog.displayTitle(visual)).font(DS.Typeface.bodySmall).lineLimit(1)
+                                Text(visual.isGroup ? (visual.groupDisplayName ?? bi("Nhóm", "Group")) : VisualCatalog.displayTitle(visual)).font(DS.Typeface.bodySmall).lineLimit(1)
                                     .foregroundStyle(selected ? .white : DS.Palette.label)
                                 Spacer()
                                 Image(systemName: hidden ? "eye.slash" : "eye").font(.system(size: 10))
@@ -378,7 +380,7 @@ struct SelectionPane: View {
                                     .frame(width: 24, height: DS.Metrics.navRow)
                                     .contentShape(Rectangle())
                                     .onTapGesture { row.toggleHidden(state.interaction) }
-                                    .help(hidden ? "Hiện visual" : "Ẩn visual")
+                                    .help(hidden ? bi("Hiện visual", "Show visual") : bi("Ẩn visual", "Hide visual"))
                                     .accessibilityLabel(hidden ? tr(.a11yHidden) : tr(.a11yVisible))
                                     .accessibilityAddTraits(.isButton)
                             }
@@ -392,7 +394,7 @@ struct SelectionPane: View {
                     }
                 }
             }
-            PaneFooter(text: "\(state.page?.visuals.count ?? 0) đối tượng, \((state.page?.visuals ?? []).filter { state.interaction.isHidden($0) }.count) ẩn")
+            PaneFooter(text: bi("\(total) đối tượng, \(hiddenCount) ẩn", "\(total) objects, \(hiddenCount) hidden"))
         }
         .background(DS.Palette.chrome)
     }
@@ -416,7 +418,7 @@ struct BookmarksPane: View {
                 } label: { Image(systemName: "plus") }
                     .buttonStyle(GhostIconButtonStyle())
                     .disabled(state.reportEditingBlocker != nil)
-                    .help(state.reportEditingBlocker ?? "Thêm bookmark từ trạng thái hiện tại")
+                    .help(state.reportEditingBlocker ?? bi("Thêm bookmark từ trạng thái hiện tại", "Add bookmark from current state"))
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -425,24 +427,24 @@ struct BookmarksPane: View {
                             SectionLabel(text: name)
                                 .contextMenu {
                                     if let id = group.items.first?.groupID {
-                                        Button("Bỏ nhóm") { state.ungroupBookmarks(groupID: id) }.disabled(state.reportEditingBlocker != nil)
+                                        Button(bi("Bỏ nhóm", "Ungroup")) { state.ungroupBookmarks(groupID: id) }.disabled(state.reportEditingBlocker != nil)
                                     }
                                 }
                         }
                         ForEach(group.items) { row in row_(row, interaction: interaction) }
                     }
                     if rows.isEmpty {
-                        Text("Báo cáo chưa có bookmark. Bấm + để thêm.").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(12)
+                        Text(bi("Báo cáo chưa có bookmark. Bấm + để thêm.", "No bookmarks yet. Click + to add one.")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(12)
                     }
                 }
             }
-            PaneFooter(text: state.layout.fieldRefusal ?? "\(rows.count) bookmark")
+            PaneFooter(text: state.layout.fieldRefusal ?? bi("\(rows.count) bookmark", "\(rows.count) bookmarks"))
         }
         .background(DS.Palette.chrome)
-        .alert("Đổi tên bookmark", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-            TextField("Tên", text: $newName)
-            Button("Đổi tên") { if let id = renaming { state.renameBookmark(id: id, to: newName) }; renaming = nil }
-            Button("Huỷ", role: .cancel) { renaming = nil }
+        .alert(bi("Đổi tên bookmark", "Rename bookmark"), isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField(bi("Tên", "Name"), text: $newName)
+            Button(bi("Đổi tên", "Rename")) { if let id = renaming { state.renameBookmark(id: id, to: newName) }; renaming = nil }
+            Button(bi("Huỷ", "Cancel"), role: .cancel) { renaming = nil }
         }
     }
 
@@ -471,7 +473,7 @@ struct BookmarksPane: View {
                 Spacer()
                 if let unsaved {
                     Image(systemName: "exclamationmark.triangle").font(.system(size: 10)).foregroundStyle(.orange)
-                        .help("Chưa lưu được vào file: \(unsaved)")
+                        .help(bi("Chưa lưu được vào file: \(unsaved)", "Cannot save to file: \(unsaved)"))
                 }
             }
             .padding(.horizontal, 12)
@@ -482,25 +484,25 @@ struct BookmarksPane: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(row.suppressData ? "Áp dụng bookmark (không đổi bộ lọc, slicer)" : "Áp dụng bookmark")
+        .help(row.suppressData ? bi("Áp dụng bookmark (không đổi bộ lọc, slicer)", "Apply bookmark (keep filters & slicers)") : bi("Áp dụng bookmark", "Apply bookmark"))
         .contextMenu {
-            Button("Cập nhật") { state.updateBookmark(id: row.id) }.disabled(blocker != nil)
-            Button("Đổi tên…") { newName = row.name; renaming = row.id }.disabled(blocker != nil)
-            Button("Xoá", role: .destructive) { state.deleteBookmark(id: row.id) }.disabled(blocker != nil)
+            Button(bi("Cập nhật", "Update")) { state.updateBookmark(id: row.id) }.disabled(blocker != nil)
+            Button(bi("Đổi tên…", "Rename…")) { newName = row.name; renaming = row.id }.disabled(blocker != nil)
+            Button(bi("Xoá", "Delete"), role: .destructive) { state.deleteBookmark(id: row.id) }.disabled(blocker != nil)
             Divider()
-            Button(selectedBookmarks.count >= 2 && selectedBookmarks.contains(row.id) ? "Nhóm \(selectedBookmarks.count) bookmark" : "Nhóm với bookmark đang chọn") {
+            Button(selectedBookmarks.count >= 2 && selectedBookmarks.contains(row.id) ? bi("Nhóm \(selectedBookmarks.count) bookmark", "Group \(selectedBookmarks.count) bookmarks") : bi("Nhóm với bookmark đang chọn", "Group with selected bookmarks")) {
                 state.groupBookmarks(Array(selectedBookmarks.union([row.id])))
             }
             .disabled(blocker != nil || row.groupID != nil)
-            if row.groupID != nil { Button("Bỏ nhóm") { if let id = row.groupID { state.ungroupBookmarks(groupID: id) } }.disabled(blocker != nil) }
+            if row.groupID != nil { Button(bi("Bỏ nhóm", "Ungroup")) { if let id = row.groupID { state.ungroupBookmarks(groupID: id) } }.disabled(blocker != nil) }
             Divider()
-            Button("Chuyển lên") { state.moveBookmark(id: row.id, by: -1) }.disabled(blocker != nil)
-            Button("Chuyển xuống") { state.moveBookmark(id: row.id, by: 1) }.disabled(blocker != nil)
+            Button(bi("Chuyển lên", "Move up")) { state.moveBookmark(id: row.id, by: -1) }.disabled(blocker != nil)
+            Button(bi("Chuyển xuống", "Move down")) { state.moveBookmark(id: row.id, by: 1) }.disabled(blocker != nil)
             if let mine {
                 Divider()
-                Toggle("Data (bộ lọc, slicer, drill)", isOn: Binding(get: { mine.data }, set: { state.setBookmarkOption(id: row.id, data: $0) })).disabled(blocker != nil)
-                Toggle("Display (ẩn/hiện visual)", isOn: Binding(get: { mine.display }, set: { state.setBookmarkOption(id: row.id, display: $0) })).disabled(blocker != nil)
-                Toggle("Current page (chuyển về trang đã lưu)", isOn: Binding(get: { mine.currentPage }, set: { state.setBookmarkOption(id: row.id, currentPage: $0) })).disabled(blocker != nil)
+                Toggle(bi("Data (bộ lọc, slicer, drill)", "Data (filters, slicers, drill)"), isOn: Binding(get: { mine.data }, set: { state.setBookmarkOption(id: row.id, data: $0) })).disabled(blocker != nil)
+                Toggle(bi("Display (ẩn/hiện visual)", "Display (visual visibility)"), isOn: Binding(get: { mine.display }, set: { state.setBookmarkOption(id: row.id, display: $0) })).disabled(blocker != nil)
+                Toggle(bi("Current page (chuyển về trang đã lưu)", "Current page (switch to saved page)"), isOn: Binding(get: { mine.currentPage }, set: { state.setBookmarkOption(id: row.id, currentPage: $0) })).disabled(blocker != nil)
             }
         }
     }

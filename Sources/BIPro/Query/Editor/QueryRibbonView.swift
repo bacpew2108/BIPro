@@ -41,8 +41,9 @@ struct QueryRibbonView: View {
     // MARK: - Tab Bar
 
     private var tabBar: some View {
-        HStack(spacing: 2) {
-            Text("Tệp")
+        let lang = AppPreferences.shared.effectiveLanguage
+        return HStack(spacing: 2) {
+            Text(bi("Tệp", "File"))
                 .font(DS.Typeface.label)
                 .foregroundStyle(DS.Palette.tertiaryLabel)
                 .padding(.horizontal, 10)
@@ -53,7 +54,7 @@ struct QueryRibbonView: View {
                 Button {
                     activeTab = tab
                 } label: {
-                    Text(tab.title)
+                    Text(tab.localizedTitle(language: lang))
                         .font(isSelected ? DS.Typeface.headlineSmall : DS.Typeface.bodySmall)
                         .foregroundStyle(isSelected ? DS.Palette.accent : DS.Palette.label)
                         .padding(.horizontal, 12)
@@ -100,15 +101,15 @@ struct QueryRibbonView: View {
     private var homeTabRibbon: some View {
         HStack(alignment: .center, spacing: 0) {
             // Close & Apply Group
-            RibbonGroup(title: "Đóng") {
+            RibbonGroup(title: bi("Đóng", "Close")) {
                 if scrollable {
                     Menu {
-                        Button("Đóng và áp dụng") { onApplyAndClose() }
-                        Button("Áp dụng") { onApply() }
-                        Button("Đóng") { onCloseAttempt() }
+                        Button(bi("Đóng và áp dụng", "Close & Apply")) { onApplyAndClose() }
+                        Button(bi("Áp dụng", "Apply")) { onApply() }
+                        Button(bi("Đóng", "Close")) { onCloseAttempt() }
                     } label: {
                         RibbonButton(
-                            title: "Đóng và áp dụng",
+                            title: bi("Đóng và áp dụng", "Close & Apply"),
                             symbol: "checkmark.circle.fill",
                             size: .large,
                             tint: DS.Palette.accent
@@ -117,7 +118,7 @@ struct QueryRibbonView: View {
                     .menuStyle(.borderlessButton)
                 } else {
                     RibbonButton(
-                        title: "Đóng và áp dụng",
+                        title: bi("Đóng và áp dụng", "Close & Apply"),
                         symbol: "checkmark.circle.fill",
                         size: .large,
                         tint: DS.Palette.accent,
@@ -129,7 +130,7 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Reduce Rows Group
-            RibbonGroup(title: "Giảm dòng") {
+            RibbonGroup(title: bi("Giảm dòng", "Rows")) {
                 RibbonStack {
                     button(for: .keepTopRows, size: .small)
                     button(for: .removeTopRows, size: .small)
@@ -140,7 +141,7 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Sort Group
-            RibbonGroup(title: "Sắp xếp") {
+            RibbonGroup(title: bi("Sắp xếp", "Sort")) {
                 RibbonStack {
                     button(for: .sortAscending, size: .small)
                     button(for: .sortDescending, size: .small)
@@ -150,7 +151,7 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Manage Columns Group
-            RibbonGroup(title: "Cột") {
+            RibbonGroup(title: bi("Cột", "Columns")) {
                 button(for: .removeColumns, size: .large)
                 button(for: .promoteHeaders, size: .large)
             }
@@ -158,7 +159,7 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Transform Group
-            RibbonGroup(title: "Chuyển đổi") {
+            RibbonGroup(title: bi("Chuyển đổi", "Transform")) {
                 RibbonStack {
                     dataTypeMenu
                     button(for: .replaceValue, size: .small)
@@ -169,21 +170,21 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Combine Group
-            RibbonGroup(title: "Kết hợp") {
+            RibbonGroup(title: bi("Kết hợp", "Combine")) {
                 RibbonButton(
-                    title: "Gộp truy vấn",
+                    title: bi("Gộp truy vấn", "Merge Queries"),
                     symbol: "arrow.triangle.merge",
                     size: .large,
                     tint: DS.Palette.accent,
-                    disabledReason: hasMergeCandidates ? nil : "Cần có truy vấn khác để gộp",
+                    disabledReason: hasMergeCandidates ? nil : bi("Cần có truy vấn khác để gộp", "Requires another query to merge"),
                     action: onOpenMerge
                 )
                 RibbonButton(
-                    title: "Nối truy vấn",
+                    title: bi("Nối truy vấn", "Append Queries"),
                     symbol: "arrow.triangle.pull",
                     size: .large,
                     tint: DS.Palette.accent,
-                    disabledReason: hasMergeCandidates ? nil : "Cần có truy vấn khác để nối",
+                    disabledReason: hasMergeCandidates ? nil : bi("Cần có truy vấn khác để nối", "Requires another query to append"),
                     action: onOpenAppend
                 )
             }
@@ -191,9 +192,9 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Query Group: đọc lại tệp nguồn
-            RibbonGroup(title: "Truy vấn") {
+            RibbonGroup(title: bi("Truy vấn", "Query")) {
                 RibbonButton(
-                    title: "Làm mới\nnguồn",
+                    title: bi("Làm mới\nnguồn", "Refresh\nPreview"),
                     symbol: "arrow.clockwise",
                     size: .large,
                     tint: DS.Palette.accent,
@@ -204,9 +205,9 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Query / Advanced Editor Group
-            RibbonGroup(title: "Nâng cao") {
+            RibbonGroup(title: bi("Nâng cao", "Advanced")) {
                 RibbonButton(
-                    title: "Trình soạn thảo\nnâng cao",
+                    title: bi("Trình soạn thảo\nnâng cao", "Advanced\nEditor"),
                     symbol: "curlybraces",
                     size: .large,
                     tint: DS.Palette.accent,
@@ -221,7 +222,7 @@ struct QueryRibbonView: View {
     private var transformTabRibbon: some View {
         HStack(alignment: .center, spacing: 0) {
             // Table Group
-            RibbonGroup(title: "Bảng") {
+            RibbonGroup(title: bi("Bảng", "Table")) {
                 button(for: .promoteHeaders, size: .large)
                 RibbonStack {
                     button(for: .reverseRows, size: .small)
@@ -232,7 +233,7 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Any Column Group
-            RibbonGroup(title: "Bất kỳ cột nào") {
+            RibbonGroup(title: bi("Bất kỳ cột nào", "Any Column")) {
                 RibbonStack {
                     button(for: .fillDown, size: .small)
                     button(for: .fillUp, size: .small)
@@ -246,7 +247,7 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Text Column Group
-            RibbonGroup(title: "Cột văn bản") {
+            RibbonGroup(title: bi("Cột văn bản", "Text Column")) {
                 button(for: .splitByDelimiter, size: .large)
                 formatMenu
             }
@@ -258,14 +259,14 @@ struct QueryRibbonView: View {
     private var addColumnTabRibbon: some View {
         HStack(alignment: .center, spacing: 0) {
             // Index Group
-            RibbonGroup(title: "Chỉ mục") {
+            RibbonGroup(title: bi("Chỉ mục", "Index")) {
                 indexColumnMenu
             }
 
             RibbonDivider()
 
             // Custom Column Group
-            RibbonGroup(title: "Tuỳ chỉnh") {
+            RibbonGroup(title: bi("Tuỳ chỉnh", "Custom")) {
                 button(for: .addCustomColumn, size: .large)
             }
         }
@@ -276,10 +277,10 @@ struct QueryRibbonView: View {
     private var viewTabRibbon: some View {
         HStack(alignment: .center, spacing: 0) {
             // Layout Panes Group
-            RibbonGroup(title: "Bố cục") {
+            RibbonGroup(title: bi("Bố cục", "Layout")) {
                 VStack(alignment: .leading, spacing: 4) {
-                    checkboxItem(title: "Thanh công thức", isOn: $showFormulaBar)
-                    checkboxItem(title: "Khung Queries", isOn: $showQueriesPane)
+                    checkboxItem(title: bi("Thanh công thức", "Formula Bar"), isOn: $showFormulaBar)
+                    checkboxItem(title: bi("Khung Queries", "Queries Pane"), isOn: $showQueriesPane)
                     checkboxItem(title: "Query Settings", isOn: $showQuerySettingsPane)
                 }
                 .padding(.horizontal, 4)
@@ -288,11 +289,11 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Data Preview Group
-            RibbonGroup(title: "Xem trước dữ liệu") {
+            RibbonGroup(title: bi("Xem trước dữ liệu", "Data Preview")) {
                 VStack(alignment: .leading, spacing: 4) {
-                    checkboxItem(title: "Chất lượng cột", isOn: $showColumnQuality)
-                    checkboxItem(title: "Phân bố cột", isOn: $showColumnDistribution)
-                    checkboxItem(title: "Hồ sơ cột", isOn: $showColumnProfile)
+                    checkboxItem(title: bi("Chất lượng cột", "Column quality"), isOn: $showColumnQuality)
+                    checkboxItem(title: bi("Phân bố cột", "Column distribution"), isOn: $showColumnDistribution)
+                    checkboxItem(title: bi("Hồ sơ cột", "Column profile"), isOn: $showColumnProfile)
                 }
                 .padding(.horizontal, 4)
             }
@@ -300,9 +301,9 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Dependencies Group
-            RibbonGroup(title: "Quan hệ") {
+            RibbonGroup(title: bi("Quan hệ", "Dependencies")) {
                 RibbonButton(
-                    title: "Phụ thuộc\ntruy vấn",
+                    title: bi("Phụ thuộc\ntruy vấn", "Query\nDependencies"),
                     symbol: "point.3.connected.trianglepath.dotted",
                     size: .large,
                     tint: DS.Palette.accent,
@@ -313,9 +314,9 @@ struct QueryRibbonView: View {
             RibbonDivider()
 
             // Advanced Editor Group
-            RibbonGroup(title: "Nâng cao") {
+            RibbonGroup(title: bi("Nâng cao", "Advanced")) {
                 RibbonButton(
-                    title: "Trình soạn thảo\nnâng cao",
+                    title: bi("Trình soạn thảo\nnâng cao", "Advanced\nEditor"),
                     symbol: "curlybraces",
                     size: .large,
                     tint: DS.Palette.accent,
@@ -343,19 +344,20 @@ struct QueryRibbonView: View {
 
     @ViewBuilder
     private func button(for cmd: QueryRibbonCommand, size: RibbonButton.Size) -> some View {
+        let lang = AppPreferences.shared.effectiveLanguage
         let enabled = cmd.isEnabled(context: context)
         let reason: String? = {
-            if !cmd.isAvailable { return "Sắp có" }
+            if !cmd.isAvailable { return bi("Sắp có", "Coming soon") }
             if !enabled {
                 if cmd == .pivot {
-                    return "Xoay cột: chọn cột thuộc tính trước, cột giá trị sau"
+                    return bi("Xoay cột: chọn cột thuộc tính trước, cột giá trị sau", "Pivot: select attribute column first, then value column")
                 }
-                return "Chưa đủ điều kiện"
+                return bi("Chưa đủ điều kiện", "Not available for current selection")
             }
             return nil
         }()
         RibbonButton(
-            title: cmd.title,
+            title: cmd.localizedTitle(language: lang),
             symbol: cmd.symbol,
             size: size,
             disabledReason: reason,
@@ -368,28 +370,28 @@ struct QueryRibbonView: View {
         let isEnabled = !context.selectedColumns.isEmpty
         if scrollable {
             Menu {
-                Button("Số nguyên") { onCommand(.changeTypeWholeNumber) }
-                Button("Số thập phân") { onCommand(.changeTypeDecimal) }
-                Button("Văn bản") { onCommand(.changeTypeText) }
-                Button("Ngày") { onCommand(.changeTypeDate) }
-                Button("Ngày giờ") { onCommand(.changeTypeDateTime) }
-                Button("Đúng-Sai") { onCommand(.changeTypeLogical) }
+                Button(bi("Số nguyên", "Whole Number")) { onCommand(.changeTypeWholeNumber) }
+                Button(bi("Số thập phân", "Decimal Number")) { onCommand(.changeTypeDecimal) }
+                Button(bi("Văn bản", "Text")) { onCommand(.changeTypeText) }
+                Button(bi("Ngày", "Date")) { onCommand(.changeTypeDate) }
+                Button(bi("Ngày giờ", "Date/Time")) { onCommand(.changeTypeDateTime) }
+                Button(bi("Đúng-Sai", "True/False")) { onCommand(.changeTypeLogical) }
             } label: {
                 RibbonButton(
-                    title: "Kiểu dữ liệu",
+                    title: bi("Kiểu dữ liệu", "Data Type"),
                     symbol: "number",
                     size: .small,
-                    disabledReason: isEnabled ? nil : "Chọn ít nhất một cột"
+                    disabledReason: isEnabled ? nil : bi("Chọn ít nhất một cột", "Select at least one column")
                 )
             }
             .menuStyle(.borderlessButton)
             .disabled(!isEnabled)
         } else {
             RibbonButton(
-                title: "Kiểu dữ liệu",
+                title: bi("Kiểu dữ liệu", "Data Type"),
                 symbol: "number",
                 size: .small,
-                disabledReason: isEnabled ? nil : "Chọn ít nhất một cột"
+                disabledReason: isEnabled ? nil : bi("Chọn ít nhất một cột", "Select at least one column")
             )
         }
     }
@@ -400,27 +402,27 @@ struct QueryRibbonView: View {
             context.selectedColumns.allSatisfy { context.columnTypes[$0] == .string }
         if scrollable {
             Menu {
-                Button("chữ thường") { onCommand(.formatLowercase) }
-                Button("CHỮ HOA") { onCommand(.formatUppercase) }
-                Button("Viết Hoa Mỗi Từ") { onCommand(.formatCapitalizeEachWord) }
-                Button("Cắt khoảng trắng") { onCommand(.formatTrim) }
-                Button("Làm sạch") { onCommand(.formatClean) }
+                Button(bi("chữ thường", "lowercase")) { onCommand(.formatLowercase) }
+                Button(bi("CHỮ HOA", "UPPERCASE")) { onCommand(.formatUppercase) }
+                Button(bi("Viết Hoa Mỗi Từ", "Capitalize Each Word")) { onCommand(.formatCapitalizeEachWord) }
+                Button(bi("Cắt khoảng trắng", "Trim")) { onCommand(.formatTrim) }
+                Button(bi("Làm sạch", "Clean")) { onCommand(.formatClean) }
             } label: {
                 RibbonButton(
-                    title: "Định dạng",
+                    title: bi("Định dạng", "Format"),
                     symbol: "textformat",
                     size: .large,
-                    disabledReason: isEnabled ? nil : "Chọn ít nhất một cột kiểu văn bản"
+                    disabledReason: isEnabled ? nil : bi("Chọn ít nhất một cột kiểu văn bản", "Select at least one text column")
                 )
             }
             .menuStyle(.borderlessButton)
             .disabled(!isEnabled)
         } else {
             RibbonButton(
-                title: "Định dạng",
+                title: bi("Định dạng", "Format"),
                 symbol: "textformat",
                 size: .large,
-                disabledReason: isEnabled ? nil : "Chọn ít nhất một cột kiểu văn bản"
+                disabledReason: isEnabled ? nil : bi("Chọn ít nhất một cột kiểu văn bản", "Select at least one text column")
             )
         }
     }
@@ -429,11 +431,11 @@ struct QueryRibbonView: View {
     private var indexColumnMenu: some View {
         if scrollable {
             Menu {
-                Button("Từ 0") { onCommand(.addIndexColumnFrom0) }
-                Button("Từ 1") { onCommand(.addIndexColumnFrom1) }
+                Button(bi("Từ 0", "From 0")) { onCommand(.addIndexColumnFrom0) }
+                Button(bi("Từ 1", "From 1")) { onCommand(.addIndexColumnFrom1) }
             } label: {
                 RibbonButton(
-                    title: "Cột chỉ mục",
+                    title: bi("Cột chỉ mục", "Index Column"),
                     symbol: "list.number",
                     size: .large
                 )
@@ -441,7 +443,7 @@ struct QueryRibbonView: View {
             .menuStyle(.borderlessButton)
         } else {
             RibbonButton(
-                title: "Cột chỉ mục",
+                title: bi("Cột chỉ mục", "Index Column"),
                 symbol: "list.number",
                 size: .large
             )

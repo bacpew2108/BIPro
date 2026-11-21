@@ -60,7 +60,7 @@ struct QueryListView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(DS.Palette.secondaryLabel)
 
-            Text("Truy vấn [\(state.queries.count)]")
+            Text(bi("Truy vấn [\(state.queries.count)]", "Queries [\(state.queries.count)]"))
                 .font(DS.Typeface.headlineSmall)
                 .foregroundStyle(DS.Palette.label)
 
@@ -110,7 +110,7 @@ struct QueryListView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(isSelected ? .white : DS.Palette.warning)
-                    .help("Truy vấn có bước lỗi")
+                    .help(bi("Truy vấn có bước lỗi", "Query has step errors"))
             }
         }
         .padding(.horizontal, 8)
@@ -126,13 +126,13 @@ struct QueryListView: View {
                 state.setEnableLoad(query.id, !query.enableLoad)
             } label: {
                 if query.enableLoad {
-                    Label("Bật tải vào mô hình", systemImage: "checkmark")
+                    Label(bi("Bật tải vào mô hình", "Enable load"), systemImage: "checkmark")
                 } else {
-                    Text("Bật tải vào mô hình")
+                    Text(bi("Bật tải vào mô hình", "Enable load"))
                 }
             }
 
-            Button("Đổi tên…") {
+            Button(bi("Đổi tên…", "Rename…")) {
                 renamingQueryID = query.id
                 renameText = query.name
                 renameError = nil

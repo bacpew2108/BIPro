@@ -82,10 +82,10 @@ private struct DataSourceCommands: View {
                          disabledReason: state.enterDataBlocker) { state.showEnterData() }
         }
         RibbonDivider()
-        RibbonGroup(title: "Truy vấn") {
+        RibbonGroup(title: bi("Truy vấn", "Queries")) {
             RibbonButton(title: tr(.ribbonTransformData), symbol: "slider.horizontal.3",
                          disabledReason: state.queryEditorBlocker) { state.showQueryEditor() }
-            RibbonButton(title: "Làm mới", symbol: "arrow.clockwise", phase: "Phase F")
+            RibbonButton(title: bi("Làm mới", "Refresh"), symbol: "arrow.clockwise", phase: "Phase F")
         }
     }
 }
@@ -93,11 +93,11 @@ private struct DataSourceCommands: View {
 private struct CalculationCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Tính toán") {
+        RibbonGroup(title: bi("Tính toán", "Calculations")) {
             RibbonButton(title: tr(.ribbonNewMeasure), symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table ?? state.workspace.userTables.first?.name { state.newMeasureInTableView(table: table) }
             }
-            RibbonButton(title: "Measure nhanh", symbol: "bolt", tint: DS.Palette.measure, phase: "Phase E")
+            RibbonButton(title: bi("Measure nhanh", "Quick measure"), symbol: "bolt", tint: DS.Palette.measure, phase: "Phase E")
         }
     }
 }
@@ -105,12 +105,12 @@ private struct CalculationCommands: View {
 private struct ReportHomeCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Bảng nhớ tạm") {
-            RibbonButton(title: "Dán", symbol: "doc.on.clipboard", phase: "Phase D")
+        RibbonGroup(title: bi("Bảng nhớ tạm", "Clipboard")) {
+            RibbonButton(title: bi("Dán", "Paste"), symbol: "doc.on.clipboard", phase: "Phase D")
             RibbonStack {
-                RibbonButton(title: "Cắt", symbol: "scissors", size: .small, phase: "Phase D")
-                RibbonButton(title: "Sao chép", symbol: "doc.on.doc", size: .small, phase: "Phase D")
-                RibbonButton(title: "Sao định dạng", symbol: "paintbrush", size: .small, phase: "Phase D")
+                RibbonButton(title: bi("Cắt", "Cut"), symbol: "scissors", size: .small, phase: "Phase D")
+                RibbonButton(title: bi("Sao chép", "Copy"), symbol: "doc.on.doc", size: .small, phase: "Phase D")
+                RibbonButton(title: bi("Sao định dạng", "Format painter"), symbol: "paintbrush", size: .small, phase: "Phase D")
             }
         }
         RibbonDivider()
@@ -133,7 +133,7 @@ private struct ReportHomeCommands: View {
 private struct ArrangeCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Sắp xếp") {
+        RibbonGroup(title: tr(.ribbonArrange)) {
             Menu {
                 ForEach(AlignCommand.allCases, id: \.self) { command in
                     Button { state.align(command) } label: { Label(command.title, systemImage: command.systemImage) }
@@ -142,7 +142,7 @@ private struct ArrangeCommands: View {
             } label: {
                 VStack(spacing: 3) {
                     Image(systemName: "align.horizontal.left").font(.system(size: 17)).foregroundStyle(DS.Palette.secondaryLabel).frame(height: 20)
-                    Text("Căn lề").font(DS.Typeface.label).foregroundStyle(DS.Palette.label)
+                    Text(bi("Căn lề", "Align")).font(DS.Typeface.label).foregroundStyle(DS.Palette.label)
                 }
                 .padding(.horizontal, 6)
                 .frame(minWidth: 44, minHeight: 50)
@@ -152,10 +152,10 @@ private struct ArrangeCommands: View {
             .fixedSize()
             .disabled(state.arrangeBlocker != nil)
             .opacity(state.arrangeBlocker != nil ? 0.55 : 1)
-            .help(state.arrangeBlocker ?? "Căn lề và phân bố các visual đang chọn")
-            RibbonButton(title: "Nhóm", symbol: "square.on.square.dashed", disabledReason: state.groupBlocker) { state.groupSelection() }
-            RibbonButton(title: "Bỏ nhóm", symbol: "square.on.square", disabledReason: state.ungroupBlocker) { state.ungroupSelection() }
-            RibbonButton(title: "Gộp vào nhóm", symbol: "plus.square.on.square", disabledReason: state.mergeBlocker) { state.mergeSelection() }
+            .help(state.arrangeBlocker ?? bi("Căn lề và phân bố các visual đang chọn", "Align and distribute selected visuals"))
+            RibbonButton(title: tr(.menuGroup), symbol: "square.on.square.dashed", disabledReason: state.groupBlocker) { state.groupSelection() }
+            RibbonButton(title: tr(.menuUngroup), symbol: "square.on.square", disabledReason: state.ungroupBlocker) { state.ungroupSelection() }
+            RibbonButton(title: bi("Gộp vào nhóm", "Merge"), symbol: "plus.square.on.square", disabledReason: state.mergeBlocker) { state.mergeSelection() }
         }
     }
 }
@@ -163,22 +163,22 @@ private struct ArrangeCommands: View {
 private struct InsertCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Trang") {
-            RibbonButton(title: "Trang mới", symbol: "doc.badge.plus", phase: "Phase D")
+        RibbonGroup(title: bi("Trang", "Pages")) {
+            RibbonButton(title: tr(.ribbonNewPage), symbol: "doc.badge.plus", phase: "Phase D")
         }
         RibbonDivider()
-        RibbonGroup(title: "Visual") {
-            RibbonButton(title: "Visual mới", symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
+        RibbonGroup(title: bi("Visual", "Visuals")) {
+            RibbonButton(title: tr(.ribbonNewVisual), symbol: "chart.bar.doc.horizontal", tint: DS.Palette.accent,
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("cardVisual") }
-            RibbonButton(title: "Thêm visual", symbol: "square.grid.3x3", phase: "Phase D")
+            RibbonButton(title: bi("Thêm visual", "More visuals"), symbol: "square.grid.3x3", phase: "Phase D")
         }
         RibbonDivider()
-        RibbonGroup(title: "Thành phần") {
-            RibbonButton(title: "Hộp văn bản", symbol: "textformat",
+        RibbonGroup(title: bi("Thành phần", "Elements")) {
+            RibbonButton(title: tr(.ribbonTextBox), symbol: "textformat",
                          disabledReason: state.visualEditingBlocker) { state.insertVisual("textbox") }
-            RibbonButton(title: "Nút", symbol: "rectangle.and.hand.point.up.left", phase: "Phase D")
-            RibbonButton(title: "Hình", symbol: "square.on.circle", phase: "Phase D")
-            RibbonButton(title: "Ảnh", symbol: "photo", phase: "Phase D")
+            RibbonButton(title: bi("Nút", "Buttons"), symbol: "rectangle.and.hand.point.up.left", phase: "Phase D")
+            RibbonButton(title: bi("Hình", "Shapes"), symbol: "square.on.circle", phase: "Phase D")
+            RibbonButton(title: bi("Ảnh", "Image"), symbol: "photo", phase: "Phase D")
         }
     }
 }
@@ -186,24 +186,24 @@ private struct InsertCommands: View {
 private struct ModelingCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Quan hệ") {
-            RibbonButton(title: "Quản lý quan hệ", symbol: "point.3.connected.trianglepath.dotted", tint: DS.Palette.accent,
+        RibbonGroup(title: bi("Quan hệ", "Relationships")) {
+            RibbonButton(title: tr(.ribbonManageRelationships), symbol: "point.3.connected.trianglepath.dotted", tint: DS.Palette.accent,
                          isOn: state.mode == .model) { state.mode = .model }
         }
         RibbonDivider()
-        RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+        RibbonGroup(title: bi("Tính toán", "Calculations")) {
+            RibbonButton(title: tr(.ribbonNewMeasure), symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table { state.beginNewMeasure(table: table) }
             }
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
+            RibbonButton(title: tr(.ribbonNewColumn), symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
                 if let table = state.table { state.beginNewColumn(table: table) }
             }
-            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", disabledReason: state.modelEditingBlocker) { state.beginNewTable() }
+            RibbonButton(title: tr(.ribbonNewTable), symbol: "tablecells.badge.ellipsis", disabledReason: state.modelEditingBlocker) { state.beginNewTable() }
         }
         RibbonDivider()
-        RibbonGroup(title: "Bảo mật") {
-            RibbonButton(title: "Quản lý vai trò", symbol: "person.badge.shield.checkmark", phase: "sau v1")
-            RibbonButton(title: "Xem dưới vai trò", symbol: "eye", phase: "sau v1")
+        RibbonGroup(title: bi("Bảo mật", "Security")) {
+            RibbonButton(title: bi("Quản lý vai trò", "Manage roles"), symbol: "person.badge.shield.checkmark", phase: "sau v1")
+            RibbonButton(title: bi("Xem dưới vai trò", "View as"), symbol: "eye", phase: "sau v1")
         }
     }
 }
@@ -211,16 +211,23 @@ private struct ModelingCommands: View {
 private struct HelpCommands: View {
     @State private var showAbout = false
     var body: some View {
-        RibbonGroup(title: "Trợ giúp") {
-            RibbonButton(title: "Giới thiệu", symbol: "info.circle", tint: DS.Palette.accent) { showAbout = true }
+        RibbonGroup(title: bi("Trợ giúp", "Help")) {
+            RibbonButton(title: bi("Giới thiệu", "About"), symbol: "info.circle", tint: DS.Palette.accent) { showAbout = true }
+            RibbonButton(title: bi("Hướng dẫn", "Welcome Guide"), symbol: "book", tint: DS.Palette.indigo) {
+                AppPreferences.shared.requestShowOnboarding()
+            }
         }
         .popover(isPresented: $showAbout) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("BI Pro").font(DS.Typeface.headlineLarge)
-                Text("Phiên bản 0.2 · Phase A (shell và design system)").font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
-                Text("Mở .pbix (PBIR và Layout cũ), giải mã VertiPaq trên macOS.").font(DS.Typeface.bodySmall)
+                Text("BI Pro").font(DS.Typeface.headlineLarge).foregroundStyle(DS.Palette.label)
+                Text(bi("Phiên bản 1.0.0 · macOS Native", "Version 1.0.0 · macOS Native"))
+                    .font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(bi("Mở, chỉnh sửa và lưu .pbix (PBIR & Layout cũ), chạy DAX và Power Query native trên Apple Silicon.",
+                        "Open, author, and save .pbix (PBIR & legacy Layout) with native VertiPaq, DAX, and Power Query on Apple Silicon."))
+                    .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.label)
             }
             .padding(16)
+            .frame(maxWidth: 320)
         }
     }
 }
@@ -228,9 +235,9 @@ private struct HelpCommands: View {
 private struct GenericViewCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Không gian làm việc") {
+        RibbonGroup(title: bi("Không gian làm việc", "Workspaces")) {
             ForEach(WorkspaceMode.allCases) { mode in
-                RibbonButton(title: mode.title, symbol: mode.symbol, isOn: state.mode == mode) { state.mode = mode }
+                RibbonButton(title: mode.localizedTitle, symbol: mode.symbol, isOn: state.mode == mode) { state.mode = mode }
             }
         }
     }
@@ -241,20 +248,20 @@ private struct GenericViewCommands: View {
 private struct ReportViewCommands: View {
     @Bindable var state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Ngăn") {
-            RibbonButton(title: "Bộ lọc", symbol: "line.3.horizontal.decrease", isOn: state.showFilters) { state.showFilters.toggle() }
-            RibbonButton(title: "Trực quan hóa", symbol: "chart.bar", isOn: state.showVisualizations) { state.showVisualizations.toggle() }
-            RibbonButton(title: "Dữ liệu", symbol: "cylinder", isOn: state.showData) { state.showData.toggle() }
-            RibbonButton(title: "Lựa chọn", symbol: "square.3.layers.3d", isOn: state.showSelection) { state.showSelection.toggle() }
-            RibbonButton(title: "Bookmark", symbol: "bookmark", isOn: state.showBookmarks) { state.showBookmarks.toggle() }
+        RibbonGroup(title: bi("Ngăn", "Show panes")) {
+            RibbonButton(title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", isOn: state.showFilters) { state.showFilters.toggle() }
+            RibbonButton(title: tr(.paneVisualizations), symbol: "chart.bar", isOn: state.showVisualizations) { state.showVisualizations.toggle() }
+            RibbonButton(title: tr(.paneData), symbol: "cylinder", isOn: state.showData) { state.showData.toggle() }
+            RibbonButton(title: tr(.paneSelection), symbol: "square.3.layers.3d", isOn: state.showSelection) { state.showSelection.toggle() }
+            RibbonButton(title: tr(.paneBookmarks), symbol: "bookmark", isOn: state.showBookmarks) { state.showBookmarks.toggle() }
         }
         RibbonDivider()
-        RibbonGroup(title: "Thu phóng") {
-            RibbonButton(title: "Vừa trang", symbol: "arrow.up.left.and.arrow.down.right", isOn: state.zoom == nil) { state.zoom = nil }
+        RibbonGroup(title: bi("Thu phóng", "Zoom")) {
+            RibbonButton(title: tr(.zoomFit), symbol: "arrow.up.left.and.arrow.down.right", isOn: state.zoom == nil) { state.zoom = nil }
             RibbonButton(title: "100%", symbol: "1.magnifyingglass", isOn: state.zoom == 1) { state.zoom = 1 }
             RibbonStack {
-                RibbonButton(title: "Phóng to", symbol: "plus.magnifyingglass", size: .small) { state.zoomIn() }
-                RibbonButton(title: "Thu nhỏ", symbol: "minus.magnifyingglass", size: .small) { state.zoomOut() }
+                RibbonButton(title: tr(.zoomIn), symbol: "plus.magnifyingglass", size: .small) { state.zoomIn() }
+                RibbonButton(title: tr(.zoomOut), symbol: "minus.magnifyingglass", size: .small) { state.zoomOut() }
             }
         }
     }
@@ -262,28 +269,28 @@ private struct ReportViewCommands: View {
 
 private struct FormatCommands: View {
     var body: some View {
-        RibbonGroup(title: "Tương tác") {
-            RibbonButton(title: "Sửa tương tác", symbol: "arrow.triangle.branch", phase: "Phase C")
+        RibbonGroup(title: bi("Tương tác", "Interactions")) {
+            RibbonButton(title: bi("Sửa tương tác", "Edit interactions"), symbol: "arrow.triangle.branch", phase: "Phase C")
         }
         RibbonDivider()
-        RibbonGroup(title: "Sắp xếp") {
-            RibbonButton(title: "Đưa lên trước", symbol: "square.2.layers.3d.top.filled", phase: "Phase D")
-            RibbonButton(title: "Đưa ra sau", symbol: "square.2.layers.3d.bottom.filled", phase: "Phase D")
-            RibbonButton(title: "Căn chỉnh", symbol: "align.horizontal.left", phase: "Phase D")
+        RibbonGroup(title: bi("Sắp xếp", "Arrange")) {
+            RibbonButton(title: bi("Đưa lên trước", "Bring forward"), symbol: "square.2.layers.3d.top.filled", phase: "Phase D")
+            RibbonButton(title: bi("Đưa ra sau", "Send backward"), symbol: "square.2.layers.3d.bottom.filled", phase: "Phase D")
+            RibbonButton(title: bi("Căn chỉnh", "Align"), symbol: "align.horizontal.left", phase: "Phase D")
         }
     }
 }
 
 private struct DataDrillCommands: View {
     var body: some View {
-        RibbonGroup(title: "Truy sâu") {
-            RibbonButton(title: "Lên một cấp", symbol: "arrow.up", phase: "Phase C")
-            RibbonButton(title: "Xuống một cấp", symbol: "arrow.down", phase: "Phase C")
-            RibbonButton(title: "Mở rộng cấp", symbol: "arrow.down.right.and.arrow.up.left", phase: "Phase C")
+        RibbonGroup(title: bi("Truy sâu", "Drill")) {
+            RibbonButton(title: bi("Lên một cấp", "Drill up"), symbol: "arrow.up", phase: "Phase C")
+            RibbonButton(title: bi("Xuống một cấp", "Drill down"), symbol: "arrow.down", phase: "Phase C")
+            RibbonButton(title: bi("Mở rộng cấp", "Expand next level"), symbol: "arrow.down.right.and.arrow.up.left", phase: "Phase C")
         }
         RibbonDivider()
-        RibbonGroup(title: "Dữ liệu") {
-            RibbonButton(title: "Xem dữ liệu", symbol: "tablecells", phase: "Phase C")
+        RibbonGroup(title: bi("Dữ liệu", "Data")) {
+            RibbonButton(title: bi("Xem dữ liệu", "Show as a table"), symbol: "tablecells", phase: "Phase C")
         }
     }
 }
@@ -293,30 +300,30 @@ private struct DataDrillCommands: View {
 private struct TableToolsCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Cấu trúc") {
+        RibbonGroup(title: bi("Cấu trúc", "Structure")) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("TÊN").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                Text(bi("TÊN", "NAME")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                 Text(state.table ?? "—").font(DS.Typeface.body).padding(.horizontal, 8).frame(width: 160, height: 24, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
             }
         }
         RibbonDivider()
-        RibbonGroup(title: "Lịch") {
-            RibbonButton(title: "Đánh dấu bảng ngày", symbol: "calendar", phase: "Phase E")
+        RibbonGroup(title: bi("Lịch", "Calendars")) {
+            RibbonButton(title: bi("Đánh dấu bảng ngày", "Mark as date table"), symbol: "calendar", phase: "Phase E")
         }
         RibbonDivider()
-        RibbonGroup(title: "Quan hệ") {
-            RibbonButton(title: "Quản lý quan hệ", symbol: "point.3.connected.trianglepath.dotted", tint: DS.Palette.accent) { state.mode = .model }
+        RibbonGroup(title: bi("Quan hệ", "Relationships")) {
+            RibbonButton(title: bi("Quản lý quan hệ", "Manage relationships"), symbol: "point.3.connected.trianglepath.dotted", tint: DS.Palette.accent) { state.mode = .model }
         }
         RibbonDivider()
-        RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+        RibbonGroup(title: bi("Tính toán", "Calculations")) {
+            RibbonButton(title: bi("Measure mới", "New measure"), symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table { state.beginNewMeasure(table: table) }
             }
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
+            RibbonButton(title: bi("Cột mới", "New column"), symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
                 if let table = state.table { state.beginNewColumn(table: table) }
             }
-            RibbonButton(title: "Bảng mới", symbol: "tablecells.badge.ellipsis", disabledReason: state.modelEditingBlocker) { state.beginNewTable() }
+            RibbonButton(title: bi("Bảng mới", "New table"), symbol: "tablecells.badge.ellipsis", disabledReason: state.modelEditingBlocker) { state.beginNewTable() }
         }
     }
 }
@@ -325,14 +332,15 @@ private struct ColumnToolsCommands: View {
     let state: DocumentState
 
     var body: some View {
+        let lang = AppPreferences.shared.effectiveLanguage
         let column = state.table.flatMap { t in state.column.flatMap { state.workspace.column(table: t, name: $0) } }
-        RibbonGroup(title: "Cấu trúc") {
-            field("TÊN", column?.name ?? "Chọn một cột", width: 150)
-            field("KIỂU DỮ LIỆU", column.map { dataTypeName($0.dataType) } ?? "—", width: 110)
+        RibbonGroup(title: bi("Cấu trúc", "Structure")) {
+            field(bi("TÊN", "NAME"), column?.name ?? bi("Chọn một cột", "Select a column"), width: 150)
+            field(bi("KIỂU DỮ LIỆU", "DATA TYPE"), column.map { dataTypeName($0.dataType, language: lang) } ?? "—", width: 110)
         }
         RibbonDivider()
-        RibbonGroup(title: "Định dạng") {
-            field("ĐỊNH DẠNG", column?.formatString ?? "Chung", width: 130)
+        RibbonGroup(title: bi("Định dạng", "Formatting")) {
+            field(bi("ĐỊNH DẠNG", "FORMAT"), column?.formatString ?? bi("Chung", "General"), width: 130)
             HStack(spacing: 2) {
                 ForEach(["$", "%", ",", ".00"], id: \.self) { symbol in
                     Text(symbol).font(DS.Typeface.label).frame(width: 26, height: 24)
@@ -340,28 +348,28 @@ private struct ColumnToolsCommands: View {
                 }
             }
             .opacity(0.45)
-            .help("Đổi định dạng: Phase E")
+            .help(bi("Đổi định dạng: Phase E", "Format editing: Phase E"))
         }
         RibbonDivider()
-        RibbonGroup(title: "Thuộc tính") {
-            field("TÓM TẮT", column.map { summarizeName($0) } ?? "—", width: 110)
-            field("DANH MỤC", column?.dataCategory ?? "Chưa phân loại", width: 120)
+        RibbonGroup(title: bi("Thuộc tính", "Properties")) {
+            field(bi("TÓM TẮT", "SUMMARIZATION"), column.map { summarizeName($0, language: lang) } ?? "—", width: 110)
+            field(bi("DANH MỤC", "DATA CATEGORY"), column?.dataCategory ?? bi("Chưa phân loại", "Uncategorized"), width: 120)
         }
         RibbonDivider()
-        RibbonGroup(title: "Sắp xếp") {
+        RibbonGroup(title: bi("Sắp xếp", "Sort")) {
             let sortBy = column?.sortByColumnID.flatMap { state.workspace.metadata?.column(id: $0)?.name }
-            field("SẮP XẾP THEO CỘT", sortBy ?? column?.name ?? "—", width: 140)
+            field(bi("SẮP XẾP THEO CỘT", "SORT BY COLUMN"), sortBy ?? column?.name ?? "—", width: 140)
         }
         RibbonDivider()
-        RibbonGroup(title: "Quan hệ") {
-            RibbonButton(title: "Quản lý quan hệ", symbol: "point.3.connected.trianglepath.dotted", tint: DS.Palette.accent) { state.mode = .model }
+        RibbonGroup(title: bi("Quan hệ", "Relationships")) {
+            RibbonButton(title: bi("Quản lý quan hệ", "Manage relationships"), symbol: "point.3.connected.trianglepath.dotted", tint: DS.Palette.accent) { state.mode = .model }
         }
         RibbonDivider()
-        RibbonGroup(title: "Tính toán") {
-            RibbonButton(title: "Measure mới", symbol: "function", tint: DS.Palette.measure) {
+        RibbonGroup(title: bi("Tính toán", "Calculations")) {
+            RibbonButton(title: bi("Measure mới", "New measure"), symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table { state.beginNewMeasure(table: table) }
             }
-            RibbonButton(title: "Cột mới", symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
+            RibbonButton(title: bi("Cột mới", "New column"), symbol: "rectangle.split.3x1", disabledReason: state.newColumnBlocker) {
                 if let table = state.table { state.beginNewColumn(table: table) }
             }
         }
@@ -379,33 +387,35 @@ private struct ColumnToolsCommands: View {
             .frame(width: width, height: 24)
             .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
         }
-        .help("Chỉnh sửa có ở Phase E")
+        .help(bi("Chỉnh sửa có ở Phase E", "Editing available in Phase E"))
     }
 }
 
-func dataTypeName(_ type: ModelMetadata.DataType) -> String {
+func dataTypeName(_ type: ModelMetadata.DataType, language: ResolvedLanguage = .vi) -> String {
+    let en = language == .en
     switch type {
-    case .string: "Văn bản"
-    case .int64: "Số nguyên"
-    case .double: "Số thập phân"
-    case .decimal: "Số thập phân cố định"
-    case .dateTime: "Ngày/giờ"
-    case .boolean: "True/False"
-    case .binary: "Nhị phân"
-    default: "Tự động"
+    case .string: return en ? "Text" : "Văn bản"
+    case .int64: return en ? "Whole number" : "Số nguyên"
+    case .double: return en ? "Decimal number" : "Số thập phân"
+    case .decimal: return en ? "Fixed decimal" : "Số thập phân cố định"
+    case .dateTime: return en ? "Date/time" : "Ngày/giờ"
+    case .boolean: return "True/False"
+    case .binary: return en ? "Binary" : "Nhị phân"
+    default: return en ? "Auto" : "Tự động"
     }
 }
 
-func summarizeName(_ column: ModelMetadata.Column) -> String {
+func summarizeName(_ column: ModelMetadata.Column, language: ResolvedLanguage = .vi) -> String {
+    let en = language == .en
     switch column.summarizeBy {
-    case 2: "Không tóm tắt"
-    case 3: "Tổng"
-    case 4: "Nhỏ nhất"
-    case 5: "Lớn nhất"
-    case 6: "Đếm"
-    case 7: "Trung bình"
-    case 8: "Đếm phân biệt"
-    default: "Mặc định"
+    case 2: return en ? "Don't summarize" : "Không tóm tắt"
+    case 3: return en ? "Sum" : "Tổng"
+    case 4: return en ? "Minimum" : "Nhỏ nhất"
+    case 5: return en ? "Maximum" : "Lớn nhất"
+    case 6: return en ? "Count" : "Đếm"
+    case 7: return en ? "Average" : "Trung bình"
+    case 8: return en ? "Count (Distinct)" : "Đếm phân biệt"
+    default: return en ? "Default" : "Mặc định"
     }
 }
 
@@ -423,14 +433,14 @@ private struct ModelHomeCommands: View {
 private struct ModelViewCommands: View {
     @Bindable var state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Bố cục") {
-            RibbonButton(title: "Sắp xếp lại", symbol: "wand.and.stars") { state.resetDiagramPositions() }
-            RibbonButton(title: "Vừa màn hình", symbol: "arrow.up.left.and.arrow.down.right") { state.modelZoom = 0.6 }
+        RibbonGroup(title: bi("Bố cục", "Layout")) {
+            RibbonButton(title: bi("Sắp xếp lại", "Reset layout"), symbol: "wand.and.stars") { state.resetDiagramPositions() }
+            RibbonButton(title: bi("Vừa màn hình", "Fit to screen"), symbol: "arrow.up.left.and.arrow.down.right") { state.modelZoom = 0.6 }
         }
         RibbonDivider()
-        RibbonGroup(title: "Thu phóng") {
-            RibbonButton(title: "Phóng to", symbol: "plus.magnifyingglass") { state.modelZoom = min(2, state.modelZoom + 0.1) }
-            RibbonButton(title: "Thu nhỏ", symbol: "minus.magnifyingglass") { state.modelZoom = max(0.3, state.modelZoom - 0.1) }
+        RibbonGroup(title: bi("Thu phóng", "Zoom")) {
+            RibbonButton(title: tr(.zoomIn), symbol: "plus.magnifyingglass") { state.modelZoom = min(2, state.modelZoom + 0.1) }
+            RibbonButton(title: tr(.zoomOut), symbol: "minus.magnifyingglass") { state.modelZoom = max(0.3, state.modelZoom - 0.1) }
         }
     }
 }
@@ -440,23 +450,23 @@ private struct ModelViewCommands: View {
 private struct DAXHomeCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Truy vấn") {
+        RibbonGroup(title: bi("Truy vấn", "Query")) {
             if state.isRunningDAX {
-                RibbonButton(title: "Huỷ", symbol: "stop.fill", tint: DS.Palette.danger) { state.cancelDAXQuery() }
+                RibbonButton(title: tr(.cancel), symbol: "stop.fill", tint: DS.Palette.danger) { state.cancelDAXQuery() }
             } else if state.canRunDAX {
-                RibbonButton(title: "Chạy", symbol: "play.fill", tint: DS.Palette.accent) { state.runDAXQuery() }
+                RibbonButton(title: tr(.ribbonRunQuery), symbol: "play.fill", tint: DS.Palette.accent) { state.runDAXQuery() }
             } else {
-                RibbonButton(title: "Chạy", symbol: "play.fill", tint: DS.Palette.accent, phase: "cần mô hình dữ liệu")
+                RibbonButton(title: tr(.ribbonRunQuery), symbol: "play.fill", tint: DS.Palette.accent, phase: bi("cần mô hình dữ liệu", "requires data model"))
             }
-            RibbonButton(title: "Định dạng", symbol: "text.alignleft", phase: "UI4")
-            RibbonButton(title: "Truy vấn mới", symbol: "plus.rectangle.on.rectangle", tint: DS.Palette.accent) {
-                state.daxQueries.append(DAXQueryTab(title: "Truy vấn \(state.daxQueries.count + 1)", text: "EVALUATE\n"))
+            RibbonButton(title: bi("Định dạng", "Format"), symbol: "text.alignleft", phase: "UI4")
+            RibbonButton(title: bi("Truy vấn mới", "New query"), symbol: "plus.rectangle.on.rectangle", tint: DS.Palette.accent) {
+                state.daxQueries.append(DAXQueryTab(title: "\(bi("Truy vấn", "Query")) \(state.daxQueries.count + 1)", text: "EVALUATE\n"))
                 state.daxSelection = state.daxQueries.count - 1
             }
         }
         RibbonDivider()
-        RibbonGroup(title: "Mô hình") {
-            RibbonButton(title: "Cập nhật mô hình", symbol: "arrow.triangle.2.circlepath", phase: "Phase E")
+        RibbonGroup(title: bi("Mô hình", "Model")) {
+            RibbonButton(title: bi("Cập nhật mô hình", "Update model"), symbol: "arrow.triangle.2.circlepath", phase: "Phase E")
         }
     }
 }
@@ -464,18 +474,18 @@ private struct DAXHomeCommands: View {
 private struct TMDLHomeCommands: View {
     let state: DocumentState
     var body: some View {
-        RibbonGroup(title: "Tài liệu") {
-            RibbonButton(title: "Sao chép", symbol: "doc.on.doc", tint: DS.Palette.accent) {
+        RibbonGroup(title: bi("Tài liệu", "Document")) {
+            RibbonButton(title: bi("Sao chép", "Copy"), symbol: "doc.on.doc", tint: DS.Palette.accent) {
                 if let doc = state.workspace.tmdlDocuments.first(where: { $0.path == state.tmdlPath }) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(doc.text, forType: .string)
                 }
             }
-            RibbonButton(title: "Xuất thư mục TMDL…", symbol: "folder.badge.plus", tint: DS.Palette.accent) { exportTMDL() }
+            RibbonButton(title: tr(.ribbonExportTMDL), symbol: "folder.badge.plus", tint: DS.Palette.accent) { exportTMDL() }
         }
         RibbonDivider()
-        RibbonGroup(title: "Áp dụng") {
-            RibbonButton(title: "Áp dụng thay đổi", symbol: "checkmark.circle", phase: "Phase E")
+        RibbonGroup(title: tr(.ribbonApply)) {
+            RibbonButton(title: bi("Áp dụng thay đổi", "Apply changes"), symbol: "checkmark.circle", phase: "Phase E")
         }
     }
 

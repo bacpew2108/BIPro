@@ -41,7 +41,7 @@ struct NavigatorPreviewGrid: View {
                     .foregroundStyle(DS.Palette.label)
                     .lineLimit(1)
 
-                Badge(text: NavigatorFormat.kindBadge(item.kind), color: DS.Palette.secondaryLabel)
+                Badge(text: NavigatorFormat.kindBadge(item.kind, language: AppPreferences.shared.effectiveLanguage), color: DS.Palette.secondaryLabel)
 
                 if let table = previewTable {
                     Text("•")
@@ -54,7 +54,7 @@ struct NavigatorPreviewGrid: View {
                         .lineLimit(1)
                 }
             } else {
-                Text("Chọn một mục để xem trước")
+                Text(bi("Chọn một mục để xem trước", "Select an item to preview"))
                     .font(DS.Typeface.body)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
             }
@@ -72,9 +72,10 @@ struct NavigatorPreviewGrid: View {
         formatter.numberStyle = .decimal
         if let hint = hint {
             let hintFormatted = formatter.string(from: NSNumber(value: hint)) ?? "\(hint)"
-            return "Xem trước \(rowCount) dòng đầu · tổng \(hintFormatted) dòng"
+            return bi("Xem trước \(rowCount) dòng đầu · tổng \(hintFormatted) dòng",
+                      "Previewing first \(rowCount) rows · \(hintFormatted) total rows")
         } else {
-            return "Xem trước \(rowCount) dòng đầu"
+            return bi("Xem trước \(rowCount) dòng đầu", "Previewing first \(rowCount) rows")
         }
     }
 
@@ -138,7 +139,7 @@ struct NavigatorPreviewGrid: View {
             VStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Đang tải xem trước...")
+                Text(bi("Đang tải xem trước...", "Loading preview..."))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
             }

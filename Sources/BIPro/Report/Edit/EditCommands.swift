@@ -39,8 +39,8 @@ extension DocumentState {
 
     /// Chữ hiện ở huy hiệu cạnh tên file.
     var statusBadge: String {
-        if layout.isDirty { return "Chưa lưu" }
-        return editMode ? "Đang sửa" : "Chỉ xem"
+        if layout.isDirty { return tr(.statusDirtyBadge) }
+        return editMode ? tr(.statusEditBadge) : bi("Chỉ xem", "View only")
     }
 }
 
@@ -53,27 +53,27 @@ struct EditCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .pasteboard) {
-            Button("Nhân bản visual") { state?.duplicateSelection() }
+            Button(bi("Nhân bản visual", "Duplicate Visual")) { state?.duplicateSelection() }
                 .keyboardShortcut("d", modifiers: .command)
-            Menu("Căn lề") {
+            Menu(bi("Căn lề", "Align")) {
                 ForEach(AlignCommand.allCases, id: \.self) { command in
                     Button(command.title) { state?.align(command) }
                         .disabled(state?.alignBlocker(command) != nil)
                 }
             }
-            Button("Nhóm visual") { state?.groupSelection() }
+            Button(bi("Nhóm visual", "Group Visuals")) { state?.groupSelection() }
                 .keyboardShortcut("g", modifiers: .command)
                 .disabled(state?.groupBlocker != nil)
-            Button("Bỏ nhóm") { state?.ungroupSelection() }
+            Button(tr(.menuUngroup)) { state?.ungroupSelection() }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
                 .disabled(state?.ungroupBlocker != nil)
-            Button("Gộp vào nhóm") { state?.mergeSelection() }
+            Button(bi("Gộp vào nhóm", "Merge into Group")) { state?.mergeSelection() }
                 .disabled(state?.mergeBlocker != nil)
         }
         CommandGroup(replacing: .undoRedo) {
-            Button("Hoàn tác") { perform(text: Selector(("undo:"))) { $0.undoLayout() } }
+            Button(tr(.menuUndo)) { perform(text: Selector(("undo:"))) { $0.undoLayout() } }
                 .keyboardShortcut("z", modifiers: .command)
-            Button("Làm lại") { perform(text: Selector(("redo:"))) { $0.redoLayout() } }
+            Button(tr(.menuRedo)) { perform(text: Selector(("redo:"))) { $0.redoLayout() } }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
         }
     }

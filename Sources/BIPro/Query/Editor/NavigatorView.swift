@@ -22,18 +22,18 @@ struct NavigatorView: View {
             return "\(address.server): \(address.database)"
         }
         let name = URL(fileURLWithPath: state.location).lastPathComponent
-        return name.isEmpty ? "Nguồn dữ liệu" : name
+        return name.isEmpty ? bi("Nguồn dữ liệu", "Data Source") : name
     }
 
     private var sourceKindTitle: String {
-        guard let kind = state.sourceKind else { return "Nguồn dữ liệu" }
+        guard let kind = state.sourceKind else { return bi("Nguồn dữ liệu", "Data Source") }
         switch kind {
-        case .excel: return "Sổ làm việc Excel"
-        case .csv: return "Văn bản / CSV"
-        case .json: return "Tệp JSON"
+        case .excel: return bi("Sổ làm việc Excel", "Excel Workbook")
+        case .csv: return bi("Văn bản / CSV", "Text / CSV")
+        case .json: return bi("Tệp JSON", "JSON File")
         case .parquet: return "Apache Parquet"
-        case .sqlite: return "Cơ sở dữ liệu SQLite"
-        case .postgres: return "Cơ sở dữ liệu PostgreSQL"
+        case .sqlite: return bi("Cơ sở dữ liệu SQLite", "SQLite Database")
+        case .postgres: return bi("Cơ sở dữ liệu PostgreSQL", "PostgreSQL Database")
         }
     }
 
@@ -90,7 +90,7 @@ struct NavigatorView: View {
                 .padding(.horizontal, 2)
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("Trình điều hướng")
+                Text(bi("Trình điều hướng", "Navigator"))
                     .font(DS.Typeface.headlineSmall)
                     .foregroundStyle(DS.Palette.label)
 
@@ -120,7 +120,7 @@ struct NavigatorView: View {
             VStack(spacing: 12) {
                 ProgressView()
                     .controlSize(.regular)
-                Text("Đang đọc nguồn…")
+                Text(bi("Đang đọc nguồn…", "Reading source…"))
                     .font(DS.Typeface.body)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -139,7 +139,7 @@ struct NavigatorView: View {
                     }
 
                     VStack(spacing: 6) {
-                        Text("Không thể mở nguồn dữ liệu")
+                        Text(bi("Không thể mở nguồn dữ liệu", "Unable to open data source"))
                             .font(DS.Typeface.headlineMedium)
                             .foregroundStyle(DS.Palette.label)
 
@@ -150,7 +150,7 @@ struct NavigatorView: View {
                             .frame(maxWidth: 380)
                     }
 
-                    Button("Chọn nguồn khác") {
+                    Button(bi("Chọn nguồn khác", "Choose another source")) {
                         state.phase = .choosingSource
                     }
                     .buttonStyle(SecondaryButtonStyle())
@@ -196,7 +196,7 @@ struct NavigatorView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Button("Hủy") {
+                Button(bi("Hủy", "Cancel")) {
                     if state.phase == .loading {
                         state.cancelLoad()
                     } else {
@@ -207,7 +207,7 @@ struct NavigatorView: View {
                 .keyboardShortcut(.cancelAction)
 
                 if let onTransform {
-                    Button("Chuyển đổi dữ liệu") {
+                    Button(bi("Chuyển đổi dữ liệu", "Transform Data")) {
                         Task {
                             if let tables = await state.load(existingNames: existingTableNames) {
                                 onTransform(tables)
@@ -220,7 +220,7 @@ struct NavigatorView: View {
                     .opacity(state.canLoad ? 1.0 : 0.4)
                 }
 
-                Button("Tải") {
+                Button(bi("Tải", "Load")) {
                     Task {
                         if let tables = await state.load(existingNames: existingTableNames) {
                             if let refusal = onLoad(tables) {
@@ -247,7 +247,7 @@ struct NavigatorView: View {
     private var odbcDriverField: some View {
         @Bindable var bindable = state
         return HStack(spacing: 6) {
-            Text("Driver ODBC trong M:")
+            Text(bi("Driver ODBC trong M:", "ODBC Driver in M:"))
                 .font(DS.Typeface.bodySmall)
                 .foregroundStyle(DS.Palette.secondaryLabel)
             if scrollable {
@@ -264,7 +264,7 @@ struct NavigatorView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                .help("Chọn driver SQLite có trên máy chạy Power BI Desktop")
+                .help(bi("Chọn driver SQLite có trên máy chạy Power BI Desktop", "Select the SQLite driver installed on Power BI Desktop"))
             } else {
                 // Xuất ảnh (`ImageRenderer` không vẽ được ô nhập AppKit): vẽ tĩnh.
                 HStack {
@@ -292,7 +292,7 @@ struct NavigatorView: View {
                         .fill(DS.Palette.accent)
                         .frame(width: max(0, min(120, 120 * CGFloat(state.progress))), height: 6)
                 }
-                Text("Đang tải… \(Int((state.progress * 100).rounded()))%")
+                Text(bi("Đang tải… \(Int((state.progress * 100).rounded()))%", "Loading… \(Int((state.progress * 100).rounded()))%"))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -307,7 +307,7 @@ struct NavigatorView: View {
                     .foregroundStyle(DS.Palette.danger)
                     .lineLimit(1)
 
-                Button("Đóng thông báo") {
+                Button(bi("Đóng thông báo", "Dismiss")) {
                     state.phase = .ready
                 }
                 .buttonStyle(SecondaryButtonStyle())
@@ -315,7 +315,7 @@ struct NavigatorView: View {
         } else {
             let currentItem = state.items.first(where: { $0.id == state.previewItemID })
             let previewRows = state.preview?.rowCount ?? 0
-            if let note = NavigatorFormat.truncationNote(previewRows: previewRows, rowCountHint: currentItem?.rowCountHint) {
+            if let note = NavigatorFormat.truncationNote(previewRows: previewRows, rowCountHint: currentItem?.rowCountHint, language: AppPreferences.shared.effectiveLanguage) {
                 HStack(spacing: 6) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 14))

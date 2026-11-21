@@ -52,12 +52,12 @@ struct PreviewGridView: View {
     }
 
     private func nestedLabel(_ table: TableData, row: Int, column: Int) -> String? {
-        if table.nested[column] != nil { return "Bảng" }
+        if table.nested[column] != nil { return bi("Bảng", "Table") }
         guard table.structured[column] != nil else { return nil }
         switch table.value(row: row, column: column) {
-        case .string("Record"): return "Bản ghi"
-        case .string("List"): return "Danh sách"
-        case .string("Table"): return "Bảng"
+        case .string("Record"): return bi("Bản ghi", "Record")
+        case .string("List"): return bi("Danh sách", "List")
+        case .string("Table"): return bi("Bảng", "Table")
         case .blank: return nil
         case let other: return NavigatorFormat.cell(other)
         }
@@ -71,7 +71,7 @@ struct PreviewGridView: View {
                 .lineLimit(1)
 
             if !selectedColumns.isEmpty {
-                let badgeText = "Cột đang chọn: " + selectedColumns.joined(separator: ", ")
+                let badgeText = bi("Cột đang chọn: ", "Selected column: ") + selectedColumns.joined(separator: ", ")
                 Badge(text: badgeText, color: DS.Palette.accent)
             }
 
@@ -99,7 +99,8 @@ struct PreviewGridView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
 
-                Text("Chọn bước trước đó trong Các bước đã áp dụng hoặc sửa biểu thức")
+                Text(bi("Chọn bước trước đó trong Các bước đã áp dụng hoặc sửa biểu thức",
+                        "Select an earlier step in Applied Steps or edit the formula"))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -124,7 +125,7 @@ struct PreviewGridView: View {
             VStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Đang tính xem trước…")
+                Text(bi("Đang tính xem trước…", "Computing preview…"))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
             }
@@ -268,7 +269,7 @@ struct PreviewGridView: View {
                         .onTapGesture {
                             onExpandColumn?(name)
                         }
-                        .help("Mở rộng cột")
+                        .help(bi("Mở rộng cột", "Expand column"))
                 }
 
                 Image(systemName: "chevron.down")
@@ -301,7 +302,7 @@ struct PreviewGridView: View {
             if showColumnDistribution, let profile {
                 HStack(spacing: 3) {
                     miniHistogram(distribution: profile.distribution)
-                    Text("\(profile.distinct) giá trị khác nhau")
+                    Text(bi("\(profile.distinct) giá trị khác nhau", "\(profile.distinct) distinct"))
                         .font(.system(size: 8))
                         .foregroundStyle(DS.Palette.tertiaryLabel)
                         .lineLimit(1)
@@ -366,7 +367,7 @@ struct PreviewGridView: View {
 
         HStack {
             if error != nil {
-                Text("Lỗi")
+                Text(bi("Lỗi", "Error"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 6)

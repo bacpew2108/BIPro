@@ -94,11 +94,11 @@ struct GetDataDialogView: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Lấy dữ liệu")
+                Text(bi("Lấy dữ liệu", "Get Data"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
 
-                Text("Chọn nguồn dữ liệu")
+                Text(bi("Chọn nguồn dữ liệu", "Choose a data source"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -107,12 +107,12 @@ struct GetDataDialogView: View {
             Spacer()
 
             if scrollable {
-                SearchField(text: $searchText, prompt: "Tìm trình kết nối", shortcut: "⌘F")
+                SearchField(text: $searchText, prompt: bi("Tìm trình kết nối", "Search connectors"), shortcut: "⌘F")
                     .frame(width: 240)
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(DS.Palette.tertiaryLabel)
-                    Text("Tìm trình kết nối")
+                    Text(bi("Tìm trình kết nối", "Search connectors"))
                         .font(DS.Typeface.body)
                         .foregroundStyle(DS.Palette.tertiaryLabel)
                     Spacer()
@@ -134,7 +134,7 @@ struct GetDataDialogView: View {
 
     private var categorySidebar: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("DANH MỤC")
+            Text(bi("DANH MỤC", "CATEGORIES"))
                 .font(DS.Typeface.labelSmall)
                 .tracking(0.5)
                 .foregroundStyle(DS.Palette.tertiaryLabel)
@@ -198,9 +198,9 @@ struct GetDataDialogView: View {
 
     private func categoryTitle(_ category: ConnectorCategory) -> String {
         switch category {
-        case .all: return "Tất cả"
-        case .file: return "Tệp"
-        case .database: return "Cơ sở dữ liệu"
+        case .all: return bi("Tất cả", "All")
+        case .file: return bi("Tệp", "File")
+        case .database: return bi("Cơ sở dữ liệu", "Database")
         }
     }
 
@@ -253,7 +253,7 @@ struct GetDataDialogView: View {
                 Text("/")
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
-                Text("Hiển thị \(visibleEntries.count) nguồn")
+                Text(bi("Hiển thị \(visibleEntries.count) nguồn", "Showing \(visibleEntries.count) sources"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -272,21 +272,21 @@ struct GetDataDialogView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(entry.title)
+                    Text(entry.localizedTitle)
                         .font(DS.Typeface.headlineSmall)
                         .foregroundStyle(DS.Palette.label)
                         .lineLimit(1)
 
                     if entry.isDefault {
-                        Badge(text: "Mặc định", color: DS.Palette.accent)
+                        Badge(text: bi("Mặc định", "Default"), color: DS.Palette.accent)
                     }
 
                     if !entry.isAvailable {
-                        Badge(text: "Sắp có", color: DS.Palette.tertiaryLabel)
+                        Badge(text: bi("Sắp có", "Coming soon"), color: DS.Palette.tertiaryLabel)
                     }
                 }
 
-                Text(entry.detail)
+                Text(entry.localizedDetail)
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
                     .lineLimit(1)
@@ -378,7 +378,7 @@ struct GetDataDialogView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                Button("Hủy") {
+                Button(bi("Hủy", "Cancel")) {
                     onClose()
                 }
                 .buttonStyle(SecondaryButtonStyle())
@@ -388,7 +388,7 @@ struct GetDataDialogView: View {
                     connect()
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Kết nối")
+                        Text(bi("Kết nối", "Connect"))
                         Image(systemName: "arrow.right")
                     }
                 }
@@ -448,7 +448,8 @@ struct GetDataFlowView: View {
                 // JSON: Desktop mở thẳng Power Query Editor (VM-F7a), chỉ hiện tiến độ trong lúc dựng các bước.
                 VStack(spacing: 12) {
                     ProgressView()
-                    Text("Đang đọc \(URL(fileURLWithPath: state.location).lastPathComponent)…")
+                    Text(bi("Đang đọc \(URL(fileURLWithPath: state.location).lastPathComponent)…",
+                            "Reading \(URL(fileURLWithPath: state.location).lastPathComponent)…"))
                         .font(DS.Typeface.body)
                         .foregroundStyle(DS.Palette.secondaryLabel)
                 }

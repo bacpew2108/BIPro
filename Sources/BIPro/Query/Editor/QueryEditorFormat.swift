@@ -10,7 +10,10 @@ public enum QueryEditorFormat {
     }
 
     /// rows ≤ 999: "9 cột · 500 dòng"; rows ≥ 1000: "9 cột · 999+ dòng"
-    public static func statusSummary(columns: Int, rows: Int) -> String {
+    public static func statusSummary(columns: Int, rows: Int, language: ResolvedLanguage = .vi) -> String {
+        if language == .en {
+            return rows <= 999 ? "\(columns) columns · \(rows) rows" : "\(columns) columns · 999+ rows"
+        }
         if rows <= 999 {
             return "\(columns) cột · \(rows) dòng"
         } else {
@@ -19,7 +22,10 @@ public enum QueryEditorFormat {
     }
 
     /// "Dựa trên 1000 dòng đầu" (rowsProfiled là số dòng của preview; < 1000 thì "Dựa trên 500 dòng")
-    public static func profileCaption(rowsProfiled: Int) -> String {
+    public static func profileCaption(rowsProfiled: Int, language: ResolvedLanguage = .vi) -> String {
+        if language == .en {
+            return rowsProfiled >= 1000 ? "Based on top 1000 rows" : "Based on \(rowsProfiled) rows"
+        }
         if rowsProfiled >= 1000 {
             return "Dựa trên 1000 dòng đầu"
         } else {

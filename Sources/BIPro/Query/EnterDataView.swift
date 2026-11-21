@@ -10,6 +10,7 @@ struct EnterDataView: View {
 
     @State var table: EnterDataTable
     var mode: Mode = .create
+    var scrollable: Bool = true
     /// Lưới lúc mở hộp: Huỷ chỉ hỏi xác nhận khi lưới đã khác (Desktop hỏi khi lưới có dữ liệu, VM-F11a ảnh a9).
     private let initial: EnterDataTable
     /// Tải (tạo) hoặc OK (sửa): trả lý do bị từ chối để hiện trong hộp, nil thì hộp đóng.
@@ -21,10 +22,11 @@ struct EnterDataView: View {
     @State private var confirmCancel = false
     @State private var working = false
 
-    init(table: EnterDataTable, mode: Mode = .create, onCommit: @escaping (EnterDataTable) async -> String?, onCancel: @escaping () -> Void) {
+    init(table: EnterDataTable, mode: Mode = .create, scrollable: Bool = true, onCommit: @escaping (EnterDataTable) async -> String?, onCancel: @escaping () -> Void) {
         _table = State(initialValue: table)
         initial = table
         self.mode = mode
+        self.scrollable = scrollable
         self.onCommit = onCommit
         self.onCancel = onCancel
     }
@@ -34,14 +36,24 @@ struct EnterDataView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Tạo bảng").font(DS.Typeface.headlineMedium)
+            Text(bi("Tạo bảng", "Create Table")).font(DS.Typeface.headlineMedium).foregroundStyle(DS.Palette.label)
             if promotedBanner { banner }
             if let message { errorBanner(message) }
             grid
             if mode == .create {
                 HStack(spacing: 8) {
-                    Text("Tên:").font(DS.Typeface.body)
-                    TextField("", text: $table.name).textFieldStyle(.roundedBorder).frame(width: 240)
+                    Text(bi("Tên:", "Name:")).font(DS.Typeface.body).foregroundStyle(DS.Palette.label)
+                    if scrollable {
+                        TextField("", text: $table.name).textFieldStyle(.roundedBorder).frame(width: 240)
+                    } else {
+                        Text(table.name)
+                            .font(DS.Typeface.body)
+                            .foregroundStyle(DS.Palette.label)
+                            .padding(.horizontal, 8)
+                            .frame(width: 240, height: 24, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: 5).fill(DS.Palette.chrome))
+                            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator))
+                    }
                 }
             }
             footer
@@ -49,9 +61,9 @@ struct EnterDataView: View {
         .padding(24)
         .frame(width: 760, height: 560)
         .background(DS.Palette.canvas)
-        .confirmationDialog("Bạn có chắc muốn thoát? Thay đổi trong bảng sẽ mất.", isPresented: $confirmCancel) {
-            Button("Có", role: .destructive) { onCancel() }
-            Button("Không", role: .cancel) {}
+        .confirmationDialog(bi("Bạn có chắc muốn thoát? Thay đổi trong bảng sẽ mất.", "Are you sure you want to cancel? Your table changes will be lost."), isPresented: $confirmCancel) {
+            Button(bi("Có", "Yes"), role: .destructive) { onCancel() }
+            Button(bi("Không", "No"), role: .cancel) {}
         }
     }
 
@@ -60,8 +72,8 @@ struct EnterDataView: View {
     private var banner: some View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle.fill").foregroundStyle(DS.Palette.accent)
-            Text("Dòng đầu của dữ liệu vừa dán đã thành tiêu đề cột.").font(DS.Typeface.body)
-            Button("Bỏ tiêu đề") {
+            Text(bi("Dòng đầu của dữ liệu vừa dán đã thành tiêu đề cột.", "The first row of pasted data was promoted to column headers.")).font(DS.Typeface.body)
+            Button(bi("Bỏ tiêu đề", "Demote headers")) {
                 table.demoteHeaders()
                 promotedBanner = false
             }
@@ -87,48 +99,72 @@ struct EnterDataView: View {
     // MARK: Lưới
 
     private var grid: some View {
-        GeometryReader { proxy in
-        ScrollView([.horizontal, .vertical]) {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                Section(header: headerRow) {
-                    ForEach(table.rows.indices, id: \.self) { row in dataRow(row) }
-                    HStack(spacing: 0) {
-                        Button { table.addRow() } label: { Image(systemName: "plus").frame(width: indexWidth, height: 22) }
-                            .buttonStyle(.plain)
-                            .help("Thêm dòng")
-                        Spacer(minLength: 0)
+        Group {
+            if scrollable {
+                GeometryReader { proxy in
+                    ScrollView([.horizontal, .vertical]) {
+                        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                            Section(header: headerRow) {
+                                ForEach(table.rows.indices, id: \.self) { row in dataRow(row) }
+                                addRowFooter
+                            }
+                        }
+                        // Lưới nhỏ hơn khung thì nằm góc trên trái như Desktop (ScrollView hai chiều mặc định canh giữa).
+                        .frame(minWidth: proxy.size.width, minHeight: proxy.size.height, alignment: .topLeading)
                     }
                 }
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    headerRow
+                    ForEach(table.rows.indices.prefix(16), id: \.self) { row in dataRow(row) }
+                    addRowFooter
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .clipped()
             }
-            // Lưới nhỏ hơn khung thì nằm góc trên trái như Desktop (ScrollView hai chiều mặc định canh giữa).
-            .frame(minWidth: proxy.size.width, minHeight: proxy.size.height, alignment: .topLeading)
-        }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DS.Palette.chrome)
         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(DS.Palette.separator))
         .onPasteCommand(of: [.plainText, .utf8PlainText], perform: { _ in pasteFromClipboard() })
-        .contextMenu { Button("Dán") { pasteFromClipboard() } }
+        .contextMenu { Button(bi("Dán", "Paste")) { pasteFromClipboard() } }
+    }
+
+    private var addRowFooter: some View {
+        HStack(spacing: 0) {
+            Button { table.addRow() } label: { Image(systemName: "plus").foregroundStyle(DS.Palette.secondaryLabel).frame(width: indexWidth, height: 22) }
+                .buttonStyle(.plain)
+                .help(bi("Thêm dòng", "Add row"))
+            Spacer(minLength: 0)
+        }
     }
 
     private var headerRow: some View {
         HStack(spacing: 0) {
             Color.clear.frame(width: indexWidth, height: 24)
             ForEach(table.columns.indices, id: \.self) { column in
-                TextField("", text: Binding(get: { table.columns[column] }, set: { edit($0, row: nil, column: column) }))
-                    .textFieldStyle(.plain)
-                    .font(DS.Typeface.headlineSmall)
-                    .padding(.horizontal, 6)
-                    .frame(width: cellWidth, height: 24, alignment: .leading)
-                    .background(DS.Palette.separator.opacity(0.35))
-                    .border(DS.Palette.separator, width: 0.5)
-                    .contextMenu {
-                        Button("Xoá cột") { table.removeColumn(column) }.disabled(table.columns.count == 1)
+                Group {
+                    if scrollable {
+                        TextField("", text: Binding(get: { table.columns[column] }, set: { edit($0, row: nil, column: column) }))
+                            .textFieldStyle(.plain)
+                    } else {
+                        Text(table.columns[column]).lineLimit(1)
                     }
+                }
+                .font(DS.Typeface.headlineSmall)
+                .foregroundStyle(DS.Palette.label)
+                .padding(.horizontal, 6)
+                .frame(width: cellWidth, height: 24, alignment: .leading)
+                .background(DS.Palette.separator.opacity(0.35))
+                .border(DS.Palette.separator, width: 0.5)
+                .contextMenu {
+                    Button(bi("Xoá cột", "Delete column")) { table.removeColumn(column) }.disabled(table.columns.count == 1)
+                }
             }
-            Button { table.addColumn() } label: { Image(systemName: "plus").frame(width: 28, height: 24) }
+            Button { table.addColumn() } label: { Image(systemName: "plus").foregroundStyle(DS.Palette.secondaryLabel).frame(width: 28, height: 24) }
                 .buttonStyle(.plain)
-                .help("Thêm cột")
+                .help(bi("Thêm cột", "Add column"))
         }
         .background(DS.Palette.canvas)
     }
@@ -139,16 +175,23 @@ struct EnterDataView: View {
                 .font(DS.Typeface.labelSmall)
                 .foregroundStyle(DS.Palette.secondaryLabel)
                 .frame(width: indexWidth, height: 22)
-                .contextMenu { Button("Xoá dòng") { table.removeRow(row) } }
+                .contextMenu { Button(bi("Xoá dòng", "Delete row")) { table.removeRow(row) } }
             ForEach(table.columns.indices, id: \.self) { column in
-                TextField("", text: Binding(get: { table.rows.indices.contains(row) ? table.rows[row][column] : "" },
-                                            set: { edit($0, row: row, column: column) }))
-                    .textFieldStyle(.plain)
-                    .font(DS.Typeface.body)
-                    .padding(.horizontal, 6)
-                    .frame(width: cellWidth, height: 22, alignment: .leading)
-                    .background(DS.Palette.canvas)
-                    .border(DS.Palette.separator, width: 0.5)
+                Group {
+                    if scrollable {
+                        TextField("", text: Binding(get: { table.rows.indices.contains(row) ? table.rows[row][column] : "" },
+                                                    set: { edit($0, row: row, column: column) }))
+                            .textFieldStyle(.plain)
+                    } else {
+                        Text(table.rows.indices.contains(row) ? table.rows[row][column] : "").lineLimit(1)
+                    }
+                }
+                .font(DS.Typeface.body)
+                .foregroundStyle(DS.Palette.label)
+                .padding(.horizontal, 6)
+                .frame(width: cellWidth, height: 22, alignment: .leading)
+                .background(DS.Palette.canvas)
+                .border(DS.Palette.separator, width: 0.5)
             }
         }
     }
@@ -185,10 +228,10 @@ struct EnterDataView: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            Button("Dán") { pasteFromClipboard() }.buttonStyle(SecondaryButtonStyle())
+            Button(bi("Dán", "Paste")) { pasteFromClipboard() }.buttonStyle(SecondaryButtonStyle())
             if working { ProgressView().controlSize(.small) }
             Spacer()
-            Button(mode == .create ? "Tải" : "OK") {
+            Button(mode == .create ? bi("Tải", "Load") : tr(.ok)) {
                 working = true
                 Task {
                     message = await onCommit(table)
@@ -198,7 +241,7 @@ struct EnterDataView: View {
             .buttonStyle(PrimaryButtonStyle())
             .keyboardShortcut(.defaultAction)
             .disabled(working || (mode == .create && table.name.trimmingCharacters(in: .whitespaces).isEmpty))
-            Button("Huỷ") {
+            Button(bi("Huỷ", "Cancel")) {
                 if table.isEmpty || table == initial { onCancel() } else { confirmCancel = true }
             }
             .buttonStyle(SecondaryButtonStyle())

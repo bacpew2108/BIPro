@@ -30,7 +30,7 @@ struct ColumnProfileView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(DS.Palette.accent)
 
-            Text("Hồ sơ cột — ")
+            Text(bi("Hồ sơ cột — ", "Column profile — "))
                 .font(DS.Typeface.headlineSmall)
                 .foregroundStyle(DS.Palette.label)
             +
@@ -41,7 +41,7 @@ struct ColumnProfileView: View {
 
             Spacer()
 
-            Text(QueryEditorFormat.profileCaption(rowsProfiled: previewRows))
+            Text(QueryEditorFormat.profileCaption(rowsProfiled: previewRows, language: AppPreferences.shared.effectiveLanguage))
                 .font(DS.Typeface.labelSmall)
                 .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -53,7 +53,7 @@ struct ColumnProfileView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Đóng hồ sơ cột")
+            .help(bi("Đóng hồ sơ cột", "Close column profile"))
         }
         .padding(.horizontal, 10)
         .frame(height: 28)
@@ -76,12 +76,12 @@ struct ColumnProfileView: View {
         let count = QueryEditorFormat.countLine(profile)
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Label("Thống kê cột (\(profile.columnName))", systemImage: "analytics")
+                Label(bi("Thống kê cột (\(profile.columnName))", "Column statistics (\(profile.columnName))"), systemImage: "analytics")
                     .font(DS.Typeface.label)
                     .foregroundStyle(DS.Palette.label)
                     .lineLimit(1)
                 Spacer()
-                Badge(text: "\(count) dòng", color: DS.Palette.accent)
+                Badge(text: bi("\(count) dòng", "\(count) rows"), color: DS.Palette.accent)
             }
             .padding(.bottom, 2)
             .hairline(.bottom)
@@ -89,16 +89,16 @@ struct ColumnProfileView: View {
             // Two-column property layout
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 2) {
-                    statRow(label: "Số dòng", value: "\(count)")
-                    statRow(label: "Khác nhau", value: "\(profile.distinct)")
-                    statRow(label: "Lỗi", value: "\(profile.error)", isDanger: profile.error > 0)
-                    statRow(label: "Duy nhất", value: "\(profile.unique)")
+                    statRow(label: bi("Số dòng", "Count"), value: "\(count)")
+                    statRow(label: bi("Khác nhau", "Distinct"), value: "\(profile.distinct)")
+                    statRow(label: bi("Lỗi", "Error"), value: "\(profile.error)", isDanger: profile.error > 0)
+                    statRow(label: bi("Duy nhất", "Unique"), value: "\(profile.unique)")
                 }
                 VStack(spacing: 2) {
-                    statRow(label: "Trống", value: "\(profile.empty)", isWarning: profile.empty > 0)
-                    statRow(label: "Nhỏ nhất", value: profile.min ?? "—")
-                    statRow(label: "Lớn nhất", value: profile.max ?? "—")
-                    statRow(label: "Trung bình", value: profile.average ?? "—")
+                    statRow(label: bi("Trống", "Empty"), value: "\(profile.empty)", isWarning: profile.empty > 0)
+                    statRow(label: bi("Nhỏ nhất", "Min"), value: profile.min ?? "—")
+                    statRow(label: bi("Lớn nhất", "Max"), value: profile.max ?? "—")
+                    statRow(label: bi("Trung bình", "Average"), value: profile.average ?? "—")
                 }
             }
             .frame(maxHeight: .infinity, alignment: .center)
@@ -131,12 +131,12 @@ struct ColumnProfileView: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Label("Phân bố giá trị (\(profile.columnName))", systemImage: "chart.bar")
+                Label(bi("Phân bố giá trị (\(profile.columnName))", "Value distribution (\(profile.columnName))"), systemImage: "chart.bar")
                     .font(DS.Typeface.label)
                     .foregroundStyle(DS.Palette.label)
                     .lineLimit(1)
                 Spacer()
-                Text("\(profile.distinct) giá trị")
+                Text(bi("\(profile.distinct) giá trị", "\(profile.distinct) values"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -166,7 +166,7 @@ struct ColumnProfileView: View {
                 let bucket = buckets[idx]
                 let fraction = maxCount > 0 ? CGFloat(bucket.count) / CGFloat(maxCount) : 0
                 HStack(spacing: 6) {
-                    Text(bucket.label.isEmpty ? "(Trống)" : bucket.label)
+                    Text(bucket.label.isEmpty ? bi("(Trống)", "(Empty)") : bucket.label)
                         .font(DS.Typeface.bodySmall)
                         .foregroundStyle(bucket.label.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
                         .frame(width: 64, alignment: .leading)

@@ -53,7 +53,7 @@ struct AddDataPanel: View {
                 ForEach(Self.tiles, id: \.title) { tile in tileView(tile) }
             }
             .padding(.top, 8)
-            Button("Lấy dữ liệu từ nguồn khác →") { Self.perform(.otherSource, on: state) }
+            Button(bi("Lấy dữ liệu từ nguồn khác →", "Get data from another source →")) { Self.perform(.otherSource, on: state) }
                 .buttonStyle(.plain)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DS.Palette.accent)
@@ -64,6 +64,18 @@ struct AddDataPanel: View {
 
     private func tileView(_ tile: Tile) -> some View {
         let enabled = tile.disabledReason == nil
+        let displayTitle: String = switch tile.action {
+        case .excel: bi(tile.title, "Import data from Excel")
+        case .sqlServer: bi(tile.title, "Import data from SQL Server")
+        case .paste: bi(tile.title, "Paste data into a blank table")
+        case .sample: bi(tile.title, "Try a sample dataset")
+        case .otherSource: bi(tile.title, "Get data from another source")
+        }
+        let displayDisabled: String? = switch tile.action {
+        case .sqlServer: tile.disabledReason.map { bi($0, "SQL Server is not yet supported in BI Pro") }
+        case .sample: tile.disabledReason.map { bi($0, "Sample dataset is not yet included in BI Pro") }
+        default: tile.disabledReason
+        }
         return Button { Self.perform(tile.action, on: state) } label: {
             VStack(spacing: 0) {
                 Image(systemName: tile.symbol)
@@ -71,7 +83,7 @@ struct AddDataPanel: View {
                     .foregroundStyle(enabled ? tile.tint : DS.Palette.tertiaryLabel)
                     .frame(maxWidth: .infinity, minHeight: 74)
                     .background(tile.tint.opacity(enabled ? 0.12 : 0.04))
-                Text(tile.title)
+                Text(displayTitle)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(enabled ? DS.Palette.label : DS.Palette.tertiaryLabel)
                     .multilineTextAlignment(.leading)
@@ -85,6 +97,6 @@ struct AddDataPanel: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
-        .help(tile.disabledReason ?? tile.title)
+        .help(displayDisabled ?? displayTitle)
     }
 }

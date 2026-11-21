@@ -105,25 +105,26 @@ enum NavigatorFormat {
         }
     }
 
-    static func kindBadge(_ kind: SourceItemKind) -> String {
+    static func kindBadge(_ kind: SourceItemKind, language: ResolvedLanguage = .vi) -> String {
+        let en = language == .en
         switch kind {
-        case .sheet: return "Trang tính"
-        case .namedTable: return "Bảng đặt tên"
-        case .table: return "Bảng"
-        case .view: return "Khung nhìn"
-        case .file: return "Tệp"
-        case .record: return "Bản ghi"
-        case .query: return "Truy vấn SQL"
+        case .sheet: return en ? "Sheet" : "Trang tính"
+        case .namedTable: return en ? "Named Table" : "Bảng đặt tên"
+        case .table: return en ? "Table" : "Bảng"
+        case .view: return en ? "View" : "Khung nhìn"
+        case .file: return en ? "File" : "Tệp"
+        case .record: return en ? "Record" : "Bản ghi"
+        case .query: return en ? "SQL Query" : "Truy vấn SQL"
         }
     }
 
-    static func selectedSummary(checked: Int, total: Int) -> String {
-        "Đã chọn \(checked) / \(total) mục"
+    static func selectedSummary(checked: Int, total: Int, language: ResolvedLanguage = .vi) -> String {
+        language == .en ? "Selected \(checked) of \(total) items" : "Đã chọn \(checked) / \(total) mục"
     }
 
-    static func truncationNote(previewRows: Int, rowCountHint: Int?) -> String? {
+    static func truncationNote(previewRows: Int, rowCountHint: Int?, language: ResolvedLanguage = .vi) -> String? {
         if previewRows == 200 && (rowCountHint == nil || rowCountHint! > 200) {
-            return "Xem trước bị cắt ở 200 dòng đầu."
+            return language == .en ? "Preview truncated to first 200 rows." : "Xem trước bị cắt ở 200 dòng đầu."
         }
         return nil
     }

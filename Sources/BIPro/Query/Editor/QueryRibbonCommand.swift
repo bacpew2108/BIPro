@@ -9,11 +9,16 @@ public enum QueryRibbonTab: String, CaseIterable, Sendable {
     case view
 
     public var title: String {
+        localizedTitle(language: .vi)
+    }
+
+    public func localizedTitle(language: ResolvedLanguage) -> String {
+        let en = language == .en
         switch self {
-        case .home: return "Trang chủ"
-        case .transform: return "Chuyển đổi"
-        case .addColumn: return "Thêm cột"
-        case .view: return "Xem"
+        case .home: return en ? "Home" : "Trang chủ"
+        case .transform: return en ? "Transform" : "Chuyển đổi"
+        case .addColumn: return en ? "Add Column" : "Thêm cột"
+        case .view: return en ? "View" : "Xem"
         }
     }
 }
@@ -96,37 +101,42 @@ public enum QueryRibbonCommand: String, CaseIterable, Sendable {
     case addCustomColumn
 
     public var title: String {
+        localizedTitle(language: .vi)
+    }
+
+    public func localizedTitle(language: ResolvedLanguage) -> String {
+        let en = language == .en
         switch self {
-        case .removeColumns: return "Xoá cột"
-        case .sortAscending: return "Sắp xếp tăng dần"
-        case .sortDescending: return "Sắp xếp giảm dần"
-        case .keepTopRows: return "Giữ N dòng đầu"
-        case .removeTopRows: return "Xoá N dòng đầu"
-        case .removeDuplicates: return "Xoá dòng trùng"
-        case .promoteHeaders: return "Dùng dòng đầu\nlàm tiêu đề"
-        case .changeTypeWholeNumber: return "Số nguyên"
-        case .changeTypeDecimal: return "Số thập phân"
-        case .changeTypeText: return "Văn bản"
-        case .changeTypeDate: return "Ngày"
-        case .changeTypeDateTime: return "Ngày giờ"
-        case .changeTypeLogical: return "Đúng-Sai"
-        case .replaceValue: return "Thay giá trị"
-        case .filterEquals: return "Lọc theo giá trị"
-        case .reverseRows: return "Đảo thứ tự dòng"
-        case .fillDown: return "Điền xuống"
-        case .fillUp: return "Điền lên"
-        case .formatLowercase: return "chữ thường"
-        case .formatUppercase: return "CHỮ HOA"
-        case .formatCapitalizeEachWord: return "Viết Hoa Mỗi Từ"
-        case .formatTrim: return "Cắt khoảng trắng"
-        case .formatClean: return "Làm sạch"
-        case .splitByDelimiter: return "Tách cột theo dấu phân cách"
-        case .groupByCount: return "Nhóm theo"
-        case .unpivotOtherColumns: return "Bỏ xoay các cột khác"
-        case .pivot: return "Xoay cột"
-        case .addIndexColumnFrom0: return "Từ 0"
-        case .addIndexColumnFrom1: return "Từ 1"
-        case .addCustomColumn: return "Cột tuỳ chỉnh"
+        case .removeColumns: return en ? "Remove Columns" : "Xoá cột"
+        case .sortAscending: return en ? "Sort Ascending" : "Sắp xếp tăng dần"
+        case .sortDescending: return en ? "Sort Descending" : "Sắp xếp giảm dần"
+        case .keepTopRows: return en ? "Keep Top Rows" : "Giữ N dòng đầu"
+        case .removeTopRows: return en ? "Remove Top Rows" : "Xoá N dòng đầu"
+        case .removeDuplicates: return en ? "Remove Duplicates" : "Xoá dòng trùng"
+        case .promoteHeaders: return en ? "Use First Row\nas Headers" : "Dùng dòng đầu\nlàm tiêu đề"
+        case .changeTypeWholeNumber: return en ? "Whole Number" : "Số nguyên"
+        case .changeTypeDecimal: return en ? "Decimal Number" : "Số thập phân"
+        case .changeTypeText: return en ? "Text" : "Văn bản"
+        case .changeTypeDate: return en ? "Date" : "Ngày"
+        case .changeTypeDateTime: return en ? "Date/Time" : "Ngày giờ"
+        case .changeTypeLogical: return en ? "True/False" : "Đúng-Sai"
+        case .replaceValue: return en ? "Replace Values" : "Thay giá trị"
+        case .filterEquals: return en ? "Filter Rows" : "Lọc theo giá trị"
+        case .reverseRows: return en ? "Reverse Rows" : "Đảo thứ tự dòng"
+        case .fillDown: return en ? "Fill Down" : "Điền xuống"
+        case .fillUp: return en ? "Fill Up" : "Điền lên"
+        case .formatLowercase: return en ? "lowercase" : "chữ thường"
+        case .formatUppercase: return en ? "UPPERCASE" : "CHỮ HOA"
+        case .formatCapitalizeEachWord: return en ? "Capitalize Each Word" : "Viết Hoa Mỗi Từ"
+        case .formatTrim: return en ? "Trim" : "Cắt khoảng trắng"
+        case .formatClean: return en ? "Clean" : "Làm sạch"
+        case .splitByDelimiter: return en ? "Split Column by Delimiter" : "Tách cột theo dấu phân cách"
+        case .groupByCount: return en ? "Group By" : "Nhóm theo"
+        case .unpivotOtherColumns: return en ? "Unpivot Other Columns" : "Bỏ xoay các cột khác"
+        case .pivot: return en ? "Pivot Column" : "Xoay cột"
+        case .addIndexColumnFrom0: return en ? "From 0" : "Từ 0"
+        case .addIndexColumnFrom1: return en ? "From 1" : "Từ 1"
+        case .addCustomColumn: return en ? "Custom Column" : "Cột tuỳ chỉnh"
         }
     }
 

@@ -55,6 +55,35 @@ struct LocalizationTests {
         #expect(viConn == enConn)
     }
 
+    @Test("Phase G2: bi(_:_:), Ribbon helpers, NavigatorFormat và QueryEditorFormat đổi đúng ngôn ngữ")
+    @MainActor
+    func deepViewsBilingualHelpers() {
+        let prev = AppPreferences.shared.language
+        defer { AppPreferences.shared.language = prev }
+
+        AppPreferences.shared.language = .vi
+        #expect(bi("Đóng", "Close") == "Đóng")
+        #expect(ConnectorCatalog.entries.first(where: { $0.kind == .excel })?.localizedTitle == "Sổ làm việc Excel")
+
+        AppPreferences.shared.language = .en
+        #expect(bi("Đóng", "Close") == "Close")
+        #expect(ConnectorCatalog.entries.first(where: { $0.kind == .excel })?.localizedTitle == "Excel Workbook")
+
+        #expect(dataTypeName(.string, language: .vi) == "Văn bản")
+        #expect(dataTypeName(.string, language: .en) == "Text")
+        #expect(dataTypeName(.int64, language: .en) == "Whole number")
+
+        #expect(NavigatorFormat.kindBadge(.sheet, language: .vi) == "Trang tính")
+        #expect(NavigatorFormat.kindBadge(.sheet, language: .en) == "Sheet")
+        #expect(NavigatorFormat.selectedSummary(checked: 2, total: 5, language: .en) == "Selected 2 of 5 items")
+        #expect(NavigatorFormat.truncationNote(previewRows: 200, rowCountHint: 500, language: .en) == "Preview truncated to first 200 rows.")
+
+        #expect(QueryEditorFormat.statusSummary(columns: 5, rows: 120, language: .en) == "5 columns · 120 rows")
+        #expect(QueryEditorFormat.profileCaption(rowsProfiled: 1000, language: .en) == "Based on top 1000 rows")
+        #expect(QueryRibbonTab.transform.localizedTitle(language: .en) == "Transform")
+        #expect(QueryRibbonCommand.removeDuplicates.localizedTitle(language: .en) == "Remove Duplicates")
+    }
+
     private func placeholders(in text: String) -> [String] {
         let regex = try! NSRegularExpression(pattern: "%(@|d|lld|f|\\.\\df)")
         let range = NSRange(text.startIndex..., in: text)

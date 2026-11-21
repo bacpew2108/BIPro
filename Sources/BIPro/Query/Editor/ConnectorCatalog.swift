@@ -16,6 +16,28 @@ struct ConnectorEntry: Identifiable {
     var isAvailable: Bool {
         ConnectorCatalog.availableKinds.contains(kind)
     }
+
+    @MainActor var localizedTitle: String {
+        switch kind {
+        case .excel: bi(title, "Excel Workbook")
+        case .csv: bi(title, "Text / CSV")
+        case .json: bi(title, "JSON File")
+        case .parquet: bi(title, "Apache Parquet")
+        case .sqlite: bi(title, "SQLite Database")
+        case .postgres: bi(title, "PostgreSQL Database")
+        }
+    }
+
+    @MainActor var localizedDetail: String {
+        switch kind {
+        case .excel: bi(detail, "Microsoft Excel spreadsheet (.xlsx)")
+        case .csv: bi(detail, "Comma- or tab-separated text files (.csv, .tsv, .txt)")
+        case .json: bi(detail, "JavaScript Object Notation structured document (.json)")
+        case .parquet: bi(detail, "Columnar binary storage format (.parquet)")
+        case .sqlite: bi(detail, "Local embedded relational database (.sqlite, .db)")
+        case .postgres: bi(detail, "Open-source relational database server")
+        }
+    }
 }
 
 enum ConnectorCatalog {

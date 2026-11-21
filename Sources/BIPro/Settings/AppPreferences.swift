@@ -21,11 +21,11 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// Ngôn ngữ hiển thị thực tế sau khi phân giải `.system`.
-enum ResolvedLanguage: String, CaseIterable, Identifiable, Sendable {
+public enum ResolvedLanguage: String, CaseIterable, Identifiable, Sendable {
     case vi
     case en
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 }
 
 /// Tập tuỳ chọn toàn cục của BI Pro, lưu bền vững trong `UserDefaults`.

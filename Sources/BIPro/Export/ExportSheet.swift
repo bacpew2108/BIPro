@@ -38,14 +38,16 @@ struct ExportSheet: View {
                     Text(L10n.string(.exportScopeLabel, language: lang))
                         .font(DS.Typeface.bodySmall.weight(.medium))
                         .foregroundStyle(DS.Palette.secondaryLabel)
-                    Picker("", selection: $pdfScope) {
-                        Text("\(L10n.string(.exportScopeAllVisible, language: lang)) (\(visiblePageCount))")
-                            .tag(ExportPDFScope.allVisiblePages)
-                        Text("\(L10n.string(.exportScopeCurrentPage, language: lang)) (\(currentPageName))")
-                            .tag(ExportPDFScope.currentPage)
+                    VStack(alignment: .leading, spacing: 6) {
+                        radioRow(
+                            title: "\(L10n.string(.exportScopeAllVisible, language: lang)) (\(visiblePageCount))",
+                            selected: pdfScope == .allVisiblePages
+                        ) { pdfScope = .allVisiblePages }
+                        radioRow(
+                            title: "\(L10n.string(.exportScopeCurrentPage, language: lang)) (\(currentPageName))",
+                            selected: pdfScope == .currentPage
+                        ) { pdfScope = .currentPage }
                     }
-                    .pickerStyle(.radioGroup)
-                    .labelsHidden()
                     .disabled(isExporting)
                 }
             } else {
@@ -53,11 +55,10 @@ struct ExportSheet: View {
                     Text(L10n.string(.exportScaleLabel, language: lang))
                         .font(DS.Typeface.bodySmall.weight(.medium))
                         .foregroundStyle(DS.Palette.secondaryLabel)
-                    Picker("", selection: $pngScale) {
-                        Text(L10n.string(.exportScale1x, language: lang)).tag(ExportPNGScale.x1)
-                        Text(L10n.string(.exportScale2x, language: lang)).tag(ExportPNGScale.x2)
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedPill(selection: $pngScale, options: [
+                        .init(value: .x1, title: L10n.string(.exportScale1x, language: lang)),
+                        .init(value: .x2, title: L10n.string(.exportScale2x, language: lang)),
+                    ], fill: true)
                     .disabled(isExporting)
                 }
             }
@@ -102,5 +103,28 @@ struct ExportSheet: View {
         .padding(22)
         .frame(width: 420)
         .background(DS.Palette.canvas)
+    }
+
+    private func radioRow(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .strokeBorder(selected ? DS.Palette.accent : DS.Palette.separator, lineWidth: 1.5)
+                        .frame(width: 15, height: 15)
+                    if selected {
+                        Circle()
+                            .fill(DS.Palette.accent)
+                            .frame(width: 7, height: 7)
+                    }
+                }
+                Text(title)
+                    .font(DS.Typeface.body)
+                    .foregroundStyle(DS.Palette.label)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

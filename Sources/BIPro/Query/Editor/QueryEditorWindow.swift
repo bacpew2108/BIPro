@@ -357,12 +357,12 @@ public struct QueryEditorWindow: View {
 
             // Window title
             HStack(spacing: 6) {
-                Text("\(state.selectedQuery?.name ?? "Truy vấn") — Trình chỉnh sửa truy vấn")
+                Text("\(state.selectedQuery?.name ?? bi("Truy vấn", "Query")) — \(bi("Trình chỉnh sửa truy vấn", "Power Query Editor"))")
                     .font(DS.Typeface.headlineSmall)
                     .foregroundStyle(DS.Palette.label)
 
                 if state.hasPendingChanges {
-                    Badge(text: "Đã sửa", color: DS.Palette.warning)
+                    Badge(text: bi("Đã sửa", "Modified"), color: DS.Palette.warning)
                 }
             }
 
@@ -378,7 +378,8 @@ public struct QueryEditorWindow: View {
     // MARK: - Status Bar
 
     private var statusBar: some View {
-        VStack(spacing: 0) {
+        let lang = AppPreferences.shared.effectiveLanguage
+        return VStack(spacing: 0) {
             if let applyMsg = state.applyMessage {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle.fill")
@@ -413,7 +414,7 @@ public struct QueryEditorWindow: View {
 
                     let cols = state.preview?.columns.count ?? 0
                     let rows = state.preview?.rowCount ?? 0
-                    Text(QueryEditorFormat.statusSummary(columns: cols, rows: rows))
+                    Text(QueryEditorFormat.statusSummary(columns: cols, rows: rows, language: lang))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.label)
                 }
@@ -422,7 +423,7 @@ public struct QueryEditorWindow: View {
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.tertiaryLabel)
 
-                Text("Phân tích cột dựa trên 1000 dòng đầu")
+                Text(bi("Phân tích cột dựa trên 1000 dòng đầu", "Column profiling based on top 1000 rows"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -431,19 +432,19 @@ public struct QueryEditorWindow: View {
                 if state.isApplying {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Đang áp dụng…")
+                    Text(bi("Đang áp dụng…", "Applying…"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
                 }
 
                 // Action buttons
-                Button("Đóng và áp dụng") {
+                Button(bi("Đóng và áp dụng", "Close & Apply")) {
                     handleApplyAndClose()
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(state.isApplying)
 
-                Button("Đóng") {
+                Button(bi("Đóng", "Close")) {
                     handleCloseAttempt()
                 }
                 .buttonStyle(SecondaryButtonStyle())
@@ -464,12 +465,13 @@ public struct QueryEditorWindow: View {
                     .font(.system(size: 20))
                     .foregroundStyle(DS.Palette.warning)
 
-                Text("Chèn bước")
+                Text(bi("Chèn bước", "Insert Step"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
             }
 
-            Text("Bạn có chắc muốn chèn một bước không? Chèn bước ở giữa có thể ảnh hưởng đến các bước sau và làm truy vấn bị lỗi.")
+            Text(bi("Bạn có chắc muốn chèn một bước không? Chèn bước ở giữa có thể ảnh hưởng đến các bước sau và làm truy vấn bị lỗi.",
+                    "Are you sure you want to insert a step? Inserting an intermediate step may affect subsequent steps and break the query."))
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
@@ -477,13 +479,13 @@ public struct QueryEditorWindow: View {
             HStack {
                 Spacer()
 
-                Button("Huỷ") {
+                Button(bi("Huỷ", "Cancel")) {
                     pendingInsertConfirmation = nil
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 
-                Button("Chèn") {
+                Button(bi("Chèn", "Insert")) {
                     pendingInsertConfirmation = nil
                     executeCommand(command, confirmInsert: true)
                 }
@@ -506,31 +508,31 @@ public struct QueryEditorWindow: View {
                     .font(.system(size: 20))
                     .foregroundStyle(DS.Palette.warning)
 
-                Text("Thay đổi chưa áp dụng")
+                Text(bi("Thay đổi chưa áp dụng", "Unapplied Changes"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
             }
 
-            Text("Có thay đổi trong truy vấn chưa được áp dụng vào mô hình.")
+            Text(bi("Có thay đổi trong truy vấn chưa được áp dụng vào mô hình.", "There are pending changes in your queries that have not been applied to the model."))
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.secondaryLabel)
 
             HStack(spacing: 8) {
                 Spacer()
 
-                Button("Huỷ") {
+                Button(bi("Huỷ", "Cancel")) {
                     showUnappliedChangesDialog = false
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 
-                Button("Bỏ thay đổi") {
+                Button(bi("Bỏ thay đổi", "Discard Changes")) {
                     showUnappliedChangesDialog = false
                     onClose()
                 }
                 .buttonStyle(SecondaryButtonStyle())
 
-                Button("Áp dụng") {
+                Button(bi("Áp dụng", "Apply")) {
                     showUnappliedChangesDialog = false
                     onApply()
                 }

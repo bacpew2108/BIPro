@@ -449,3 +449,9 @@ func trf(_ key: L10n.Key, _ args: CVarArg...) -> String {
            locale: Locale(identifier: AppPreferences.shared.effectiveLanguage == .en ? "en_US" : "vi_VN"),
            arguments: args)
 }
+
+/// Tiện ích song ngữ gọn cho nhãn UI phụ (Ribbon, Dialog, Pane) tự đổi ngay khi `AppPreferences.shared.language` thay đổi.
+@MainActor
+func bi(_ vi: String, _ en: String) -> String {
+    AppPreferences.shared.effectiveLanguage == .en ? en : vi
+}
