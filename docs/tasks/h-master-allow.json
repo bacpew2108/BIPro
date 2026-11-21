@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "command(swift build)",
+      "command(swift test)",
+      "command(BIPRO_H_RENDER=1 swift test)",
+      "command(BIPRO_HEAVY=1 swift test)",
+      "command(zsh scripts/build-app.sh)",
+      "command(codesign --verify)",
+      "command(git status)",
+      "command(git diff)",
+      "command(git log)",
+      "command(git grep)",
+      "command(git ls-files)",
+      "command(ls)",
+      "command(cmp)",
+      "command(grep)",
+      "command(wc)",
+      "command(sips -g)",
+      "command(open build/h-out)"
+    ]
+  }
+}

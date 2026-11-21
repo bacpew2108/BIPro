@@ -70,5 +70,6 @@ Cập nhật: 2026-11-21 (**Hoàn tất 100% toàn bộ `BIPRO_BUILD_PLAN.md` & 
 
 ## Việc tiếp theo
 
-1. **Git:** Đợt 4 (`v1.2`) đã commit tại `8504d9c`; đợt hoàn thiện nốt Ribbon `Column Tools` / `Table Tools` & đồng bộ `BIPRO_BUILD_PLAN.md` đang ở working tree (chờ lệnh commit & push 91+ commit lên `origin/main` của bạn).
-2. **Định hướng sau v1.2 (tuỳ chọn):** Theo dõi sử dụng thực tế `build/BI Pro.app` v1.2.0; cân nhắc đóng gói `.dmg` phân phối hoặc mở rộng thêm connector/tính năng mới khi cần.
+1. **Git:** working tree đã commit (`247ee09`, `b594ec6`, `68dc81c`); chưa push 94+ commit lên `origin/main` (chờ lệnh của bạn).
+2. **Phase H — Giao diện giống Power BI Desktop (doc xong, chờ giao agy):** `docs/PHASE_H_UI_PARITY.md` (đã duyệt Q1–Q6), `specs/016-h-giao-dien-giong-powerbi/` (spec, plan, research, data-model, contracts, quickstart, tasks 87 tác vụ; đã qua `/speckit-analyze`, đã sửa các điểm HIGH/MEDIUM), bảng sở hữu `docs/phase-h-ownership.tsv`, prompt tổng cho agy `docs/tasks/h-master.md` + allow-list `docs/tasks/h-master-allow.json`. Người dùng tự giao agy. Hiến pháp đã nâng v1.2.0 (teal; nút AI/cloud hiện vô hiệu). Chưa sửa mã giao diện. Việc còn lại của con người sau agy: duyệt ảnh, cổng Desktop (T086), commit.
+3. **Định hướng sau đó (tuỳ chọn):** đóng gói `.dmg`, thêm connector mới khi cần.
