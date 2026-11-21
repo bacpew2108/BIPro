@@ -1,0 +1,1 @@
+{"$schema":"https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json","name":"5fac245950691a6132d1","position":{"x":10,"y":870,"z":3,"height":210,"width":280,"tabOrder":3},"visual":{"visualType":"pieChart","drillFilterOtherVisuals":true}}

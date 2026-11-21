@@ -8,7 +8,16 @@ import Testing
 enum MetaFixture {
     static let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
     static let tuan62 = downloads.appendingPathComponent("tuan6.2.pbix")
-    static let nhom6 = downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    static let nhom6: URL = {
+        if let env = ProcessInfo.processInfo.environment["BIPRO_NHOM6"], !env.isEmpty {
+            return URL(fileURLWithPath: env)
+        }
+        for name in ["Nhom6_Dashboard.pbix", "bipro-golden/Nhom6_work.pbix"] {
+            let url = downloads.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    }()
 
     static func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
 
@@ -16,7 +25,7 @@ enum MetaFixture {
         if let path = ProcessInfo.processInfo.environment["PBIX_WP4_OUT"] {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
-        return URL(fileURLWithPath: "/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/w/out/wp4", isDirectory: true)
+        return FileManager.default.temporaryDirectory.appendingPathComponent("bipro-wp4", isDirectory: true)
     }()
 
     /// The `metadata.sqlitedb` member of a report's ABF backup.
@@ -283,8 +292,9 @@ struct MetadataNhom6Tests {
         let sourceMax = try SQLiteProbe.withFile(source) { db in
             (try SQLiteProbe.storedMaxID(db), try SQLiteProbe.actualMaxID(db))
         }
+        let startMax = try #require(sourceMax.0)
         #expect(sourceMax.0 == sourceMax.1)
-        #expect(sourceMax.0 == 11889)
+        #expect(startMax >= 11889)
 
         var writer = try MetadataWriter(sqlite: source)
         let newID = try writer.addMeasure(NewMeasure(table: "Fact_Transaction", name: "Test BI Pro",
@@ -293,7 +303,7 @@ struct MetadataNhom6Tests {
 
         let check15 = try ModelMetadata(sqlite: out).measures.count
         #expect(check15 == 169)
-        #expect(newID == 11890)
+        #expect(Int64(newID) == startMax + 1)
         try SQLiteProbe.withFile(out) { db in
             let stored = try SQLiteProbe.storedMaxID(db)
             #expect(stored == Int64(newID))

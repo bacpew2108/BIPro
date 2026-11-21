@@ -109,12 +109,12 @@ struct BasicFilterEditor: View {
         let format = interaction.formatString(of: column)
         let truncated = values.count >= Self.limit
         let on: Set<Value> = cleared ? [] : truncated ? Self.legacyChecked(current, values: values) : FilterEditing.checked(current, all: values)
-        SearchField(text: $search, prompt: "Tìm kiếm")
+        SearchField(text: $search, prompt: bi("Tìm kiếm", "Search"))
         let shown = FilterEditing.matching(values, search: search, format: format)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if !single, search.isEmpty {
-                    row(title: "Select all", symbol: on.count == values.count ? "checkmark.square.fill" : on.isEmpty ? "square" : "minus.square.fill",
+                    row(title: bi("Chọn tất cả", "Select all"), symbol: on.count == values.count ? "checkmark.square.fill" : on.isEmpty ? "square" : "minus.square.fill",
                         lit: !on.isEmpty) { toggleAll(values, on: on, truncated: truncated) }
                 }
                 ForEach(shown, id: \.self) { value in
@@ -123,7 +123,7 @@ struct BasicFilterEditor: View {
                     }
                 }
                 if truncated {
-                    Text("Chỉ hiện \(Self.limit) giá trị đầu").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(.top, 4)
+                    Text(bi("Chỉ hiện \(Self.limit) giá trị đầu", "Showing first \(Self.limit) values")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel).padding(.top, 4)
                 }
             }
         }
@@ -131,7 +131,7 @@ struct BasicFilterEditor: View {
         Button { single.toggle() } label: {
             HStack(spacing: 6) {
                 Image(systemName: single ? "checkmark.square.fill" : "square").foregroundStyle(single ? DS.Palette.accent : DS.Palette.tertiaryLabel)
-                Text("Chỉ cho chọn một giá trị").font(.system(size: 12))
+                Text(bi("Chỉ cho chọn một giá trị", "Require single selection")).font(.system(size: 12))
             }
         }
         .buttonStyle(.plain)
@@ -216,9 +216,10 @@ struct FilterEditorBody: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
-                Text("Loại bộ lọc").font(.system(size: 12))
+                Text(bi("Loại bộ lọc", "Filter type")).font(.system(size: 12))
                 Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
-                    .help("Basic: chọn giá trị. Advanced: điều kiện chữ hoặc số. Top N: N mục đầu hoặc cuối theo một measure (chỉ cấp visual).")
+                    .help(bi("Basic: chọn giá trị. Advanced: điều kiện chữ hoặc số. Top N: N mục đầu hoặc cuối theo một measure (chỉ cấp visual).",
+                             "Basic: pick values. Advanced: text or numeric rules. Top N: top/bottom N items by a measure (visual level only)."))
             }
             Menu {
                 ForEach(modes, id: \.self) { item in Button(item.rawValue) { choose(item) } }
@@ -262,20 +263,20 @@ struct AdvancedFilterEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if unsupported {
-                Text("Advanced filter cho cột ngày chưa hỗ trợ.").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(bi("Advanced filter cho cột ngày chưa hỗ trợ.", "Advanced filtering for date columns is not supported yet.")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
             } else {
-                Text("Hiện các mục khi giá trị").font(.system(size: 12))
+                Text(bi("Hiện các mục khi giá trị", "Show items when the value")).font(.system(size: 12))
                 conditionRow($first)
                 HStack(spacing: 12) {
-                    radio("Và", on: !useOr) { useOr = false }
-                    radio("Hoặc", on: useOr) { useOr = true }
+                    radio(bi("Và", "And"), on: !useOr) { useOr = false }
+                    radio(bi("Hoặc", "Or"), on: useOr) { useOr = true }
                 }
                 conditionRow($second)
                 HStack {
-                    Button("Áp dụng bộ lọc", action: apply)
+                    Button(bi("Áp dụng bộ lọc", "Apply filter"), action: apply)
                         .buttonStyle(.borderedProminent).controlSize(.small)
                     if interaction.effectiveUserFilters[key]?.rule != nil {
-                        Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column, isMeasure: measure), for: key) }
+                        Button(bi("Bỏ lọc", "Clear filter")) { interaction.setUserFilter(UserFilter(column: column, isMeasure: measure), for: key) }
                             .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
                     }
                 }
@@ -317,7 +318,7 @@ struct AdvancedFilterEditor: View {
             }
             .menuStyle(.button).buttonStyle(.plain)
             if condition.wrappedValue.kind.needsOperand {
-                TextField(numeric ? "Nhập số" : "Nhập giá trị", text: condition.operand)
+                TextField(numeric ? bi("Nhập số", "Enter number") : bi("Nhập giá trị", "Enter value"), text: condition.operand)
                     .textFieldStyle(.roundedBorder).font(.system(size: 12))
                     .onSubmit(apply)
             }
@@ -348,15 +349,15 @@ struct TopNFilterEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Hiện các mục").font(.system(size: 12))
+            Text(bi("Hiện các mục", "Show items")).font(.system(size: 12))
             SegmentedPill(selection: $top, options: [.init(value: true, title: "Top"), .init(value: false, title: "Bottom")], fill: true)
-            TextField("Số mục", text: $countText).textFieldStyle(.roundedBorder).font(.system(size: 12))
-            Text("Theo giá trị").font(.system(size: 12))
+            TextField(bi("Số mục", "Count"), text: $countText).textFieldStyle(.roundedBorder).font(.system(size: 12))
+            Text(bi("Theo giá trị", "By value")).font(.system(size: 12))
             Menu {
                 ForEach(interaction.measureRefs(), id: \.self) { ref in Button("\(ref.name)  ·  \(ref.table)") { measure = ref } }
             } label: {
                 HStack {
-                    Text(measure?.name ?? "Chọn measure").font(.system(size: 12)).lineLimit(1)
+                    Text(measure?.name ?? bi("Chọn measure", "Select measure")).font(.system(size: 12)).lineLimit(1)
                     Spacer(); Image(systemName: "chevron.down").font(.system(size: 9))
                 }
                 .padding(.horizontal, 8).frame(height: 24)
@@ -364,11 +365,11 @@ struct TopNFilterEditor: View {
             }
             .menuStyle(.button).buttonStyle(.plain)
             HStack {
-                Button("Áp dụng bộ lọc", action: apply)
+                Button(bi("Áp dụng bộ lọc", "Apply filter"), action: apply)
                     .buttonStyle(.borderedProminent).controlSize(.small)
                     .disabled(measure == nil || Int(countText) == nil)
                 if interaction.effectiveUserFilters[key]?.rule != nil {
-                    Button("Bỏ lọc") { interaction.setUserFilter(UserFilter(column: column), for: key) }
+                    Button(bi("Bỏ lọc", "Clear filter")) { interaction.setUserFilter(UserFilter(column: column), for: key) }
                         .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.accent)
                 }
             }

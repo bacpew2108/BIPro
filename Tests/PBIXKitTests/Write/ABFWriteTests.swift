@@ -7,7 +7,16 @@ import Testing
 enum ABFFixture {
     static let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
     static let tuan6 = downloads.appendingPathComponent("tuan6.2.pbix")
-    static let nhom6 = downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    static let nhom6: URL = {
+        if let env = ProcessInfo.processInfo.environment["BIPRO_NHOM6"], !env.isEmpty {
+            return URL(fileURLWithPath: env)
+        }
+        for name in ["Nhom6_Dashboard.pbix", "bipro-golden/Nhom6_work.pbix"] {
+            let url = downloads.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    }()
 
     /// The Financial Service report sits in a folder with a non-ASCII name; find it by content of its name.
     static let nhom2: URL? = {
@@ -28,7 +37,7 @@ enum ABFFixture {
         if let path = ProcessInfo.processInfo.environment["PBIX_WP3_OUT"] {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
-        return URL(fileURLWithPath: "/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/w/out/wp3", isDirectory: true)
+        return FileManager.default.temporaryDirectory.appendingPathComponent("bipro-wp3", isDirectory: true)
     }()
 
     static func writeOutput(_ data: Data, name: String) throws {

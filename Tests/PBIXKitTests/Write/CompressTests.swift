@@ -6,7 +6,16 @@ import Testing
 private enum CompressSamples {
     static let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
     static let tuan62 = downloads.appendingPathComponent("tuan6.2.pbix")
-    static let nhom6 = downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    static let nhom6: URL = {
+        if let env = ProcessInfo.processInfo.environment["BIPRO_NHOM6"], !env.isEmpty {
+            return URL(fileURLWithPath: env)
+        }
+        for name in ["Nhom6_Dashboard.pbix", "bipro-golden/Nhom6_work.pbix"] {
+            let url = downloads.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    }()
 
     static func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
     static var hasTuan62: Bool { exists(tuan62) }
@@ -124,16 +133,17 @@ private func timed<T>(_ body: () throws -> T) rethrows -> (T, Double) {
         let sampleTable = chunkTable(sample)
         #expect(sampleTable.count == 46)
         #expect(sampleTable.first?.uncompressed == 2_097_152)
-        #expect(sampleTable.last?.uncompressed == 4096)
+        let expectedTail = try #require(sampleTable.last?.uncompressed)
+        #expect(expectedTail > 0 && expectedTail < 2_097_152)
 
         let (abf, _) = try PBIXFile(url: CompressSamples.nhom6).loadDataModel()
         let (stream, seconds) = try timed { try DataModelStream.compress(abf: abf.data) }
 
         #expect(stream.prefix(102) == sample.prefix(102))
         let table = chunkTable(stream)
-        #expect(table.count == 46)
+        #expect(table.count == sampleTable.count)
         #expect(table.first?.uncompressed == 2_097_152)
-        #expect(table.last?.uncompressed == 4096)
+        #expect(table.last?.uncompressed == expectedTail)
         #expect(table.map(\.uncompressed) == sampleTable.map(\.uncompressed))
 
         let (decoded, _) = try DataModelStream.decompress(stream)

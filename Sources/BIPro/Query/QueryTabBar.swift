@@ -16,13 +16,13 @@ struct QueryTabBar: View {
             }
 
             Button {
-                state.daxQueries.append(DAXQueryTab(title: "Truy vấn \(state.daxQueries.count + 1)", text: "EVALUATE\n"))
+                state.daxQueries.append(DAXQueryTab(title: bi("Truy vấn \(state.daxQueries.count + 1)", "Query \(state.daxQueries.count + 1)"), text: "EVALUATE\n"))
                 state.daxSelection = state.daxQueries.count - 1
             } label: { Image(systemName: "plus") }
                 .buttonStyle(GhostIconButtonStyle())
 
             Spacer()
-            Text("Mô hình: \(state.fileName) · Import")
+            Text(bi("Mô hình: \(state.fileName) · Import", "Model: \(state.fileName) · Import"))
                 .font(DS.Typeface.mono)
                 .foregroundStyle(DS.Palette.tertiaryLabel)
                 .padding(.trailing, 12)
@@ -81,21 +81,21 @@ struct QueryTabBar: View {
             }
         )
         .contextMenu {
-            Button("Đổi tên") {
+            Button(bi("Đổi tên", "Rename")) {
                 editingIndex = index
             }
-            Button("Nhân bản") {
+            Button(bi("Nhân bản", "Duplicate")) {
                 let current = state.daxQueries[index]
-                let newTab = DAXQueryTab(title: "\(current.title) (bản sao)", text: current.text)
+                let newTab = DAXQueryTab(title: current.title + bi(" (bản sao)", " (copy)"), text: current.text)
                 state.daxQueries.insert(newTab, at: index + 1)
                 state.daxSelection = index + 1
             }
-            Button("Đóng") {
+            Button(bi("Đóng", "Close")) {
                 closeTab(at: index)
             }
             .disabled(state.daxQueries.count <= 1)
 
-            Button("Đóng các tab khác") {
+            Button(bi("Đóng các tab khác", "Close other tabs")) {
                 closeOtherTabs(keeping: index)
             }
             .disabled(state.daxQueries.count <= 1)

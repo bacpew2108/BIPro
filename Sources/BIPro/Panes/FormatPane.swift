@@ -13,7 +13,7 @@ struct FormatPane: View {
             VStack(spacing: 8) {
                 SegmentedPill(selection: $scope, options: [
                     .init(value: .objects, title: "Visual"),
-                    .init(value: .container, title: "Chung"),
+                    .init(value: .container, title: bi("Chung", "General")),
                 ], fill: true)
                 FieldMessages(layout: state.layout)
                 if let blocker {
@@ -22,10 +22,10 @@ struct FormatPane: View {
                 }
                 let cards = (scope == .objects ? format.objects : format.container)
                 if scope == .objects, cards.isEmpty {
-                    Text("Loại visual này chưa có thẻ định dạng đã quan sát.")
+                    Text(bi("Loại visual này chưa có thẻ định dạng đã quan sát.", "No observed formatting cards for this visual type yet."))
                         .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
                 } else if scope == .objects, needsFields(visual) {
-                    Text("Thêm trường vào visual để bắt đầu định dạng.")
+                    Text(bi("Thêm trường vào visual để bắt đầu định dạng.", "Add fields to this visual to begin formatting."))
                         .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
                 } else {
                     ForEach(cards, id: \.card.objectKey) { cardState in
@@ -38,7 +38,7 @@ struct FormatPane: View {
             .padding(.horizontal, 10)
             .padding(.bottom, 12)
         } else {
-            Text("Chọn một visual để xem định dạng của nó.")
+            Text(bi("Chọn một visual để xem định dạng của nó.", "Select a visual to inspect its formatting."))
                 .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(12)
         }
     }
@@ -101,17 +101,17 @@ private struct FormatCardView: View {
                     if cardState.isPresent {
                         HStack {
                             Button { state.resetFormat(scope: card.scope, object: card.objectKey) } label: {
-                                Label("Đặt lại", systemImage: "arrow.counterclockwise").font(DS.Typeface.bodySmall)
+                                Label(bi("Đặt lại", "Reset"), systemImage: "arrow.counterclockwise").font(DS.Typeface.bodySmall)
                             }
                             .buttonStyle(.plain).foregroundStyle(disabled ? DS.Palette.tertiaryLabel : DS.Palette.accent)
                             .disabled(disabled)
-                            .help(blocker ?? "Bỏ định dạng riêng của thẻ này, về mặc định")
+                            .help(blocker ?? bi("Bỏ định dạng riêng của thẻ này, về mặc định", "Reset this card's custom formatting to default"))
                             Spacer()
                         }
                         .padding(.top, 4)
                     }
                     if !cardState.isEditable {
-                        Text("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa sửa được.")
+                        Text(bi("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa sửa được.", "This card has per-field or per-point formatting and is read-only."))
                             .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
                     }
@@ -127,22 +127,23 @@ private struct FormatCardView: View {
     /// "Áp dụng cho": Tất cả hoặc một chuỗi, như ô "Apply settings to" của Desktop. Màu chỉ đặt được khi chọn một chuỗi.
     @ViewBuilder private var seriesPicker: some View {
         if cardState.series.isEmpty {
-            Text("Màu theo chuỗi: chưa có measure để chọn, hoặc biểu đồ có trường ở ô Chú giải mà file chưa có màu riêng cho giá trị nào (chưa thêm được).")
+            Text(bi("Màu theo chuỗi: chưa có measure để chọn, hoặc biểu đồ có trường ở ô Chú giải mà file chưa có màu riêng cho giá trị nào (chưa thêm được).",
+                    "Series colors: no measure available, or the Legend values have no saved colors in this file yet."))
                 .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 4)
         } else {
             HStack {
-                Text("Áp dụng cho").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(bi("Áp dụng cho", "Apply to")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                 Spacer(minLength: 8)
                 Picker("", selection: Binding(get: { selectedSeries?.queryRef ?? "" }, set: { series = $0.isEmpty ? nil : $0 })) {
-                    Text("Tất cả").tag("")
+                    Text(bi("Tất cả", "All")).tag("")
                     ForEach(cardState.series, id: \.queryRef) { Text($0.title).tag($0.queryRef) }
                 }
                 .labelsHidden().frame(maxWidth: 150)
             }
             .frame(minHeight: 26)
             if selectedSeries == nil {
-                Text("Chọn một chuỗi để đổi màu.").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                Text(bi("Chọn một chuỗi để đổi màu.", "Select a series to change its color.")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -187,14 +188,14 @@ private struct FormatRow: View {
             }
             .frame(minHeight: 26)
             if case .unsupported(let reason)? = value {
-                Text("Chỉ đọc: \(reason).").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+                Text(bi("Chỉ đọc: \(reason).", "Read-only: \(reason).")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
             }
             if !property.rendered {
-                Text("BI Pro chưa vẽ thuộc tính này; Power BI Desktop vẫn vẽ.")
+                Text(bi("BI Pro chưa vẽ thuộc tính này; Power BI Desktop vẫn vẽ.", "Not rendered by BI Pro yet; preserved for Power BI Desktop."))
                     .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
             }
         }
-        .help(unsupportedReason.map { "Chỉ đọc: \($0)" } ?? help ?? property.title)
+        .help(unsupportedReason.map { bi("Chỉ đọc: \($0)", "Read-only: \($0)") } ?? help ?? property.title)
     }
 
     private var unsupportedReason: String? { if case .unsupported(let reason)? = value { return reason } else { return nil } }
@@ -219,7 +220,7 @@ private struct FormatRow: View {
             let current: String? = { if case .choice(let c)? = value { return c } else { return nil } }()
             Picker("", selection: Binding(get: { current ?? "" }, set: { if !$0.isEmpty { commit(.choice($0)) } })) {
                 if current == nil || !options.contains(where: { $0.literal == current }) {
-                    Text(current == nil ? "Mặc định" : "Giá trị khác").tag(current ?? "")
+                    Text(current == nil ? bi("Mặc định", "Default") : bi("Giá trị khác", "Other value")).tag(current ?? "")
                 }
                 ForEach(options, id: \.literal) { Text($0.title).tag($0.literal) }
             }
@@ -249,7 +250,7 @@ private struct NumberControl: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            TextField(unsupported ? "—" : "Mặc định", text: $text)
+            TextField(unsupported ? "—" : bi("Mặc định", "Default"), text: $text)
                 .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 70)
                 .focused($focused)
                 .onSubmit { submit() }
@@ -285,7 +286,7 @@ private struct TextControl: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        TextField("Mặc định", text: $text)
+        TextField(bi("Mặc định", "Default"), text: $text)
             .textFieldStyle(.roundedBorder).frame(width: 130)
             .focused($focused)
             .onSubmit { commit(text) }
@@ -318,8 +319,8 @@ private struct ColorControl: View {
         switch value {
         case .color(.hex(let text))?: text.uppercased()
         case .color(.theme(let id, let percent))?: "Theme \(id)" + (percent == 0 ? "" : " \(Int(percent * 100))%")
-        case .unsupported?: "Theo công thức"
-        default: "Mặc định"
+        case .unsupported?: bi("Theo công thức", "By formula")
+        default: bi("Mặc định", "Default")
         }
     }
 
@@ -339,7 +340,7 @@ private struct ColorControl: View {
 
     private var picker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Màu theme").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+            Text(bi("Màu theme", "Theme colors")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
             // Lưới như Desktop: hàng gốc rồi 5 biến thể sáng đến tối (`Percent` đo ở VM-D4 vòng 2).
             VStack(spacing: 3) {
                 ForEach(Self.percents, id: \.self) { percent in
@@ -356,14 +357,14 @@ private struct ColorControl: View {
                     }
                 }
             }
-            Text("Màu tự chọn (#RRGGBB)").font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+            Text(bi("Màu tự chọn (#RRGGBB)", "Custom color (#RRGGBB)")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
             HStack {
                 TextField("#RRGGBB", text: $hex).textFieldStyle(.roundedBorder).frame(width: 100).font(DS.Typeface.mono)
                     .onSubmit { apply() }
-                Button("Áp dụng") { apply() }.disabled(FormatValue.normalisedHex(hex) == nil)
+                Button(bi("Áp dụng", "Apply")) { apply() }.disabled(FormatValue.normalisedHex(hex) == nil)
             }
             Divider()
-            Button { onReset(); open = false } label: { Label("Đặt lại về mặc định", systemImage: "arrow.counterclockwise") }
+            Button { onReset(); open = false } label: { Label(bi("Đặt lại về mặc định", "Reset to default"), systemImage: "arrow.counterclockwise") }
                 .buttonStyle(.plain).foregroundStyle(DS.Palette.accent)
         }
         .padding(12)
@@ -386,7 +387,7 @@ private struct ReadOnlySection: View {
             Button { open.toggle() } label: {
                 HStack {
                     Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold)).frame(width: 10)
-                    Text("Khác (chỉ đọc, \(items.count))").font(DS.Typeface.headlineSmall)
+                    Text(bi("Khác (chỉ đọc, \(items.count))", "Other (read-only, \(items.count))")).font(DS.Typeface.headlineSmall)
                     Spacer()
                 }
                 .foregroundStyle(DS.Palette.secondaryLabel)

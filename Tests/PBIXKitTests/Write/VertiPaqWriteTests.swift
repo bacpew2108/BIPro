@@ -20,7 +20,7 @@ private enum VertiPaqFixture {
         if let path = ProcessInfo.processInfo.environment["PBIX_WP5_OUT"] {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
-        return URL(fileURLWithPath: "/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/w/out/wp5", isDirectory: true)
+        return FileManager.default.temporaryDirectory.appendingPathComponent("bipro-wp5", isDirectory: true)
     }()
 
     static func writeOutput(_ data: Data, name: String) throws {

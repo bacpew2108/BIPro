@@ -164,7 +164,7 @@ struct DAXQueryWorkspace: View {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(DS.Palette.secondaryLabel)
-                Text("Dữ liệu")
+                Text(bi("Dữ liệu", "Data"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
                     .fixedSize()
@@ -179,7 +179,7 @@ struct DAXQueryWorkspace: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Mở lại ô Dữ liệu")
+        .help(bi("Mở lại ô Dữ liệu", "Expand Data pane"))
         .hairline(.leading)
     }
 
@@ -224,7 +224,7 @@ struct TMDLWorkspace: View {
         let original = docs.first { $0.path == path }?.text ?? ""
         HStack(spacing: 0) {
             VStack(spacing: 0) {
-                PaneHeader(title: "Định nghĩa", symbol: "folder")
+                PaneHeader(title: bi("Định nghĩa", "Definitions"), symbol: "folder")
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(docs) { doc in
@@ -236,7 +236,8 @@ struct TMDLWorkspace: View {
                         }
                     }
                 }
-                PaneFooter(text: "\(docs.count) tệp" + (blocker == nil ? " · sửa được" : " · chỉ đọc"))
+                PaneFooter(text: bi("\(docs.count) tệp" + (blocker == nil ? " · sửa được" : " · chỉ đọc"),
+                                    "\(docs.count) files" + (blocker == nil ? " · editable" : " · read-only")))
             }
             .frame(width: 250)
             .background(DS.Palette.chrome)
@@ -245,16 +246,16 @@ struct TMDLWorkspace: View {
             VStack(spacing: 0) {
                 HStack {
                     Text(path).font(DS.Typeface.monoMedium)
-                    if blocker == nil { Badge(text: changed ? "Đã sửa, chưa áp dụng" : "Sửa được") } else { Badge(text: "Chỉ đọc") }
+                    if blocker == nil { Badge(text: changed ? bi("Đã sửa, chưa áp dụng", "Modified, unapplied") : bi("Sửa được", "Editable")) } else { Badge(text: bi("Chỉ đọc", "Read-only")) }
                     Spacer()
                     if changed {
-                        Button("Bỏ phần sửa") { drafts = [:]; issues = [] }.buttonStyle(SecondaryButtonStyle())
+                        Button(bi("Bỏ phần sửa", "Discard")) { drafts = [:]; issues = [] }.buttonStyle(SecondaryButtonStyle())
                     }
-                    Button("Áp dụng") { apply() }
+                    Button(bi("Áp dụng", "Apply")) { apply() }
                         .buttonStyle(PrimaryButtonStyle())
                         .keyboardShortcut(.return, modifiers: .command)
                         .disabled(!changed || blocker != nil)
-                        .help(blocker ?? "Áp dụng mọi phần đã sửa (⌘↩), nguyên khối: có lỗi thì không đổi gì")
+                        .help(blocker ?? bi("Áp dụng mọi phần đã sửa (⌘↩), nguyên khối: có lỗi thì không đổi gì", "Apply all edits atomically (⌘↩): no changes on error"))
                     Text("TMDL · UTF-8").font(DS.Typeface.mono).foregroundStyle(DS.Palette.tertiaryLabel)
                 }
                 .padding(.horizontal, 12)
@@ -276,7 +277,7 @@ struct TMDLWorkspace: View {
                     }
                     .frame(maxHeight: 110).background(Color.dynamic(light: 0xFFF5F5, dark: 0x3D1F21)).hairline(.top)
                 }
-                StatusBar(workspace: state.workspace, detail: "Áp dụng TMDL: measure, thuộc tính cột, bảng ẩn, quan hệ; bảng và cột mới chờ Phase F")
+                StatusBar(workspace: state.workspace, detail: bi("Áp dụng TMDL: measure, thuộc tính cột, bảng ẩn, quan hệ", "TMDL Apply: measures, column properties, hidden tables, relationships"))
             }
         }
         .background(DS.Palette.canvas)

@@ -44,7 +44,7 @@ struct QueryResultsView: View {
         let tableIndex = hasTable ? min(tableCount, (run?.resultIndex ?? 0) + 1) : 1
 
         return HStack(spacing: 10) {
-            Text("Kết quả")
+            Text(bi("Kết quả", "Results"))
                 .font(DS.Typeface.headlineMedium)
                 .foregroundStyle(DS.Palette.label)
 
@@ -60,16 +60,16 @@ struct QueryResultsView: View {
                             order = nil
                         } label: {
                             if i == run?.resultIndex {
-                                Label("Kết quả \(i + 1)/\(result.tables.count)", systemImage: "checkmark")
+                                Label(bi("Kết quả \(i + 1)/\(result.tables.count)", "Result \(i + 1)/\(result.tables.count)"), systemImage: "checkmark")
                             } else {
-                                Text("Kết quả \(i + 1)/\(result.tables.count)")
+                                Text(bi("Kết quả \(i + 1)/\(result.tables.count)", "Result \(i + 1)/\(result.tables.count)"))
                             }
                         }
                     }
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text("Kết quả \(tableIndex)/\(tableCount)")
+                    Text(bi("Kết quả \(tableIndex)/\(tableCount)", "Result \(tableIndex)/\(tableCount)"))
                     Image(systemName: "chevron.down")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(DS.Palette.secondaryLabel)
@@ -86,25 +86,25 @@ struct QueryResultsView: View {
                         copy(table)
                     }
                 } label: {
-                    Label("Sao chép", systemImage: "doc.on.doc")
+                    Label(bi("Sao chép", "Copy"), systemImage: "doc.on.doc")
                 }
                 Button {
                     if let table = currentTable(run) {
                         export(table)
                     }
                 } label: {
-                    Label("Xuất CSV…", systemImage: "square.and.arrow.up")
+                    Label(bi("Xuất CSV…", "Export CSV…"), systemImage: "square.and.arrow.up")
                 }
             } label: {
-                Label(copied ? "Đã chép" : "Sao chép", systemImage: copied ? "checkmark" : "doc.on.doc")
+                Label(copied ? bi("Đã chép", "Copied") : bi("Sao chép", "Copy"), systemImage: copied ? "checkmark" : "doc.on.doc")
             }
             .menuStyle(.borderlessButton)
             .fixedSize()   // Menu borderless tự giãn hết chiều ngang nếu không cố định kích thước.
             .disabled(!hasTable)
-            .help("Sao chép bảng kết quả hoặc xuất CSV")
+            .help(bi("Sao chép bảng kết quả hoặc xuất CSV", "Copy result table or export CSV"))
 
             if run?.status == .running {
-                Button { state.cancelDAXQuery() } label: { Label("Huỷ", systemImage: "stop.fill") }
+                Button { state.cancelDAXQuery() } label: { Label(bi("Huỷ", "Cancel"), systemImage: "stop.fill") }
                     .buttonStyle(SecondaryButtonStyle())
                     .keyboardShortcut(".", modifiers: .command)
             }
@@ -114,12 +114,12 @@ struct QueryResultsView: View {
             // ⌃⌃ đẩy vùng kết quả lên một nấc, ⌄⌄ hạ xuống một nấc: thu xuống ↔ bình thường ↔ phóng to.
             if layout != .expanded {
                 layoutButton(symbol: "chevron.up.2",
-                             help: layout == .collapsed ? "Hiện lại kết quả" : "Phóng to kết quả",
+                             help: layout == .collapsed ? bi("Hiện lại kết quả", "Show results") : bi("Phóng to kết quả", "Maximize results"),
                              to: layout == .collapsed ? .normal : .expanded)
             }
             if layout != .collapsed {
                 layoutButton(symbol: "chevron.down.2",
-                             help: layout == .expanded ? "Thu nhỏ kết quả" : "Thu kết quả xuống dưới",
+                             help: layout == .expanded ? bi("Thu nhỏ kết quả", "Restore results") : bi("Thu kết quả xuống dưới", "Collapse results"),
                              to: layout == .expanded ? .normal : .collapsed)
             }
         }
@@ -147,28 +147,28 @@ struct QueryResultsView: View {
         switch run?.status {
         case nil, .idle?:
             ContentUnavailableView {
-                Label("Chưa chạy truy vấn", systemImage: "play.circle")
+                Label(bi("Chưa chạy truy vấn", "No query run yet"), systemImage: "play.circle")
             } description: {
                 Text(state.workspace.metadata == nil
-                     ? "File này không có mô hình dữ liệu nên không chạy được truy vấn."
-                     : "Bấm Chạy (⌘↵). Nếu đang bôi đen một đoạn, chỉ đoạn đó được chạy.")
+                     ? bi("File này không có mô hình dữ liệu nên không chạy được truy vấn.", "This file has no data model, so queries cannot run.")
+                     : bi("Bấm Chạy (⌘↵). Nếu đang bôi đen một đoạn, chỉ đoạn đó được chạy.", "Press Run (⌘↵). Select a range to run only that selection."))
             }
         case .running?:
             VStack(spacing: 10) {
                 ProgressView()
-                Text("Đang chạy truy vấn…").font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
-                Button("Huỷ") { state.cancelDAXQuery() }.buttonStyle(SecondaryButtonStyle())
+                Text(bi("Đang chạy truy vấn…", "Running query…")).font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
+                Button(bi("Huỷ", "Cancel")) { state.cancelDAXQuery() }.buttonStyle(SecondaryButtonStyle())
             }
         case .cancelled?:
-            ContentUnavailableView("Đã huỷ truy vấn", systemImage: "stop.circle",
-                                   description: Text("Bấm Chạy để chạy lại."))
+            ContentUnavailableView(bi("Đã huỷ truy vấn", "Query cancelled"), systemImage: "stop.circle",
+                                   description: Text(bi("Bấm Chạy để chạy lại.", "Press Run to execute again.")))
         case .failed?:
             if let run, let error = run.error { errorView(error, run: run) }
         case .done?:
             if let run, let table = currentTable(run) {
                 if table.rows.isEmpty {
                     VStack(spacing: 6) {
-                        Text("Truy vấn không trả về dòng nào").font(DS.Typeface.body)
+                        Text(bi("Truy vấn không trả về dòng nào", "Query returned no rows")).font(DS.Typeface.body)
                         Text(table.columns.joined(separator: " · ")).font(DS.Typeface.mono)
                             .foregroundStyle(DS.Palette.tertiaryLabel).lineLimit(2)
                     }
@@ -185,7 +185,7 @@ struct QueryResultsView: View {
     private func errorView(_ error: DAXError, run: DAXQueryState) -> some View {
         let text = Self.errorText(error)
         return VStack(alignment: .leading, spacing: 10) {
-            Label("Lỗi truy vấn", systemImage: "exclamationmark.triangle.fill")
+            Label(bi("Lỗi truy vấn", "Query error"), systemImage: "exclamationmark.triangle.fill")
                 .font(DS.Typeface.headlineSmall)
                 .foregroundStyle(DS.Palette.danger)
             Text(text)
@@ -197,13 +197,13 @@ struct QueryResultsView: View {
                 if let range = error.range {
                     Button {
                         state.daxCursorRequest = run.ranOffset + range.start
-                    } label: { Label("Đi tới dòng \(range.line), cột \(range.column)", systemImage: "arrow.right.to.line") }
+                    } label: { Label(bi("Đi tới dòng \(range.line), cột \(range.column)", "Go to line \(range.line), col \(range.column)"), systemImage: "arrow.right.to.line") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text, forType: .string)
-                } label: { Label("Chép lỗi", systemImage: "doc.on.doc") }
+                } label: { Label(bi("Chép lỗi", "Copy error"), systemImage: "doc.on.doc") }
                     .buttonStyle(SecondaryButtonStyle())
             }
             Spacer()

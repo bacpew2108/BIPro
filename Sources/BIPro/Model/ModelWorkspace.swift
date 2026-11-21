@@ -57,7 +57,8 @@ struct ModelWorkspace: View {
                     .hairline(.leading)
             }
             StatusBar(workspace: state.workspace,
-                      detail: "\(layout.count) bảng · \(state.workspace.metadata?.relationships.count ?? 0) quan hệ" + (state.workspace.diagramLayout == nil ? " · bố cục tự động" : " · bố cục từ DiagramLayout"))
+                      detail: bi("\(layout.count) bảng · \(state.workspace.metadata?.relationships.count ?? 0) quan hệ" + (state.workspace.diagramLayout == nil ? " · bố cục tự động" : " · bố cục từ DiagramLayout"),
+                                 "\(layout.count) tables · \(state.workspace.metadata?.relationships.count ?? 0) relationships" + (state.workspace.diagramLayout == nil ? " · auto layout" : " · DiagramLayout")))
         }
         .onChange(of: state.modelZoom) { _, _ in
             // thu phóng ghi vào DiagramLayout của tab đang xem khi người dùng đổi (không ghi khi vừa mở file)
@@ -175,7 +176,7 @@ struct ModelWorkspace: View {
             ForEach(Array(names.enumerated()), id: \.offset) { index, name in
                 let selected = state.currentDiagram == name
                 if renaming == name && index > 0 {
-                    TextField("Tên bố cục", text: $renameText)
+                    TextField(bi("Tên bố cục", "Layout name"), text: $renameText)
                         .textFieldStyle(.plain).font(.system(size: 12, weight: .semibold))
                         .padding(.horizontal, 8).frame(width: 130, height: 24)
                         .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
@@ -184,7 +185,7 @@ struct ModelWorkspace: View {
                         .onSubmit { commitRename(name) }
                         .onExitCommand { renaming = nil }
                 } else {
-                    Text(name == "All tables" ? "Tất cả bảng" : name)
+                    Text(name == "All tables" ? bi("Tất cả bảng", "All tables") : name)
                         .font(.system(size: 12, weight: selected ? .semibold : .regular))
                         .foregroundStyle(selected ? DS.Palette.accent : DS.Palette.secondaryLabel)
                         .padding(.horizontal, 10).frame(height: 24)
@@ -193,14 +194,14 @@ struct ModelWorkspace: View {
                         .onTapGesture(count: 2) { if index > 0 { startRename(name) } else { state.selectDiagram(name) } }
                         .onTapGesture { state.selectDiagram(name) }
                         .contextMenu {
-                            if index > 0 { Button("Đổi tên") { state.selectDiagram(name); startRename(name) } }
-                            Button("Bố cục mới") { state.addDiagramTab() }
-                            if index > 0 { Button("Xoá bố cục", role: .destructive) { deleting = name } }
+                            if index > 0 { Button(bi("Đổi tên", "Rename")) { state.selectDiagram(name); startRename(name) } }
+                            Button(bi("Bố cục mới", "New layout")) { state.addDiagramTab() }
+                            if index > 0 { Button(bi("Xoá bố cục", "Delete layout"), role: .destructive) { deleting = name } }
                         }
                 }
             }
             Button { state.addDiagramTab() } label: { Image(systemName: "plus") }
-                .buttonStyle(GhostIconButtonStyle()).help("Thêm bố cục mới")
+                .buttonStyle(GhostIconButtonStyle()).help(bi("Thêm bố cục mới", "Add new layout"))
                 .disabled(state.workspace.diagramLayout == nil)
             if state.diagramTables(state.currentDiagram) != nil {
                 Menu {
@@ -208,12 +209,12 @@ struct ModelWorkspace: View {
                     ForEach(state.workspace.userTables.map(\.name).filter { !shown.contains($0) }, id: \.self) { table in
                         Button(table) { state.addTableToCurrentDiagram(table, frames: layout) }
                     }
-                } label: { Label("Thêm bảng", systemImage: "rectangle.badge.plus") }
+                } label: { Label(bi("Thêm bảng", "Add table"), systemImage: "rectangle.badge.plus") }
                     .menuStyle(.borderlessButton).fixedSize().font(DS.Typeface.bodySmall)
                     .disabled(layout.count >= state.workspace.userTables.count)
             }
             Spacer()
-            Button { state.resetDiagramPositions() } label: { Label("Đặt lại bố cục", systemImage: "wand.and.stars") }
+            Button { state.resetDiagramPositions() } label: { Label(bi("Đặt lại bố cục", "Reset layout"), systemImage: "wand.and.stars") }
                 .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
             Slider(value: $state.modelZoom, in: 0.3...2).frame(width: 120).controlSize(.small)
             Text("\(Int(state.modelZoom * 100))%").font(DS.Typeface.label.monospacedDigit()).frame(width: 40)
@@ -222,12 +223,12 @@ struct ModelWorkspace: View {
         .frame(height: 34)
         .background(DS.Palette.chrome)
         .hairline(.top)
-        .confirmationDialog("Xoá bố cục “\(deleting ?? "")”?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+        .confirmationDialog(bi("Xoá bố cục “\(deleting ?? "")”?", "Delete layout “\(deleting ?? "")”?"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
                             titleVisibility: .visible) {
-            Button("Xoá bố cục", role: .destructive) { if let name = deleting { state.deleteDiagramTab(name) }; deleting = nil }
-            Button("Huỷ", role: .cancel) { deleting = nil }
+            Button(bi("Xoá bố cục", "Delete layout"), role: .destructive) { if let name = deleting { state.deleteDiagramTab(name) }; deleting = nil }
+            Button(bi("Huỷ", "Cancel"), role: .cancel) { deleting = nil }
         } message: {
-            Text("Các bảng vẫn ở trong mô hình. Có thể hoàn tác bằng ⌘Z.")
+            Text(bi("Các bảng vẫn ở trong mô hình. Có thể hoàn tác bằng ⌘Z.", "Tables remain in the model. You can undo with ⌘Z."))
         }
     }
 
@@ -246,17 +247,17 @@ struct ModelWorkspace: View {
     private var emptyLayoutHint: some View {
         VStack(spacing: 10) {
             Image(systemName: "rectangle.3.group").font(.system(size: 34)).foregroundStyle(DS.Palette.secondaryLabel)
-            Text("Thiết lập bố cục").font(.system(size: 15, weight: .semibold))
-            Text("Chọn “Thêm bảng” ở thanh dưới, hoặc để BI Pro tự xếp tất cả bảng.")
+            Text(bi("Thiết lập bố cục", "Set up your layout")).font(.system(size: 15, weight: .semibold))
+            Text(bi("Chọn “Thêm bảng” ở thanh dưới, hoặc để BI Pro tự xếp tất cả bảng.", "Choose “Add table” below, or let BI Pro auto-arrange all tables."))
                 .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).multilineTextAlignment(.center)
-            Button("Tự xếp bố cục") { state.autoLayoutCurrentDiagram(frames: layout) }.buttonStyle(.borderedProminent)
+            Button(bi("Tự xếp bố cục", "Auto layout")) { state.autoLayoutCurrentDiagram(frames: layout) }.buttonStyle(.borderedProminent)
         }
         .padding(24)
     }
 
     @ViewBuilder private var sidebarPane: some View {
         VStack(spacing: 0) {
-            SegmentedPill(selection: $sidebar, options: [.init(value: .tables, title: "Bảng"), .init(value: .model, title: "Mô hình")], fill: true)
+            SegmentedPill(selection: $sidebar, options: [.init(value: .tables, title: bi("Bảng", "Tables")), .init(value: .model, title: bi("Mô hình", "Model"))], fill: true)
                 .padding(10)
             if sidebar == .tables {
                 DataPane(state: state, purpose: .table)
@@ -278,7 +279,7 @@ struct DotGrid: View {
             while y < size.height {
                 var x: CGFloat = 0
                 while x < size.width {
-                    context.fill(dot.offsetBy(dx: x, dy: y), with: .color(Color.black.opacity(0.10)))
+                    context.fill(dot.offsetBy(dx: x, dy: y), with: .color(DS.Palette.tertiaryLabel.opacity(0.28)))
                     x += 16
                 }
                 y += 16
@@ -304,13 +305,13 @@ struct TableCard: View {
                 Text(table.name).font(DS.Typeface.headlineSmall).lineLimit(1)
                 Spacer()
                 Menu {
-                    Button(table.isHidden ? "Hiện bảng trong chế độ báo cáo" : "Ẩn bảng trong chế độ báo cáo") {
+                    Button(table.isHidden ? bi("Hiện bảng trong chế độ báo cáo", "Unhide in report view") : bi("Ẩn bảng trong chế độ báo cáo", "Hide in report view")) {
                         state.setTableHidden(table.name, hidden: !table.isHidden)
                     }
                     .disabled(state.modelEditingBlocker != nil)
                     if state.diagramTables(state.currentDiagram) != nil {
                         Divider()
-                        Button("Gỡ khỏi bố cục này") { state.removeTableFromCurrentDiagram(table.name) }
+                        Button(bi("Gỡ khỏi bố cục này", "Remove from this layout")) { state.removeTableFromCurrentDiagram(table.name) }
                     }
                 } label: {
                     Image(systemName: table.isHidden ? "eye.slash" : "ellipsis").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
@@ -470,40 +471,40 @@ struct RelationshipPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "slider.horizontal.3").foregroundStyle(DS.Palette.accent)
-                Text("Thuộc tính quan hệ").font(DS.Typeface.headlineSmall)
+                Text(bi("Thuộc tính quan hệ", "Relationship properties")).font(DS.Typeface.headlineSmall)
                 Spacer()
                 Button(action: close) { Image(systemName: "xmark") }.buttonStyle(GhostIconButtonStyle())
             }
             VStack(alignment: .leading, spacing: 4) {
-                HStack { Text("Từ:").foregroundStyle(DS.Palette.secondaryLabel); Spacer()
+                HStack { Text(bi("Từ:", "From:")).foregroundStyle(DS.Palette.secondaryLabel); Spacer()
                     Text("\(relationship.fromTable).\(relationship.fromColumn)").font(DS.Typeface.mono).foregroundStyle(DS.Palette.accent)
-                    Text(relationship.cardinality.hasPrefix("M") ? "(Nhiều)" : "(Một)").foregroundStyle(DS.Palette.tertiaryLabel) }
-                HStack { Text("Đến:").foregroundStyle(DS.Palette.secondaryLabel); Spacer()
+                    Text(relationship.cardinality.hasPrefix("M") ? bi("(Nhiều)", "(Many)") : bi("(Một)", "(One)")).foregroundStyle(DS.Palette.tertiaryLabel) }
+                HStack { Text(bi("Đến:", "To:")).foregroundStyle(DS.Palette.secondaryLabel); Spacer()
                     Text("\(relationship.toTable).\(relationship.toColumn)").font(DS.Typeface.mono).foregroundStyle(DS.Palette.accent)
-                    Text(relationship.cardinality.hasSuffix("M") ? "(Nhiều)" : "(Một)").foregroundStyle(DS.Palette.tertiaryLabel) }
+                    Text(relationship.cardinality.hasSuffix("M") ? bi("(Nhiều)", "(Many)") : bi("(Một)", "(One)")).foregroundStyle(DS.Palette.tertiaryLabel) }
             }
             .font(DS.Typeface.bodySmall)
             .padding(10)
             .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Bản số").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
+                    Text(bi("Bản số", "Cardinality")).font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
                     Text(cardinalityText).font(DS.Typeface.body)
-                    Text("(chưa sửa được)").font(DS.Typeface.label).foregroundStyle(DS.Palette.tertiaryLabel)
+                    Text(bi("(chưa sửa được)", "(read-only)")).font(DS.Typeface.label).foregroundStyle(DS.Palette.tertiaryLabel)
                 }
                 Spacer()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Hướng lọc chéo").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
+                    Text(bi("Hướng lọc chéo", "Cross-filter direction")).font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
                     Picker("", selection: Binding(get: { relationship.crossFilteringBehavior == 2 ? 2 : 1 },
                                                   set: { message = state.updateRelationship(name: relationship.name, patch: RelationshipPatch(crossFilteringBehavior: $0)) })) {
-                        Text("Một chiều").tag(1)
-                        Text("Hai chiều").tag(2)
+                        Text(bi("Một chiều", "Single")).tag(1)
+                        Text(bi("Hai chiều", "Both")).tag(2)
                     }
                     .labelsHidden().frame(width: 120).disabled(blocker != nil)
                 }
             }
             HStack {
-                Text("Quan hệ đang hoạt động").font(DS.Typeface.body)
+                Text(bi("Quan hệ đang hoạt động", "Active relationship")).font(DS.Typeface.body)
                 Spacer()
                 Toggle("", isOn: Binding(get: { relationship.isActive },
                                          set: { message = state.updateRelationship(name: relationship.name, patch: RelationshipPatch(isActive: $0)) }))
@@ -514,10 +515,10 @@ struct RelationshipPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
-                Button("Xoá quan hệ", role: .destructive) { message = state.deleteRelationship(name: relationship.name) }
+                Button(bi("Xoá quan hệ", "Delete relationship"), role: .destructive) { message = state.deleteRelationship(name: relationship.name) }
                     .buttonStyle(SecondaryButtonStyle()).disabled(blocker != nil)
                 Spacer()
-                Button("Xong", action: close).buttonStyle(PrimaryButtonStyle())
+                Button(bi("Xong", "Done"), action: close).buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding(14)
@@ -527,10 +528,10 @@ struct RelationshipPanel: View {
 
     private var cardinalityText: String {
         switch relationship.cardinality {
-        case "M:1": "Nhiều – một (*:1)"
-        case "1:M": "Một – nhiều (1:*)"
-        case "1:1": "Một – một (1:1)"
-        default: "Nhiều – nhiều (*:*)"
+        case "M:1": bi("Nhiều – một (*:1)", "Many to one (*:1)")
+        case "1:M": bi("Một – nhiều (1:*)", "One to many (1:*)")
+        case "1:1": bi("Một – một (1:1)", "One to one (1:1)")
+        default: bi("Nhiều – nhiều (*:*)", "Many to many (*:*)")
         }
     }
 }
@@ -547,34 +548,34 @@ struct RelationshipDraftPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "plus.circle").foregroundStyle(DS.Palette.accent)
-                Text("Quan hệ mới").font(DS.Typeface.headlineSmall)
+                Text(bi("Quan hệ mới", "New relationship")).font(DS.Typeface.headlineSmall)
                 Spacer()
                 Button { state.cancelRelationshipDraft() } label: { Image(systemName: "xmark") }.buttonStyle(GhostIconButtonStyle())
             }
             VStack(alignment: .leading, spacing: 4) {
-                HStack { Text("Từ:").foregroundStyle(DS.Palette.secondaryLabel); Spacer()
+                HStack { Text(bi("Từ:", "From:")).foregroundStyle(DS.Palette.secondaryLabel); Spacer()
                     Text("\(r.fromTable).\(r.fromColumn)").font(DS.Typeface.mono).foregroundStyle(DS.Palette.accent)
-                    Text("(Nhiều)").foregroundStyle(DS.Palette.tertiaryLabel) }
-                HStack { Text("Đến:").foregroundStyle(DS.Palette.secondaryLabel); Spacer()
+                    Text(bi("(Nhiều)", "(Many)")).foregroundStyle(DS.Palette.tertiaryLabel) }
+                HStack { Text(bi("Đến:", "To:")).foregroundStyle(DS.Palette.secondaryLabel); Spacer()
                     Text("\(r.toTable).\(r.toColumn)").font(DS.Typeface.mono).foregroundStyle(DS.Palette.accent)
-                    Text("(Một)").foregroundStyle(DS.Palette.tertiaryLabel) }
+                    Text(bi("(Một)", "(One)")).foregroundStyle(DS.Palette.tertiaryLabel) }
             }
             .font(DS.Typeface.bodySmall)
             .padding(10)
             .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
             HStack {
-                Text("Bản số").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(bi("Bản số", "Cardinality")).font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
                 Spacer()
-                Text("Nhiều – một (*:1)").font(DS.Typeface.body)
+                Text(bi("Nhiều – một (*:1)", "Many to one (*:1)")).font(DS.Typeface.body)
             }
             HStack {
-                Text("Hướng lọc chéo").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(bi("Hướng lọc chéo", "Cross-filter direction")).font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
                 Spacer()
-                Picker("", selection: $crossFiltering) { Text("Một chiều").tag(1); Text("Hai chiều").tag(2) }
+                Picker("", selection: $crossFiltering) { Text(bi("Một chiều", "Single")).tag(1); Text(bi("Hai chiều", "Both")).tag(2) }
                     .labelsHidden().frame(width: 120)
             }
             HStack {
-                Text("Quan hệ hoạt động").font(DS.Typeface.body)
+                Text(bi("Quan hệ hoạt động", "Active relationship")).font(DS.Typeface.body)
                 Spacer()
                 Toggle("", isOn: Binding(get: { draft.forcedInactive ? false : isActive }, set: { isActive = $0 }))
                     .labelsHidden().toggleStyle(.switch).disabled(draft.forcedInactive)
@@ -587,8 +588,8 @@ struct RelationshipDraftPanel: View {
             }
             HStack {
                 Spacer()
-                Button("Huỷ") { state.cancelRelationshipDraft() }.buttonStyle(SecondaryButtonStyle())
-                Button("Tạo") { state.confirmRelationshipDraft(crossFiltering: crossFiltering, isActive: isActive) }.buttonStyle(PrimaryButtonStyle())
+                Button(bi("Huỷ", "Cancel")) { state.cancelRelationshipDraft() }.buttonStyle(SecondaryButtonStyle())
+                Button(bi("Tạo", "Create")) { state.confirmRelationshipDraft(crossFiltering: crossFiltering, isActive: isActive) }.buttonStyle(PrimaryButtonStyle())
             }
         }
         .padding(14)
@@ -609,9 +610,9 @@ struct SemanticModelTree: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 TreeRow(level: 0, isExpanded: open.contains("root"), hasChildren: true, symbol: "point.3.connected.trianglepath.dotted",
-                        tint: DS.Palette.accent, title: "Mô hình ngữ nghĩa") { toggle("root") }
+                        tint: DS.Palette.accent, title: bi("Mô hình ngữ nghĩa", "Semantic model")) { toggle("root") }
                 if open.contains("root") {
-                    group("tables", "Bảng", "tablecells", w.userTables.count) {
+                    group("tables", bi("Bảng", "Tables"), "tablecells", w.userTables.count) {
                         ForEach(w.userTables, id: \.id) { t in
                             TreeRow(level: 2, symbol: "tablecells", tint: DS.Palette.table, title: t.name,
                                     isSelected: state.table == t.name && state.measure == nil) {
@@ -619,18 +620,18 @@ struct SemanticModelTree: View {
                             }
                         }
                     }
-                    group("relationships", "Quan hệ", "arrow.left.arrow.right", m?.relationships.count ?? 0) {
+                    group("relationships", bi("Quan hệ", "Relationships"), "arrow.left.arrow.right", m?.relationships.count ?? 0) {
                         ForEach(m?.relationships ?? [], id: \.self) { r in
                             let key = r.name.isEmpty ? "\(r.fromTable).\(r.fromColumn)->\(r.toTable).\(r.toColumn)" : r.name
                             TreeRow(level: 2, symbol: r.crossFilteringBehavior == 2 ? "arrow.triangle.2.circlepath" : "arrow.left.arrow.right",
                                     tint: r.isActive ? DS.Palette.secondaryLabel : DS.Palette.warning,
-                                    title: "\(r.fromTable) ↔ \(r.toTable) (\(r.cardinality.replacingOccurrences(of: "M", with: "*"))\(r.crossFilteringBehavior == 2 ? ", hai chiều" : ""))",
+                                    title: "\(r.fromTable) ↔ \(r.toTable) (\(r.cardinality.replacingOccurrences(of: "M", with: "*"))\(r.crossFilteringBehavior == 2 ? bi(", hai chiều", ", both") : ""))",
                                     isSelected: state.relationship == key) {
                                 state.relationship = key; state.measure = nil; state.measureDraft = nil
                             }
                         }
                     }
-                    group("measures", "Measure", "function", m?.measures.count ?? 0) {
+                    group("measures", bi("Measure", "Measures"), "function", m?.measures.count ?? 0) {
                         ForEach(m?.measures ?? [], id: \.self) { measure in
                             TreeRow(level: 2, symbol: "function", tint: DS.Palette.measure, title: measure.name,
                                     isSelected: state.measure == measure.name && state.table == measure.tableName,
@@ -640,13 +641,13 @@ struct SemanticModelTree: View {
                             }
                         }
                     }
-                    group("hierarchies", "Phân cấp", "list.bullet.indent", m?.hierarchies.count ?? 0) {
+                    group("hierarchies", bi("Phân cấp", "Hierarchies"), "list.bullet.indent", m?.hierarchies.count ?? 0) {
                         ForEach(m?.hierarchies ?? [], id: \.self) { h in
                             TreeRow(level: 2, symbol: "list.bullet.indent", tint: DS.Palette.secondaryLabel,
                                     title: "\(h.tableName) · \(h.name)", help: h.levels.map(\.name).joined(separator: " › ")) {}
                         }
                     }
-                    group("roles", "Vai trò", "person.badge.shield.checkmark", m?.roles.count ?? 0) {
+                    group("roles", bi("Vai trò", "Roles"), "person.badge.shield.checkmark", m?.roles.count ?? 0) {
                         ForEach(m?.roles ?? [], id: \.self) { TreeRow(level: 2, symbol: "person", tint: DS.Palette.secondaryLabel, title: $0) {} }
                     }
                     group("perspectives", "Phối cảnh", "eye", m?.perspectives.count ?? 0) {

@@ -14,7 +14,7 @@ struct TableWorkspace: View {
                 if let table = state.table {
                     TableGridView(state: state, table: table).id(table)
                 } else {
-                    ContentUnavailableView("Chọn một bảng", systemImage: "tablecells").frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ContentUnavailableView(bi("Chọn một bảng", "Select a table"), systemImage: "tablecells").frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 VStack(spacing: 0) {
                     DataPane(state: state, purpose: .table)
@@ -34,9 +34,11 @@ struct TableWorkspace: View {
 
     private var statusDetail: String {
         guard let table = state.table else { return "" }
-        var text = "Bảng: \(table) (\(state.workspace.rowCount(table).formatted()) dòng)"
+        var text = bi("Bảng: \(table) (\(state.workspace.rowCount(table).formatted()) dòng)",
+                      "Table: \(table) (\(state.workspace.rowCount(table).formatted()) rows)")
         if let column = state.column, let storage = state.workspace.metadata?.storage(table: table, column: column) {
-            text += " · Cột: \(column) (\(storage.cardinality.formatted()) giá trị phân biệt)"
+            text += bi(" · Cột: \(column) (\(storage.cardinality.formatted()) giá trị phân biệt)",
+                       " · Column: \(column) (\(storage.cardinality.formatted()) distinct values)")
         }
         return text
     }
@@ -210,19 +212,19 @@ struct TableGridView: View {
             HStack(spacing: 8) {
                 Image(systemName: "tablecells.fill").foregroundStyle(DS.Palette.table)
                 Text(table).font(DS.Typeface.headlineSmall)
-                Text("\(state.workspace.rowCount(table).formatted()) dòng").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+                Text("\(state.workspace.rowCount(table).formatted()) " + bi("dòng", "rows")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                 Spacer()
                 if columns != nil {
                     if let visibleRows, !filterText.isEmpty {
-                        Text("\(visibleRows.formatted()) dòng khớp").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
+                        Text(bi("\(visibleRows.formatted()) dòng khớp", "\(visibleRows.formatted()) matching rows")).font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
                     }
-                    TextField(state.column.map { "Lọc cột \($0)…" } ?? "Chọn cột để lọc", text: $filterText)
+                    TextField(state.column.map { bi("Lọc cột \($0)…", "Filter \($0)…") } ?? bi("Chọn cột để lọc", "Select a column to filter"), text: $filterText)
                         .textFieldStyle(.roundedBorder).font(DS.Typeface.bodySmall).frame(width: 190)
                         .disabled(state.column == nil)
-                        .help("Lọc và sắp xếp lưới chỉ để xem, không đổi mô hình và không cần lưu")
+                        .help(bi("Lọc và sắp xếp lưới chỉ để xem, không đổi mô hình và không cần lưu", "Grid filtering and sorting are view-only and do not modify the model"))
                 }
                 if let elapsed {
-                    Text("giải mã \(elapsed.formatted(.units(allowed: [.seconds, .milliseconds], width: .narrow)))")
+                    Text(bi("giải mã ", "decoded ") + elapsed.formatted(.units(allowed: [.seconds, .milliseconds], width: .narrow)))
                         .font(DS.Typeface.label).foregroundStyle(DS.Palette.tertiaryLabel)
                 }
             }
@@ -279,7 +281,7 @@ struct DataGrid: NSViewRepresentable {
         let tableView = NSTableView()
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.gridStyleMask = [.solidHorizontalGridLineMask]
-        tableView.gridColor = NSColor(srgbRed: 0.898, green: 0.898, blue: 0.918, alpha: 1)
+        tableView.gridColor = .separatorColor
         tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.allowsColumnReordering = true
         tableView.allowsColumnSelection = true
@@ -420,26 +422,26 @@ struct ColumnMetadataPanel: View {
         let _ = state.modelVersion
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("THÔNG TIN CỘT").font(DS.Typeface.labelSmall).tracking(0.5).foregroundStyle(DS.Palette.tertiaryLabel)
+                Text(bi("THÔNG TIN CỘT", "COLUMN INFO")).font(DS.Typeface.labelSmall).tracking(0.5).foregroundStyle(DS.Palette.tertiaryLabel)
                 Spacer()
                 Circle().fill(DS.Palette.accent).frame(width: 6, height: 6)
             }
             .padding(.bottom, 4)
             if let table = state.table, let name = state.column, let column = state.workspace.column(table: table, name: name) {
                 let storage = state.workspace.metadata?.storage(table: table, column: name)
-                PropertyRow(label: "Nguồn gốc", value: column.kind == .calculated ? "DAX tính toán" : "Cột dữ liệu")
-                PropertyRow(label: "Lưu trữ", value: "VertiPaq trong bộ nhớ")
-                PropertyRow(label: "Nén", value: storage.map { $0.dictionaryFile != nil ? "Mã hoá từ điển" : ($0.hashIndexFile != nil ? "Mã hoá giá trị" : "Không có dữ liệu") } ?? "—")
-                PropertyRow(label: "Giá trị phân biệt", value: storage.map { $0.cardinality.formatted() } ?? "—")
-                PropertyRow(label: "Kiểu", value: dataTypeName(column.dataType))
-                PropertyRow(label: "Tóm tắt", value: summarizeName(column))
-                if let format = column.formatString { PropertyRow(label: "Định dạng", value: format, mono: true) }
-                if column.isHidden { PropertyRow(label: "Hiển thị", value: "Ẩn trong báo cáo") }
+                PropertyRow(label: bi("Nguồn gốc", "Source"), value: column.kind == .calculated ? bi("DAX tính toán", "DAX calculated") : bi("Cột dữ liệu", "Data column"))
+                PropertyRow(label: bi("Lưu trữ", "Storage"), value: bi("VertiPaq trong bộ nhớ", "VertiPaq in-memory"))
+                PropertyRow(label: bi("Nén", "Encoding"), value: storage.map { $0.dictionaryFile != nil ? bi("Mã hoá từ điển", "Hash dictionary") : ($0.hashIndexFile != nil ? bi("Mã hoá giá trị", "Value encoding") : bi("Không có dữ liệu", "No data")) } ?? "—")
+                PropertyRow(label: bi("Giá trị phân biệt", "Distinct values"), value: storage.map { $0.cardinality.formatted() } ?? "—")
+                PropertyRow(label: bi("Kiểu", "Data type"), value: dataTypeName(column.dataType))
+                PropertyRow(label: bi("Tóm tắt", "Summarize"), value: summarizeName(column))
+                if let format = column.formatString { PropertyRow(label: bi("Định dạng", "Format"), value: format, mono: true) }
+                if column.isHidden { PropertyRow(label: bi("Hiển thị", "Visibility"), value: bi("Ẩn trong báo cáo", "Hidden in report")) }
                 Divider().padding(.vertical, 4)
                 ColumnPropertiesEditor(state: state, column: column)
                     .id("\(table)/\(name)/\(state.modelVersion)")
             } else {
-                Text("Chọn một cột (bấm tiêu đề cột hoặc chọn trong Data pane).")
+                Text(bi("Chọn một cột (bấm tiêu đề cột hoặc chọn trong Data pane).", "Select a column (click a column header or pick from the Data pane)."))
                     .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
             }
         }

@@ -10,23 +10,23 @@ struct QueryToolbar: View {
     var body: some View {
         HStack(spacing: 8) {
             if state.isRunningDAX {
-                Button { state.cancelDAXQuery() } label: { Label("Huỷ", systemImage: "stop.fill") }
+                Button { state.cancelDAXQuery() } label: { Label(bi("Huỷ", "Cancel"), systemImage: "stop.fill") }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(".", modifiers: .command)
-                    .help("Huỷ truy vấn đang chạy (⌘.)")
+                    .help(bi("Huỷ truy vấn đang chạy (⌘.)", "Cancel running query (⌘.)"))
             } else {
                 Button { state.runDAXQuery() } label: {
-                    Label(state.daxEditorSelection.length > 0 ? "Chạy vùng chọn" : "Chạy", systemImage: "play.fill")
+                    Label(state.daxEditorSelection.length > 0 ? bi("Chạy vùng chọn", "Run selection") : bi("Chạy", "Run"), systemImage: "play.fill")
                 }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(!state.canRunDAX)
                     .opacity(state.canRunDAX ? 1 : 0.5)
-                    .help(state.workspace.metadata == nil ? "File không có mô hình dữ liệu" : "Chạy truy vấn (⌘↵)")
+                    .help(state.workspace.metadata == nil ? bi("File không có mô hình dữ liệu", "No data model in file") : bi("Chạy truy vấn (⌘↵)", "Run query (⌘↵)"))
             }
-            Button {} label: { Label("Định dạng", systemImage: "text.alignleft") }
+            Button {} label: { Label(bi("Định dạng", "Format"), systemImage: "text.alignleft") }
                 .buttonStyle(SecondaryButtonStyle()).disabled(true).opacity(0.6)
-                .help("Định dạng truy vấn: chưa có (UI4)")
+                .help(bi("Định dạng truy vấn: sắp có", "Format query: coming soon"))
             Button {
                 let text = state.daxQueries[state.daxSelection].text
                 let lines = text.components(separatedBy: "\n")
@@ -34,7 +34,7 @@ struct QueryToolbar: View {
                 state.daxQueries[state.daxSelection].text = lines.map { line in
                     allCommented ? line.replacingOccurrences(of: "// ", with: "", options: .anchored) : (line.isEmpty ? line : "// " + line)
                 }.joined(separator: "\n")
-            } label: { Label("Chú thích //", systemImage: "text.bubble") }
+            } label: { Label(bi("Chú thích //", "Comment //"), systemImage: "text.bubble") }
                 .buttonStyle(SecondaryButtonStyle())
             Spacer()
             Text("DAX · Tabular Model Script · UTF-8").font(DS.Typeface.mono).foregroundStyle(DS.Palette.tertiaryLabel)

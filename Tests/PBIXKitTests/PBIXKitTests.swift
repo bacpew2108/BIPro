@@ -5,7 +5,16 @@ import Testing
 /// Fixtures are the author's own reports; tests are skipped when a file is absent.
 enum Fixture {
     static let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-    static let nhom6 = downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    static let nhom6: URL = {
+        if let env = ProcessInfo.processInfo.environment["BIPRO_NHOM6"], !env.isEmpty {
+            return URL(fileURLWithPath: env)
+        }
+        for name in ["Nhom6_Dashboard.pbix", "bipro-golden/Nhom6_work.pbix"] {
+            let url = downloads.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    }()
     static let legacy = downloads.appendingPathComponent("Nhóm 2/Dashboard/Nhóm 2 - Financial Service .pbix")
 
     static func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }

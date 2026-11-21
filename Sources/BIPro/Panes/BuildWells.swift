@@ -23,8 +23,8 @@ struct BuildWells: View {
 
     /// Lý do không sửa được trường (nil: sửa được).
     private var blocker: String? {
-        if !state.editMode { return "Bật chế độ Sửa (⌘E) để sửa trường." }
-        if layout.selection.count > 1 { return "Đang chọn nhiều visual: chọn đúng một visual để sửa trường." }
+        if !state.editMode { return bi("Bật chế độ Sửa (⌘E) để sửa trường.", "Turn on Edit mode (⌘E) to edit fields.") }
+        if layout.selection.count > 1 { return bi("Đang chọn nhiều visual: chọn đúng một visual để sửa trường.", "Multiple visuals selected: select a single visual to edit fields.") }
         return layout.fieldEditingBlocker(for: visual.id)
     }
 
@@ -45,13 +45,13 @@ struct BuildWells: View {
                 well(rule, editable: blocker == nil, rules: rules)
             }
         }
-        .alert("Đổi tên trường trong visual này", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-            TextField("Tên hiển thị (để trống = tên gốc)", text: Binding(get: { renaming?.text ?? "" }, set: { renaming?.text = $0 }))
-            Button("Đổi tên") {
+        .alert(bi("Đổi tên trường trong visual này", "Rename field for this visual"), isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField(bi("Tên hiển thị (để trống = tên gốc)", "Display name (empty = original)"), text: Binding(get: { renaming?.text ?? "" }, set: { renaming?.text = $0 }))
+            Button(bi("Đổi tên", "Rename")) {
                 if let r = renaming { layout.renameField(role: r.role, index: r.index, to: r.text, visual: visual.id) }
                 renaming = nil
             }
-            Button("Huỷ", role: .cancel) { renaming = nil }
+            Button(bi("Huỷ", "Cancel"), role: .cancel) { renaming = nil }
         }
     }
 
@@ -61,7 +61,7 @@ struct BuildWells: View {
     private func well(_ rule: WellRule, editable: Bool, rules: [WellRule]) -> some View {
         let fields = visual.fields.filter { $0.role == rule.role }
         let canAdd = editable && rule.status == .observed
-        SectionLabel(text: rule.label + (rule.status == .unverified ? " (chưa kiểm)" : ""))
+        SectionLabel(text: rule.label + (rule.status == .unverified ? bi(" (chưa kiểm)", " (unverified)") : ""))
         VStack(spacing: 4) {
             if fields.isEmpty {
                 emptySlot(rule, canAdd: canAdd)
@@ -81,7 +81,7 @@ struct BuildWells: View {
 
     @ViewBuilder
     private func emptySlot(_ rule: WellRule, canAdd: Bool) -> some View {
-        let text = Text("+ Thêm field").font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
+        let text = Text(bi("+ Thêm field", "+ Add field")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
         Group {
             if canAdd { addMenu(rule) { text.frame(maxWidth: .infinity) } } else { text }
         }
@@ -102,12 +102,12 @@ struct BuildWells: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 4)
-                .help("Bỏ khỏi ô")
+                .help(bi("Bỏ khỏi ô", "Remove from well"))
             }
         }
         .contextMenu {
             if editable {
-                Button("Đổi tên cho visual này…") { renaming = Renaming(role: rule.role, index: index, text: field.displayName ?? "") }
+                Button(bi("Đổi tên cho visual này…", "Rename for this visual…")) { renaming = Renaming(role: rule.role, index: index, text: field.displayName ?? "") }
                 if field.kind == .aggregation {
                     // Danh sách phép gộp như menu của trường trong Desktop (VM-F10), dấu tích ở phép đang dùng.
                     let kind = layout.aggregationKind(entity: field.entity, property: field.property)
@@ -122,18 +122,18 @@ struct BuildWells: View {
                     }
                     Divider()
                 }
-                if index > 0 { Button("Lên") { layout.reorderField(role: rule.role, from: index, to: index - 1, visual: visual.id) } }
-                if index < count - 1 { Button("Xuống") { layout.reorderField(role: rule.role, from: index, to: index + 1, visual: visual.id) } }
+                if index > 0 { Button(bi("Lên", "Move up")) { layout.reorderField(role: rule.role, from: index, to: index - 1, visual: visual.id) } }
+                if index < count - 1 { Button(bi("Xuống", "Move down")) { layout.reorderField(role: rule.role, from: index, to: index + 1, visual: visual.id) } }
                 let targets = rules.filter { $0.role != rule.role && $0.status == .observed && WellKind(field.kind).map($0.accepts.contains) == true }
                 if !targets.isEmpty {
-                    Menu("Chuyển sang ô") {
+                    Menu(bi("Chuyển sang ô", "Move to well")) {
                         ForEach(targets, id: \.role) { target in
                             Button(target.label) { layout.moveField(role: rule.role, index: index, to: target.role, visual: visual.id) }
                         }
                     }
                 }
                 Divider()
-                Button("Bỏ khỏi ô", role: .destructive) { layout.removeField(role: rule.role, index: index, visual: visual.id) }
+                Button(bi("Bỏ khỏi ô", "Remove from well"), role: .destructive) { layout.removeField(role: rule.role, index: index, visual: visual.id) }
             }
         }
         .onDrag { NSItemProvider(object: BuildDrop.wellString(role: rule.role, index: index) as NSString) }
@@ -222,7 +222,7 @@ struct TextboxContentEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SectionLabel(text: "Nội dung")
+            SectionLabel(text: bi("Nội dung", "Content"))
             TextEditor(text: $text)
                 .font(DS.Typeface.bodySmall)
                 .focused($focused)
@@ -234,10 +234,10 @@ struct TextboxContentEditor: View {
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(focused ? DS.Palette.accent : DS.Palette.separator))
                 .padding(.horizontal, 10)
             HStack {
-                Text(editable ? "Mỗi dòng là một đoạn." : "Bật chế độ Sửa (⌘E) để sửa nội dung.")
+                Text(editable ? bi("Mỗi dòng là một đoạn.", "Each line is a paragraph.") : bi("Bật chế độ Sửa (⌘E) để sửa nội dung.", "Turn on Edit mode (⌘E) to edit text."))
                     .font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
                 Spacer()
-                if editable && text != current { Button("Áp dụng") { commit() }.controlSize(.small) }
+                if editable && text != current { Button(bi("Áp dụng", "Apply")) { commit() }.controlSize(.small) }
             }
             .padding(.horizontal, 10)
         }

@@ -1,0 +1,1 @@
+{"$schema":"https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json","name":"bf1c6af0d507dd70038e","position":{"x":300,"y":290,"z":5,"height":280,"width":280,"tabOrder":5},"visual":{"visualType":"azureMap","drillFilterOtherVisuals":true}}

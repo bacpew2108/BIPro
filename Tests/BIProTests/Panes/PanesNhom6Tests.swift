@@ -8,7 +8,17 @@ import Testing
 @testable import BIPro
 
 private let heavy = ProcessInfo.processInfo.environment["BIPRO_HEAVY"] == "1"
-private let nhom6 = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/Nhom6_Dashboard.pbix")
+private let nhom6: URL = {
+    if let env = ProcessInfo.processInfo.environment["BIPRO_NHOM6"], !env.isEmpty {
+        return URL(fileURLWithPath: env)
+    }
+    let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+    for name in ["Nhom6_Dashboard.pbix", "bipro-golden/Nhom6_work.pbix"] {
+        let url = downloads.appendingPathComponent(name)
+        if FileManager.default.fileExists(atPath: url.path) { return url }
+    }
+    return downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+}()
 
 @Suite("Gói P: Nhom6", .enabled(if: heavy && FileManager.default.fileExists(atPath: nhom6.path)))
 struct PanesNhom6Tests {

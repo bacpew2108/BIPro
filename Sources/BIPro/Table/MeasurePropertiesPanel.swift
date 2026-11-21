@@ -26,32 +26,32 @@ struct MeasurePropertiesPanel: View {
         let blocker = state.modelEditingBlocker
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("THÔNG TIN MEASURE").font(DS.Typeface.labelSmall).tracking(0.5).foregroundStyle(DS.Palette.tertiaryLabel)
+                Text(bi("THÔNG TIN MEASURE", "MEASURE PROPERTIES")).font(DS.Typeface.labelSmall).tracking(0.5).foregroundStyle(DS.Palette.tertiaryLabel)
                 Spacer()
                 Circle().fill(DS.Palette.measure).frame(width: 6, height: 6)
             }
-            PropertyRow(label: "Tên", value: measure.name)
-            PropertyRow(label: "Bảng", value: measure.tableName)
-            PropertyRow(label: "Kiểu", value: Self.typeName(measure.dataType))
-            if measure.state != 1 { PropertyRow(label: "Trạng thái", value: "Có lỗi (state \(measure.state))") }
-            field("Mô tả", text: $description, placeholder: "Mô tả") { commit(MeasurePatch(description: description.isEmpty ? .clear : .set(description)), key: "description") }
-            field("Thư mục", text: $folder, placeholder: "Thư mục hiển thị (dùng \\ cho cấp con)") { commit(MeasurePatch(displayFolder: folder.isEmpty ? .clear : .set(folder)), key: "folder") }
+            PropertyRow(label: bi("Tên", "Name"), value: measure.name)
+            PropertyRow(label: bi("Bảng", "Table"), value: measure.tableName)
+            PropertyRow(label: bi("Kiểu", "Type"), value: Self.typeName(measure.dataType))
+            if measure.state != 1 { PropertyRow(label: bi("Trạng thái", "State"), value: bi("Có lỗi (state \(measure.state))", "Error (state \(measure.state))")) }
+            field(bi("Mô tả", "Description"), text: $description, placeholder: bi("Mô tả", "Description")) { commit(MeasurePatch(description: description.isEmpty ? .clear : .set(description)), key: "description") }
+            field(bi("Thư mục", "Folder"), text: $folder, placeholder: bi("Thư mục hiển thị (dùng \\ cho cấp con)", "Display folder (use \\ for subfolders)")) { commit(MeasurePatch(displayFolder: folder.isEmpty ? .clear : .set(folder)), key: "folder") }
             HStack(spacing: 6) {
-                field("Định dạng", text: $format, placeholder: "Chuỗi định dạng") { commit(MeasurePatch(formatString: format.isEmpty ? .clear : .set(format)), key: "format") }
+                field(bi("Định dạng", "Format"), text: $format, placeholder: bi("Chuỗi định dạng", "Format string")) { commit(MeasurePatch(formatString: format.isEmpty ? .clear : .set(format)), key: "format") }
                 Menu {
                     ForEach(Self.formatPresets, id: \.self) { preset in
                         Button(preset) { format = preset; commit(MeasurePatch(formatString: .set(preset)), key: "format") }
                     }
                     Divider()
-                    Button("Bỏ định dạng") { format = ""; commit(MeasurePatch(formatString: .clear), key: "format") }
+                    Button(bi("Bỏ định dạng", "Clear format")) { format = ""; commit(MeasurePatch(formatString: .clear), key: "format") }
                 } label: { Image(systemName: "chevron.down.circle") }
                     .menuStyle(.borderlessButton).frame(width: 22).disabled(blocker != nil)
             }
-            Toggle("Ẩn trong chế độ báo cáo", isOn: Binding(get: { measure.isHidden },
+            Toggle(bi("Ẩn trong chế độ báo cáo", "Hide in report view"), isOn: Binding(get: { measure.isHidden },
                                                            set: { commit(MeasurePatch(isHidden: $0), key: nil) }))
                 .font(DS.Typeface.bodySmall).disabled(blocker != nil)
             HStack {
-                Button("Xoá khỏi mô hình", role: .destructive) {
+                Button(bi("Xoá khỏi mô hình", "Delete from model"), role: .destructive) {
                     message = state.deleteMeasure(table: measure.tableName, name: measure.name)
                 }
                 .disabled(blocker != nil)
@@ -85,16 +85,17 @@ struct MeasurePropertiesPanel: View {
                                       coalesceKey: key.map { "measure-\(measure.name)-\($0)" })
     }
 
+    @MainActor
     static func typeName(_ type: ModelMetadata.DataType) -> String {
         switch type {
-        case .int64: "Số nguyên"
-        case .double: "Số thực"
-        case .decimal: "Tiền tệ"
-        case .string: "Văn bản"
-        case .boolean: "Đúng/Sai"
-        case .dateTime: "Ngày giờ"
-        case .variant: "Hỗn hợp"
-        default: "Chưa rõ"
+        case .int64: bi("Số nguyên", "Whole number")
+        case .double: bi("Số thực", "Decimal number")
+        case .decimal: bi("Tiền tệ", "Currency")
+        case .string: bi("Văn bản", "Text")
+        case .boolean: bi("Đúng/Sai", "True/False")
+        case .dateTime: bi("Ngày giờ", "Date/time")
+        case .variant: bi("Hỗn hợp", "Variant")
+        default: bi("Chưa rõ", "Unknown")
         }
     }
 }
@@ -109,7 +110,7 @@ struct MeasureInspector: View {
         VStack(spacing: 0) {
             HStack {
                 Image(systemName: "function").foregroundStyle(DS.Palette.measure)
-                Text("Thuộc tính measure").font(DS.Typeface.headlineSmall)
+                Text(bi("Thuộc tính measure", "Measure properties")).font(DS.Typeface.headlineSmall)
                 Spacer()
                 Button { state.measure = nil; state.measureDraft = nil } label: { Image(systemName: "xmark") }
                     .buttonStyle(GhostIconButtonStyle())

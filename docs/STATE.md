@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-21 (**v1.0.0** — Phase G `0fb18c8` + Phase G2 polish `187c919` xong; đã dọn dẹp thư mục dự án, đang chuẩn bị kiểm thử toàn diện & lộ trình **v1.1**).
+Cập nhật: 2026-11-21 (**v1.0.1 QA xong** — đã dọn dẹp dự án `104287e`, hoàn tất Đợt 1 Kiểm thử & Gia cố QA, đang bắt đầu quan sát Power BI Desktop trên VM Windows 11 cho **Đợt 2: Hệ Biểu đồ & Visual mới `specs/013`**).
 
 *(Nhật ký chi tiết Phase A–G trước ngày 2026-11-21 đã được lưu trữ nguyên văn tại `docs/HISTORY.md`.)*
 
@@ -18,6 +18,12 @@ Cập nhật: 2026-11-21 (**v1.0.0** — Phase G `0fb18c8` + Phase G2 polish `18
   - Giải phóng ~5,8 GB (`build/` 4,2 GB → 369 MB; `docs/` 2,2 GB → 215 MB bằng cách gỡ 39 tệp `.pbix` cũ không còn test dùng dưới `docs/phase-d-evidence/` và dọn thư mục tạm trong `build/`).
   - Thêm `docs/phase-*-evidence/**/*.pbix` vào `.gitignore` để giữ 11 tệp golden Desktop cho test mà `git status` vẫn sạch.
   - Tách lịch sử dài sang `docs/HISTORY.md`.
+
+- **Đợt 1 — Kiểm thử chi tiết & Gia cố v1.0.1 (2026-11-21, xong, chưa commit):**
+  - Mở khoá lại 15 test nặng từng bị bỏ qua (`PBIXKitTests`, `ZipWriteTests`, `CompressTests`, `ABFWriteTests`, `MetadataWriteTests`, `PanesNhom6Tests`) nhờ fallback đường dẫn `BIPRO_NHOM6` / `Nhom6_work.pbix` và chuẩn hoá invariant.
+  - Vá dứt điểm song ngữ `vi`/`en` cho toàn bộ pane/workspace phụ (`FilterEditor`, `FormatPane`, `BuildWells`, `ModelWorkspace`, `ColumnPropertiesEditor`, `MeasurePropertiesPanel`, `TableWorkspace`, `TMDLWorkspace`, `QueryResultsView`, `QueryToolbar`, `QueryTabBar`), sửa lưới `NSTableView` & `DotGrid` cho Dark Mode.
+  - Bổ sung bộ test QA mới (`Tests/BIProTests/QA/AppEndToEndQATests.swift`, `VisualRegressionAndBilingualQATests.swift`): luồng E2E từ tài liệu mới → Enter Data 2 bảng + tự phát hiện quan hệ → Undo/Redo → Measure + Cột tính toán → Báo cáo + Trang + Bookmark → Lưu T3 → Mở lại → Xuất CSV/PNG/PDF; ca biên chống sập; hồi quy hình ảnh toàn bộ 14+ bộ vẽ visual + Dark Mode & song ngữ 7 pane phụ (**5/5 qua trong 0,8 s**).
+  - Dựng lại `build/BI Pro.app` release (`codesign --verify --deep --strict` đạt), `e3-loop.sh` đạt 3/3 khớp byte (`0,575 s` / `0,434 s` / `0,096 s`).
 
 ## Quyết định đã chốt
 

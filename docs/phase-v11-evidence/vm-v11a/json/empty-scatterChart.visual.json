@@ -1,0 +1,1 @@
+{"$schema":"https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json","name":"236e0148557be5e67cb2","position":{"x":10,"y":580,"z":2,"height":280,"width":280,"tabOrder":2},"visual":{"visualType":"scatterChart","drillFilterOtherVisuals":true}}

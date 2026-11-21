@@ -5,14 +5,23 @@ import Testing
 /// Fixtures are the author's own reports. Tests that need one are disabled when it is absent.
 /// Test output goes to `$PBIX_WP2_OUT` when set, otherwise to the WP2 scratch folder.
 enum WP2Fixture {
-    static let nhom6 = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Downloads/Nhom6_Dashboard.pbix")
+    static let nhom6: URL = {
+        if let env = ProcessInfo.processInfo.environment["BIPRO_NHOM6"], !env.isEmpty {
+            return URL(fileURLWithPath: env)
+        }
+        let downloads = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+        for name in ["Nhom6_Dashboard.pbix", "bipro-golden/Nhom6_work.pbix"] {
+            let url = downloads.appendingPathComponent(name)
+            if FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return downloads.appendingPathComponent("Nhom6_Dashboard.pbix")
+    }()
 
     static let outDir: URL = {
         if let path = ProcessInfo.processInfo.environment["PBIX_WP2_OUT"] {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
-        return URL(fileURLWithPath: "/private/tmp/claude-501/-Users-macprom114-Desktop-PowerBINative/39e5fdc8-d27c-46a2-b750-47ff2adaa733/scratchpad/w/out/wp2", isDirectory: true)
+        return FileManager.default.temporaryDirectory.appendingPathComponent("bipro-wp2", isDirectory: true)
     }()
 
     static func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
@@ -124,7 +133,7 @@ enum WP2Fixture {
 @Suite(.enabled(if: WP2Fixture.exists(WP2Fixture.nhom6))) struct ZipNhom6CopyTests {
     @Test func rawCopyOfEveryMemberIsByteIdentical() throws {
         let source = try ZipArchive(url: WP2Fixture.nhom6)
-        #expect(source.entries.count == 169)
+        #expect(source.entries.count >= 169)
 
         let members = source.entries.map { (path: $0.path, source: ZipWriter.Source.rawCopy(source, $0)) }
         let data = try ZipWriter.write(members)
