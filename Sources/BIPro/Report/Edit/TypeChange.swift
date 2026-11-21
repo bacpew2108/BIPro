@@ -103,7 +103,7 @@ enum TypeChange {
         let keptRefs = Set(plan.wells.flatMap { $0.elements.map(\.field.queryRef) })
         for field in dropped where !keptRefs.contains(field.queryRef) {
             if let first = references(field).first {
-                plan.blocked = "Chưa đổi loại được: \"\(field.label)\" sẽ bị bỏ nhưng \(first.reason). Xử lý ở lát sau, chưa kiểm với Power BI Desktop."
+                plan.blocked = "Chưa đổi loại được: \"\(field.label)\" sẽ bị bỏ nhưng \(first.reason). Hãy đổi sắp xếp của visual sang trường khác trước."
                 return plan
             }
         }

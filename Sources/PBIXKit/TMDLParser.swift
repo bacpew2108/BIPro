@@ -369,7 +369,7 @@ public enum TMDLParser {
         for t in oldModel.tables where !newTableNames.contains(t.name) { issue(t.path, nil, "xoá bảng \(t.name) chưa được hỗ trợ") }
         for table in newModel.tables {
             guard let before = oldTables[table.name] else {
-                issue(table.path, table.line, "bảng mới \(table.name) cần nguồn dữ liệu (Phase F), chưa tạo được")
+                issue(table.path, table.line, "bảng mới \(table.name) cần nguồn dữ liệu, hãy tạo qua Get Data hoặc Bảng mới")
                 continue
             }
             diffTable(before, table, edits: &edits, issue: issue)
@@ -445,7 +445,7 @@ public enum TMDLParser {
         let newCNames = Set(new.columns.map(\.name))
         for c in old.columns where !newCNames.contains(c.name) { issue(new.path, nil, "xoá cột \(c.name) chưa được hỗ trợ") }
         for c in new.columns {
-            guard let before = oldC[c.name] else { issue(new.path, c.line, "cột mới \(c.name) cần dữ liệu (Phase F), chưa tạo được"); continue }
+            guard let before = oldC[c.name] else { issue(new.path, c.line, "cột mới \(c.name) cần dữ liệu, hãy tạo qua Power Query hoặc Cột mới"); continue }
             if before.dataType != c.dataType { issue(new.path, c.line, "đổi kiểu dữ liệu của cột \(c.name) chưa được hỗ trợ") }
             if before.expression != c.expression { issue(new.path, c.line, "cột tính toán \(c.name) chỉ xem, chưa sửa được công thức") }
             if before.isKey != c.isKey || before.sourceColumn != c.sourceColumn { issue(new.path, c.line, "isKey và sourceColumn của cột \(c.name) chưa sửa được") }

@@ -185,7 +185,7 @@ private struct ArrangeCommands: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .disabled(state.arrangeBlocker != nil)
-            .opacity(state.arrangeBlocker != nil ? 0.55 : 1)
+            .opacity(state.arrangeBlocker != nil ? 0.8 : 1)
             .help(state.arrangeBlocker ?? bi("Căn lề và phân bố các visual đang chọn", "Align and distribute selected visuals"))
             RibbonButton(title: tr(.menuGroup), symbol: "square.on.square.dashed", disabledReason: state.groupBlocker) { state.groupSelection() }
             RibbonButton(title: tr(.menuUngroup), symbol: "square.on.square", disabledReason: state.ungroupBlocker) { state.ungroupSelection() }
@@ -233,7 +233,7 @@ private struct InsertCommands: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .disabled(state.visualEditingBlocker != nil)
-            .opacity(state.visualEditingBlocker != nil ? 0.55 : 1)
+            .opacity(state.visualEditingBlocker != nil ? 0.8 : 1)
             .help(state.visualEditingBlocker ?? bi("Chèn nút hành động hoặc thanh điều hướng", "Insert action button or navigator"))
 
             Menu {
@@ -258,7 +258,7 @@ private struct InsertCommands: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .disabled(state.visualEditingBlocker != nil)
-            .opacity(state.visualEditingBlocker != nil ? 0.55 : 1)
+            .opacity(state.visualEditingBlocker != nil ? 0.8 : 1)
             .help(state.visualEditingBlocker ?? bi("Chèn hình khối trang trí", "Insert shape"))
 
             RibbonButton(title: bi("Ảnh", "Image"), symbol: "photo",
@@ -429,12 +429,9 @@ private struct DataDrillCommands: View {
 private struct TableToolsCommands: View {
     let state: DocumentState
     var body: some View {
+        let _ = state.modelVersion
         RibbonGroup(title: bi("Cấu trúc", "Structure")) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(bi("TÊN", "NAME")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
-                Text(state.table ?? "—").font(DS.Typeface.body).padding(.horizontal, 8).frame(width: 160, height: 24, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
-            }
+            TableRibbonNameField(state: state)
         }
         RibbonDivider()
         RibbonGroup(title: bi("Lịch", "Calendars")) {
@@ -464,37 +461,183 @@ private struct TableToolsCommands: View {
     }
 }
 
+private struct TableRibbonNameField: View {
+    let state: DocumentState
+    @State private var draft = ""
+
+    var body: some View {
+        let current = state.table
+        let canEdit = current != nil && state.modelEditingBlocker == nil
+        VStack(alignment: .leading, spacing: 3) {
+            Text(bi("TÊN", "NAME")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+            if canEdit, let tableName = current {
+                TextField(bi("Tên bảng", "Table name"), text: $draft)
+                    .textFieldStyle(.plain)
+                    .font(DS.Typeface.body)
+                    .padding(.horizontal, 8)
+                    .frame(width: 160, height: 24, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
+                    .onAppear { draft = tableName }
+                    .onChange(of: tableName) { _, newValue in draft = newValue }
+                    .onSubmit {
+                        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty, trimmed != tableName else { draft = tableName; return }
+                        state.requestCascadeRename(.table(old: tableName, new: trimmed))
+                        draft = tableName
+                    }
+                    .help(bi("Nhấn Enter để đổi tên bảng (tự cập nhật DAX và visual)", "Press Enter to rename table (auto-updates DAX & visuals)"))
+            } else {
+                Text(current ?? "—").font(DS.Typeface.body).padding(.horizontal, 8).frame(width: 160, height: 24, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
+                    .help(state.modelEditingBlocker ?? bi("Chọn một bảng", "Select a table"))
+            }
+        }
+    }
+}
+
 private struct ColumnToolsCommands: View {
     let state: DocumentState
 
     var body: some View {
+        let _ = state.modelVersion
         let lang = AppPreferences.shared.effectiveLanguage
         let column = state.table.flatMap { t in state.column.flatMap { state.workspace.column(table: t, name: $0) } }
+        let blocker = state.modelEditingBlocker
+        let canEdit = column != nil && blocker == nil
+        let isNumeric = column?.dataType.isNumeric == true
+        let disabledTip = blocker ?? bi("Chọn một cột ở bảng dữ liệu", "Select a column in Table view")
+        let numericTip = !canEdit ? disabledTip : bi("Chỉ áp dụng cho cột kiểu số", "Numeric columns only")
+        let siblings: [ModelMetadata.Column] = column.map { col in
+            state.workspace.columns(of: col.tableName).filter { $0.id != col.id && $0.kind != .rowNumber }
+        } ?? []
+        let sortBy = column?.sortByColumnID.flatMap { state.workspace.metadata?.column(id: $0)?.name }
+
         RibbonGroup(title: bi("Cấu trúc", "Structure")) {
-            field(bi("TÊN", "NAME"), column?.name ?? bi("Chọn một cột", "Select a column"), width: 150)
-            field(bi("KIỂU DỮ LIỆU", "DATA TYPE"), column.map { dataTypeName($0.dataType, language: lang) } ?? "—", width: 110)
+            ColumnRibbonNameField(state: state, column: column, disabledTip: disabledTip)
+            readOnlyField(
+                bi("KIỂU DỮ LIỆU", "DATA TYPE"),
+                column.map { dataTypeName($0.dataType, language: lang) } ?? "—",
+                width: 110,
+                help: bi("Đổi kiểu dữ liệu thực hiện trong Power Query (Biến đổi dữ liệu)",
+                         "Change data type in Power Query (Transform Data)")
+            )
         }
         RibbonDivider()
         RibbonGroup(title: bi("Định dạng", "Formatting")) {
-            field(bi("ĐỊNH DẠNG", "FORMAT"), column?.formatString ?? bi("Chung", "General"), width: 130)
-            HStack(spacing: 2) {
-                ForEach(["$", "%", ",", ".00"], id: \.self) { symbol in
-                    Text(symbol).font(DS.Typeface.label).frame(width: 26, height: 24)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(DS.Palette.chrome))
+            dropdownMenu(
+                label: bi("ĐỊNH DẠNG", "FORMAT"),
+                value: column?.formatString ?? bi("Chung", "General"),
+                width: 130,
+                disabled: !canEdit,
+                help: canEdit ? bi("Chọn chuỗi định dạng hiển thị cho cột", "Choose display format string for column") : disabledTip
+            ) {
+                if let col = column {
+                    Button(bi("Chung", "General")) {
+                        apply(col, ColumnPatch(formatString: .clear), key: "format")
+                    }
+                    Divider()
+                    ForEach(ColumnPropertiesEditor.formatPresets, id: \.self) { preset in
+                        Button(preset) {
+                            apply(col, ColumnPatch(formatString: .set(preset)), key: "format")
+                        }
+                    }
                 }
             }
-            .opacity(0.45)
-            .help(bi("Đổi định dạng: Phase E", "Format editing: Phase E"))
+            HStack(spacing: 2) {
+                quickFormatButton("$", active: column?.formatString?.contains("$") == true,
+                                  enabled: canEdit && isNumeric,
+                                  help: (canEdit && isNumeric) ? bi("Định dạng tiền tệ ($)", "Currency format ($)") : numericTip) {
+                    if let col = column {
+                        let next = ColumnFormatShortcut.currency(current: col.formatString)
+                        apply(col, ColumnPatch(formatString: .set(next)), key: "format")
+                    }
+                }
+                quickFormatButton("%", active: column?.formatString?.hasSuffix("%") == true,
+                                  enabled: canEdit && isNumeric,
+                                  help: (canEdit && isNumeric) ? bi("Định dạng phần trăm (%)", "Percentage format (%)") : numericTip) {
+                    if let col = column {
+                        let next = ColumnFormatShortcut.percent(current: col.formatString)
+                        apply(col, ColumnPatch(formatString: .set(next)), key: "format")
+                    }
+                }
+                quickFormatButton(",", active: column?.formatString?.contains("#,") == true,
+                                  enabled: canEdit && isNumeric,
+                                  help: (canEdit && isNumeric) ? bi("Dấu phân tách hàng nghìn (,)", "Thousands separator (,)") : numericTip) {
+                    if let col = column {
+                        let next = ColumnFormatShortcut.toggleThousandsSeparator(current: col.formatString)
+                        apply(col, ColumnPatch(formatString: .set(next)), key: "format")
+                    }
+                }
+                quickFormatButton(".00", active: column?.formatString?.contains(".00") == true,
+                                  enabled: canEdit && isNumeric,
+                                  help: (canEdit && isNumeric) ? bi("Bật/tắt 2 chữ số thập phân (.00)", "Toggle 2 decimal places (.00)") : numericTip) {
+                    if let col = column {
+                        let next = ColumnFormatShortcut.toggleTwoDecimals(current: col.formatString)
+                        apply(col, ColumnPatch(formatString: .set(next)), key: "format")
+                    }
+                }
+            }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Thuộc tính", "Properties")) {
-            field(bi("TÓM TẮT", "SUMMARIZATION"), column.map { summarizeName($0, language: lang) } ?? "—", width: 110)
-            field(bi("DANH MỤC", "DATA CATEGORY"), column?.dataCategory ?? bi("Chưa phân loại", "Uncategorized"), width: 120)
+            dropdownMenu(
+                label: bi("TÓM TẮT", "SUMMARIZATION"),
+                value: column.map { summarizeName($0, language: lang) } ?? "—",
+                width: 118,
+                disabled: !(canEdit && isNumeric),
+                help: (canEdit && isNumeric) ? bi("Chọn phép tổng hợp mặc định cho cột số", "Choose default summarization for numeric column") : numericTip
+            ) {
+                if let col = column {
+                    ForEach(ColumnPropertiesEditor.summarizeOptions, id: \.value) { opt in
+                        Button(opt.title) {
+                            apply(col, ColumnPatch(summarizeBy: opt.value), key: nil)
+                        }
+                    }
+                }
+            }
+            dropdownMenu(
+                label: bi("DANH MỤC", "DATA CATEGORY"),
+                value: column?.dataCategory ?? bi("Chưa phân loại", "Uncategorized"),
+                width: 124,
+                disabled: !canEdit,
+                help: canEdit ? bi("Gán danh mục ngữ nghĩa (địa lý, URL…)", "Assign semantic data category (geography, URL…)") : disabledTip
+            ) {
+                if let col = column {
+                    Button(bi("Chưa phân loại", "Uncategorized")) {
+                        apply(col, ColumnPatch(dataCategory: .clear), key: nil)
+                    }
+                    Divider()
+                    ForEach(ColumnPropertiesEditor.categories, id: \.self) { category in
+                        Button(category) {
+                            apply(col, ColumnPatch(dataCategory: .set(category)), key: nil)
+                        }
+                    }
+                }
+            }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Sắp xếp", "Sort")) {
-            let sortBy = column?.sortByColumnID.flatMap { state.workspace.metadata?.column(id: $0)?.name }
-            field(bi("SẮP XẾP THEO CỘT", "SORT BY COLUMN"), sortBy ?? column?.name ?? "—", width: 140)
+            dropdownMenu(
+                label: bi("SẮP XẾP THEO CỘT", "SORT BY COLUMN"),
+                value: sortBy ?? column?.name ?? "—",
+                width: 140,
+                disabled: !canEdit,
+                help: canEdit ? bi("Sắp xếp giá trị cột này theo cột khác trong cùng bảng", "Sort this column by another column in the same table") : disabledTip
+            ) {
+                if let col = column {
+                    Button(bi("Chính nó", "Itself")) {
+                        apply(col, ColumnPatch(sortBy: .clear), key: nil)
+                    }
+                    if !siblings.isEmpty {
+                        Divider()
+                        ForEach(siblings, id: \.id) { sibling in
+                            Button(sibling.name) {
+                                apply(col, ColumnPatch(sortBy: .set(sibling.name)), key: nil)
+                            }
+                        }
+                    }
+                }
+            }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Quan hệ", "Relationships")) {
@@ -511,19 +654,116 @@ private struct ColumnToolsCommands: View {
         }
     }
 
-    private func field(_ label: String, _ value: String, width: CGFloat) -> some View {
+    private func apply(_ column: ModelMetadata.Column, _ patch: ColumnPatch, key: String?) {
+        if let reason = state.updateColumn(table: column.tableName, name: column.name, patch: patch,
+                                           coalesceKey: key.map { "column-\(column.id)-\($0)" }) {
+            state.layout.noteFieldRefusal(reason)
+        }
+    }
+
+    private func readOnlyField(_ label: String, _ value: String, width: CGFloat, help: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
             HStack {
-                Text(value).font(DS.Typeface.bodySmall).lineLimit(1)
+                Text(value).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).lineLimit(1)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.down").font(.system(size: 8)).foregroundStyle(DS.Palette.tertiaryLabel)
             }
             .padding(.horizontal, 8)
             .frame(width: width, height: 24)
             .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
         }
-        .help(bi("Chỉnh sửa có ở Phase E", "Editing available in Phase E"))
+        .help(help)
+    }
+
+    private func dropdownMenu<Content: View>(
+        label: String,
+        value: String,
+        width: CGFloat,
+        disabled: Bool,
+        help: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+            Menu {
+                content()
+            } label: {
+                HStack {
+                    Text(value).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.label).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down").font(.system(size: 8)).foregroundStyle(DS.Palette.tertiaryLabel)
+                }
+                .padding(.horizontal, 8)
+                .frame(width: width, height: 24)
+                .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .disabled(disabled)
+            .opacity(disabled ? 0.5 : 1)
+        }
+        .help(help)
+    }
+
+    private func quickFormatButton(_ symbol: String, active: Bool, enabled: Bool, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(symbol)
+                .font(DS.Typeface.label)
+                .foregroundStyle(active ? DS.Palette.accent : DS.Palette.label)
+                .frame(width: 26, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(active ? DS.Palette.selectionSoft : DS.Palette.chrome)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.45)
+        .help(help)
+    }
+}
+
+private struct ColumnRibbonNameField: View {
+    let state: DocumentState
+    let column: ModelMetadata.Column?
+    let disabledTip: String
+    @State private var draft = ""
+
+    var body: some View {
+        let canEdit = column != nil && state.modelEditingBlocker == nil
+        VStack(alignment: .leading, spacing: 3) {
+            Text(bi("TÊN", "NAME")).font(DS.Typeface.labelSmall).foregroundStyle(DS.Palette.tertiaryLabel)
+            if canEdit, let col = column {
+                TextField(bi("Tên cột", "Column name"), text: $draft)
+                    .textFieldStyle(.plain)
+                    .font(DS.Typeface.bodySmall)
+                    .padding(.horizontal, 8)
+                    .frame(width: 150, height: 24)
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
+                    .onAppear { draft = col.name }
+                    .onChange(of: col.id) { _, _ in draft = col.name }
+                    .onChange(of: col.name) { _, newValue in draft = newValue }
+                    .onSubmit {
+                        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty, trimmed != col.name else { draft = col.name; return }
+                        if let reason = state.updateColumn(table: col.tableName, name: col.name, patch: ColumnPatch(name: trimmed)) {
+                            state.layout.noteFieldRefusal(reason)
+                            draft = col.name
+                        }
+                    }
+                    .help(bi("Nhấn Enter để đổi tên cột", "Press Enter to rename column"))
+            } else {
+                Text(column?.name ?? bi("Chọn một cột", "Select a column"))
+                    .font(DS.Typeface.bodySmall)
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .frame(width: 150, height: 24, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.chrome))
+                    .help(disabledTip)
+            }
+        }
     }
 }
 

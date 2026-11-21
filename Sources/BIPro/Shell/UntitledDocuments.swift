@@ -46,14 +46,18 @@ enum UntitledDocuments {
         }
     }
 
-    /// Lệnh "Mới" (⌘N): tạo và mở trong cửa sổ mới.
+    /// Lệnh "Mới" (⌘N) hoặc mở cửa sổ mặc định lúc khởi động: tạo tài liệu trống và đưa cửa sổ lên trước.
     @MainActor static func openNew() {
+        DocumentOpenTracker.markOpened()
         do {
             let url = try create()
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error {
                     _ = Alerts.ask("Không mở được tài liệu mới", error.localizedDescription, buttons: ["Đóng"], style: .critical)
+                    return
                 }
+                NSApp.activate(ignoringOtherApps: true)
+                document?.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
             }
         } catch {
             _ = Alerts.ask("Không tạo được tài liệu mới", "\(error)", buttons: ["Đóng"], style: .critical)

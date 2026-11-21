@@ -49,6 +49,7 @@ struct PBIXDocument: FileDocument {
     let workspace: Workspace
 
     init(configuration: ReadConfiguration) throws {
+        DocumentOpenTracker.markOpened()
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }

@@ -150,12 +150,114 @@ final class DocumentRegistry {
     var dirtyDocuments: [DocumentState] { boxes.compactMap(\.state).filter { $0.layout.isDirty } }
 }
 
-// MARK: - Uỷ quyền ứng dụng: hỏi lưu khi thoát
+// MARK: - Theo dõi mở tài liệu lúc khởi động
+
+/// Ghi nhận ứng dụng đã bắt đầu mở ít nhất một tài liệu (để tránh mở thêm cửa sổ trống thừa khi khởi động kèm file `.pbix`).
+enum DocumentOpenTracker {
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var opened = false
+
+    static var hasStartedOpening: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return opened
+    }
+
+    static func markOpened() {
+        lock.lock()
+        opened = true
+        lock.unlock()
+    }
+
+    static func resetForTesting() {
+        lock.lock()
+        opened = false
+        lock.unlock()
+    }
+}
+
+/// Quyết định tự mở tài liệu trống khi khởi động app trực tiếp (không kèm `.pbix`) hoặc bấm lại biểu tượng trên Dock lúc không có cửa sổ nào.
+enum AppLaunchPolicy {
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || NSClassFromString("XCTestCase") != nil
+    }
+
+    static func shouldOpenUntitledOnLaunch(
+        isDefaultLaunch: Bool,
+        hasStartedOpening: Bool,
+        openDocumentsCount: Int,
+        hasVisibleWindow: Bool,
+        isRunningTests: Bool = isRunningTests
+    ) -> Bool {
+        !isRunningTests && isDefaultLaunch && !hasStartedOpening && openDocumentsCount == 0 && !hasVisibleWindow
+    }
+
+    static func shouldOpenUntitledOnReopen(
+        hasVisibleWindowsFlag: Bool,
+        openDocumentsCount: Int,
+        hasVisibleWindow: Bool,
+        isRunningTests: Bool = isRunningTests
+    ) -> Bool {
+        !isRunningTests && !hasVisibleWindowsFlag && openDocumentsCount == 0 && !hasVisibleWindow
+    }
+
+    @MainActor
+    static func hasVisiblePrimaryWindow(in windows: [NSWindow]? = nil) -> Bool {
+        let list = windows ?? NSApp.windows
+        return list.contains { $0.isVisible && ($0.canBecomeMain || $0 is NSOpenPanel) }
+    }
+}
+
+// MARK: - Uỷ quyền ứng dụng: khởi động cửa sổ mặc định & hỏi lưu khi thoát
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let isDefaultLaunch = (notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? NSNumber)?.boolValue ?? true
         MainActor.assumeIsolated {
             AppPreferences.shared.applyAppearance()
+            // `DocumentGroup(viewing:)` trên macOS không tự mở cửa sổ mới khi chạy app trực tiếp (không kèm file `.pbix`).
+            // Chỉ mở tài liệu mới khi `launchIsDefaultUserInfoKey == true` (không chạy khi mở kèm file từ Finder/`open -a`).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                let openCount = NSDocumentController.shared.documents.count
+                let visible = AppLaunchPolicy.hasVisiblePrimaryWindow()
+                if AppLaunchPolicy.shouldOpenUntitledOnLaunch(
+                    isDefaultLaunch: isDefaultLaunch,
+                    hasStartedOpening: DocumentOpenTracker.hasStartedOpening,
+                    openDocumentsCount: openCount,
+                    hasVisibleWindow: visible
+                ) {
+                    UntitledDocuments.openNew()
+                }
+            }
+        }
+    }
+
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        !AppLaunchPolicy.isRunningTests
+    }
+
+    func applicationOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        guard !AppLaunchPolicy.isRunningTests else { return false }
+        MainActor.assumeIsolated {
+            UntitledDocuments.openNew()
+        }
+        return true
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainActor.assumeIsolated {
+            let openCount = NSDocumentController.shared.documents.count
+            let visible = AppLaunchPolicy.hasVisiblePrimaryWindow()
+            if AppLaunchPolicy.shouldOpenUntitledOnReopen(
+                hasVisibleWindowsFlag: flag,
+                openDocumentsCount: openCount,
+                hasVisibleWindow: visible
+            ) {
+                UntitledDocuments.openNew()
+                return false
+            }
+            return true
         }
     }
 

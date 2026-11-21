@@ -87,7 +87,7 @@ enum FieldEditor {
         if !others.contains(field.queryRef) {
             let refs = references(field)
             if let first = refs.first {
-                return .refused("Chưa bỏ được \"\(field.label)\": \(first.reason). Xử lý ở lát sau, chưa kiểm với Power BI Desktop.")
+                return .refused("Chưa bỏ được \"\(field.label)\": \(first.reason). Hãy đổi sắp xếp của visual sang trường khác trước.")
             }
         }
         var result = wells
