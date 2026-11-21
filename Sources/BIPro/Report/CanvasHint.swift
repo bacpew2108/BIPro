@@ -16,10 +16,10 @@ struct CanvasHint: View {
             Image(systemName: "chart.bar.doc.horizontal")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(DS.Palette.accent)
-            Text(tr(.canvasHintTitle)).font(.system(size: 22, weight: .semibold)).foregroundStyle(DS.Palette.label)
+            Text(tr(.canvasHintTitle)).font(.system(size: 22, weight: .semibold)).foregroundStyle(DS.Palette.paperLabel)
             Text(tr(.canvasHintSubtitle))
                 .font(.system(size: 15))
-                .foregroundStyle(DS.Palette.secondaryLabel)
+                .foregroundStyle(DS.Palette.paperSecondaryLabel)
         }
         .padding(24)
         .allowsHitTesting(false)

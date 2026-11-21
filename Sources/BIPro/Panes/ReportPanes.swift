@@ -252,7 +252,7 @@ struct VisualizationsPane: View {
                 .frame(width: 32, height: 28)
                 .background(RoundedRectangle(cornerRadius: 5).fill(selected ? DS.Palette.accent : DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: selected ? 0 : 1))
-                .opacity(enabled || selected ? 1 : 0.4)
+                .opacity(enabled || selected ? 1 : 0.62)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -17,13 +17,21 @@ enum DS {
         static let canvas = Color.dynamic(light: 0xFFFFFF, dark: 0x2C2C2E)
         /// Nền giấy cố định của trang báo cáo `.pbix` (luôn sáng để giữ nguyên màu tác giả — FR-013).
         static let documentPaper = Color.white
+        /// Nhãn, thẻ và viền vẽ trực tiếp lên giấy báo cáo `.pbix` (luôn tương phản cao trên nền trắng kể cả ở Dark Mode).
+        static let paperLabel = Color(hex: "#1C1C1E")!
+        static let paperSecondaryLabel = Color(hex: "#515155")!
+        static let paperTertiaryLabel = Color(hex: "#6E6E73")!
+        static let paperCard = Color(hex: "#FFFFFF")!
+        static let paperCardDisabled = Color(hex: "#F4F4F6")!
+        static let paperBorder = Color(hex: "#D1D1D6")!
+        static let paperLink = Color(hex: "#0066CC")!
 
-        static let separator = Color.dynamic(light: 0xE5E5EA, dark: 0x3A3A3C)
+        static let separator = Color.dynamic(light: 0xE5E5EA, dark: 0x454549)
         static let label = Color.dynamic(light: 0x1C1C1E, dark: 0xF5F5F7)
-        static let secondaryLabel = Color.dynamic(light: 0x636366, dark: 0xAEAEB2)
-        static let tertiaryLabel = Color.dynamic(light: 0x8E8E93, dark: 0x6E6E73)
-        static let controlFill = Color.dynamic(light: 0x767680, lightAlpha: 0.12, dark: 0x767680, darkAlpha: 0.24)
-        static let searchFill = Color.dynamic(light: 0x767680, lightAlpha: 0.08, dark: 0x767680, darkAlpha: 0.20)
+        static let secondaryLabel = Color.dynamic(light: 0x636366, dark: 0xC7C7CC)
+        static let tertiaryLabel = Color.dynamic(light: 0x8E8E93, dark: 0x9A9AA0)
+        static let controlFill = Color.dynamic(light: 0x767680, lightAlpha: 0.12, dark: 0x767680, darkAlpha: 0.26)
+        static let searchFill = Color.dynamic(light: 0x767680, lightAlpha: 0.08, dark: 0x8E8E93, darkAlpha: 0.22)
         static let selectionSoft = Color.dynamic(light: 0x0A84FF, lightAlpha: 0.12, dark: 0x0A84FF, darkAlpha: 0.24)
         static let success = Color(hex: "#34C759")!
         static let warning = Color(hex: "#FF9F0A")!
