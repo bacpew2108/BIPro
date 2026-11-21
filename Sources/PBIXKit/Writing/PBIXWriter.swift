@@ -474,6 +474,9 @@ public enum PBIXWriter {
             for case .setModelAnnotation(let name, _) in changes.allModelEdits.items where model.modelAnnotations[name] != expected.modelAnnotations[name] {
                 throw WriteError.verificationFailed("model annotation \(name) does not read back")
             }
+            guard model.roleDefinitions.sorted(by: { $0.name < $1.name }) == expected.roleDefinitions.sorted(by: { $0.name < $1.name }) else {
+                throw WriteError.verificationFailed("roles read back differ from the edited model")
+            }
             // Cột `INDEX` của bảng hệ thống `R$` (chỉ mục quan hệ) không thuộc mô hình hiệu lực.
             // Bảng mới (T3): ID do bộ ghi cấp và có thêm cột RowNumber, bảng `H$`; so theo tên, kiểu, ẩn và cách tổng hợp.
             let sourceTables = Set(oldModel.tables.map(\.name))

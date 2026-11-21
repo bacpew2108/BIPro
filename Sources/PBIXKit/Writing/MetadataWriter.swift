@@ -762,6 +762,10 @@ extension MetadataWriter {
                 if let hidden = patch.isHidden {
                     try db.run("UPDATE [Table] SET IsHidden = ?, ModifiedTime = ? WHERE ID = ?", [.int(hidden ? 1 : 0), .int(now), .int(Int64(id))])
                 }
+                let dc = Self.assignment(patch.dataCategory)
+                if dc.set {
+                    try db.run("UPDATE [Table] SET DataCategory = ?, ModifiedTime = ? WHERE ID = ?", [dc.value, .int(now), .int(Int64(id))])
+                }
                 try Self.setTableFlags(db, tableID: Int64(id), isPrivate: patch.isPrivate, showAsVariationsOnly: patch.showAsVariationsOnly,
                                        annotations: patch.annotations, now: now)
                 guard patch != TablePatch() else { return }
@@ -824,6 +828,10 @@ extension MetadataWriter {
             try transaction { db, now in try Self.dropVariation(db, table: table, column: column, now: now) }
         case .setModelAnnotation(let name, let value):
             try setModelAnnotation(name: name, value: value)
+        case .upsertRole(let previousName, let role):
+            try transaction { db, now in try Self.upsertRole(db, previousName: previousName, role: role, now: now) }
+        case .deleteRole(let name):
+            try transaction { db, now in try Self.deleteRole(db, name: name, now: now) }
         case .deleteRelationship(let name):
             var removed: [String] = []
             try transaction { db, now in removed = try Self.deleteRelationship(db, name: name, now: now) }
@@ -1371,6 +1379,10 @@ extension MetadataWriter {
             sets.append("ExplicitName = ?"); values.append(.text(renamed))
         }
         if let hidden = patch.isHidden { sets.append("IsHidden = ?"); values.append(.int(hidden ? 1 : 0)) }
+        if let isKey = patch.isKey {
+            sets.append("IsKey = ?"); values.append(.int(isKey ? 1 : 0))
+            sets.append("IsUnique = ?"); values.append(.int(isKey ? 1 : 0))
+        }
         if let summarize = patch.summarizeBy {
             guard (1...8).contains(summarize) else { throw WriteError.invalid("kiểu tổng hợp không hợp lệ") }
             sets.append("SummarizeBy = ?"); values.append(.int(Int64(summarize)))
@@ -1393,6 +1405,62 @@ extension MetadataWriter {
         sets.append("ModifiedTime = ?"); values.append(.int(now))
         values.append(.int(Int64(id)))
         try db.run("UPDATE [Column] SET \(sets.joined(separator: ", ")) WHERE ID = ?", values)
+        try bumpProperties(db, now)
+    }
+
+    /// Ghi hoặc cập nhật vai trò RLS (`[Role]` + `[TablePermission]`, khớp Desktop 2.159: `ModelPermission = 2`, `State = 1`, `MetadataPermission = 0`).
+    private static func upsertRole(_ db: MetadataDatabase, previousName: String?, role: ModelMetadata.RoleDefinition, now: Int64) throws {
+        let trimmed = role.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains("\0") else { throw WriteError.invalid("tên vai trò không hợp lệ") }
+        let modelID = try db.int("SELECT ID FROM Model ORDER BY ID LIMIT 1") ?? 1
+        let lookupName = previousName ?? trimmed
+        let existingID = try db.int("SELECT ID FROM [Role] WHERE Name = ? COLLATE NOCASE LIMIT 1", [.text(lookupName)])
+        let roleID: Int64
+        if let existingID {
+            let clash = try db.int("SELECT COUNT(*) FROM [Role] WHERE Name = ? COLLATE NOCASE AND ID <> ?",
+                                   [.text(trimmed), .int(existingID)]) ?? 0
+            guard clash == 0 else { throw WriteError.invalid("mô hình đã có vai trò tên '\(trimmed)'") }
+            try db.run("UPDATE [Role] SET Name = ?, Description = ?, ModelPermission = ?, ModifiedTime = ? WHERE ID = ?",
+                       [.text(trimmed), role.description.map(MetadataDatabase.Value.text) ?? .null,
+                        .int(Int64(role.modelPermission)), .int(now), .int(existingID)])
+            try db.run("DELETE FROM [TablePermission] WHERE RoleID = ?", [.int(existingID)])
+            roleID = existingID
+        } else {
+            let clash = try db.int("SELECT COUNT(*) FROM [Role] WHERE Name = ? COLLATE NOCASE", [.text(trimmed)]) ?? 0
+            guard clash == 0 else { throw WriteError.invalid("mô hình đã có vai trò tên '\(trimmed)'") }
+            let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+            guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+            roleID = Int64(stored + 1)
+            try db.run("INSERT INTO [Role] (ID, ModelID, Name, Description, ModelPermission, ModifiedTime) VALUES (?, ?, ?, ?, ?, ?)",
+                       [.int(roleID), .int(modelID), .text(trimmed),
+                        role.description.map(MetadataDatabase.Value.text) ?? .null,
+                        .int(Int64(role.modelPermission)), .int(now)])
+            try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(roleID)])
+        }
+
+        for tp in role.tablePermissions {
+            let expr = tp.filterExpression.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !expr.isEmpty else { continue }
+            let tableID = try db.userTableID(named: tp.tableName)
+            let stored = try db.storedMaxID(), actual = try db.actualMaxID()
+            guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+            let permID = Int64(stored + 1)
+            try db.run("""
+                INSERT INTO [TablePermission] (ID, RoleID, TableID, FilterExpression, ModifiedTime, State, ErrorMessage, MetadataPermission)
+                VALUES (?, ?, ?, ?, ?, 1, NULL, 0)
+                """, [.int(permID), .int(roleID), .int(Int64(tableID)), .text(expr), .int(now)])
+            try db.run("UPDATE DBPROPERTIES SET VALUE = ? WHERE NAME = 'MAXID'", [.int(permID)])
+        }
+        try bumpProperties(db, now)
+    }
+
+    /// Xoá vai trò RLS cùng mọi `[TablePermission]` của nó.
+    private static func deleteRole(_ db: MetadataDatabase, name: String, now: Int64) throws {
+        guard let roleID = try db.int("SELECT ID FROM [Role] WHERE Name = ? COLLATE NOCASE LIMIT 1", [.text(name)]) else {
+            throw WriteError.invalid("không có vai trò '\(name)'")
+        }
+        try db.run("DELETE FROM [TablePermission] WHERE RoleID = ?", [.int(roleID)])
+        try db.run("DELETE FROM [Role] WHERE ID = ?", [.int(roleID)])
         try bumpProperties(db, now)
     }
 

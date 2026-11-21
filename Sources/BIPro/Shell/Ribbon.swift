@@ -52,7 +52,7 @@ struct RibbonView: View {
         case (_, .modeling): ModelingCommands(state: state)
         case (.report, .view): ReportViewCommands(state: state)
         case (.report, .format): FormatCommands(state: state)
-        case (.report, .dataDrill): DataDrillCommands()
+        case (.report, .dataDrill): DataDrillCommands(state: state)
         case (.table, .home): DataSourceCommands(state: state)
         case (.table, .tableTools): TableToolsCommands(state: state)
         case (.table, .columnTools): ColumnToolsCommands(state: state)
@@ -77,7 +77,15 @@ private struct DataSourceCommands: View {
                          disabledReason: state.getDataBlocker) { state.showGetData() }
             RibbonButton(title: tr(.ribbonExcel), symbol: "tablecells.badge.ellipsis", tint: DS.Palette.success,
                          disabledReason: state.getDataBlocker) { state.showGetData(kind: .excel) }
-            RibbonButton(title: "SQL", symbol: "server.rack", tint: DS.Palette.indigo, phase: "Phase F")
+            Menu {
+                Button("PostgreSQL…") { state.showGetData(kind: .postgres) }
+                Button("SQLite…") { state.showGetData(kind: .sqlite) }
+            } label: {
+                RibbonButton(title: "SQL", symbol: "server.rack", tint: DS.Palette.indigo,
+                             disabledReason: state.getDataBlocker)
+            }
+            .menuStyle(.borderlessButton)
+            .disabled(state.getDataBlocker != nil)
             RibbonButton(title: tr(.ribbonEnterData), symbol: "square.and.pencil",
                          disabledReason: state.enterDataBlocker) { state.showEnterData() }
         }
@@ -98,7 +106,10 @@ private struct CalculationCommands: View {
             RibbonButton(title: tr(.ribbonNewMeasure), symbol: "function", tint: DS.Palette.measure) {
                 if let table = state.table ?? state.workspace.userTables.first?.name { state.newMeasureInTableView(table: table) }
             }
-            RibbonButton(title: bi("Measure nhanh", "Quick measure"), symbol: "bolt", tint: DS.Palette.measure, phase: "Phase E")
+            RibbonButton(title: bi("Measure nhanh", "Quick measure"), symbol: "bolt", tint: DS.Palette.measure,
+                         disabledReason: state.modelEditingBlocker ?? ((state.workspace.metadata?.measures.isEmpty ?? true) ? bi("Cần ít nhất 1 measure gốc", "Requires at least 1 base measure") : nil)) {
+                state.showQuickMeasureSheet = true
+            }
         }
     }
 }
@@ -106,12 +117,34 @@ private struct CalculationCommands: View {
 private struct ReportHomeCommands: View {
     let state: DocumentState
     var body: some View {
+        let canEdit = state.editMode && state.canEditCanvas
+        let hasSel = canEdit && !state.layout.selection.isEmpty
+        let canPaint = canEdit && state.layout.selection.count == 1
         RibbonGroup(title: bi("Bảng nhớ tạm", "Clipboard")) {
-            RibbonButton(title: bi("Dán", "Paste"), symbol: "doc.on.clipboard", phase: "Phase D")
+            RibbonButton(title: bi("Dán", "Paste"), symbol: "doc.on.clipboard",
+                         disabledReason: !canEdit ? bi("Bật chế độ Sửa (⌘E)", "Enable Edit mode (⌘E)") : (state.layout.hasClipboard ? nil : bi("Chưa sao chép visual nào", "Clipboard is empty"))) {
+                _ = state.layout.paste()
+                state.visualID = state.layout.primary
+            }
             RibbonStack {
-                RibbonButton(title: bi("Cắt", "Cut"), symbol: "scissors", size: .small, phase: "Phase D")
-                RibbonButton(title: bi("Sao chép", "Copy"), symbol: "doc.on.doc", size: .small, phase: "Phase D")
-                RibbonButton(title: bi("Sao định dạng", "Format painter"), symbol: "paintbrush", size: .small, phase: "Phase D")
+                RibbonButton(title: bi("Cắt", "Cut"), symbol: "scissors", size: .small,
+                             disabledReason: hasSel ? nil : bi("Chọn visual ở chế độ Sửa", "Select a visual in Edit mode")) {
+                    state.layout.cut()
+                    state.visualID = state.layout.primary
+                }
+                RibbonButton(title: bi("Sao chép", "Copy"), symbol: "doc.on.doc", size: .small,
+                             disabledReason: hasSel ? nil : bi("Chọn visual ở chế độ Sửa", "Select a visual in Edit mode")) {
+                    state.layout.copy()
+                }
+                RibbonButton(title: bi("Sao định dạng", "Format painter"), symbol: "paintbrush", size: .small,
+                             isOn: state.layout.isFormatPainterActive,
+                             disabledReason: (canPaint || state.layout.isFormatPainterActive) ? nil : bi("Chọn 1 visual nguồn ở chế độ Sửa", "Select 1 source visual in Edit mode")) {
+                    if state.layout.isFormatPainterActive {
+                        state.layout.cancelFormatPainter()
+                    } else {
+                        state.layout.beginFormatPainter()
+                    }
+                }
             }
         }
         RibbonDivider()
@@ -253,8 +286,15 @@ private struct ModelingCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: bi("Bảo mật", "Security")) {
-            RibbonButton(title: bi("Quản lý vai trò", "Manage roles"), symbol: "person.badge.shield.checkmark", phase: "sau v1")
-            RibbonButton(title: bi("Xem dưới vai trò", "View as"), symbol: "eye", phase: "sau v1")
+            RibbonButton(title: bi("Quản lý vai trò", "Manage roles"), symbol: "person.badge.shield.checkmark", tint: DS.Palette.accent,
+                         disabledReason: state.modelEditingBlocker) {
+                state.showManageRolesSheet = true
+            }
+            RibbonButton(title: bi("Xem dưới vai trò", "View as"), symbol: "eye", tint: DS.Palette.warning,
+                         isOn: !state.interaction.activeRLSRoles.isEmpty,
+                         disabledReason: state.workspace.metadata == nil ? bi("File không có mô hình", "No data model") : nil) {
+                state.showViewAsRoleSheet = true
+            }
         }
     }
 }
@@ -271,7 +311,7 @@ private struct HelpCommands: View {
         .popover(isPresented: $showAbout) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("BI Pro").font(DS.Typeface.headlineLarge).foregroundStyle(DS.Palette.label)
-                Text(bi("Phiên bản 1.0.0 · macOS Native", "Version 1.0.0 · macOS Native"))
+                Text(bi("Phiên bản 1.2.0 · macOS Native", "Version 1.2.0 · macOS Native"))
                     .font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
                 Text(bi("Mở, chỉnh sửa và lưu .pbix (PBIR & Layout cũ), chạy DAX và Power Query native trên Apple Silicon.",
                         "Open, author, and save .pbix (PBIR & legacy Layout) with native VertiPaq, DAX, and Power Query on Apple Silicon."))
@@ -349,15 +389,37 @@ private struct FormatCommands: View {
 }
 
 private struct DataDrillCommands: View {
+    let state: DocumentState
     var body: some View {
+        let page = state.page
+        let visual = state.visual
+        let spec = visual.flatMap { state.interaction.loadedSpecs[$0.id] }
+        let depth = visual.map { state.interaction.depth(of: $0) } ?? 0
+        let maxLevels = spec?.drillLevels.count ?? 0
+        let canUp = page != nil && visual != nil && depth > 0
+        let canDown = visual != nil && spec != nil && depth + 1 < maxLevels
+        let hasData = visual.flatMap { state.interaction.loadedDataViews[$0.id] } != nil
+
         RibbonGroup(title: bi("Truy sâu", "Drill")) {
-            RibbonButton(title: bi("Lên một cấp", "Drill up"), symbol: "arrow.up", phase: "Phase C")
-            RibbonButton(title: bi("Xuống một cấp", "Drill down"), symbol: "arrow.down", phase: "Phase C")
-            RibbonButton(title: bi("Mở rộng cấp", "Expand next level"), symbol: "arrow.down.right.and.arrow.up.left", phase: "Phase C")
+            RibbonButton(title: bi("Lên một cấp", "Drill up"), symbol: "arrow.up",
+                         disabledReason: canUp ? nil : bi("Visual đang ở cấp cao nhất", "Visual is at the top level")) {
+                if let page, let visual { state.interaction.drillUp(page: page, visual: visual) }
+            }
+            RibbonButton(title: bi("Xuống một cấp", "Drill down"), symbol: "arrow.down",
+                         disabledReason: canDown ? nil : bi("Visual không có cấp phân cấp kế tiếp", "No deeper drill level")) {
+                if let visual, let spec { state.interaction.nextLevel(visual: visual, spec: spec) }
+            }
+            RibbonButton(title: bi("Mở rộng cấp", "Expand next level"), symbol: "arrow.down.right.and.arrow.up.left",
+                         disabledReason: canDown ? nil : bi("Visual không có cấp phân cấp kế tiếp", "No deeper drill level")) {
+                if let visual, let spec { state.interaction.nextLevel(visual: visual, spec: spec) }
+            }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Dữ liệu", "Data")) {
-            RibbonButton(title: bi("Xem dữ liệu", "Show as a table"), symbol: "tablecells", phase: "Phase C")
+            RibbonButton(title: bi("Xem dữ liệu", "Show as a table"), symbol: "tablecells", tint: DS.Palette.accent,
+                         disabledReason: hasData ? nil : bi("Chọn một visual đã có số liệu", "Select a data visual")) {
+                if let visual { state.showDataTableVisualID = visual.id }
+            }
         }
     }
 }
@@ -376,7 +438,14 @@ private struct TableToolsCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: bi("Lịch", "Calendars")) {
-            RibbonButton(title: bi("Đánh dấu bảng ngày", "Mark as date table"), symbol: "calendar", phase: "Phase E")
+            let isDateTable = state.table.flatMap { name in
+                state.workspace.metadata?.tables.first { $0.name == name }?.dataCategory?.caseInsensitiveCompare("Time") == .orderedSame
+            } ?? false
+            RibbonButton(title: bi("Đánh dấu bảng ngày", "Mark as date table"), symbol: "calendar",
+                         tint: DS.Palette.accent, isOn: isDateTable,
+                         disabledReason: state.modelEditingBlocker ?? (state.table == nil ? bi("Chọn một bảng", "Select a table") : nil)) {
+                state.showMarkDateTableSheet = true
+            }
         }
         RibbonDivider()
         RibbonGroup(title: bi("Quan hệ", "Relationships")) {
@@ -525,7 +594,10 @@ private struct DAXHomeCommands: View {
             } else {
                 RibbonButton(title: tr(.ribbonRunQuery), symbol: "play.fill", tint: DS.Palette.accent, phase: bi("cần mô hình dữ liệu", "requires data model"))
             }
-            RibbonButton(title: bi("Định dạng", "Format"), symbol: "text.alignleft", phase: "UI4")
+            RibbonButton(title: bi("Định dạng", "Format"), symbol: "text.alignleft",
+                         disabledReason: state.daxQueries.indices.contains(state.daxSelection) ? nil : bi("Chưa mở tab truy vấn", "No active query tab")) {
+                state.formatActiveDAXQuery()
+            }
             RibbonButton(title: bi("Truy vấn mới", "New query"), symbol: "plus.rectangle.on.rectangle", tint: DS.Palette.accent) {
                 state.daxQueries.append(DAXQueryTab(title: "\(bi("Truy vấn", "Query")) \(state.daxQueries.count + 1)", text: "EVALUATE\n"))
                 state.daxSelection = state.daxQueries.count - 1
@@ -533,7 +605,10 @@ private struct DAXHomeCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: bi("Mô hình", "Model")) {
-            RibbonButton(title: bi("Cập nhật mô hình", "Update model"), symbol: "arrow.triangle.2.circlepath", phase: "Phase E")
+            RibbonButton(title: bi("Cập nhật mô hình", "Update model"), symbol: "arrow.triangle.2.circlepath", tint: DS.Palette.measure,
+                         disabledReason: state.modelEditingBlocker) {
+                state.prepareDAXUpdateModel()
+            }
         }
     }
 }
@@ -552,7 +627,10 @@ private struct TMDLHomeCommands: View {
         }
         RibbonDivider()
         RibbonGroup(title: tr(.ribbonApply)) {
-            RibbonButton(title: bi("Áp dụng thay đổi", "Apply changes"), symbol: "checkmark.circle", phase: "Phase E")
+            RibbonButton(title: bi("Áp dụng thay đổi", "Apply changes"), symbol: "checkmark.circle", tint: DS.Palette.accent,
+                         disabledReason: state.modelEditingBlocker ?? (state.tmdlHasPendingChanges ? nil : bi("Chưa có thay đổi TMDL nào", "No pending TMDL edits"))) {
+                state.tmdlApplyRequestToken += 1
+            }
         }
     }
 

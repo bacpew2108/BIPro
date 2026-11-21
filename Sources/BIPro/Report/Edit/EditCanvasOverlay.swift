@@ -219,6 +219,17 @@ struct EditCanvasOverlay: View {
         onInteract()
         let extend = NSEvent.modifierFlags.contains(.shift)
         let hit = editor.hitTarget(x: Int(point.x), y: Int(point.y), isHidden: isHidden)
+        if editor.isFormatPainterActive {
+            if let hit {
+                _ = editor.applyFormatPainter(to: hit)
+                editor.select(hit)
+                onSelectionChange()
+            } else {
+                editor.cancelFormatPainter()
+            }
+            drag = .ignored
+            return
+        }
         if var hit {
             var deferred: String?
             // Nhóm đang chọn (và chỉ nhóm đó): bấm vào phần tử bên trong thì kéo vẫn dời nhóm, chọn phần tử đó khi thả nếu

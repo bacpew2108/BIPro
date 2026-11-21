@@ -218,6 +218,13 @@ Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào bá
 - [x] **3B (CF, Analytics & Theme):** Conditional Formatting (Rules/Gradient/Field value/Data Bars), Analytics Pane (Constant/Average/Min/Max + Trend/Forecast), Theme Switcher (6 preset + Nhập/Xuất JSON + `RegisteredResources` + Undo/Redo).
 - [x] **3C (Refresh, Cascade Rename & PQ Extra):** One-Click Refresh (`⇧⌘R`, giữ quan hệ/measure/visual & dữ liệu cũ khi lỗi), Cascade Rename bảng/cột/measure đang dùng (DAX token + PBIR + ⌘Z), Power Query Extra Transforms (Split nâng cao, Fill Down/Up, Replace Errors, Extract, Date).
 
+### Đợt 4 (v1.2): Mở khoá toàn bộ Ribbon, RLS, Mark as Date Table, Quick Measures & Công cụ DAX/TMDL ✅ 2026-11-21
+> **Đạt cổng Desktop 2.159 (2026-11-21)**: Spec Kit `specs/015-v12-hoan-thien-chuyen-nghiep/`, bằng chứng `docs/phase-v12-evidence/vm-v12/` (`QUAN-SAT.md`, `gate-desktop.png` 0 lỗi), số đo `specs/015-v12-hoan-thien-chuyen-nghiep/measurements.md`.
+- [x] **Nền tảng `PBIXKit` & `DAXEngine`:** Ghi/đọc `[Role]` + `[TablePermission]` (RLS) và `DataCategory = 'Time'` + `IsKey = 1` (Mark as Date Table) khớp 100% Desktop 2.159; bộ định dạng `DAXEngine.format(_:)` thuần Swift.
+- [x] **4A (Report & Data/Drill):** Cut/Copy/Paste visual (cùng trang & sang trang khác, `⌘X`/`⌘C`/`⌘V`), Format Painter trên canvas, mở khoá tab **Data / Drill** (*Drill up*, *Drill down*, *Expand next level*, *Show as a table* + Xuất CSV).
+- [x] **4B (Mô hình hoá & RLS):** **Quick Measures** (8 mẫu chuẩn Power BI), **Mark as Date Table** (kiểm cột ngày duy nhất/không trống), **Manage Roles** (lưu T2) & **View As** (dải vàng + tự tiêm lọc RLS vào DAX), **DataPane** Hide/Unhide bảng/cột & Unhide All.
+- [x] **4C (DAX / TMDL / SQL & v1.2.0):** DAX Formatter & DAX Update Model (`DEFINE MEASURE` theo lô), nút Áp dụng trên Ribbon TMDL View, menu kết nối nhanh SQL (PostgreSQL / SQLite), đóng gói `build/BI Pro.app` **v1.2.0**.
+
 ### Mốc thời gian
 | Mốc | Gồm | Tích luỹ |
 |---|---|---|

@@ -281,7 +281,11 @@ struct TMDLWorkspace: View {
             }
         }
         .background(DS.Palette.canvas)
-        .onChange(of: state.modelVersion) { _, _ in drafts = [:]; issues = [] }
+        .onChange(of: state.modelVersion) { _, _ in drafts = [:]; issues = []; state.tmdlHasPendingChanges = false }
+        .onChange(of: drafts) { _, _ in state.tmdlHasPendingChanges = changed }
+        .onChange(of: state.tmdlApplyRequestToken) { _, _ in
+            if changed && state.modelEditingBlocker == nil { apply() }
+        }
     }
 
     private var changed: Bool {

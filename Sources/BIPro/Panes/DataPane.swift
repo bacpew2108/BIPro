@@ -250,7 +250,10 @@ struct DataPane: View {
                     onRename: purpose != .query && state.modelEditingBlocker == nil
                         ? { state.requestCascadeRename(.table(old: table.name, new: table.name)) } : nil,
                     onDelete: purpose != .query && state.modelEditingBlocker == nil && table.isCalculatedUserTable
-                        ? { deleting = PendingDeletion(table: table.name, column: nil) } : nil
+                        ? { deleting = PendingDeletion(table: table.name, column: nil) } : nil,
+                    onToggleHidden: purpose != .query && state.modelEditingBlocker == nil
+                        ? { state.setTableHidden(table.name, hidden: !table.isHidden) } : nil,
+                    hiddenTitle: table.isHidden ? bi("Hiện trong chế độ báo cáo", "Unhide in report view") : bi("Ẩn trong chế độ báo cáo", "Hide in report view")
                 )
             }
             if isOpen {
@@ -335,7 +338,9 @@ struct DataPane: View {
                     onDelete: purpose != .query && state.modelEditingBlocker == nil ? { state.deleteMeasure(table: table, name: m.name) } : nil,
                     onToggleHidden: purpose != .query && state.modelEditingBlocker == nil
                         ? { state.updateMeasure(table: table, name: m.name, patch: MeasurePatch(isHidden: !m.isHidden)) } : nil,
-                    hiddenTitle: m.isHidden ? bi("Hiện trong chế độ báo cáo", "Unhide in report view") : bi("Ẩn trong chế độ báo cáo", "Hide in report view")
+                    hiddenTitle: m.isHidden ? bi("Hiện trong chế độ báo cáo", "Unhide in report view") : bi("Ẩn trong chế độ báo cáo", "Hide in report view"),
+                    onUnhideAll: purpose != .query && state.modelEditingBlocker == nil
+                        ? { _ = state.unhideAllModelItems() } : nil
                 )
             })
         case .column(let c):
@@ -375,7 +380,10 @@ struct DataPane: View {
                     onRename: purpose != .query && state.modelEditingBlocker == nil
                         ? { state.requestCascadeRename(.column(table: table, old: c.name, new: c.name)) } : nil,
                     onDelete: purpose != .query && state.modelEditingBlocker == nil && c.kind == .calculated
-                        ? { deleting = PendingDeletion(table: table, column: c.name) } : nil
+                        ? { deleting = PendingDeletion(table: table, column: c.name) } : nil,
+                    onToggleHidden: purpose != .query && state.modelEditingBlocker == nil
+                        ? { _ = state.updateColumn(table: table, name: c.name, patch: ColumnPatch(isHidden: !c.isHidden)) } : nil,
+                    hiddenTitle: c.isHidden ? bi("Hiện trong chế độ báo cáo", "Unhide in report view") : bi("Ẩn trong chế độ báo cáo", "Hide in report view")
                 )
             }
             guard let dateHierarchy, expanded.contains(dateKey) else { return AnyView(menu) }

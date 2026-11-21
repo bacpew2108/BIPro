@@ -260,7 +260,8 @@ extension ModelEdits {
                  .addTable, .replaceTable, .dropTable, .addCalculatedColumn, .addCalculatedTable,
                  .updateCalculatedColumn, .deleteCalculatedColumn, .updateCalculatedTable,
                  .addHierarchy, .dropHierarchy, .addVariation, .dropVariation: true
-            case .addMeasure, .updateMeasure, .deleteMeasure, .setQuery, .dropQuery, .setModelAnnotation: false
+            case .addMeasure, .updateMeasure, .deleteMeasure, .setQuery, .dropQuery, .setModelAnnotation,
+                 .upsertRole, .deleteRole: false
             }
         }
     }

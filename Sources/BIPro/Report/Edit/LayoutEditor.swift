@@ -130,13 +130,21 @@ final class LayoutEditor {
     private(set) var primary: String?
     private(set) var currentPageID: String?
     /// Lý do gần nhất thao tác bị bỏ qua (ví dụ visual trong nhóm), để giao diện hiện cho người dùng.
-    internal(set) var lockedReason: String?
+    var lockedReason: String?
     /// Thông báo sau một thao tác (trường hoặc định dạng bị bỏ khi đổi loại, D3); xoá ở thao tác kế.
     private(set) var notice: String?
     /// Lý do gần nhất một thao tác sửa trường bị từ chối (D2); nil khi thao tác gần nhất được chấp nhận.
     private(set) var fieldRefusal: String?
     /// Chế độ Sửa tương tác chéo trên canvas (Wave 3A): hiện huy hiệu Lọc/Tô sáng/Không trên từng visual đích.
     var isEditingInteractions = false
+    /// Sao định dạng (Format Painter — Wave 4A): nguồn đang giữ để áp lên visual đích kế tiếp.
+    struct FormatPainterPayload: Equatable {
+        let sourceID: String
+        let containerObjects: [String: JSONValue]
+        let compatibleObjects: [String: JSONValue]
+    }
+    var formatPainter: FormatPainterPayload? = nil
+    var isFormatPainterActive: Bool { formatPainter != nil }
 
     // Hoàn tác
     private var undoStack: [LayoutSnapshot] = []
@@ -645,12 +653,108 @@ final class LayoutEditor {
         return makeCopies(copyEntries(sources, page: pageID), shift: LayoutGeometry.duplicateOffset, zStep: LayoutGeometry.zStep)
     }
 
+    /// Cắt các phần tử đang chọn (chép vào clipboard rồi xoá trong 1 bước ⌘Z — Wave 4A).
+    func cut() {
+        guard !selection.isEmpty else { return }
+        copy()
+        delete(selection)
+    }
+
     /// Chép các phần tử đang chọn (không có tác dụng lên bố cục).
     func copy() {
         guard let pageID = currentPageID else { return }
         let chosen = items(of: pageID).filter { selection.contains($0.id) && !isLockedByGroup($0.id) }
         clipboard = copyEntries(chosen, page: pageID)
         pasteCount = 0
+    }
+
+    private static let paintableObjectKeys: Set<String> = [
+        "dataPoint", "labels", "legend", "categoryAxis", "valueAxis",
+        "values", "columnHeaders", "grid", "general", "total", "categoryLabels",
+    ]
+
+    /// Bắt đầu chế độ Sao định dạng (Format Painter — Wave 4A) từ visual đang chọn duy nhất.
+    func beginFormatPainter() {
+        guard let pageID = currentPageID, selection.count == 1, let sourceID = selection.first,
+              let sourceVisual = visual(sourceID, page: pageID),
+              let rawBytes = currentVisualJSON(sourceVisual, page: pageID),
+              let parsed = try? JSONValue.parse(rawBytes),
+              let vNode = parsed["visual"] else {
+            formatPainter = nil
+            return
+        }
+        let container = vNode["visualContainerObjects"]?.object ?? [:]
+        let rawObjects = vNode["objects"]?.object ?? [:]
+        var compatible: [String: JSONValue] = [:]
+        for (k, v) in rawObjects where Self.paintableObjectKeys.contains(k) {
+            compatible[k] = v
+        }
+        formatPainter = FormatPainterPayload(sourceID: sourceID, containerObjects: container, compatibleObjects: compatible)
+    }
+
+    func cancelFormatPainter() {
+        formatPainter = nil
+    }
+
+    /// Áp định dạng từ `formatPainter` lên visual đích trên trang hiện tại (1 bước hoàn tác ⌘Z).
+    @discardableResult
+    func applyFormatPainter(to targetID: String) -> Bool {
+        guard let payload = formatPainter,
+              let pageID = currentPageID,
+              targetID != payload.sourceID,
+              let targetVisual = visual(targetID, page: pageID),
+              let rawBytes = currentVisualJSON(targetVisual, page: pageID),
+              var root = (try? JSONSerialization.jsonObject(with: rawBytes)) as? [String: Any],
+              var vDict = root["visual"] as? [String: Any] else {
+            formatPainter = nil
+            return false
+        }
+
+        func toFoundation(_ value: JSONValue) -> Any {
+            switch value {
+            case .null: return NSNull()
+            case .bool(let b): return b
+            case .number(let n): return n
+            case .string(let s): return s
+            case .array(let arr): return arr.map(toFoundation)
+            case .object(let obj): return obj.mapValues(toFoundation)
+            }
+        }
+
+        if !payload.containerObjects.isEmpty {
+            var destContainer = (vDict["visualContainerObjects"] as? [String: Any]) ?? [:]
+            for (k, v) in payload.containerObjects { destContainer[k] = toFoundation(v) }
+            vDict["visualContainerObjects"] = destContainer
+        }
+        if !payload.compatibleObjects.isEmpty {
+            var destObjects = (vDict["objects"] as? [String: Any]) ?? [:]
+            for (k, v) in payload.compatibleObjects { destObjects[k] = toFoundation(v) }
+            vDict["objects"] = destObjects
+        }
+        root["visual"] = vDict
+        guard let encoded = try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys]),
+              let parsed = try? JSONValue.parse(encoded),
+              let vNode = parsed["visual"] else {
+            formatPainter = nil
+            return false
+        }
+
+        let changed = commit(pageID: pageID) { pageEdit in
+            pageEdit.added[targetID] = encoded
+            pageEdit.formats[targetID] = nil
+            if let idx = pageEdit.visuals.firstIndex(where: { $0.id == targetID }) {
+                let old = pageEdit.visuals[idx]
+                pageEdit.visuals[idx] = ReportVisual(
+                    id: old.id, type: old.type, x: old.x, y: old.y, z: old.z,
+                    width: old.width, height: old.height, isHidden: old.isHidden,
+                    objects: ObjectProperties(vNode["objects"]),
+                    containerObjects: ObjectProperties(vNode["visualContainerObjects"]),
+                    fields: old.fields, raw: parsed, parentGroup: old.parentGroup
+                )
+            }
+        }
+        formatPainter = nil
+        return changed
     }
 
     /// Dán vào trang hiện tại (cùng trang hoặc trang khác): theo Power BI Desktop (VM-D7), vị trí nguồn lệch thêm

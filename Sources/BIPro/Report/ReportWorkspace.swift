@@ -12,6 +12,44 @@ struct ReportWorkspace: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
+                if !state.interaction.activeRLSRoles.isEmpty {
+                    HStack(spacing: 10) {
+                        Image(systemName: "eye.fill")
+                            .foregroundStyle(Color.black.opacity(0.8))
+                        Text(bi("Đang xem báo cáo dưới vai trò: \(state.interaction.activeRLSRoles.sorted().joined(separator: ", "))",
+                                "Now viewing report as: \(state.interaction.activeRLSRoles.sorted().joined(separator: ", "))"))
+                            .font(DS.Typeface.bodySmall.weight(.semibold))
+                            .foregroundStyle(Color.black.opacity(0.88))
+                        Spacer()
+                        Button(bi("Dừng xem", "Stop viewing")) {
+                            state.setActiveRLSRoles([])
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 1.0, green: 0.87, blue: 0.45))
+                    .hairline(.bottom)
+                }
+                if state.layout.isFormatPainterActive {
+                    HStack(spacing: 8) {
+                        Image(systemName: "paintbrush.fill").foregroundStyle(DS.Palette.accent)
+                        Text(bi("Chế độ Sao định dạng: bấm vào một visual đích để áp định dạng (hoặc bấm vùng trống để huỷ).",
+                                "Format Painter active: click a target visual to apply formatting (or click empty canvas to cancel)."))
+                            .font(DS.Typeface.labelSmall)
+                            .foregroundStyle(DS.Palette.label)
+                        Spacer()
+                        Button(bi("Huỷ", "Cancel")) { state.layout.cancelFormatPainter() }
+                            .buttonStyle(.plain)
+                            .font(DS.Typeface.labelSmall.weight(.semibold))
+                            .foregroundStyle(DS.Palette.accent)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 5)
+                    .background(DS.Palette.accent.opacity(0.10))
+                    .hairline(.bottom)
+                }
                 if let page = state.page {
                     ReportPageView(workspace: state.workspace, page: page, interaction: state.interaction, selectedVisual: $state.visualID,
                                    zoom: state.zoom, onScale: { currentScale = $0 }, onViewport: { state.visibleRect = $0 },

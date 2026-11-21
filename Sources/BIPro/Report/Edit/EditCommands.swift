@@ -53,6 +53,28 @@ struct EditCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .pasteboard) {
+            Button(bi("Cắt visual", "Cut Visual")) {
+                perform(text: #selector(NSText.cut(_:))) { st in
+                    guard st.mode == .report, st.editMode, !st.layout.selection.isEmpty else { return }
+                    st.layout.cut(); st.visualID = st.layout.primary
+                }
+            }
+            .keyboardShortcut("x", modifiers: .command)
+            Button(bi("Sao chép visual", "Copy Visual")) {
+                perform(text: #selector(NSText.copy(_:))) { st in
+                    guard st.mode == .report, st.editMode, !st.layout.selection.isEmpty else { return }
+                    st.layout.copy()
+                }
+            }
+            .keyboardShortcut("c", modifiers: .command)
+            Button(bi("Dán visual", "Paste Visual")) {
+                perform(text: #selector(NSText.paste(_:))) { st in
+                    guard st.mode == .report, st.editMode, st.layout.hasClipboard else { return }
+                    _ = st.layout.paste(); st.visualID = st.layout.primary
+                }
+            }
+            .keyboardShortcut("v", modifiers: .command)
+            Divider()
             Button(bi("Nhân bản visual", "Duplicate Visual")) { state?.duplicateSelection() }
                 .keyboardShortcut("d", modifiers: .command)
             Menu(bi("Căn lề", "Align")) {

@@ -115,6 +115,7 @@ struct ShellView: View {
                 .preferredColorScheme(preferences.preferredColorScheme)
             }
         }
+        .modifier(Wave4SheetsModifier(state: state, colorScheme: preferences.preferredColorScheme))
     }
 
     @ViewBuilder private var workspace: some View {
@@ -125,6 +126,54 @@ struct ShellView: View {
         case .daxQuery: DAXQueryWorkspace(state: state)
         case .tmdl: TMDLWorkspace(state: state)
         }
+    }
+}
+
+/// Gom các hộp thoại Wave 4 (v1.2) sang ViewModifier riêng để giữ biểu thức `ShellView.body` gọn và type-check nhanh.
+private struct Wave4SheetsModifier: ViewModifier {
+    @Bindable var state: DocumentState
+    let colorScheme: ColorScheme?
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: Binding(get: { state.showDataTableVisualID != nil }, set: { if !$0 { state.showDataTableVisualID = nil } })) {
+                if let vid = state.showDataTableVisualID,
+                   let page = state.page,
+                   let visual = page.visuals.first(where: { $0.id == vid }),
+                   let view = state.interaction.loadedDataViews[vid] {
+                    VisualDataTableSheet(
+                        visual: visual,
+                        view: view,
+                        onExportCSV: { state.exportVisualToCSV(visual: visual, view: view) },
+                        onClose: { state.showDataTableVisualID = nil }
+                    )
+                    .preferredColorScheme(colorScheme)
+                }
+            }
+            .sheet(isPresented: $state.showQuickMeasureSheet) {
+                QuickMeasureSheet(state: state) { state.showQuickMeasureSheet = false }
+                    .preferredColorScheme(colorScheme)
+            }
+            .sheet(isPresented: $state.showMarkDateTableSheet) {
+                if let tbl = state.table {
+                    MarkAsDateTableSheet(state: state, tableName: tbl) { state.showMarkDateTableSheet = false }
+                        .preferredColorScheme(colorScheme)
+                }
+            }
+            .sheet(isPresented: $state.showManageRolesSheet) {
+                ManageRolesSheet(state: state) { state.showManageRolesSheet = false }
+                    .preferredColorScheme(colorScheme)
+            }
+            .sheet(isPresented: $state.showViewAsRoleSheet) {
+                ViewAsRoleSheet(state: state) { state.showViewAsRoleSheet = false }
+                    .preferredColorScheme(colorScheme)
+            }
+            .sheet(isPresented: Binding(get: { state.pendingDAXModelUpdates != nil }, set: { if !$0 { state.pendingDAXModelUpdates = nil } })) {
+                if let items = state.pendingDAXModelUpdates {
+                    DAXUpdateModelSheet(state: state, items: items) { state.pendingDAXModelUpdates = nil }
+                        .preferredColorScheme(colorScheme)
+                }
+            }
     }
 }
 

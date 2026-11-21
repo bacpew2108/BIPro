@@ -158,6 +158,32 @@ public struct ModelMetadata: Sendable {
         public let magnitude: Double
     }
 
+    /// Một quy tắc lọc RLS của vai trò trên một bảng (`[TablePermission]`, Desktop 2.159).
+    public struct TablePermission: Sendable, Hashable {
+        public let tableName: String
+        public let filterExpression: String
+
+        public init(tableName: String, filterExpression: String) {
+            self.tableName = tableName
+            self.filterExpression = filterExpression
+        }
+    }
+
+    /// Một vai trò bảo mật cấp dòng (`[Role]` + `[TablePermission]`, `ModelPermission.Read = 2`).
+    public struct RoleDefinition: Sendable, Hashable {
+        public let name: String
+        public let description: String?
+        public let modelPermission: Int
+        public let tablePermissions: [TablePermission]
+
+        public init(name: String, description: String? = nil, modelPermission: Int = 2, tablePermissions: [TablePermission] = []) {
+            self.name = name
+            self.description = description
+            self.modelPermission = modelPermission
+            self.tablePermissions = tablePermissions
+        }
+    }
+
     public let tables: [Table]
     public let columns: [Column]
     public let measures: [Measure]
@@ -169,6 +195,8 @@ public struct ModelMetadata: Sendable {
     /// Biểu thức DAX của bảng tính toán (phân vùng kiểu 2) theo tên bảng, kể cả bảng ngày tự động của Desktop.
     public let calculatedTableExpressions: [String: String]
     public let roles: [String]
+    /// Định nghĩa chi tiết các vai trò RLS (`[Role]` + `[TablePermission]`, v1.2).
+    public let roleDefinitions: [RoleDefinition]
     public let perspectives: [String]
     public let cultures: [String]
     /// Shared Power Query expressions (`Expression`), e.g. parameters and shared queries.
@@ -363,7 +391,31 @@ public struct ModelMetadata: Sendable {
         func names(_ table: String) -> [String] {
             ((try? db.rows("SELECT Name FROM [\(table)] ORDER BY ID")) ?? []).compactMap { $0.string(0) }
         }
-        roles = names("Role")
+        let rawRoleRows = (try? db.rows("SELECT ID, Name, Description, ModelPermission FROM [Role] ORDER BY ID")) ?? []
+        let rawPermRows = (try? db.rows("""
+            SELECT tp.RoleID, t.Name, tp.FilterExpression
+            FROM [TablePermission] tp JOIN [Table] t ON t.ID = tp.TableID
+            ORDER BY tp.ID
+            """)) ?? []
+        var permsByRole: [Int: [TablePermission]] = [:]
+        for row in rawPermRows {
+            let roleID = row.int(0)
+            guard let tableName = row.string(1), let expr = row.nonEmpty(2) else { continue }
+            permsByRole[roleID, default: []].append(TablePermission(tableName: tableName, filterExpression: expr))
+        }
+        let parsedRoles: [RoleDefinition] = rawRoleRows.compactMap { row in
+            let id = row.int(0)
+            guard let name = row.nonEmpty(1) else { return nil }
+            let mp = row.int(3)
+            return RoleDefinition(
+                name: name,
+                description: row.nonEmpty(2),
+                modelPermission: mp > 0 ? mp : 2,
+                tablePermissions: permsByRole[id] ?? []
+            )
+        }
+        roleDefinitions = parsedRoles
+        roles = parsedRoles.map(\.name)
         perspectives = names("Perspective")
         cultures = names("Culture")
         expressions = names("Expression")

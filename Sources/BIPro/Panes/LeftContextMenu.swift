@@ -160,7 +160,9 @@ public enum LeftMenuBuilder {
         onExpandAll: @escaping () -> Void = {},
         onNewMeasure: (() -> Void)? = nil,
         onRename: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        onToggleHidden: (() -> Void)? = nil,
+        hiddenTitle: String = "Ẩn trong chế độ báo cáo"
     ) -> [LeftMenuItem] {
         (onNewMeasure.map { [LeftMenuItem.action("Measure mới", isEnabled: true, $0), .separator] } ?? []) + [
             .submenu("Truy vấn nhanh", [
@@ -170,7 +172,7 @@ public enum LeftMenuBuilder {
             ]),
             .action("Đổi tên", isEnabled: onRename != nil, onRename ?? {}),
             .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
-            .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
+            .action(hiddenTitle, isEnabled: onToggleHidden != nil, onToggleHidden ?? {}),
             .separator,
             .action("Thu gọn tất cả", isEnabled: true, onCollapseAll),
             .action("Mở rộng tất cả", isEnabled: true, onExpandAll)
@@ -190,7 +192,8 @@ public enum LeftMenuBuilder {
         onRename: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
         onToggleHidden: (() -> Void)? = nil,
-        hiddenTitle: String = "Ẩn trong chế độ báo cáo"
+        hiddenTitle: String = "Ẩn trong chế độ báo cáo",
+        onUnhideAll: (() -> Void)? = nil
     ) -> [LeftMenuItem] {
         (onEdit.map { [LeftMenuItem.action("Sửa công thức", isEnabled: true, $0), .separator] } ?? []) + [
             .submenu("Truy vấn nhanh", [
@@ -205,7 +208,7 @@ public enum LeftMenuBuilder {
             .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
             .action(hiddenTitle, isEnabled: onToggleHidden != nil, onToggleHidden ?? {}),
             .separator,
-            .action("Hiện tất cả", isEnabled: false, {}),
+            .action("Hiện tất cả", isEnabled: onUnhideAll != nil, onUnhideAll ?? {}),
             .separator,
             .action("Thu gọn tất cả", isEnabled: true, onCollapseAll),
             .action("Mở rộng tất cả", isEnabled: true, onExpandAll),
@@ -222,7 +225,9 @@ public enum LeftMenuBuilder {
         onExpandAll: @escaping () -> Void = {},
         onCopyFormula: (() -> Void)? = nil,
         onRename: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        onToggleHidden: (() -> Void)? = nil,
+        hiddenTitle: String = "Ẩn trong chế độ báo cáo"
     ) -> [LeftMenuItem] {
         var items: [LeftMenuItem] = [
             .submenu("Truy vấn nhanh", [
@@ -230,7 +235,7 @@ public enum LeftMenuBuilder {
             ]),
             .action("Đổi tên", isEnabled: onRename != nil, onRename ?? {}),
             .action("Xoá khỏi mô hình", isEnabled: onDelete != nil, onDelete ?? {}),
-            .action("Ẩn trong chế độ báo cáo", isEnabled: false, {}),
+            .action(hiddenTitle, isEnabled: onToggleHidden != nil, onToggleHidden ?? {}),
             .separator,
             .action("Thu gọn tất cả", isEnabled: true, onCollapseAll),
             .action("Mở rộng tất cả", isEnabled: true, onExpandAll)

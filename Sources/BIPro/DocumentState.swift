@@ -196,6 +196,16 @@ final class DocumentState {
     var refreshProgress: RefreshProgressState? = nil
     /// Yêu cầu xác nhận Đổi tên lan truyền (Wave 3C / T020); nil khi đóng.
     var pendingCascadeRename: CascadeRenameTarget? = nil
+    /// Wave 4 (v1.2): các hộp thoại Ribbon mới mở khoá (Show as a table, Quick Measure, Mark as Date Table, RLS, DAX Update Model).
+    var showDataTableVisualID: String? = nil
+    var showQuickMeasureSheet = false
+    var showMarkDateTableSheet = false
+    var showManageRolesSheet = false
+    var showViewAsRoleSheet = false
+    var pendingDAXModelUpdates: [DAXDefinedMeasure]? = nil
+    /// Trạng thái đồng bộ nút "Áp dụng thay đổi" trên TMDL Ribbon với `TMDLWorkspace`.
+    var tmdlHasPendingChanges = false
+    var tmdlApplyRequestToken = 0
     /// Cổng sửa mô hình (Phase E); mọi lệnh sửa Table/Model/TMDL View đi qua đây.
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 

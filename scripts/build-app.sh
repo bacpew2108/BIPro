@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds "BI Pro.app" (v1.0.0) from SwiftPM + native AppIcon.icns + Quick Look .appex extensions (no Xcode required).
+# Builds "BI Pro.app" (v1.2.0) from SwiftPM + native AppIcon.icns + Quick Look .appex extensions (no Xcode required).
 set -euo pipefail
 
 ROOT="${0:A:h:h}"
@@ -30,8 +30,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleExecutable</key><string>BIPro</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0.0</string>
-    <key>CFBundleVersion</key><string>100</string>
+    <key>CFBundleShortVersionString</key><string>1.2.0</string>
+    <key>CFBundleVersion</key><string>120</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>LSApplicationCategoryType</key><string>public.app-category.business</string>
@@ -113,8 +113,8 @@ build_appex() {
     <key>CFBundleDisplayName</key><string>$NAME</string>
     <key>CFBundleExecutable</key><string>$NAME</string>
     <key>CFBundlePackageType</key><string>XPC!</string>
-    <key>CFBundleShortVersionString</key><string>1.0.0</string>
-    <key>CFBundleVersion</key><string>100</string>
+    <key>CFBundleShortVersionString</key><string>1.2.0</string>
+    <key>CFBundleVersion</key><string>120</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>NSExtension</key>
     <dict>
@@ -159,4 +159,4 @@ codesign --force --sign - "$APP" >/dev/null
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
 pluginkit -a "$APP/Contents/PlugIns/PBIXQuickLook.appex" 2>/dev/null || true
 pluginkit -a "$APP/Contents/PlugIns/PBIXThumbnail.appex" 2>/dev/null || true
-echo "Built: $APP (v1.0.0)"
+echo "Built: $APP (v1.2.0)"

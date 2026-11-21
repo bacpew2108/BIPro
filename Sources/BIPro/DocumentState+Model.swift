@@ -275,6 +275,132 @@ extension DocumentState {
         return nil
     }
 
+    // MARK: - Wave 4B & 4C (v1.2): Mark as Date Table, RLS, Unhide All & DAX Query Sync
+
+    /// Đánh dấu hoặc bỏ đánh dấu bảng ngày (`Table.DataCategory = "Time"`, `Column.IsKey = true`) trong 1 bước ⌘Z.
+    @discardableResult
+    func markAsDateTable(table: String, enabled: Bool, dateColumn: String?) -> String? {
+        if let blocker = modelEditingBlocker { return blocker }
+        guard let meta = workspace.metadata else { return bi("File không có mô hình dữ liệu.", "File has no data model.") }
+        var edits: [ModelEdit] = []
+        if enabled {
+            guard let dateColumn, !dateColumn.isEmpty else {
+                return bi("Hãy chọn cột ngày duy nhất.", "Please choose a unique date column.")
+            }
+            if let err = DateTableValidator.validate(table: table, column: dateColumn, workspace: workspace) {
+                return err
+            }
+            edits.append(.updateTable(name: table, patch: TablePatch(dataCategory: .set("Time"))))
+            for col in meta.columns where col.tableName == table && col.kind != .rowNumber {
+                if col.name == dateColumn && !col.isKey {
+                    edits.append(.updateColumn(table: table, name: col.name, patch: ColumnPatch(isKey: true)))
+                } else if col.name != dateColumn && col.isKey {
+                    edits.append(.updateColumn(table: table, name: col.name, patch: ColumnPatch(isKey: false)))
+                }
+            }
+        } else {
+            edits.append(.updateTable(name: table, patch: TablePatch(dataCategory: .clear)))
+            for col in meta.columns where col.tableName == table && col.isKey {
+                edits.append(.updateColumn(table: table, name: col.name, patch: ColumnPatch(isKey: false)))
+            }
+        }
+        guard !edits.isEmpty else { return nil }
+        return modelEditor.apply(edits)
+    }
+
+    /// Lưu toàn bộ danh sách vai trò bảo mật cấp dòng (RLS) trong 1 bước hoàn tác ⌘Z.
+    @discardableResult
+    func saveRLSRoles(_ roles: [(previous: String?, role: ModelMetadata.RoleDefinition)]) -> String? {
+        if let blocker = modelEditingBlocker { return blocker }
+        guard let meta = workspace.metadata else { return bi("File không có mô hình dữ liệu.", "File has no data model.") }
+        let existingNames = Set(meta.roleDefinitions.map(\.name))
+        let keptOriginals = Set(roles.compactMap(\.previous))
+        var edits: [ModelEdit] = []
+        for removed in existingNames.subtracting(keptOriginals).sorted() {
+            edits.append(.deleteRole(name: removed))
+        }
+        for entry in roles {
+            edits.append(.upsertRole(previousName: entry.previous, role: entry.role))
+        }
+        if let err = modelEditor.apply(edits) { return err }
+        let validAfter = Set((workspace.metadata?.roleDefinitions ?? []).map(\.name))
+        interaction.setActiveRLSRoles(interaction.activeRLSRoles.intersection(validAfter))
+        return nil
+    }
+
+    /// Bật/tắt mô phỏng xem báo cáo dưới vai trò RLS (chỉ ở phiên hiện tại, không làm bẩn file).
+    func setActiveRLSRoles(_ roles: Set<String>) {
+        interaction.setActiveRLSRoles(roles)
+    }
+
+    /// Bỏ ẩn toàn bộ bảng, cột và measure đang ẩn trong mô hình (1 bước ⌘Z — menu chuột phải DataPane).
+    @discardableResult
+    func unhideAllModelItems() -> String? {
+        if let blocker = modelEditingBlocker { return blocker }
+        guard let meta = workspace.metadata else { return nil }
+        var edits: [ModelEdit] = []
+        for t in meta.userTables where t.isHidden {
+            edits.append(.updateTable(name: t.name, patch: TablePatch(isHidden: false)))
+        }
+        for c in meta.columns where c.isHidden && c.kind != .rowNumber {
+            edits.append(.updateColumn(table: c.tableName, name: c.name, patch: ColumnPatch(isHidden: false)))
+        }
+        for m in meta.measures where m.isHidden {
+            edits.append(.updateMeasure(table: m.tableName, name: m.name, patch: MeasurePatch(isHidden: false)))
+        }
+        guard !edits.isEmpty else { return nil }
+        return modelEditor.apply(edits)
+    }
+
+    /// Định dạng văn bản DAX của tab DAX Query đang mở (Wave 4C).
+    func formatActiveDAXQuery() {
+        guard daxQueries.indices.contains(daxSelection) else { return }
+        daxQueries[daxSelection].text = DAXEngine.format(daxQueries[daxSelection].text)
+    }
+
+    /// Quét `DEFINE MEASURE ...` trong tab DAX Query đang mở và mở hộp xác nhận Cập nhật mô hình.
+    func prepareDAXUpdateModel() {
+        guard modelEditingBlocker == nil, let meta = workspace.metadata, daxQueries.indices.contains(daxSelection) else { return }
+        let items = DAXModelSync.extractMeasures(from: daxQueries[daxSelection].text, existingModel: meta)
+        pendingDAXModelUpdates = items
+    }
+
+    /// Kiểm engine và áp dụng danh sách measure từ DAX Query View vào mô hình trong 1 bước ⌘Z.
+    func applyDAXDefinedMeasures(_ items: [DAXDefinedMeasure]) async -> String? {
+        if let blocker = modelEditingBlocker { return blocker }
+        guard !items.isEmpty else { return nil }
+        var edits: [ModelEdit] = []
+        let ws = self.workspace
+        let defineLines = items.map { item -> String in
+            let safeTable = item.table.replacingOccurrences(of: "'", with: "''")
+            return "MEASURE '\(safeTable)'[\(item.name)] = \(item.expression)"
+        }
+        let definePrefix = "DEFINE\n" + defineLines.joined(separator: "\n")
+        for item in items {
+            let check = await Task.detached(priority: .userInitiated) { () -> MeasureCheck in
+                guard let engine = try? ws.daxEngine() else {
+                    return .failed(MeasureProblem(message: ws.modelError ?? "Không có engine DAX"))
+                }
+                return await MeasureTyping.check(item.expression, definePrefix: definePrefix, using: engine)
+            }.value
+            guard case .ok(let info) = check else {
+                if case .failed(let problem) = check {
+                    return "\(item.id): \(problem.message)"
+                }
+                return bi("Biểu thức không hợp lệ cho \(item.id).", "Invalid expression for \(item.id).")
+            }
+            switch item.kind {
+            case .create:
+                edits.append(.addMeasure(NewMeasure(table: item.table, name: item.name, expression: item.expression,
+                                                    formatString: info.formatString, dataType: info.dataType.rawValue)))
+            case .update:
+                edits.append(.updateMeasure(table: item.table, name: item.name,
+                                            patch: MeasurePatch(expression: item.expression, dataType: info.dataType)))
+            }
+        }
+        return modelEditor.apply(edits)
+    }
+
     /// Áp dụng văn bản TMDL đã sửa (`drafts`: đường dẫn → văn bản mới; tài liệu không có trong `drafts` giữ nguyên). Nguyên khối:
     /// có lỗi cú pháp, mục ngoài phạm vi hoặc thao tác không hợp lệ thì không đổi gì và trả danh sách lý do; thành công thì mọi
     /// thay đổi là một bước hoàn tác chung. Trả rỗng khi thành công.

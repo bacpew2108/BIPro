@@ -7,7 +7,8 @@ extension ModelMetadata {
          storage: [ColumnStorage]? = nil, partitionQueries: [String: String]? = nil,
          expressions: [String]? = nil, expressionBodies: [String: String]? = nil,
          calculatedTableExpressions: [String: String]? = nil, modelAnnotations: [String: String]? = nil,
-         dateTableRelationships: [Relationship]? = nil, variations: [Variation]? = nil) {
+         dateTableRelationships: [Relationship]? = nil, variations: [Variation]? = nil,
+         roleDefinitions: [RoleDefinition]? = nil) {
         self.tables = tables ?? other.tables
         self.columns = columns ?? other.columns
         self.measures = measures ?? other.measures
@@ -16,7 +17,9 @@ extension ModelMetadata {
         self.storage = storage ?? other.storage
         self.partitionQueries = partitionQueries ?? other.partitionQueries
         self.calculatedTableExpressions = calculatedTableExpressions ?? other.calculatedTableExpressions
-        roles = other.roles
+        let effectiveRoles = roleDefinitions ?? other.roleDefinitions
+        self.roleDefinitions = effectiveRoles
+        roles = effectiveRoles.map(\.name)
         perspectives = other.perspectives
         cultures = other.cultures
         self.expressions = expressions ?? other.expressions
@@ -132,7 +135,8 @@ extension ModelMetadata {
             let autoDate = patch.isPrivate == true || patch.showAsVariationsOnly == true
                 || ["__PBI_LocalDateTable", "__PBI_TemplateDateTable"].contains { if case .set = patch.annotations[$0] { true } else { false } }
             copy[index] = Table(id: old.id, name: newName, isHidden: patch.isHidden ?? old.isHidden, systemFlags: old.systemFlags,
-                                description: old.description, lineageTag: old.lineageTag, dataCategory: old.dataCategory,
+                                description: old.description, lineageTag: old.lineageTag,
+                                dataCategory: patch.dataCategory.resolved(old.dataCategory),
                                 isCalculatedUserTable: old.isCalculatedUserTable && !autoDate)
             if newName == old.name {
                 return ModelMetadata(copying: self, tables: copy)
@@ -277,6 +281,37 @@ extension ModelMetadata {
             annotations[name] = value
             return ModelMetadata(copying: self, modelAnnotations: annotations)
 
+        case .upsertRole(let previousName, let role):
+            let trimmed = role.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !trimmed.contains("\0") else { throw ModelEditError("Tên vai trò không hợp lệ") }
+            for tp in role.tablePermissions {
+                guard tables.contains(where: { $0.isUserTable && $0.name.caseInsensitiveCompare(tp.tableName) == .orderedSame }) else {
+                    throw ModelEditError("Không có bảng \(tp.tableName) cho quy tắc RLS")
+                }
+            }
+            let normalized = RoleDefinition(name: trimmed, description: role.description, modelPermission: role.modelPermission,
+                                            tablePermissions: role.tablePermissions.filter { !$0.filterExpression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+            var updated = roleDefinitions
+            let matchName = previousName ?? trimmed
+            if let clash = updated.firstIndex(where: {
+                $0.name.caseInsensitiveCompare(trimmed) == .orderedSame && $0.name.caseInsensitiveCompare(matchName) != .orderedSame
+            }) {
+                throw ModelEditError("Mô hình đã có vai trò tên \(updated[clash].name)")
+            }
+            if let existing = updated.firstIndex(where: { $0.name.caseInsensitiveCompare(matchName) == .orderedSame }) {
+                updated[existing] = normalized
+            } else {
+                updated.append(normalized)
+            }
+            return ModelMetadata(copying: self, roleDefinitions: updated)
+
+        case .deleteRole(let name):
+            guard roleDefinitions.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) else {
+                throw ModelEditError("Không có vai trò \(name)")
+            }
+            let updated = roleDefinitions.filter { $0.name.caseInsensitiveCompare(name) != .orderedSame }
+            return ModelMetadata(copying: self, roleDefinitions: updated)
+
         case .deleteRelationship(let name):
             guard relationships.contains(where: { $0.name == name }) || dateTableRelationships.contains(where: { $0.name == name }) else {
                 throw ModelEditError("Không có quan hệ \(name)")
@@ -315,7 +350,7 @@ extension ModelMetadata {
                 dataType: old.dataType, isHidden: patch.isHidden ?? old.isHidden, expression: old.expression,
                 formatString: patch.formatString.resolved(old.formatString), sortByColumnID: sortID,
                 summarizeBy: patch.summarizeBy ?? old.summarizeBy, dataCategory: patch.dataCategory.resolved(old.dataCategory),
-                displayFolder: patch.displayFolder.resolved(old.displayFolder), isKey: old.isKey,
+                displayFolder: patch.displayFolder.resolved(old.displayFolder), isKey: patch.isKey ?? old.isKey,
                 sourceColumn: old.sourceColumn, description: patch.description.resolved(old.description),
                 lineageTag: old.lineageTag)
             if newName == old.name {

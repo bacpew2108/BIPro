@@ -33,8 +33,12 @@ final class ReportInteraction {
     var states: [String: FilterState] = [:]
     /// Phiên bản mô hình hiệu lực (Phase E): đổi thì mọi visual nạp lại vì measure, quan hệ hoặc cột có thể đã đổi.
     var modelVersion = 0
-    /// Dữ liệu đã nạp gần nhất của từng visual (dùng cho Xuất CSV tức thì và tóm tắt VoiceOver — Phase G).
+    /// Dữ liệu đã nạp gần nhất của từng visual (dùng cho Xuất CSV tức thì, Show as a table và VoiceOver — Phase G / v1.2).
     var loadedDataViews: [String: DataView] = [:]
+    /// Spec truy vấn đã nạp gần nhất của từng visual (dùng cho tab Data/Drill trên Ribbon — v1.2).
+    var loadedSpecs: [String: VisualQuerySpec] = [:]
+    /// Các vai trò bảo mật cấp dòng (RLS) đang bật để mô phỏng "View as" trong phiên hiện tại (v1.2).
+    var activeRLSRoles: Set<String> = []
 
     /// Mô hình hiệu lực đổi (Phase E): bỏ bộ đọc spec và bộ nạp đã dựng trên mô hình cũ (kèm bộ nhớ đệm kết quả) và báo visual nạp lại.
     func modelDidChange() {
@@ -42,7 +46,37 @@ final class ReportInteraction {
         servicesTask = nil
         servicesGeneration += 1
         loadedDataViews = [:]
+        loadedSpecs = [:]
         modelVersion += 1
+    }
+
+    /// Đặt tập vai trò RLS đang xem (View as — không làm bẩn file, buộc mọi visual tính lại DAX qua `QueryFilter`).
+    func setActiveRLSRoles(_ roles: Set<String>) {
+        guard activeRLSRoles != roles else { return }
+        activeRLSRoles = roles
+        loadedDataViews = [:]
+        modelVersion += 1
+    }
+
+    /// Sinh danh sách `QueryFilter` cho các vai trò RLS đang kích hoạt (hợp OR giữa các vai trò trên cùng bảng, AND giữa các bảng).
+    func rlsQueryFilters() -> [QueryFilter] {
+        guard !activeRLSRoles.isEmpty, let defs = workspace.metadata?.roleDefinitions else { return [] }
+        let selectedDefs = defs.filter { activeRLSRoles.contains($0.name) }
+        guard !selectedDefs.isEmpty else { return [] }
+        var exprsByTable: [String: [String]] = [:]
+        for role in selectedDefs {
+            for perm in role.tablePermissions {
+                let clean = perm.filterExpression.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !clean.isEmpty else { continue }
+                exprsByTable[perm.tableName, default: []].append("(\(clean))")
+            }
+        }
+        return exprsByTable.keys.sorted().compactMap { table -> QueryFilter? in
+            guard let list = exprsByTable[table], !list.isEmpty else { return nil }
+            let combined = list.count == 1 ? list[0] : list.joined(separator: " || ")
+            let tableRef = DAXEngine.formatTableIdentifier(table)
+            return QueryFilter(tableExpression: "FILTER(KEEPFILTERS(\(tableRef)), \(combined))")
+        }
     }
 
     /// Cấp drill hiện tại của từng visual (0 = cấp gốc), khoá = id visual.
@@ -423,7 +457,7 @@ final class ReportInteraction {
         if let expanded = slicerExpansion[visual.id] { spec.expanded = expanded }
         if let paths = matrixExpansion[visual.id] { spec.expandedPaths = paths }
         if let rowPaths = matrixRowExpansion[visual.id] { spec.rowExpandedPaths = rowPaths }
-        spec.filters = assembled.filters
+        spec.filters = assembled.filters + rlsQueryFilters()
         spec.valueFilters = valueFilters(for: visual)
         spec.highlight = assembled.highlight
         let loaded = try await loader.load(spec)
@@ -440,6 +474,7 @@ final class ReportInteraction {
         }
         recordLegendValues(of: visual.id, in: finalView)
         loadedDataViews[visual.id] = finalView
+        loadedSpecs[visual.id] = spec
         return LiveVisualData(spec: spec, view: finalView, query: loaded.query, elapsed: loaded.elapsed)
     }
 

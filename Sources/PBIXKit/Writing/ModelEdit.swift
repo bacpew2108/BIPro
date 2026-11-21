@@ -58,13 +58,15 @@ public struct ColumnPatch: Sendable, Hashable {
     public var description: Assignment<String>?
     /// Chú thích của cột (`Annotation`, ObjectType 4), ví dụ `SummarizationSetBy`, `TemplateId` của cột bảng ngày.
     public var annotations: [String: Assignment<String>]
+    /// Đánh dấu cột khoá (`Column.IsKey`, `IsUnique`) cho bảng ngày (Mark as Date Table — v1.2).
+    public var isKey: Bool?
     /// Cho phép đổi tên cột kể cả khi đang nằm trong quan hệ / phân cấp (Wave 3C Cascade Rename).
     public var cascade: Bool
 
     public init(name: String? = nil, isHidden: Bool? = nil, formatString: Assignment<String>? = nil,
                 summarizeBy: Int? = nil, dataCategory: Assignment<String>? = nil, sortBy: Assignment<String>? = nil,
                 displayFolder: Assignment<String>? = nil, description: Assignment<String>? = nil,
-                annotations: [String: Assignment<String>] = [:], cascade: Bool = false) {
+                annotations: [String: Assignment<String>] = [:], isKey: Bool? = nil, cascade: Bool = false) {
         self.name = name
         self.isHidden = isHidden
         self.formatString = formatString
@@ -74,6 +76,7 @@ public struct ColumnPatch: Sendable, Hashable {
         self.displayFolder = displayFolder
         self.description = description
         self.annotations = annotations
+        self.isKey = isKey
         self.cascade = cascade
     }
 }
@@ -82,6 +85,8 @@ public struct ColumnPatch: Sendable, Hashable {
 public struct TablePatch: Sendable, Hashable {
     public var name: String?
     public var isHidden: Bool?
+    /// `Table.DataCategory` (ví dụ `.set("Time")` cho Mark as Date Table, `.clear` để bỏ đánh dấu — v1.2).
+    public var dataCategory: Assignment<String>?
     /// `Table.IsPrivate` (bảng mẫu `DateTableTemplate_…`). Bật cờ này hoặc `showAsVariationsOnly` thì bộ ghi đặt `SystemFlags = 2` cho
     /// phân vùng và các cột của bảng như Desktop (f11, w8.3), nên áp sau khi đã thêm đủ cột.
     public var isPrivate: Bool?
@@ -90,10 +95,12 @@ public struct TablePatch: Sendable, Hashable {
     /// Chú thích của bảng (`Annotation`, ObjectType 3), ví dụ `__PBI_LocalDateTable`.
     public var annotations: [String: Assignment<String>]
 
-    public init(name: String? = nil, isHidden: Bool? = nil, isPrivate: Bool? = nil, showAsVariationsOnly: Bool? = nil,
+    public init(name: String? = nil, isHidden: Bool? = nil, dataCategory: Assignment<String>? = nil,
+                isPrivate: Bool? = nil, showAsVariationsOnly: Bool? = nil,
                 annotations: [String: Assignment<String>] = [:]) {
         self.name = name
         self.isHidden = isHidden
+        self.dataCategory = dataCategory
         self.isPrivate = isPrivate
         self.showAsVariationsOnly = showAsVariationsOnly
         self.annotations = annotations
@@ -268,6 +275,10 @@ public enum ModelEdit: Sendable, Hashable {
     case dropVariation(table: String, column: String)
     /// Chú thích của mô hình (ObjectType 1), ví dụ `__PBI_TimeIntelligenceEnabled`.
     case setModelAnnotation(name: String, value: String)
+    /// Thêm mới hoặc cập nhật vai trò bảo mật cấp dòng RLS (`[Role]` + `[TablePermission]`, v1.2).
+    case upsertRole(previousName: String?, role: ModelMetadata.RoleDefinition)
+    /// Xoá vai trò bảo mật cấp dòng RLS theo tên (v1.2).
+    case deleteRole(name: String)
 
     /// Thao tác thuộc Phase F cần tầng T3.
     /// Thao tác nhắm vào bảng `lowercasedName` (thêm/sửa/xoá measure, cột, bảng, cột tính toán của nó).
