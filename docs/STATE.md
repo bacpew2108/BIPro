@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-21 (**Đợt 4 — v1.2 `specs/015` HOÀN TẤT 100%** — đã qua toàn bộ **2 471/2 471** unit test, **119/119** golden nặng release, cổng Power BI Desktop 2.159 tại `docs/phase-v12-evidence/vm-v12/gate-desktop.png` với 0 lỗi, và đóng gói `build/BI Pro.app` **v1.2.0** + `codesign` đạt).
+Cập nhật: 2026-11-21 (**Hoàn tất 100% toàn bộ `BIPRO_BUILD_PLAN.md` & v1.2** — đã mở khoá nốt Ribbon **Công cụ cột / Công cụ bảng**, dọn thông báo cũ, đồng bộ 694/694 mục `[x]` trên `BIPRO_BUILD_PLAN.md` & 15 `specs/`, qua **2 478/2 478** unit test, **124/124** golden nặng release + `ColumnEditorTests`, đóng gói `build/BI Pro.app` **v1.2.0** + `codesign` đạt).
 
 *(Nhật ký chi tiết Phase A–G trước ngày 2026-11-21 đã được lưu trữ nguyên văn tại `docs/HISTORY.md`.)*
 
@@ -36,13 +36,18 @@ Cập nhật: 2026-11-21 (**Đợt 4 — v1.2 `specs/015` HOÀN TẤT 100%** —
   - **3B (CF & Theme & Analytics):** Conditional Formatting đầy đủ (Rules, Gradient 2–3 mốc, Field value, Data Bars trong `columnFormatting.dataBars`) cho Table/Matrix + `ConditionalFormattingSheet`; **Analytics Pane** (Constant Line `y1AxisReferenceLine`, Average/Min/Max `referenceLine`, Trend/Forecast); **Theme Switcher** (6 preset chuẩn Power BI + Nhập/Xuất `.json` + lưu `RegisteredResources` + Undo/Redo).
   - **3C (Refresh, Cascade Rename & PQ Extra):** Mở khoá **Làm mới (Refresh, `⇧⌘R`)** (`RefreshCoordinator` + `RefreshProgressSheet`, giữ quan hệ/measure/visual & dữ liệu cũ khi nguồn lỗi); **Cascade Rename** bảng/cột/measure đang dùng (viết lại DAX bằng token `DAXLexer` + PBIR JSON + `RenameConfirmationSheet` + Undo 1 bước); bổ sung **Power Query Extra Transforms** (`Text.BeforeDelimiter`/`AfterDelimiter`/`BetweenDelimiters`/`Range`, `Date.QuarterOfYear`/`StartOfMonth`/`EndOfMonth`/`MonthName`/`DayOfWeekName`, `Splitter.SplitTextByRepeatedLengths`/`SplitTextByPositions`, `Replace Errors`, Extract & Date trên Ribbon).
   - Kiểm chứng: **2 466/2 466** unit test qua (`190,26 s`), **119/119** golden nặng release qua (`164,56 s`), **Cổng Power BI Desktop 2.159 (T024)** đạt 0 lỗi (`docs/phase-v11-evidence/vm-v11b/gate-desktop.png`), dựng lại `build/BI Pro.app` release + `codesign --verify --deep --strict` đạt.
-- **Đợt 4 — v1.2 Mở khoá toàn bộ Ribbon, RLS, Mark as Date Table, Quick Measures & Công cụ DAX/TMDL (2026-11-21, `specs/015-v12-hoan-thien-chuyen-nghiep/`, xong chưa commit):**
+- **Đợt 4 — v1.2 Mở khoá toàn bộ Ribbon, RLS, Mark as Date Table, Quick Measures & Công cụ DAX/TMDL (2026-11-21, `specs/015-v12-hoan-thien-chuyen-nghiep/`, commit `8504d9c`):**
   - Quan sát Power BI Desktop 2.159 (`VM-V12`: schema SQLite `metadata.sqlitedb` + reflection `Microsoft.AnalysisServices.Server.Tabular.dll` tại `docs/phase-v12-evidence/vm-v12/QUAN-SAT.md`).
   - **Nền tảng `PBIXKit` & `DAXEngine`:** Đọc/ghi `[Role]` + `[TablePermission]` (`ModelPermission=2`, `State=1`, `MetadataPermission=0`) và **Mark as Date Table** (`[Table].DataCategory='Time'`, `[Column].IsKey=1`, `IsUnique=1`); viết bộ định dạng `DAXEngine.format(_:)` thuần Swift bảo toàn chuỗi/chú thích & toán tử trừ đơn ngôi.
   - **4A (Report & Drill):** Cut/Copy/Paste visual (cùng trang & sang trang khác, `⌘X`/`⌘C`/`⌘V` + Undo `⌘Z`), **Format Painter** chép `visualContainerObjects` + `objects` trực tiếp trên canvas, mở khoá đầy đủ tab **Data / Drill** (*Drill up*, *Drill down*, *Expand next level*, **Show as a table** + Xuất CSV).
   - **4B (Mô hình hoá & RLS):** **Quick Measures** (8 mẫu chuẩn Power BI + kiểm `DAXEngine`), **Mark as Date Table** (kiểm cột `.dateTime` duy nhất/không trống qua `ColumnStore`), **Row-Level Security (Manage Roles & View As)** (CRUD vai trò lưu T2, dải vàng cảnh báo trên canvas & tự tiêm `QueryFilter` RLS vào toàn bộ truy vấn DAX), **DataPane** Hide/Unhide bảng/cột & **Unhide All**.
   - **4C (DAX / TMDL / SQL & v1.2.0):** Nút **Định dạng** & **Cập nhật mô hình (`DEFINE MEASURE ...` theo lô)** trên Ribbon DAX Query View, nút **Áp dụng thay đổi** trên Ribbon TMDL View, menu **SQL** (PostgreSQL / SQLite) trên Ribbon Home, nâng phiên bản lên **1.2.0** (`CFBundleVersion = 120`).
-  - Kiểm chứng: **2 471/2 471** unit test qua (`216,72 s`), **119/119** golden nặng release qua (`171,46 s`), **Cổng Power BI Desktop 2.159 (T014)** đạt 0 lỗi (`docs/phase-v12-evidence/vm-v12/gate-desktop.png`), đóng gói `build/BI Pro.app` **v1.2.0** + `codesign --verify --deep --strict` đạt.
+  - Kiểm chứng: **2 471/2 471** unit test qua, **119/119** golden nặng release qua, **Cổng Power BI Desktop 2.159 (T014)** đạt 0 lỗi (`docs/phase-v12-evidence/vm-v12/gate-desktop.png`).
+- **Rà soát & dọn nốt tồn đọng `BIPRO_BUILD_PLAN.md` + sửa mở cửa sổ khi khởi động (2026-11-21, working tree chưa commit):**
+  - Mở khoá hoàn toàn thanh Ribbon **Công cụ cột (`ColumnToolsCommands`)** & **Công cụ bảng (`TableToolsCommands`)** trong `Sources/BIPro/Shell/Ribbon.swift` cùng `Sources/BIPro/Table/ColumnFormatShortcut.swift`: đổi tên bảng (`CascadeRename`), đổi tên cột, menu `Định dạng` + 4 phím nhanh **`$`, `%`, `,`, `.00`**, `Tóm tắt`, `Danh mục`, `Sắp xếp theo cột`, bỏ toàn bộ tooltip `"Phase E"` cũ (hoàn tác ⌘Z & lưu T2).
+  - Sửa lỗi mở trực tiếp `BI Pro.app` không hiện cửa sổ (chỉ thấy chấm chạy trên Dock): bổ sung `AppLaunchPolicy` / `DocumentOpenTracker` và `applicationShouldOpenUntitledFile` / `applicationOpenUntitledFile` / `applicationShouldHandleReopen` + kiểm tra `launchIsDefaultUserInfoKey` trong `DocumentActions.swift`, `App.swift`, `UntitledDocuments.swift` (kèm 3 test `AppLaunchPolicyTests` và kiểm chứng thực tế trên macOS cho cả 3 kịch bản: mở trực tiếp, bấm lại trên Dock sau khi đóng hết cửa sổ, và mở kèm file `.pbix`).
+  - Dọn thông báo lỗi nhắc phase cũ trong `TMDLParser.swift`, `FieldEditor.swift`, `TypeChange.swift`; đồng bộ **694/694** mục `[x]` (0 mục `[ ]`) trên `docs/BIPRO_BUILD_PLAN.md`, `specs/003` (T034) và `specs/010` (T111).
+  - Kiểm chứng: **2 481** unit test (2 478 toàn bộ + 3 `AppLaunchPolicyTests`), **124/124** golden nặng release + `ColumnEditorTests` qua, đóng gói `build/BI Pro.app` **v1.2.0** + `codesign --verify --deep --strict` đạt.
 
 ## Quyết định đã chốt
 
@@ -54,7 +59,7 @@ Cập nhật: 2026-11-21 (**Đợt 4 — v1.2 `specs/015` HOÀN TẤT 100%** —
 
 ## Lệnh build / test
 
-- Build & unit test: `swift build`; `swift test --no-parallel` (2 471 test).
+- Build & unit test: `swift build`; `swift test --no-parallel` (2 478 test).
 - Golden nặng (release, gồm 30 golden DAX + 72 truy vấn visual + Phase G + v1.1b DAX golden):
   ```
   BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --no-parallel --filter "Nhom6|ORA|VIS|ExportCSVTests|ExportRenderTests|QuickLookSummaryTests|V11BDAXGoldenTests"
@@ -65,5 +70,5 @@ Cập nhật: 2026-11-21 (**Đợt 4 — v1.2 `specs/015` HOÀN TẤT 100%** —
 
 ## Việc tiếp theo
 
-1. **Git:** Toàn bộ thay đổi **Đợt 4 (`v1.2`, `specs/015-v12-hoan-thien-chuyen-nghiep/`)** đang ở working tree và đã qua 100% các cổng kiểm thử + VM Desktop 2.159 + Release Build v1.2.0 (chờ lệnh commit/push của bạn).
+1. **Git:** Đợt 4 (`v1.2`) đã commit tại `8504d9c`; đợt hoàn thiện nốt Ribbon `Column Tools` / `Table Tools` & đồng bộ `BIPRO_BUILD_PLAN.md` đang ở working tree (chờ lệnh commit & push 91+ commit lên `origin/main` của bạn).
 2. **Định hướng sau v1.2 (tuỳ chọn):** Theo dõi sử dụng thực tế `build/BI Pro.app` v1.2.0; cân nhắc đóng gói `.dmg` phân phối hoặc mở rộng thêm connector/tính năng mới khi cần.

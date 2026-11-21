@@ -49,7 +49,8 @@ Các bản có hậu tố `_fixed` được coi là bản chuẩn. Một số �
 | Copilot, Model Copilot, Generate | **Ẩn** (đã chốt: chưa làm AI) |
 | Publish, Collaborate, avatar | Không có server → đổi thành menu **Export** (PDF, PNG, CSV) |
 | DirectQuery / DirectLake / "Execution target" | Chỉ hỗ trợ Import. Bỏ các nhãn này |
-| Roles / View as, Calculation groups, Perspectives, Cultures | Hiển thị trong cây model và giữ nguyên khi lưu. Sửa thì để sau v1 |
+| Roles / View as | Đã triển khai ở Đợt 4 (v1.2): `ManageRolesSheet` (lưu T2) + `ViewAsRoleSheet` (dải vàng & tự tiêm lọc RLS vào DAX) |
+| Calculation groups, Perspectives, Cultures | Hiển thị trong cây model và giữ nguyên khi lưu. Sửa thì để sau v1.2 |
 | Q&A setup, tab Optimize | Sau v1 |
 
 ## 2. Lưu `.pbix`: chiến lược theo tầng
@@ -134,58 +135,55 @@ BI Pro (SwiftUI + AppKit, macOS 15+)
 | `pages.json` `activePageName` / `activeSectionIndex` | PBIR / Layout cũ | Mở lại đúng trang đang mở khi lưu |
 | `filterConfig` cấp report/trang/visual (`Not In`…) | `report.json`, `page.json`, `visual.json` | Pane Bộ lọc: "year không phải 9999" |
 
-### Phase W: Spike ghi `.pbix` (2 tuần) ⚠️ quyết định cách lưu
+### Phase W: Spike ghi `.pbix` ✅ 2026-10-31 (hoàn thiện gate T1/T2/T3 qua Phase D/E/F)
 > Plan chi tiết, cách chia việc cho agent song song và checklist test tay trên VM: [`PHASE_W_PLAN.md`](PHASE_W_PLAN.md).
 
 - [x] Vendor encoder XPress9; viết `ABFWriter` + `DataModelStream.compress`. (WP1, WP3)
 - [x] Offline: dựng lại ABF khớp từng byte; nén → giải nén khớp; ZIP copy raw khớp; metadata thêm measure đọc lại được.
 - [x] **W1:** round-trip không đổi → mở được trong Power BI Desktop (VM). Người dùng xác nhận mở được, dữ liệu nạp đủ (2026-10-31).
-- [ ] **W2 (T1):** sửa tiêu đề visual → mở được. Gate sẵn ở `build/w-out/W2/`, chờ test tay.
-- [ ] **W3 (T2):** thêm measure → mở được và chạy đúng. Gate sẵn ở `build/w-out/W3/`, chờ test tay.
-- [ ] **W4 (T3):** bảng mới 100 dòng → mở được, dữ liệu đúng. Writer xong và giải mã đúng offline; gate sẵn ở `build/w-out/W4/`, chờ test tay.
-- [x] Lệnh `pbix-dump roundtrip`, `set-title`, `add-measure` (`PBIXWriter`). Test tự động 62/62 pass.
-- **Xong khi:** W1–W3 đạt. Nếu W4 chưa đạt thì T3 dùng phương án dự phòng ở §2, và tiếp tục nghiên cứu song song với Phase B–E.
+- [x] **W2 (T1):** sửa report/tiêu đề visual → mở được trong Power BI Desktop (xác nhận toàn diện qua cổng Phase D `Nhom6_d1..d7.pbix` và v1.1a/v1.1b/v1.2).
+- [x] **W3 (T2):** thêm measure & sửa metadata model → mở được và chạy đúng trong Power BI Desktop (xác nhận qua cổng Phase E `docs/phase-e-evidence/vm-e2`, `vm-e3` và v1.2 `bipro-v12-gate.pbix`).
+- [x] **W4 (T3):** bảng mới (dữ liệu VertiPaq) → mở được, dữ liệu khớp từng ô trong Power BI Desktop (thay bằng gate F-T3 của Phase F `docs/phase-f-evidence/CHECKLIST-M3.md` và `specs/011` 10M dòng nhiều đoạn + nén RLE).
+- [x] Lệnh `pbix-dump roundtrip`, `set-title`, `add-measure` (`PBIXWriter`). Test tự động qua.
+- **Xong khi:** W1–W4 đạt. **Đạt 100%.**
 
-### Phase B: DAX engine và DAX Query View (6–7 tuần)
+### Phase B: DAX engine và DAX Query View ✅ 2026-11-02
 > Plan multi-agent chi tiết, oracle và lịch test tay: [`PHASE_B_PLAN.md`](PHASE_B_PLAN.md). Nghiên cứu: `docs/phase-b-research/`.
 - [x] ColumnStore + quan hệ (lọc một chiều/hai chiều, active/inactive, `USERELATIONSHIP`, blank row).
-- [x] DAX lexer/parser/binder/evaluator; **43 hàm** mà 119 measure Nhom6 cần (đo lại, kế hoạch cũ ghi khoảng 40), gồm `CALCULATE`, `REMOVEFILTERS`, `KEEPFILTERS`, `ALLSELECTED`, `TREATAS`, `ISFILTERED`, `SAMEPERIODLASTYEAR`.
+- [x] DAX lexer/parser/binder/evaluator; **43 hàm** mà 119 measure Nhom6 cần (đo lại, kế hoạch cũ ghi khoảng 40), gồm `CALCULATE`, `REMOVEFILTERS`, `KEEPFILTERS`, `ALLSELECTED`, `TREATAS`, `ISFILTERED`, `SAMEPERIODLASTYEAR` (đã mở rộng thêm ~56 hàm ở v1.1b).
 - [x] Truy vấn: `EVALUATE`, `DEFINE MEASURE/VAR`, `SUMMARIZECOLUMNS`, `ORDER BY`, `TOPN`, `ROW`.
-- [ ] DAX Query View theo `dax_query_view` (không có ô AI). Xong UI1, UI2/UI3 (trạng thái, tooltip, lọc lưới, quick queries, ô Dữ liệu Bảng/Mô hình, menu chuột phải); đang làm gạch chân lỗi, tự hoàn thành, đổi tên tab.
-- [x] Oracle: golden từ DAX Query View của Power BI Desktop (bạn chạy tay trong VM), cộng oracle tự động (sqlite, cột tính toán đã lưu, test thuộc tính, bộ tí hon). Không dùng pbixray; DAX Studio chỉ dùng nếu bạn tự cài.
-- **Xong khi:** 119 measure Nhom6 khớp golden G0–G3, G5, G6.
-- **Trạng thái (2026-11-02):** **engine đạt tiêu chí xong**: 30/30 golden khớp Power BI (G0–G6, T1–T5; 3 buổi test tay). Còn UI2/UI3 của DAX Query View. Chi tiết: mục "Tiếp tục từ đây" đầu `PHASE_B_PLAN.md`.
+- [x] DAX Query View theo `dax_query_view` (không có ô AI): UI1–UI4 hoàn tất (chạy/huỷ, lưới kết quả có lọc/sắp xếp, thanh trạng thái, tooltip measure, quick queries, ô Dữ liệu Bảng/Mô hình, menu chuột phải, gạch chân lỗi `EditorDiagnostics`, tự hoàn thành `DAXCompletion`/`CompletionPopup`, đổi tên tab tại chỗ `QueryTabBar`; mở rộng thêm `Định dạng` & `Cập nhật mô hình` ở v1.2).
+- [x] Oracle: golden từ DAX Query View của Power BI Desktop (bạn chạy tay trong VM), cộng oracle tự động (sqlite, cột tính toán đã lưu, test thuộc tính, bộ tí hon).
+- **Xong khi:** 119 measure Nhom6 khớp golden G0–G3, G5, G6. **Đạt 30/30 golden khớp Power BI.**
 
-### Phase C: Report có số liệu và tương tác (5 tuần) → **M1**
-Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md).
-- [ ] Visual có số: card/KPI, bar/column/line/combo, donut, treemap, 100% stacked, table/matrix, slicer, shape map; định dạng số, conditional formatting.
-- [ ] Filters pane, slicer lọc thật, cross-filter/highlight, drill, tooltip, Selection pane, Bookmarks pane.
-- **Xong khi:** cả 4 trang Nhom6 tương tác như trên Power BI.
+### Phase C: Report có số liệu và tương tác → **M1** ✅ 2026-11-06
+> Kế hoạch chi tiết: [`PHASE_C_PLAN.md`](PHASE_C_PLAN.md); tối ưu hiệu năng: `specs/001-e3-cau-truc/` (trang D1 ~0,58 s).
+- [x] Visual có số (72/72 truy vấn visual khớp Performance Analyzer): card/KPI, bar/column/line/combo, donut/pie, treemap, 100% stacked, table/matrix, slicer, shape map; định dạng số, conditional formatting (mở rộng đầy đủ 40 loại visual ở v1.1a và CF Rules/Gradient/Field/Data Bars ở v1.1b).
+- [x] Filters pane, slicer lọc thật, cross-filter/highlight, drill/drillthrough, tooltip, Selection pane, Bookmarks pane (mở rộng Edit Interactions & Matrix phân cấp hàng ở v1.1b).
+- **Xong khi:** cả 4 trang Nhom6 tương tác như trên Power BI. **Đạt.**
 
-### Phase D: Sửa report + lưu T1 (5–6 tuần)
-- [ ] Build pane (lưới visual, field well, kéo thả: **xong ở D2, D3**), Format pane (danh mục từ quan sát, sửa được và lưu T1: **xong ở D4**), ribbon Insert (**xong nút Visual mới và Hộp văn bản ở D3**), quản lý trang (thêm/xoá/đổi tên: **D5**).
-- [x] **Lát D1** (2026-11-09, `specs/002-d1-canvas-luu-t1/`): canvas chọn (một và nhiều), di chuyển, đổi cỡ, snap 8 px, xoá, nhân bản, chép/dán, hoàn tác/làm lại; **lưu `.pbix` tầng T1** (Lưu, Lưu thành, bản sao lưu, chặn ghi vào Downloads); app đăng ký Editor. Còn chờ bạn kiểm tay trên VM (mở file lưu ra trong Power BI Desktop) và buổi quan sát VM-D1.
-- [x] **Lát D2 (D2a)** (2026-11-10, `specs/003-d2-build-pane-field-well/`): Build pane sửa trường của visual đã có (thêm, bỏ, đổi thứ tự, chuyển ô, đổi tên hiển thị; kéo từ pane Dữ liệu), vẽ lại ngay, hoàn tác chung với D1, lưu T1 (`PBIRQueryPatch`). Còn chờ bạn kiểm tay trên VM và buổi VM-D2; phép gộp (D2b) và bỏ trường còn nằm trong sắp xếp/bộ lọc/định dạng chờ kết quả VM-D2.
-- [x] **Lát D3 (bản đầu)** (2026-11-10, `specs/004-d3-them-visual-doi-loai/`): thêm visual mới (thư viện Build pane, nút ribbon Chèn), đổi loại visual giữ trường, sửa chữ hộp văn bản, hoàn tác chung, lưu T1 (thêm part, ghép byte). Còn chờ bạn kiểm tay trên VM và buổi VM-D3; các loại cột/thanh/vùng và các chi tiết cấu trúc `visual.json` mới chờ kết quả VM-D3.
-- [ ] **D2b và D3b** (chờ buổi VM-D2, VM-D3 của bạn): phép gộp, các ô và loại chưa kiểm (cột nhóm, xếp chồng, vùng), cách Desktop xử lý sắp xếp/bộ lọc/định dạng khi bỏ trường hoặc đổi loại, khoá `visual.json` mới.
-- [x] **D4 Format pane** (xong 2026-11-10, `specs/006-d4-format-pane/`): sửa thuộc tính trong danh mục đã quan sát (VM-D4 hai vòng), ghi `objects` và `visualContainerObjects` bằng ghép byte, hoàn tác chung, lưu T1; Nhom6_d4.pbix mở được ở Desktop. Còn lại: matrix thêm mới, `dataPoint`/selector theo trường, phông, màu nền/bóng.
-- [x] **D5 Quản lý trang (xong phần code và kiểm Desktop, 2026-11-10, Spec Kit `specs/005-d5-quan-ly-trang/`)**: thêm, đổi tên, đổi thứ tự (kéo tab), nhân bản, xoá trang; xoá trang gỡ bookmark trỏ tới (khác Desktop, vốn để mồ côi); lưu T1; hoàn tác chung; `Nhom6_d5.pbix` mở được trong Power BI Desktop. Còn chưa quan sát: xoá trang có nút `PageNavigation` (đang chặn).
-- [x] **D6 Bookmark và bộ lọc người dùng ghi vào file** (xong phần code và kiểm Desktop, 2026-11-11, Spec Kit `specs/007-d6-bookmark-filter/`): ở Sửa thêm, cập nhật, đổi tên, xoá, đổi thứ tự bookmark (Display, Current page, và Data gồm lựa chọn slicer cột đơn) và thêm, sửa, bỏ thẻ lọc Basic, Advanced chữ, Top N ở cấp báo cáo, trang, visual, ghi `bookmarks/` và `filterConfig` bằng ghép byte; Xem chỉ để xem; hoàn tác chung; `Nhom6_d6.pbix` mở được trong Power BI Desktop. Chưa ghi (chỉ trong phiên, kèm lý do): Data có lựa chọn điểm dữ liệu, drill, mở nút, slicer nhiều cấp; Advanced số, Hoặc, "là"; Bottom N; thẻ measure.
-- [x] **D7** (xong phần code và kiểm Desktop, 2026-11-11, Spec Kit `specs/008-d7-nhom-can-le-cu/`): căn lề và phân bố, chép dán giữa các trang, nhóm visual (Group/Ungroup, di chuyển, đổi cỡ, xoá, nhân bản), sửa bố cục báo cáo định dạng cũ `Report/Layout` (di chuyển, đổi cỡ, căn, xoá, nhân bản, dán); hoàn tác chung; lưu T1; `Nhom6_d7.pbix` và `Nhom2_d7.pbix` mở được trong Power BI Desktop. Chưa quan sát: xoá nhóm, co dọc, nhóm lồng nhau.
-- Tiến độ tới 2026-11-10: D1, D2, D3 xong phần code trong hai ngày (9 và 10/11; nhanh hơn ước tính 5–6 tuần của Phase D vì dùng lại Phase W); phần còn lại chủ yếu bị chặn bởi buổi quan sát VM của bạn, không phải bởi mã.
-- **Xong khi:** sửa trang Nhom6 trong BI Pro, lưu, rồi mở lại được cả trong BI Pro lẫn Power BI Desktop.
+### Phase D: Sửa report + lưu T1 ✅ 2026-11-11 (bổ sung VM-D8/D10/D12/D15 & v1.1a/v1.1b)
+- [x] Build pane (lưới visual, field well, kéo thả: **D2, D3**), Format pane (danh mục từ quan sát, sửa được và lưu T1: **D4**), ribbon Insert (**D3**, mở khoá đầy đủ Hình/Nút/Điều hướng/Ảnh ở **v1.1a**), quản lý trang (thêm/xoá/đổi tên/nhân bản/đổi thứ tự: **D5**).
+- [x] **Lát D1** (2026-11-09, `specs/002-d1-canvas-luu-t1/`): canvas chọn (một và nhiều), di chuyển, đổi cỡ, snap 8 px, xoá, nhân bản, chép/dán, hoàn tác/làm lại; **lưu `.pbix` tầng T1** (Lưu, Lưu thành, bản sao lưu, chặn ghi vào Downloads); app đăng ký Editor; qua cổng Desktop `VM-D1`.
+- [x] **Lát D2 (D2a + D2b)** (2026-11-10, `specs/003-d2-build-pane-field-well/` + `specs/011` US1): Build pane sửa trường (thêm, bỏ, đổi thứ tự, chuyển ô, đổi tên hiển thị; kéo từ pane Dữ liệu), vẽ lại ngay, hoàn tác chung, lưu T1 (`PBIRQueryPatch`); bỏ trường tự dọn định dạng theo quy tắc Desktop (`VM-D2`); phép gộp ngầm (`SUM`/`AVERAGE`/`COUNT`…) hoàn tất ở `specs/011` (`VM-F10`).
+- [x] **Lát D3 (D3a + D3b)** (2026-11-10, `specs/004-d3-them-visual-doi-loai/` + `VM-D3/D12/D15` + `specs/013`): thêm visual mới (thư viện Build pane, ribbon Chèn), đổi loại visual giữ trường & lọc khoá `objects` theo Desktop, sửa chữ hộp văn bản, hỗ trợ 40 loại visual (`VisualTypes.supported`), lưu T1; qua cổng Desktop.
+- [x] **D4 Format pane** (2026-11-10 + bổ sung `VM-D8/D12/D15`, `specs/006-d4-format-pane/`): sửa thuộc tính trong danh mục đã quan sát (gồm matrix `pivotTable` mới, `dataPoint` theo chuỗi/Chú giải `selector.metadata` & `selector.data`, phông chữ tiêu đề, nền, đổ bóng, `shape`, `actionButton`), ghi `objects` và `visualContainerObjects` bằng ghép byte, hoàn tác chung, lưu T1; qua cổng Desktop.
+- [x] **D5 Quản lý trang** (2026-11-10 + `VM-D8`, `specs/005-d5-quan-ly-trang/`): thêm, đổi tên, đổi thứ tự (kéo tab), nhân bản, xoá trang; xoá trang gỡ bookmark trỏ tới và giữ nguyên nút `PageNavigation` kèm thông báo đúng hành vi Desktop (`VM-D8`); lưu T1; hoàn tác chung; qua cổng Desktop.
+- [x] **D6 Bookmark và bộ lọc ghi vào file** (2026-11-11 + `VM-D8/D10` + v1.1b, `specs/007-d6-bookmark-filter/`): thêm, cập nhật, đổi tên, xoá, đổi thứ tự, gom nhóm bookmark và thêm, sửa, bỏ thẻ lọc Basic, Advanced (chữ, số, ngày `datetime'...'`, `Hoặc`, `là`/`không là`), Top N / Bottom N, thẻ measure ở cấp báo cáo/trang/visual, ghi `bookmarks/` và `filterConfig` bằng ghép byte; hoàn tác chung; qua cổng Desktop. *(Ghi chú phạm vi: Bookmark Data có lọc chéo, drill, mở nút matrix/slicer, slicer nhiều cấp hoạt động đầy đủ trong phiên từ v1.1b và báo rõ khi lưu `.pbix`.)*
+- [x] **D7 Nhóm, căn lề và định dạng cũ** (2026-11-11 + `VM-D8`, `specs/008-d7-nhom-can-le-cu/`): căn lề và phân bố, chép dán giữa các trang, nhóm visual đầy đủ (Group, Ungroup, **Merge vào nhóm**, **nhóm lồng nhau**, di chuyển, co giãn ngang/dọc theo tỷ lệ, xoá nhóm & dọn bookmark, nhân bản), sửa bố cục báo cáo định dạng cũ `Report/Layout`; hoàn tác chung; lưu T1; qua cổng Desktop (`Nhom6_d7.pbix`, `Nhom2_d7.pbix`).
+- **Xong khi:** sửa trang Nhom6 trong BI Pro, lưu, rồi mở lại được cả trong BI Pro lẫn Power BI Desktop. **Đạt.**
 
-### Phase E: Mô hình hoá + lưu T2 (4–5 tuần) → **M2**
-> **Xong phần code và kiểm Desktop (2026-11-14)**: Spec Kit `specs/009-e-mo-hinh-hoa-luu-t2/`; bằng chứng ở `docs/phase-e-evidence/` (VM-E1 đến VM-E5). Cột tính toán và bảng tính toán ngoài Phase E (chỉ xem; tạo mới cần T3, Phase F). Golden nặng bản release (137 qua) và `/code-review` đã xong; VM-E6 (tab bố cục, quan hệ hoạt động, tổng hợp và sắp xếp cột) đạt.
-- [x] **Measure** (Câu chuyện 1): tạo, sửa, xoá ở Table view (thanh công thức `Tên = biểu thức`, kiểm bằng engine, suy kiểu và định dạng như Desktop), thuộc tính (mô tả, thư mục, định dạng, ẩn), xoá/đổi tên bị chặn khi còn nơi dùng; menu ở ngăn Data (cả chế độ Báo cáo) và ngăn Properties ở Model view; hoàn tác chung; lưu T2.
+### Phase E: Mô hình hoá + lưu T2 (4–5 tuần) → **M2** ✅ 2026-11-14
+> **Xong phần code và kiểm Desktop (2026-11-14)**: Spec Kit `specs/009-e-mo-hinh-hoa-luu-t2/`; bằng chứng ở `docs/phase-e-evidence/` (VM-E1 đến VM-E5). Cột tính toán và bảng tính toán hoàn tất ở Phase F (`specs/010`–`011`). Golden nặng bản release và `/code-review` đã xong; VM-E6 (tab bố cục, quan hệ hoạt động, tổng hợp và sắp xếp cột) đạt.
+- [x] **Measure** (Câu chuyện 1): tạo, sửa, xoá ở Table view (thanh công thức `Tên = biểu thức`, kiểm bằng engine, suy kiểu và định dạng như Desktop), thuộc tính (mô tả, thư mục, định dạng, ẩn), đổi tên lan truyền (`CascadeRename`, v1.1b); menu ở ngăn Data (cả chế độ Báo cáo) và ngăn Properties ở Model view; hoàn tác chung; lưu T2.
 - [x] **Quan hệ** (Câu chuyện 2): sửa hướng lọc và bật/tắt, tạo bằng kéo cột thả cột (hộp xác nhận, dò bản số, ghi đủ chỉ mục `R$` như Desktop), xoá; engine nạp lại tái dùng cột đã giải mã.
-- [x] **Table View đầy đủ** (Câu chuyện 3): sửa thuộc tính cột (tên, mô tả, thư mục, định dạng, tổng hợp, loại dữ liệu, sắp xếp theo cột, ẩn); lưới có sắp xếp và lọc chỉ để xem.
+- [x] **Table View đầy đủ** (Câu chuyện 3): sửa thuộc tính cột (tên, mô tả, thư mục, định dạng, tổng hợp, loại dữ liệu, sắp xếp theo cột, ẩn) ở cả ngăn `ColumnPropertiesEditor` lẫn trực tiếp trên thanh Ribbon **Công cụ cột** (`Định dạng`, phím nhanh `$ % , .00`, `Tóm tắt`, `Danh mục`, `Sắp xếp theo cột`, `Tên`) và **Công cụ bảng** (`Tên` → Cascade Rename); lưới có sắp xếp và lọc chỉ để xem.
 - [x] **Model View sửa được** (Câu chuyện 4): kéo thẻ bảng, thu phóng, ẩn/hiện bảng, ghi `DiagramLayout`, thêm/đổi tên/xoá tab bố cục và gỡ bảng khỏi tab (VM-E6, VM-E7, Desktop mở đúng). Đổi thứ tự tab: Desktop không kéo đổi được nên không làm.
 - [x] **TMDL View sửa được** (Câu chuyện 5): áp dụng nguyên khối (measure, thuộc tính cột, bảng ẩn, quan hệ), lỗi theo dòng.
 - [x] **Lưu tầng T2**: `PBIXChanges.modelEdits`, `MetadataWriter.apply`, kiểm đọc lại; lưu Nhom6 khoảng 2,5 s (bản release).
 - **Xong khi:** thêm measure và quan hệ trong BI Pro, lưu, rồi Power BI Desktop đọc đúng. **Đạt** (`vm-e2`, `vm-e3`).
 
-### Phase F: Get Data, Power Query + lưu T3 (8–10 tuần) → **M3**
+### Phase F: Get Data, Power Query + lưu T3 → **M3** ✅ 2026-11-17 (+ tồn đọng `specs/011` 2026-11-19)
 - [x] Connector tự viết (không DuckDB): CSV, Excel (đợt 1, P1); JSON, SQLite; Parquet và PostgreSQL tập con (P3).
 > **Gate M3 ĐẠT (2026-11-17)**: Spec Kit `specs/010-f-get-data-power-query-t3/`, bằng chứng `docs/phase-f-evidence/` (`CHECKLIST-M3.md`). Sửa/xoá cột và bảng tính toán (FR-060) xong, gate Desktop ĐẠT (`vm-f9/KET-QUA.md`, 2026-11-17). Tồn đọng sau Phase F (Spec Kit `specs/011-ton-dong-sau-phase-f/`, 2026-11-19, bằng chứng `docs/phase-f2-evidence/`): phép gộp ngầm,
 Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào báo cáo", Enter Data, hàm văn bản DAX, sửa/xoá cột tính toán còn được dùng
@@ -195,7 +193,7 @@ Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào bá
 - [x] **Lưu tầng T3** (dữ liệu mới vào VertiPaq), tạo `.pbix` mới từ đầu.
 - **Xong khi:** đi hết luồng `sales_2026.xlsx` → Query Editor → Close & Apply → report → lưu `.pbix` → mở được trong Power BI Desktop. **Đạt** (T100, 2026-11-17).
 
-### Phase G: Hoàn thiện (2–3 tuần) → **v1.0**
+### Phase G: Hoàn thiện → **v1.0** ✅ 2026-11-21
 > **Mốc v1.0 ĐẠT (2026-11-21)**: Spec Kit `specs/012-g-hoan-thien-v1/`, bằng chứng `docs/phase-g-evidence/`, số đo `specs/012-g-hoan-thien-v1/measurements.md`.
 - [x] Export PDF/PNG/CSV (`VisualCSVExporter` RFC 4180 + UTF-8 BOM, `ReportPageExporter` PNG 1×/2× & PDF nhiều trang vectơ, `ExportSheet`, menu `Xuất` Title bar / `Tệp ▸ Xuất` / chuột phải visual).
 - [x] Quick Look cho `.pbix` (`PBIXQuickLookSummary` `< 1 s`, `PBIXQuickLookRenderer`, `PBIXQuickLook.appex` + `PBIXThumbnail.appex` đóng gói trong `scripts/build-app.sh`, kiểm thực tế qua `QLThumbnailGenerator` trên macOS 15).
