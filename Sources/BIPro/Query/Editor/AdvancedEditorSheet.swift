@@ -96,7 +96,7 @@ struct AdvancedEditorContent: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 
-                Button("Xong") {
+                Button(bi("Xong", "Done")) {
                     if let err = onApply(sourceText) {
                         errorMessage = err
                     } else {
