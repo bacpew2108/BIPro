@@ -65,10 +65,15 @@ enum UntitledDocuments {
     }
 
     @MainActor private static var startWindow: NSWindow?
+    @MainActor private static var startObserver: NSObjectProtocol?
 
-    /// Mở cửa sổ Màn hình Khởi động (`StartScreen`) khi chưa có tài liệu nào.
+    /// Việc làm ngay khi tài liệu trống được mở (thẻ Excel / nguồn khác trên màn hình Khởi động): `DocumentState.init` lấy ra và chạy.
+    @MainActor static var pendingFirstAction: ((DocumentState) -> Void)?
+
+    /// Mở cửa sổ Màn hình Khởi động (`StartScreen`) khi chưa có tài liệu nào. Gọi lại thì chỉ đưa cửa sổ cũ lên trước.
     @MainActor static func showStartScreen() {
-        if let existing = startWindow, existing.isVisible {
+        if let existing = startWindow {
+            if existing.isMiniaturized { existing.deminiaturize(nil) }
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -89,27 +94,68 @@ enum UntitledDocuments {
         })
         .preferredColorScheme(AppPreferences.shared.preferredColorScheme)
         window.contentViewController = NSHostingController(rootView: root)
+        window.setContentSize(NSSize(width: 1240, height: 780))
+        window.center()
         startWindow = window
+        // Cửa sổ khởi động tự đóng khi có tài liệu mở (từ Mở…, Finder, thẻ Báo cáo trống…).
+        startObserver = NotificationCenter.default.addObserver(forName: .biproDocumentOpened, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { closeStartScreen() }
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
+            MainActor.assumeIsolated { forgetStartScreen() }
+        }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Lệnh "Mới" (⌘N) hoặc mở cửa sổ mặc định lúc khởi động: tạo tài liệu trống và đưa cửa sổ lên trước.
-    @MainActor static func openNew() {
+    @MainActor private static func closeStartScreen() {
+        startWindow?.close()
+    }
+
+    @MainActor private static func forgetStartScreen() {
+        startWindow = nil
+        if let startObserver { NotificationCenter.default.removeObserver(startObserver) }
+        startObserver = nil
+    }
+
+    /// Lệnh "Mới" (⌘N) hoặc thẻ "Báo cáo trống": tạo tài liệu trống và đưa cửa sổ lên trước.
+    /// `firstAction` chạy một lần khi tài liệu đã dựng xong (ví dụ mở hộp chọn Excel).
+    @MainActor static func openNew(firstAction: ((DocumentState) -> Void)? = nil) {
         startWindow?.close()
         DocumentOpenTracker.markOpened()
+        pendingFirstAction = firstAction
         do {
             let url = try create()
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error {
+                    pendingFirstAction = nil
                     _ = Alerts.ask("Không mở được tài liệu mới", error.localizedDescription, buttons: ["Đóng"], style: .critical)
                     return
                 }
                 NSApp.activate(ignoringOtherApps: true)
+                if let document {
+                    if document.windowControllers.isEmpty { document.makeWindowControllers() }
+                    document.showWindows()
+                }
                 document?.windowControllers.first?.window?.makeKeyAndOrderFront(nil)
             }
         } catch {
+            pendingFirstAction = nil
             _ = Alerts.ask("Không tạo được tài liệu mới", "\(error)", buttons: ["Đóng"], style: .critical)
         }
     }
+
+    /// Thẻ trên màn hình Khởi động: Báo cáo trống mở báo cáo trống; Excel và nguồn khác mở báo cáo trống rồi mở hộp lấy dữ liệu (như Desktop).
+    @MainActor static func start(entryID: String) {
+        switch entryID {
+        case "excel": openNew { $0.showGetData(kind: .excel) }
+        case "sqlServer", "otherSources": openNew { $0.showGetData() }
+        default: openNew()
+        }
+    }
+}
+
+extension Notification.Name {
+    /// Đăng khi một tài liệu `.pbix` bắt đầu mở (đóng màn hình Khởi động nếu đang hiện).
+    static let biproDocumentOpened = Notification.Name("bipro.documentOpened")
 }

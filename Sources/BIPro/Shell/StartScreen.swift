@@ -71,7 +71,7 @@ struct StartEntry: Identifiable, Equatable {
 /// Màn hình khởi động khi mở app không kèm `.pbix`, bám sát Power BI Desktop 2.159.
 struct StartScreen: View {
     var recentEntries: [RecentFileEntry]? = nil
-    var onOpenBlank: () -> Void = { UntitledDocuments.openNew() }
+    var onStart: (StartEntry) -> Void = { UntitledDocuments.start(entryID: $0.id) }
     var onOpenFile: () -> Void = { NSDocumentController.shared.openDocument(nil) }
     var onOpenURL: (URL) -> Void = { url in
         NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }
@@ -191,7 +191,7 @@ struct StartScreen: View {
         let tint = Color(hex: entry.tintHex) ?? DS.Palette.accentBrand
         return Button {
             guard entry.isSupported else { return }
-            onOpenBlank()
+            onStart(entry)
             onDismiss()
         } label: {
             VStack(spacing: 12) {

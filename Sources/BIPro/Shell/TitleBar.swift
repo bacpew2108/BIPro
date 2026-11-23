@@ -86,13 +86,15 @@ struct TitleBar: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DS.Palette.label)
                     .lineLimit(1)
-                Text("•")
-                    .font(.system(size: 11))
-                    .foregroundStyle(DS.Palette.tertiaryLabel)
-                Text(savedStatusText)
-                    .font(.system(size: 11))
-                    .foregroundStyle(DS.Palette.secondaryLabel)
-                    .lineLimit(1)
+                if !savedStatusText.isEmpty {
+                    Text("•")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Palette.tertiaryLabel)
+                    Text(savedStatusText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                        .lineLimit(1)
+                }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(DS.Palette.secondaryLabel)
@@ -136,11 +138,16 @@ struct TitleBar: View {
         }
     }
 
+    private var isUntitledDocument: Bool { UntitledDocuments.isUntitled(state.fileURL) }
+
     private var displayFileName: String {
-        state.fileName.hasSuffix(".pbix") ? String(state.fileName.dropLast(5)) : state.fileName
+        if isUntitledDocument { return bi("Không tên", "Untitled") }
+        return state.fileName.hasSuffix(".pbix") ? String(state.fileName.dropLast(5)) : state.fileName
     }
 
     private var savedStatusText: String {
+        // Tài liệu mới chưa từng lưu: không có mốc "Last saved" (như Desktop chỉ ghi "Untitled").
+        if isUntitledDocument { return state.layout.isDirty ? bi("Chưa lưu", "Unsaved changes") : "" }
         if state.layout.isDirty {
             return bi("Chưa lưu", "Unsaved changes")
         }

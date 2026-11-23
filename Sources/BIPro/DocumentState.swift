@@ -325,6 +325,12 @@ final class DocumentState {
             ?? workspace.visiblePages.first?.id ?? workspace.report.pages.first?.id
         layout.showPage(pageID)
         DocumentRegistry.shared.add(self)
+        if UntitledDocuments.isUntitled(fileURL), let action = UntitledDocuments.pendingFirstAction {
+            UntitledDocuments.pendingFirstAction = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                if let self { action(self) }
+            }
+        }
         if let fileURL, !UntitledDocuments.isUntitled(fileURL) { RecentFiles.record(fileURL) }
         table = workspace.userTables.first?.name
         diagramName = workspace.diagramLayout?.defaultDiagram ?? workspace.diagramLayout?.diagrams.first?.name

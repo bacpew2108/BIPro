@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.159 (v1.3.0) đã hoàn tất 86/87 tác vụ tự động**, còn cổng con người **T086** tại `build/h-out/gate/CHECKLIST.md`; qua **2 537/2 537** unit test, **119/119** golden nặng release, đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt; đã commit 73e0019 + sửa 5 lỗi phát hiện khi bấm thử app thật: nút Share lặp, Ribbon cụt/đè nút `^` ở Model, lệch song ngữ, nhãn nút menu bị ngang; chưa push).
+Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.159 (v1.3.0) đã hoàn tất 86/87 tác vụ tự động**, còn cổng con người **T086** tại `build/h-out/gate/CHECKLIST.md`; qua **2 537/2 537** unit test, **119/119** golden nặng release, đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt; đã commit 73e0019 + sửa 5 lỗi phát hiện khi bấm thử app thật: nút Share lặp, Ribbon cụt/đè nút `^` ở Model, lệch song ngữ, nhãn nút menu bị ngang; chưa push). 2026-11-23: sửa khởi động — mở app trực tiếp giờ hiện màn hình Khởi động (thẻ Blank report/Excel/nguồn khác) thay vì tự tạo "Không tên.pbix"; lỗi app chạy mà không có cửa sổ do `launchIsDefaultUserInfoKey` đôi khi `false` nên thêm lần kiểm chốt sau 1,5 s.
 
 *(Nhật ký chi tiết Phase A–G trước ngày 2026-11-21 đã được lưu trữ nguyên văn tại `docs/HISTORY.md`.)*
 

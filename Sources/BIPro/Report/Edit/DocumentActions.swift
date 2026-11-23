@@ -167,6 +167,7 @@ enum DocumentOpenTracker {
         lock.lock()
         opened = true
         lock.unlock()
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .biproDocumentOpened, object: nil) }
     }
 
     static func resetForTesting() {
@@ -216,31 +217,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let isDefaultLaunch = (notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? NSNumber)?.boolValue ?? true
         MainActor.assumeIsolated {
             AppPreferences.shared.applyAppearance()
-            // `DocumentGroup(viewing:)` trên macOS không tự mở cửa sổ mới khi chạy app trực tiếp (không kèm file `.pbix`).
-            // Chỉ mở tài liệu mới khi `launchIsDefaultUserInfoKey == true` (không chạy khi mở kèm file từ Finder/`open -a`).
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            // `DocumentGroup(viewing:)` không tự mở cửa sổ khi chạy app trực tiếp, nên app tự hiện màn hình Khởi động.
+            // `launchIsDefaultUserInfoKey` KHÔNG đủ tin: macOS đôi khi báo `false` dù không có tệp nào (bấm đôi app lúc có trạng thái
+            // cửa sổ cũ…), khi đó app chạy mà không có cửa sổ cho tới khi bấm Dock. Vì vậy kiểm hai lần: sớm nếu là khởi động mặc định,
+            // và lần chốt sau 1,5 giây cho mọi trường hợp (không tài liệu, không cửa sổ, chưa có tệp nào đang mở thì mới hiện).
+            @MainActor func check(treatAsDefault: Bool) {
                 let openCount = NSDocumentController.shared.documents.count
                 let visible = AppLaunchPolicy.hasVisiblePrimaryWindow()
                 if AppLaunchPolicy.shouldOpenUntitledOnLaunch(
-                    isDefaultLaunch: isDefaultLaunch,
+                    isDefaultLaunch: treatAsDefault,
                     hasStartedOpening: DocumentOpenTracker.hasStartedOpening,
                     openDocumentsCount: openCount,
                     hasVisibleWindow: visible
                 ) {
-                    UntitledDocuments.openNew()
+                    UntitledDocuments.showStartScreen()
                 }
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { MainActor.assumeIsolated { check(treatAsDefault: isDefaultLaunch) } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { MainActor.assumeIsolated { check(treatAsDefault: true) } }
         }
     }
 
-    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
-        !AppLaunchPolicy.isRunningTests
-    }
+    /// Không để AppKit tự mở "Không tên.pbix": khi chạy trực tiếp app hiện màn hình Khởi động (như Power BI Desktop) rồi người dùng chọn.
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
     func applicationOpenUntitledFile(_ sender: NSApplication) -> Bool {
         guard !AppLaunchPolicy.isRunningTests else { return false }
         MainActor.assumeIsolated {
-            UntitledDocuments.openNew()
+            UntitledDocuments.showStartScreen()
         }
         return true
     }
@@ -254,7 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 openDocumentsCount: openCount,
                 hasVisibleWindow: visible
             ) {
-                UntitledDocuments.openNew()
+                UntitledDocuments.showStartScreen()
                 return false
             }
             return true

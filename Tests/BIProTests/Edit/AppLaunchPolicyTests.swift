@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 @testable import BIPro
 
@@ -93,5 +94,11 @@ struct AppLaunchPolicyTests {
             hasVisibleWindow: false,
             isRunningTests: false
         ))
+    }
+
+    /// Chạy app trực tiếp phải hiện màn hình Khởi động, không để AppKit tự mở "Không tên.pbix" (lỗi người dùng báo 2026-11-23).
+    @Test @MainActor func appKitDoesNotAutoOpenUntitledDocument() {
+        let delegate = AppDelegate()
+        #expect(!delegate.applicationShouldOpenUntitledFile(NSApplication.shared))
     }
 }
