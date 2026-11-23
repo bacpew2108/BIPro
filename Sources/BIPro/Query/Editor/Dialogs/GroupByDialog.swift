@@ -84,10 +84,10 @@ public struct GroupByDialogContent: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.control))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nhóm theo")
+                Text(bi("Nhóm theo", "Group by"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
-                Text("Chọn cột để nhóm các dòng và phép tính tổng hợp trên các cột khác.")
+                Text(bi("Chọn cột để nhóm các dòng và phép tính tổng hợp trên các cột khác.", "Select columns to group rows by, and aggregations over the other columns."))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -112,7 +112,7 @@ public struct GroupByDialogContent: View {
     private var basicSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Cột nhóm")
+                Text(bi("Cột nhóm", "Group by columns"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -133,7 +133,7 @@ public struct GroupByDialogContent: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Phép tổng hợp")
+                Text(bi("Phép tổng hợp", "Aggregation"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -141,7 +141,7 @@ public struct GroupByDialogContent: View {
                     // Tên cột mới
                     VStack(alignment: .leading, spacing: 2) {
                         if scrollable {
-                            TextField("Tên cột mới", text: $model.basicNewColumnName)
+                            TextField(bi("Tên cột mới", "New column name"), text: $model.basicNewColumnName)
                                 .textFieldStyle(.plain)
                                 .font(DS.Typeface.body)
                                 .padding(.horizontal, 8)
@@ -222,7 +222,7 @@ public struct GroupByDialogContent: View {
                 }
 
                 if isBasicNameClashing {
-                    Text("Tên cột mới không được trùng với cột nhóm.")
+                    Text(bi("Tên cột mới không được trùng với cột nhóm.", "The new column name must not match a grouping column."))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.danger)
                 }
@@ -289,7 +289,7 @@ public struct GroupByDialogContent: View {
         VStack(alignment: .leading, spacing: 16) {
             // Danh sách nhóm
             VStack(alignment: .leading, spacing: 6) {
-                Text("Nhóm theo")
+                Text(bi("Nhóm theo", "Group by"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -329,7 +329,7 @@ public struct GroupByDialogContent: View {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
                             .font(.system(size: 10, weight: .bold))
-                        Text("Thêm nhóm")
+                        Text(bi("Thêm nhóm", "Add grouping"))
                             .font(DS.Typeface.bodySmall)
                     }
                     .foregroundStyle(DS.Palette.accent)
@@ -340,7 +340,7 @@ public struct GroupByDialogContent: View {
 
             // Danh sách phép tổng hợp
             VStack(alignment: .leading, spacing: 6) {
-                Text("Phép tổng hợp")
+                Text(bi("Phép tổng hợp", "Aggregation"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -348,7 +348,7 @@ public struct GroupByDialogContent: View {
                     HStack(spacing: 8) {
                         // Tên cột mới
                         if scrollable {
-                            TextField("Tên cột", text: $model.aggregates[idx].name)
+                            TextField(bi("Tên cột", "Column name"), text: $model.aggregates[idx].name)
                                 .textFieldStyle(.plain)
                                 .font(DS.Typeface.body)
                                 .padding(.horizontal, 8)
@@ -446,7 +446,7 @@ public struct GroupByDialogContent: View {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
                             .font(.system(size: 10, weight: .bold))
-                        Text("Thêm phép tổng hợp")
+                        Text(bi("Thêm phép tổng hợp", "Add aggregation"))
                             .font(DS.Typeface.bodySmall)
                     }
                     .foregroundStyle(DS.Palette.accent)
@@ -508,7 +508,7 @@ public struct GroupByDialogContent: View {
     private var footerView: some View {
         HStack {
             Spacer()
-            Button("Huỷ", action: onCancel)
+            Button(bi("Huỷ", "Cancel"), action: onCancel)
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 

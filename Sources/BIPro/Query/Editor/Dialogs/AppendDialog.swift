@@ -96,10 +96,10 @@ public struct AppendDialogContent: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.control))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nối truy vấn")
+                Text(bi("Nối truy vấn", "Append queries"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
-                Text("Nối các dòng từ hai hoặc nhiều bảng có cấu trúc tương tự vào một bảng duy nhất.")
+                Text(bi("Nối các dòng từ hai hoặc nhiều bảng có cấu trúc tương tự vào một bảng duy nhất.", "Append rows from two or more tables with a similar structure into a single table."))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -122,7 +122,7 @@ public struct AppendDialogContent: View {
     private var twoTablesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Bảng chính (bảng hiện tại)")
+                Text(bi("Bảng chính (bảng hiện tại)", "Primary table (current table)"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -142,7 +142,7 @@ public struct AppendDialogContent: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Bảng thứ hai")
+                Text(bi("Bảng thứ hai", "Second table"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -191,13 +191,13 @@ public struct AppendDialogContent: View {
         HStack(alignment: .top, spacing: 12) {
             // Left Box: Bảng có sẵn
             VStack(alignment: .leading, spacing: 4) {
-                Text("Bảng có sẵn:")
+                Text(bi("Bảng có sẵn:", "Available tables:"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
                 VStack(alignment: .leading, spacing: 0) {
                     if availableCandidates.isEmpty {
-                        Text("Không còn bảng nào")
+                        Text(bi("Không còn bảng nào", "No tables left"))
                             .font(DS.Typeface.bodySmall)
                             .foregroundStyle(DS.Palette.tertiaryLabel)
                             .padding(8)
@@ -240,7 +240,7 @@ public struct AppendDialogContent: View {
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Thêm")
+                        Text(bi("Thêm", "Add"))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 9, weight: .bold))
                     }
@@ -261,7 +261,7 @@ public struct AppendDialogContent: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 9, weight: .bold))
-                        Text("Xoá")
+                        Text(bi("Xoá", "Delete"))
                     }
                     .font(DS.Typeface.bodySmall)
                     .frame(width: 80, height: 26)
@@ -277,7 +277,7 @@ public struct AppendDialogContent: View {
 
             // Right Box: Bảng để nối
             VStack(alignment: .leading, spacing: 4) {
-                Text("Bảng để nối:")
+                Text(bi("Bảng để nối:", "Tables to append:"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -292,7 +292,7 @@ public struct AppendDialogContent: View {
                             .fontWeight(.medium)
                             .foregroundStyle(DS.Palette.label)
                         Spacer()
-                        Text("Chính")
+                        Text(bi("Chính", "Primary"))
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(DS.Palette.accent)
                             .padding(.horizontal, 4)
@@ -354,7 +354,7 @@ public struct AppendDialogContent: View {
                             Image(systemName: "info.circle")
                                 .font(.system(size: 11))
                                 .foregroundStyle(DS.Palette.secondaryLabel)
-                            Text("\(queryName): \(comp.commonCount) cột chung, \(comp.secondaryOnlyCount) cột chỉ có ở bảng này")
+                            Text(bi("\(queryName): \(comp.commonCount) cột chung, \(comp.secondaryOnlyCount) cột chỉ có ở bảng này", "\(queryName): \(comp.commonCount) common columns, \(comp.secondaryOnlyCount) columns only in this table"))
                                 .font(DS.Typeface.bodySmall)
                                 .foregroundStyle(DS.Palette.secondaryLabel)
                         }
@@ -368,7 +368,7 @@ public struct AppendDialogContent: View {
     private var footerView: some View {
         HStack {
             Spacer()
-            Button("Huỷ", action: onCancel)
+            Button(bi("Huỷ", "Cancel"), action: onCancel)
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 

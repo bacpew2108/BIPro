@@ -94,6 +94,7 @@ struct RibbonItemView: View {
         case .formatPainter: return state.layout.isFormatPainterActive
         case .showFilters: return state.showFilters
         case .showBookmarks: return state.showBookmarks
+        case .performanceAnalyzer: return state.showPerformanceAnalyzer
         case .showSelection, .selectionPane: return state.showSelection
         case .editInteractions: return state.layout.isEditingInteractions
         case .viewAs: return !state.interaction.activeRLSRoles.isEmpty

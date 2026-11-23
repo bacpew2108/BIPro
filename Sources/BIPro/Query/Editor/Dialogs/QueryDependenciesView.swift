@@ -90,13 +90,13 @@ public struct QueryDependenciesContent: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(DS.Palette.accent)
 
-            Text("Phụ thuộc truy vấn")
+            Text(bi("Phụ thuộc truy vấn", "Query dependencies"))
                 .font(DS.Typeface.headlineMedium)
                 .foregroundStyle(DS.Palette.label)
 
             Spacer()
 
-            Text("\(graph.nodes.count) nút · \(graph.edges.count) liên kết")
+            Text(bi("\(graph.nodes.count) nút · \(graph.edges.count) liên kết", "\(graph.nodes.count) nodes · \(graph.edges.count) links"))
                 .font(DS.Typeface.bodySmall)
                 .foregroundStyle(DS.Palette.secondaryLabel)
         }
@@ -113,7 +113,7 @@ public struct QueryDependenciesContent: View {
                 .font(.system(size: 14))
                 .foregroundStyle(DS.Palette.danger)
 
-            Text("Vòng tham chiếu: " + cycle.joined(separator: " → "))
+            Text(bi("Vòng tham chiếu: ", "Reference cycle: ") + cycle.joined(separator: " → "))
                 .font(DS.Typeface.bodySmall)
                 .fontWeight(.medium)
                 .foregroundStyle(DS.Palette.danger)
@@ -285,7 +285,7 @@ public struct QueryDependenciesContent: View {
                             .foregroundStyle(DS.Palette.secondaryLabel)
 
                         if node.kind == .query && !node.enableLoad {
-                            Text("(Không nạp)")
+                            Text(bi("(Không nạp)", "(Not loaded)"))
                                 .font(DS.Typeface.labelSmall)
                                 .italic()
                                 .foregroundStyle(DS.Palette.tertiaryLabel)
@@ -311,12 +311,12 @@ public struct QueryDependenciesContent: View {
     private func selectionOverlay(node: DependencyNode) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Đã chọn: \(node.title)")
+                Text(bi("Đã chọn: \(node.title)", "Selected: \(node.title)"))
                     .font(DS.Typeface.bodySmall)
                     .fontWeight(.semibold)
                     .foregroundStyle(DS.Palette.label)
 
-                Text("Thượng nguồn: \(selectedUpstream.count) nút · Hạ nguồn: \(selectedDownstream.count) nút")
+                Text(bi("Thượng nguồn: \(selectedUpstream.count) nút · Hạ nguồn: \(selectedDownstream.count) nút", "Upstream: \(selectedUpstream.count) nodes · Downstream: \(selectedDownstream.count) nodes"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -344,7 +344,7 @@ public struct QueryDependenciesContent: View {
         HStack(spacing: 12) {
             // Zoom controls
             HStack(spacing: 4) {
-                Text("Thu phóng")
+                Text(bi("Thu phóng", "Zoom"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -371,14 +371,14 @@ public struct QueryDependenciesContent: View {
                 .buttonStyle(SecondaryButtonStyle())
             }
 
-            Button("Vừa khung") {
+            Button(bi("Vừa khung", "Fit to view")) {
                 zoomScale = 1.0
             }
             .buttonStyle(SecondaryButtonStyle())
 
             Spacer()
 
-            Button("Đóng", action: onClose)
+            Button(bi("Đóng", "Close"), action: onClose)
                 .buttonStyle(PrimaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
         }

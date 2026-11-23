@@ -106,10 +106,10 @@ public struct MergeDialogContent: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.control))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Gộp truy vấn")
+                Text(bi("Gộp truy vấn", "Merge queries"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
-                Text("Chọn bảng và các cột khớp nhau để ghép dữ liệu.")
+                Text(bi("Chọn bảng và các cột khớp nhau để ghép dữ liệu.", "Select tables and matching columns to combine data."))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -145,7 +145,7 @@ public struct MergeDialogContent: View {
                     Spacer()
 
                     if !model.leftKeys.isEmpty {
-                        Text("\(model.leftKeys.count) cột đã chọn")
+                        Text(bi("\(model.leftKeys.count) cột đã chọn", "\(model.leftKeys.count) columns selected"))
                             .font(DS.Typeface.bodySmall)
                             .foregroundStyle(DS.Palette.accent)
                     }
@@ -154,7 +154,7 @@ public struct MergeDialogContent: View {
                 if let preview = primaryPreview {
                     previewTable(preview: preview, isLeft: true)
                 } else {
-                    Text("Không có dữ liệu xem trước.")
+                    Text(bi("Không có dữ liệu xem trước.", "No preview data."))
                         .font(DS.Typeface.bodySmall)
                         .foregroundStyle(DS.Palette.tertiaryLabel)
                 }
@@ -171,7 +171,7 @@ public struct MergeDialogContent: View {
                     Spacer()
 
                     if !model.rightKeys.isEmpty {
-                        Text("\(model.rightKeys.count) cột đã chọn")
+                        Text(bi("\(model.rightKeys.count) cột đã chọn", "\(model.rightKeys.count) columns selected"))
                             .font(DS.Typeface.bodySmall)
                             .foregroundStyle(DS.Palette.accent)
                     }
@@ -196,7 +196,7 @@ public struct MergeDialogContent: View {
                 if isSecondaryLoading {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
-                        Text("Đang tải…")
+                        Text(bi("Đang tải…", "Loading…"))
                             .font(DS.Typeface.bodySmall)
                             .foregroundStyle(DS.Palette.secondaryLabel)
                     }
@@ -393,7 +393,7 @@ public struct MergeDialogContent: View {
 
             Spacer()
 
-            Button("Huỷ", action: onCancel)
+            Button(bi("Huỷ", "Cancel"), action: onCancel)
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 

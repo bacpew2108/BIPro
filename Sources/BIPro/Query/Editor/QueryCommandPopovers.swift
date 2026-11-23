@@ -121,7 +121,7 @@ struct QueryCommandPopoverView: View {
 
             HStack {
                 Spacer()
-                Button("Huỷ") {
+                Button(bi("Huỷ", "Cancel")) {
                     onCancel()
                 }
                 .buttonStyle(SecondaryButtonStyle())
@@ -156,10 +156,10 @@ struct QueryCommandPopoverView: View {
         switch type {
         case .keepTopRows, .removeTopRows:
             VStack(alignment: .leading, spacing: 4) {
-                Text("Số dòng:")
+                Text(bi("Số dòng:", "Number of rows:"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
-                TextField("Ví dụ: 10", text: $rowCountText)
+                TextField(bi("Ví dụ: 10", "Example: 10"), text: $rowCountText)
                     .textFieldStyle(.roundedBorder)
                     .font(DS.Typeface.body)
             }
@@ -167,7 +167,7 @@ struct QueryCommandPopoverView: View {
         case .replaceValue:
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Tìm:")
+                    Text(bi("Tìm:", "Find:"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
                     TextField("", text: $replaceOldText)
@@ -175,7 +175,7 @@ struct QueryCommandPopoverView: View {
                         .font(DS.Typeface.body)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Thay bằng:")
+                    Text(bi("Thay bằng:", "Replace with:"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
                     TextField("", text: $replaceNewText)
@@ -276,7 +276,7 @@ struct QueryCommandPopoverView: View {
 
         case .filterEquals(let distribution, _):
             VStack(alignment: .leading, spacing: 6) {
-                Text("Chọn giá trị để giữ lại:")
+                Text(bi("Chọn giá trị để giữ lại:", "Select values to keep:"))
                     .font(DS.Typeface.labelSmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -313,7 +313,7 @@ struct QueryCommandPopoverView: View {
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(DS.Palette.separator))
 
                 HStack {
-                    Button("Chọn tất cả") {
+                    Button(bi("Chọn tất cả", "Select all")) {
                         selectedFilterLabels = Set(items.map(\.label))
                     }
                     .buttonStyle(.plain)
@@ -322,7 +322,7 @@ struct QueryCommandPopoverView: View {
 
                     Spacer()
 
-                    Button("Bỏ chọn") {
+                    Button(bi("Bỏ chọn", "Deselect all")) {
                         selectedFilterLabels.removeAll()
                     }
                     .buttonStyle(.plain)

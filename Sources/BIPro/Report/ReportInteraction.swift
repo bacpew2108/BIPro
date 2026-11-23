@@ -39,6 +39,8 @@ final class ReportInteraction {
     var loadedSpecs: [String: VisualQuerySpec] = [:]
     /// Các vai trò bảo mật cấp dòng (RLS) đang bật để mô phỏng "View as" trong phiên hiện tại (v1.2).
     var activeRLSRoles: Set<String> = []
+    /// Gọi sau mỗi lần nạp visual thành công: (visual, thời gian truy vấn DAX, tổng thời gian nạp). Performance analyzer dùng.
+    @ObservationIgnored var onVisualLoaded: ((ReportVisual, Duration, Duration) -> Void)?
 
     /// Mô hình hiệu lực đổi (Phase E): bỏ bộ đọc spec và bộ nạp đã dựng trên mô hình cũ (kèm bộ nhớ đệm kết quả) và báo visual nạp lại.
     func modelDidChange() {
@@ -436,6 +438,7 @@ final class ReportInteraction {
 
     /// Nạp dữ liệu của visual theo trạng thái lọc hiện tại của trang. Ném `DAXError` (kể cả `.cancelled`).
     func load(page: ReportPage, visual: ReportVisual, state: FilterState) async throws -> LiveVisualData {
+        let loadStart = ContinuousClock.now
         let (reader, loader) = try await services()
         var spec = try reader.spec(for: visual, filters: [])
         let statics = staticFilters(page: page, visual: visual)
@@ -475,6 +478,7 @@ final class ReportInteraction {
         recordLegendValues(of: visual.id, in: finalView)
         loadedDataViews[visual.id] = finalView
         loadedSpecs[visual.id] = spec
+        onVisualLoaded?(visual, loaded.elapsed, ContinuousClock.now - loadStart)
         return LiveVisualData(spec: spec, view: finalView, query: loaded.query, elapsed: loaded.elapsed)
     }
 

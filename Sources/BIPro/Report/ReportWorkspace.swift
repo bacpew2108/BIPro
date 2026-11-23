@@ -86,6 +86,10 @@ struct ReportWorkspace: View {
     }
 
     @ViewBuilder private var panes: some View {
+        if state.showPerformanceAnalyzer {
+            PerformanceAnalyzerPane(state: state) { state.showPerformanceAnalyzer = false }
+                .frame(width: 380).hairline(.leading)
+        }
         if state.showSelection {
             SelectionPane(state: state) { state.showSelection = false }
                 .frame(width: 220).hairline(.leading)

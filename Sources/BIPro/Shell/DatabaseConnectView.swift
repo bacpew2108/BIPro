@@ -44,9 +44,9 @@ struct DatabaseConnectView: View {
 
     private var addressStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Cơ sở dữ liệu PostgreSQL").font(DS.Typeface.headlineMedium)
+            Text(bi("Cơ sở dữ liệu PostgreSQL", "PostgreSQL database")).font(DS.Typeface.headlineMedium)
             labeled("Máy chủ") {
-                TextField("máy:cổng (mặc định cổng 5432)", text: binding(\.server)).textFieldStyle(.roundedBorder).frame(width: 300)
+                TextField(bi("máy:cổng (mặc định cổng 5432)", "host:port (default port 5432)"), text: binding(\.server)).textFieldStyle(.roundedBorder).frame(width: 300)
             }
             labeled("Cơ sở dữ liệu") {
                 TextField("", text: binding(\.database)).textFieldStyle(.roundedBorder).frame(width: 300)
@@ -69,7 +69,7 @@ struct DatabaseConnectView: View {
 
     private var credentialsStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Cơ sở dữ liệu PostgreSQL").font(DS.Typeface.headlineMedium)
+            Text(bi("Cơ sở dữ liệu PostgreSQL", "PostgreSQL database")).font(DS.Typeface.headlineMedium)
             Label(form.address.location, systemImage: "cylinder.fill")
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.secondaryLabel)
@@ -80,10 +80,10 @@ struct DatabaseConnectView: View {
             labeled("Mật khẩu") {
                 SecureField("", text: binding(\.password)).textFieldStyle(.roundedBorder).frame(width: 300)
             }
-            Toggle("Lưu vào Keychain cho máy chủ \(form.address.server)", isOn: binding(\.savePassword))
+            Toggle(bi("Lưu vào Keychain cho máy chủ \(form.address.server)", "Save to Keychain for server \(form.address.server)"), isOn: binding(\.savePassword))
                 .font(DS.Typeface.body)
                 .toggleStyle(.checkbox)
-            Text("Mật khẩu không bao giờ được ghi vào tệp .pbix.")
+            Text(bi("Mật khẩu không bao giờ được ghi vào tệp .pbix.", "Passwords are never written to the .pbix file."))
                 .font(DS.Typeface.labelSmall)
                 .foregroundStyle(DS.Palette.tertiaryLabel)
         }
@@ -93,8 +93,8 @@ struct DatabaseConnectView: View {
 
     private var encryptionStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Hỗ trợ mã hoá").font(DS.Typeface.headlineMedium)
-            Text("Không kết nối được tới nguồn dữ liệu bằng kết nối mã hoá. Muốn truy cập nguồn này bằng kết nối không mã hoá thì bấm OK.")
+            Text(bi("Hỗ trợ mã hoá", "Encryption support")).font(DS.Typeface.headlineMedium)
+            Text(bi("Không kết nối được tới nguồn dữ liệu bằng kết nối mã hoá. Muốn truy cập nguồn này bằng kết nối không mã hoá thì bấm OK.", "Couldn't connect to the data source with an encrypted connection. To access this source with an unencrypted connection, click OK."))
                 .font(DS.Typeface.body)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -125,14 +125,14 @@ struct DatabaseConnectView: View {
         HStack(spacing: 8) {
             if form.isConnecting || state.phase == .listingItems {
                 ProgressView().controlSize(.small)
-                Text("Đang kết nối…").font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(bi("Đang kết nối…", "Connecting…")).font(DS.Typeface.body).foregroundStyle(DS.Palette.secondaryLabel)
             }
             Spacer()
             if form.step == .credentials {
-                Button("Quay lại") { state.databaseForm?.step = .address; state.databaseForm?.warning = nil }
+                Button(bi("Quay lại", "Back")) { state.databaseForm?.step = .address; state.databaseForm?.warning = nil }
                     .buttonStyle(SecondaryButtonStyle())
             }
-            Button("Huỷ") {
+            Button(bi("Huỷ", "Cancel")) {
                 state.cancelDatabase()
                 onClose()
             }

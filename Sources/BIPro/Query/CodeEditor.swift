@@ -539,7 +539,7 @@ struct ErrorTooltipView: View {
                 Image(systemName: "exclamationmark.circle.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Palette.danger)
-                Text("Lỗi")
+                Text(bi("Lỗi", "Error"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DS.Palette.danger)
             }

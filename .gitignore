@@ -6,3 +6,6 @@ build/
 .DS_Store
 .claude/settings.local.json
 docs/phase-*-evidence/**/*.pbix
+
+# Tệp báo cáo mẫu/bằng chứng lớn (đã từng làm phình lịch sử, xem docs/STATE.md)
+*.pbix

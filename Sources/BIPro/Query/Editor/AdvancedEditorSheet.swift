@@ -31,7 +31,7 @@ struct AdvancedEditorContent: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DS.Palette.accent)
 
-                Text("Trình soạn thảo nâng cao — \(queryName)")
+                Text(bi("Trình soạn thảo nâng cao — \(queryName)", "Advanced editor — \(queryName)"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
                     .lineLimit(1)
@@ -75,7 +75,7 @@ struct AdvancedEditorContent: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 12))
                         .foregroundStyle(DS.Palette.success)
-                    Text("Không có lỗi cú pháp")
+                    Text(bi("Không có lỗi cú pháp", "No syntax errors"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.success)
                 }
@@ -90,7 +90,7 @@ struct AdvancedEditorContent: View {
             HStack(spacing: 10) {
                 Spacer()
 
-                Button("Huỷ") {
+                Button(bi("Huỷ", "Cancel")) {
                     onCancel()
                 }
                 .buttonStyle(SecondaryButtonStyle())

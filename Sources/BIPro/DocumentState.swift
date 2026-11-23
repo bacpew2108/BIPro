@@ -157,6 +157,8 @@ final class DocumentState {
     var showData = true
     var showSelection = false
     var showBookmarks = false
+    var showPerformanceAnalyzer = false
+    let perf = PerformanceRecorder()
     /// Trạng thái thu gọn pane theo cửa sổ (Phase H / US5, không lưu). Filters thu gọn mặc định như Desktop.
     var filtersCollapsed = true
     var visualizationsCollapsed = false

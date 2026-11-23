@@ -268,7 +268,7 @@ enum RibbonReference {
                 RefItem("showFilters", en: "Filters", kind: .toggle, avail: .always),
                 RefItem("showBookmarks", en: "Bookmarks", kind: .toggle, avail: .always),
                 RefItem("showSelection", en: "Selection", kind: .toggle, avail: .always),
-                RefItem("performanceAnalyzer", en: "Performance analyzer", kind: .toggle, avail: .pending),
+                RefItem("performanceAnalyzer", en: "Performance analyzer", kind: .toggle, avail: .contextual),
                 RefItem("syncSlicers", en: "Sync slicers", kind: .large, avail: .pending),
             ]),
         ]
@@ -288,7 +288,7 @@ enum RibbonReference {
                 RefItem("optimizationPresets", en: "Optimization presets", kind: .large, hasMenu: true, avail: .pending, observed: false),
             ]),
             RefGroup(en: "Review", items: [
-                RefItem("performanceAnalyzer", en: "Performance analyzer", kind: .large, avail: .pending),
+                RefItem("performanceAnalyzer", en: "Performance analyzer", kind: .large, avail: .contextual),
             ]),
             RefGroup(en: "Apply", items: [
                 RefItem("applyAllSlicers", en: "Apply all slicers button", kind: .large, avail: .pending),

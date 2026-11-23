@@ -27,7 +27,7 @@ enum RibbonActions {
              .markAsDateTable, .manageRoles, .viewAs,
              .themeGallery6, .downloadTheme, .importTheme,
              .pageView, .snapToGrid, .showFilters, .showBookmarks, .showSelection,
-             .refreshVisuals,
+             .refreshVisuals, .performanceAnalyzer,
              .about, .guidedLearning,
              .editInteractions, .selectionPane, .align, .group, .bringForward, .sendBackward,
              .visualTable, .expandNextLevel, .drillUp, .drillDown,
@@ -44,7 +44,7 @@ enum RibbonActions {
              .qnaSetup, .language, .linguisticSchema,
              .sensitivity, .publish, .prepDataForAI, .copilot,
              .themeGallery, .customizeTheme, .pageSize, .pageBackground, .wallpaper, .howToCreateTheme,
-             .mobileLayout, .gridlines, .lockObjects, .performanceAnalyzer, .syncSlicers,
+             .mobileLayout, .gridlines, .lockObjects, .syncSlicers,
              .pauseVisuals, .optimizationPresets, .applyAllSlicers,
              .trainingVideos, .documentation, .support,
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
@@ -213,6 +213,10 @@ enum RibbonActions {
             state.showSelection.toggle()
             return .performed
 
+        case .performanceAnalyzer:
+            state.showPerformanceAnalyzer.toggle()
+            return .performed
+
         case .refreshVisuals:
             state.interaction.modelVersion += 1
             return .performed
@@ -313,7 +317,7 @@ enum RibbonActions {
              .qnaSetup, .language, .linguisticSchema,
              .sensitivity, .publish, .prepDataForAI, .copilot,
              .themeGallery, .customizeTheme, .pageSize, .pageBackground, .wallpaper, .howToCreateTheme,
-             .mobileLayout, .gridlines, .lockObjects, .performanceAnalyzer, .syncSlicers,
+             .mobileLayout, .gridlines, .lockObjects, .syncSlicers,
              .pauseVisuals, .optimizationPresets, .applyAllSlicers,
              .trainingVideos, .documentation, .support,
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,

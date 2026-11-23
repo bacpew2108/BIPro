@@ -31,7 +31,7 @@ public struct ExpandColumnContent: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(DS.Palette.accent)
 
-                Text("Mở rộng cột")
+                Text(bi("Mở rộng cột", "Expand column"))
                     .font(DS.Typeface.headlineSmall)
                     .foregroundStyle(DS.Palette.label)
 
@@ -48,7 +48,7 @@ public struct ExpandColumnContent: View {
             } label: {
                 HStack(spacing: 8) {
                     CheckboxMark(isOn: model.isAllSelected)
-                    Text("(Chọn tất cả cột)")
+                    Text(bi("(Chọn tất cả cột)", "(Select all columns)"))
                         .font(DS.Typeface.body)
                         .foregroundStyle(DS.Palette.label)
                 }
@@ -77,7 +77,7 @@ public struct ExpandColumnContent: View {
             } label: {
                 HStack(spacing: 8) {
                     CheckboxMark(isOn: model.usePrefix)
-                    Text("Dùng tên cột gốc làm tiền tố")
+                    Text(bi("Dùng tên cột gốc làm tiền tố", "Use original column name as prefix"))
                         .font(DS.Typeface.bodySmall)
                         .foregroundStyle(DS.Palette.label)
                 }
@@ -88,7 +88,7 @@ public struct ExpandColumnContent: View {
             // Footer
             HStack {
                 Spacer()
-                Button("Huỷ", action: onCancel)
+                Button(bi("Huỷ", "Cancel"), action: onCancel)
                     .buttonStyle(SecondaryButtonStyle())
                     .keyboardShortcut(.cancelAction)
 

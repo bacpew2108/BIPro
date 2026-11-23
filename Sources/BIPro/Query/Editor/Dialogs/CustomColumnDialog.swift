@@ -48,7 +48,7 @@ public struct CustomColumnDialogContent: View {
             VStack(alignment: .leading, spacing: 14) {
                 // Tên cột mới
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Tên cột mới")
+                    Text(bi("Tên cột mới", "New column name"))
                         .font(DS.Typeface.labelSmall)
                         .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -79,7 +79,7 @@ public struct CustomColumnDialogContent: View {
                     // Left: Formula
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Công thức cột tuỳ chỉnh (=):")
+                            Text(bi("Công thức cột tuỳ chỉnh (=):", "Custom column formula (=):"))
                                 .font(DS.Typeface.labelSmall)
                                 .foregroundStyle(DS.Palette.secondaryLabel)
                             Spacer()
@@ -98,7 +98,7 @@ public struct CustomColumnDialogContent: View {
 
                     // Right: Available Columns
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Cột có sẵn:")
+                        Text(bi("Cột có sẵn:", "Available columns:"))
                             .font(DS.Typeface.labelSmall)
                             .foregroundStyle(DS.Palette.secondaryLabel)
 
@@ -115,7 +115,7 @@ public struct CustomColumnDialogContent: View {
                             HStack(spacing: 4) {
                                 Text("<<")
                                     .font(DS.Typeface.labelSmall)
-                                Text("Chèn")
+                                Text(bi("Chèn", "Insert"))
                                     .font(DS.Typeface.bodySmall)
                             }
                             .padding(.horizontal, 10)
@@ -169,10 +169,10 @@ public struct CustomColumnDialogContent: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.control))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Cột tuỳ chỉnh")
+                Text(bi("Cột tuỳ chỉnh", "Custom column"))
                     .font(DS.Typeface.headlineMedium)
                     .foregroundStyle(DS.Palette.label)
-                Text("Thêm cột được tính toán từ các cột khác bằng biểu thức.")
+                Text(bi("Thêm cột được tính toán từ các cột khác bằng biểu thức.", "Add a column computed from other columns using an expression."))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.secondaryLabel)
             }
@@ -258,7 +258,7 @@ public struct CustomColumnDialogContent: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(DS.Palette.success)
-                Text("Không phát hiện lỗi cú pháp.")
+                Text(bi("Không phát hiện lỗi cú pháp.", "No syntax errors detected."))
                     .font(DS.Typeface.bodySmall)
                     .foregroundStyle(DS.Palette.success)
             }
@@ -270,7 +270,7 @@ public struct CustomColumnDialogContent: View {
     private var footerView: some View {
         HStack {
             Spacer()
-            Button("Huỷ", action: onCancel)
+            Button(bi("Huỷ", "Cancel"), action: onCancel)
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
 

@@ -123,10 +123,13 @@ extension RibbonCatalog {
                         symbol: "gauge.with.dots.needle.67percent",
                         tint: .info,
                         kind: .toggle,
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ ngăn Performance analyzer",
-                            en: "Performance analyzer pane is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.mode == .report && $0.hasData },
+                            disabledReason: Bilingual(
+                                vi: "Mở báo cáo có dữ liệu ở view Báo cáo để phân tích hiệu năng",
+                                en: "Open a report with data in Report view to analyze performance"
+                            )
+                        )
                     ),
                     RibbonItemSpec(
                         id: .syncSlicers,
@@ -211,10 +214,13 @@ extension RibbonCatalog {
                         symbol: "gauge.with.dots.needle.67percent",
                         tint: .info,
                         kind: .large,
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ ngăn Performance analyzer",
-                            en: "Performance analyzer is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.mode == .report && $0.hasData },
+                            disabledReason: Bilingual(
+                                vi: "Mở báo cáo có dữ liệu ở view Báo cáo để phân tích hiệu năng",
+                                en: "Open a report with data in Report view to analyze performance"
+                            )
+                        )
                     ),
                 ]
             ),

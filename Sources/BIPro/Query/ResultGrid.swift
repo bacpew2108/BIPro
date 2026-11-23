@@ -327,7 +327,7 @@ struct ColumnFilterPopoverView: View {
                     HStack {
                         Image(systemName: "clear")
                             .frame(width: 16)
-                        Text("Bỏ sắp xếp")
+                        Text(bi("Bỏ sắp xếp", "Clear sort"))
                         Spacer()
                     }
                     .contentShape(Rectangle())
@@ -345,7 +345,7 @@ struct ColumnFilterPopoverView: View {
             HStack(spacing: 4) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Tìm kiếm", text: $searchText)
+                TextField(bi("Tìm kiếm", "Search"), text: $searchText)
                     .textFieldStyle(.plain)
                 if !searchText.isEmpty {
                     Button {
@@ -374,7 +374,7 @@ struct ColumnFilterPopoverView: View {
                 HStack(spacing: 6) {
                     Image(systemName: allFilteredSelected ? "checkmark.square.fill" : "square")
                         .foregroundStyle(allFilteredSelected ? Color.accentColor : Color.secondary)
-                    Text("Chọn tất cả")
+                    Text(bi("Chọn tất cả", "Select all"))
                     Spacer()
                 }
                 .contentShape(Rectangle())
@@ -419,7 +419,7 @@ struct ColumnFilterPopoverView: View {
             // Nút Áp dụng
             HStack {
                 Spacer()
-                Button("Áp dụng") {
+                Button(bi("Áp dụng", "Apply")) {
                     if selectedValues.count == distinctValues.count {
                         onApplyFilter(nil)
                     } else {
