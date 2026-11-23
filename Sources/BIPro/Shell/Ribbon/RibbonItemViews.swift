@@ -35,7 +35,8 @@ struct RibbonMenuButton<Label: View, MenuContent: View>: View {
             } label: {
                 label()
             }
-            .menuStyle(.borderlessButton)
+            .menuStyle(.button)
+            .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
             .help(help)

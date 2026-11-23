@@ -224,7 +224,7 @@ final class DocumentState {
     @ObservationIgnored private(set) var modelEditor: ModelEditor!
 
     // DAX query
-    var daxQueries: [DAXQueryTab] = [DAXQueryTab(title: "Truy vấn 1", text: DAXQueryTab.starter)]
+    var daxQueries: [DAXQueryTab] = [DAXQueryTab(title: bi("Truy vấn 1", "Query 1"), text: DAXQueryTab.starter)]
     var daxSelection = 0
     /// Trạng thái chạy và kết quả theo tab (khoá là `DAXQueryTab.id`). Tạo khi tab được chạy lần đầu.
     var daxRuns: [UUID: DAXQueryState] = [:]
@@ -489,13 +489,13 @@ struct DAXQueryTab: Identifiable, Hashable {
     var title: String
     var text: String
 
-    static let starter = """
-    // Truy vấn DAX mẫu. Bấm Chạy (⌘↵); bôi đen một đoạn để chỉ chạy đoạn đó.
+    @MainActor static var starter: String { """
+    \(bi("// Truy vấn DAX mẫu. Bấm Chạy (⌘↵); bôi đen một đoạn để chỉ chạy đoạn đó.", "// Sample DAX query. Press Run (⌘↵); select a range to run only that selection."))
     EVALUATE
     SUMMARIZECOLUMNS(
         'Dim_Date'[year],
         "Số giao dịch", [Trans Count]
     )
     ORDER BY 'Dim_Date'[year]
-    """
+    """ }
 }

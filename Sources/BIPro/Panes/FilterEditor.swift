@@ -30,6 +30,15 @@ enum FilterEditing {
         return filter.isActive
     }
 
+    /// Chữ tóm tắt hiển thị theo ngôn ngữ giao diện. `UserFilter.summary` giữ tiếng Việt (nằm trong file/test), nên chỉ đổi ở lớp hiển thị.
+    static func displayText(_ summary: String) -> String {
+        guard bi("vi", "en") == "en" else { return summary }
+        if summary == "là (Tất cả)" { return "is (All)" }
+        if summary.hasPrefix("không phải ") { return "is not " + summary.dropFirst("không phải ".count) }
+        if summary.hasPrefix("là ") { return "is " + summary.dropFirst("là ".count) }
+        return summary
+    }
+
     static func summary(of filter: ReportFilter, key: UserFilterKey, interaction: ReportInteraction) -> String {
         guard let edit = interaction.effectiveUserFilters[key] ?? UserFilter.from(filter) else { return filter.summary }
         return edit.summary(format: interaction.formatString(of: edit.column))

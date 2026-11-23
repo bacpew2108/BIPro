@@ -117,21 +117,22 @@ struct RibbonView: View {
     // MARK: - Panel Ribbon
 
     private func ribbonPanel(context: RibbonContext) -> some View {
-        ZStack(alignment: .bottomTrailing) {
+        HStack(alignment: .bottom, spacing: 0) {
             Group {
                 if scrollable {
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         panelContent(context: context)
                             .padding(.leading, 8)
-                            .padding(.trailing, 28)
+                            .padding(.trailing, 8)
                     }
+                    .scrollIndicators(.automatic)
                 } else {
                     Color.clear
                         .frame(maxWidth: .infinity, minHeight: UIMetrics.ribbonPanel, maxHeight: UIMetrics.ribbonPanel)
                         .overlay(alignment: .leading) {
                             panelContent(context: context)
                                 .padding(.leading, 8)
-                                .padding(.trailing, 28)
+                                .padding(.trailing, 8)
                         }
                         .clipped()
                 }

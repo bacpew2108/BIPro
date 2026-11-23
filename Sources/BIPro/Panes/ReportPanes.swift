@@ -199,7 +199,7 @@ struct FilterCard: View {
                 Text(title ?? filter.field?.label ?? filter.id)
                     .font(.system(size: 13, weight: active ? .bold : .regular))
                     .foregroundStyle(DS.Palette.label).lineLimit(1)
-                Text(FilterEditing.summary(of: filter, key: key, interaction: interaction))
+                Text(FilterEditing.displayText(FilterEditing.summary(of: filter, key: key, interaction: interaction)))
                     .font(.system(size: 12)).foregroundStyle(DS.Palette.label).lineLimit(2)
             }
             Spacer(minLength: 0)

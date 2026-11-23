@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.159 (v1.3.0) đã hoàn tất 86/87 tác vụ tự động**, còn cổng con người **T086** tại `build/h-out/gate/CHECKLIST.md`; qua **2 537/2 537** unit test, **119/119** golden nặng release, đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt; working tree chưa commit theo đúng quy tắc chờ người dùng duyệt).
+Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.159 (v1.3.0) đã hoàn tất 86/87 tác vụ tự động**, còn cổng con người **T086** tại `build/h-out/gate/CHECKLIST.md`; qua **2 537/2 537** unit test, **119/119** golden nặng release, đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt; đã commit 73e0019 + sửa 5 lỗi phát hiện khi bấm thử app thật: nút Share lặp, Ribbon cụt/đè nút `^` ở Model, lệch song ngữ, nhãn nút menu bị ngang; chưa push).
 
 *(Nhật ký chi tiết Phase A–G trước ngày 2026-11-21 đã được lưu trữ nguyên văn tại `docs/HISTORY.md`.)*
 
@@ -43,7 +43,7 @@ Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.1
   - **4B (Mô hình hoá & RLS):** **Quick Measures** (8 mẫu chuẩn Power BI + kiểm `DAXEngine`), **Mark as Date Table** (kiểm cột `.dateTime` duy nhất/không trống qua `ColumnStore`), **Row-Level Security (Manage Roles & View As)** (CRUD vai trò lưu T2, dải vàng cảnh báo trên canvas & tự tiêm `QueryFilter` RLS vào toàn bộ truy vấn DAX), **DataPane** Hide/Unhide bảng/cột & **Unhide All**.
   - **4C (DAX / TMDL / SQL & v1.2.0):** Nút **Định dạng** & **Cập nhật mô hình (`DEFINE MEASURE ...` theo lô)** trên Ribbon DAX Query View, nút **Áp dụng thay đổi** trên Ribbon TMDL View, menu **SQL** (PostgreSQL / SQLite) trên Ribbon Home, nâng phiên bản lên **1.2.0** (`CFBundleVersion = 120`).
   - Kiểm chứng: **2 471/2 471** unit test qua, **119/119** golden nặng release qua, **Cổng Power BI Desktop 2.159 (T014)** đạt 0 lỗi (`docs/phase-v12-evidence/vm-v12/gate-desktop.png`).
-- **Rà soát & dọn nốt tồn đọng `BIPRO_BUILD_PLAN.md` + sửa mở cửa sổ khi khởi động (2026-11-21, working tree chưa commit):**
+- **Rà soát & dọn nốt tồn đọng `BIPRO_BUILD_PLAN.md` + sửa mở cửa sổ khi khởi động (2026-11-21, đã commit):** *Lưu ý: ảnh `ImageRenderer` bỏ qua `Menu` nên không lộ lỗi bố cục nút menu; luôn bấm thử app thật.*
   - Mở khoá hoàn toàn thanh Ribbon **Công cụ cột (`ColumnToolsCommands`)** & **Công cụ bảng (`TableToolsCommands`)** trong `Sources/BIPro/Shell/Ribbon.swift` cùng `Sources/BIPro/Table/ColumnFormatShortcut.swift`: đổi tên bảng (`CascadeRename`), đổi tên cột, menu `Định dạng` + 4 phím nhanh **`$`, `%`, `,`, `.00`**, `Tóm tắt`, `Danh mục`, `Sắp xếp theo cột`, bỏ toàn bộ tooltip `"Phase E"` cũ (hoàn tác ⌘Z & lưu T2).
   - Sửa lỗi mở trực tiếp `BI Pro.app` không hiện cửa sổ (chỉ thấy chấm chạy trên Dock): bổ sung `AppLaunchPolicy` / `DocumentOpenTracker` và `applicationShouldOpenUntitledFile` / `applicationOpenUntitledFile` / `applicationShouldHandleReopen` + kiểm tra `launchIsDefaultUserInfoKey` trong `DocumentActions.swift`, `App.swift`, `UntitledDocuments.swift` (kèm 3 test `AppLaunchPolicyTests` và kiểm chứng thực tế trên macOS cho cả 3 kịch bản: mở trực tiếp, bấm lại trên Dock sau khi đóng hết cửa sổ, và mở kèm file `.pbix`).
   - Dọn thông báo lỗi nhắc phase cũ trong `TMDLParser.swift`, `FieldEditor.swift`, `TypeChange.swift`; đồng bộ **694/694** mục `[x]` (0 mục `[ ]`) trên `docs/BIPRO_BUILD_PLAN.md`, `specs/003` (T034) và `specs/010` (T111).
@@ -80,5 +80,5 @@ Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.1
 ## Việc tiếp theo
 
 1. **Cổng con người Phase H (T086):** Mở `build/h-out/gate/CHECKLIST.md` đối chiếu 15 Ribbon + 7 màn hình BI Pro (`build/h-out/gate/bipro/`) với Desktop (`docs/phase-ui-evidence/vm-ui/`), thử 10 lệnh mẫu (SC-004, SC-005), rồi đánh dấu `[x]` T086.
-2. **Git:** working tree Phase H v1.3.0 sẵn sàng duyệt diff (tuỳ chọn `git rm Sources/BIPro/Shell/Ribbon.swift` vì đã làm rỗng), chưa commit/push (chờ lệnh của bạn).
+2. **Git:** Phase H đã commit (chưa push; còn nhiều commit chưa đẩy).
 3. **Định hướng sau đó (tuỳ chọn):** đóng gói `.dmg`, thêm connector mới khi cần.

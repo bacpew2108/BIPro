@@ -5,7 +5,7 @@ import SwiftUI
 /// Thanh tiêu đề cửa sổ theo chuẩn Power BI Desktop 2.159 (`UIMetrics.titleBar` = 36 pt).
 ///
 /// Trái → phải: khoảng trống traffic lights (72 pt) · Lưu · Hoàn tác · Làm lại · tên tệp + trạng thái lưu + menu ▾ ·
-/// ô Search ở giữa (`⌘K`) · Cài đặt (`⌘,`) · chuyển Sáng/Tối · Share (vô hiệu).
+/// ô Search ở giữa (`⌘K`) · Cài đặt (`⌘,`) · chuyển Sáng/Tối (nút Share nằm ở hàng tab, như Desktop).
 struct TitleBar: View {
     @Bindable var state: DocumentState
     @Environment(\.openSettings) private var openSettings
@@ -114,7 +114,6 @@ struct TitleBar: View {
         .accessibilityLabel(tr(.a11yRailSettings))
 
         themeMenuButton
-        shareButton
     }
 
     @ViewBuilder private var themeMenuButton: some View {
@@ -135,26 +134,6 @@ struct TitleBar: View {
             .padding(.horizontal, 5)
             .contentShape(Rectangle())
         }
-    }
-
-    @ViewBuilder private var shareButton: some View {
-        Button {} label: {
-            HStack(spacing: 4) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 11))
-                Text(bi("Chia sẻ", "Share"))
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .foregroundStyle(DS.Palette.tertiaryLabel)
-            .padding(.horizontal, 8)
-            .frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: 4).strokeBorder(DS.Palette.separator))
-        }
-        .buttonStyle(.plain)
-        .disabled(true)
-        .help(bi("Chia sẻ lên Power BI Service: chưa hỗ trợ trên BI Pro (máy cục bộ).",
-                 "Share to Power BI Service: not supported in BI Pro (local app)."))
-        .accessibilityLabel(bi("Chia sẻ", "Share"))
     }
 
     private var displayFileName: String {
