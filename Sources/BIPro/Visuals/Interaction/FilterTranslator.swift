@@ -428,6 +428,16 @@ enum FilterTranslator {
         if let crossFilterTable {
             interactiveFilters.append(crossFilterTable)
         }
+        // Drill down phạm vi Entire page (mặc định Desktop): đường drill của visual khác lọc visual này theo từng cột.
+        for (sourceID, cvs) in state.drillFilters.sorted(by: { $0.key < $1.key })
+        where sourceID != target.visualID && !state.drillSelectedOnly.contains(sourceID) {
+            if state.overrides.contains(where: { $0.sourceID == sourceID && $0.targetID == target.visualID && $0.effect == .none }) { continue }
+            for cv in cvs where !cv.values.isEmpty {
+                let sorted = Array(Set(cv.values)).sorted(by: valuePrecedes)
+                let literals = sorted.map(literal).joined(separator: ", ")
+                interactiveFilters.append(QueryFilter(tableExpression: "TREATAS({\(literals)}, \(cv.column.dax))"))
+            }
+        }
         for plan in plans where !mergedPlanIDs.contains(plan.slicerID) {
             interactiveFilters.append(QueryFilter(tableExpression: plan.tableExpressionUnmerged))
         }

@@ -32,10 +32,13 @@ extension RibbonCatalog {
                         symbol: "line.3.horizontal.decrease",
                         tint: .neutral,
                         kind: .field(.applyDrillFiltersTo),
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ phạm vi bộ lọc truy sâu tuỳ chỉnh",
-                            en: "Custom drill-down filter scope is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.mode == .report && $0.visualSelected && ($0.canDrillDown || $0.canDrillUp) },
+                            disabledReason: Bilingual(
+                                vi: "Chọn một visual có phân cấp để chọn phạm vi bộ lọc truy sâu",
+                                en: "Select a visual with a drill hierarchy to choose the drill down filter scope"
+                            )
+                        )
                     ),
                 ]
             ),
@@ -171,10 +174,13 @@ extension RibbonCatalog {
                         symbol: "line.3.horizontal.decrease",
                         tint: .neutral,
                         kind: .field(.applyDrillFiltersTo),
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ phạm vi bộ lọc truy sâu tuỳ chỉnh",
-                            en: "Custom drill-down filter scope is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.mode == .report && $0.visualSelected && ($0.canDrillDown || $0.canDrillUp) },
+                            disabledReason: Bilingual(
+                                vi: "Chọn một visual có phân cấp để chọn phạm vi bộ lọc truy sâu",
+                                en: "Select a visual with a drill hierarchy to choose the drill down filter scope"
+                            )
+                        )
                     ),
                 ]
             ),
@@ -241,7 +247,7 @@ extension RibbonCatalog {
                                 title: Bilingual(vi: "Xuống một cấp", en: "Drill down"),
                                 symbol: "arrow.down",
                                 tint: .info,
-                                kind: .large,
+                                kind: .toggle,
                                 availability: .when(
                                     { $0.canDrillDown },
                                     disabledReason: Bilingual(

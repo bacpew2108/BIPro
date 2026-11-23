@@ -28,6 +28,9 @@ struct FilterState: Hashable, Sendable {
     var drillthrough: [ColumnValues] = [] // tham số drillthrough đã có giá trị
     var drillFilters: [String: [ColumnValues]] = [:] // visualID → bộ lọc do drill down sinh ra
     var overrides: [InteractionOverride] = [] // Edit interactions của người dùng
+    /// Visual đặt "Apply drill down filters to" = Selected visual (VM 2026-11-23): drill chỉ đổi chính visual đó.
+    /// Mặc định (không có trong tập) là Entire page: đường drill còn lọc các visual khác như một lựa chọn.
+    var drillSelectedOnly: Set<String> = []
 
     init(
         slicers: [String: SlicerState] = [:],

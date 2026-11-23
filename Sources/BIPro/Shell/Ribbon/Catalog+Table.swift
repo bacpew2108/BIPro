@@ -592,11 +592,32 @@ struct RibbonColumnFieldControlView: View {
             .accessibilityLabel(bi("Số chữ số thập phân", "Decimal places"))
 
         case .applyDrillFiltersTo:
+            let context = RibbonContext(state: state)
+            let enabled = item.availability.isEnabled(in: context)
+            let page = state.page, visual = state.visual
+            let selectedOnly = (page != nil && visual != nil) && state.interaction.isDrillScopeSelectedOnly(page: page!, visual: visual!)
             VStack(alignment: .leading, spacing: 4) {
                 Text(item.title.localized)
                     .font(.system(size: 11))
-                    .foregroundStyle(DS.Palette.label)
-                comboBoxLabel(bi("Toàn bộ trang", "Entire page"), width: 126, enabled: false)
+                    .foregroundStyle(enabled ? DS.Palette.label : DS.Palette.secondaryLabel)
+                RibbonMenuButton(disabled: !enabled, help: item.availability.disabledReason(in: context)?.localized ?? item.title.localized,
+                                 accessibilityLabel: item.title.localized) {
+                    if let page, let visual {
+                        Button {
+                            state.interaction.setDrillScope(page: page, visual: visual, selectedOnly: false)
+                        } label: {
+                            Label(bi("Toàn bộ trang", "Entire page"), systemImage: selectedOnly ? "" : "checkmark")
+                        }
+                        Button {
+                            state.interaction.setDrillScope(page: page, visual: visual, selectedOnly: true)
+                        } label: {
+                            Label(bi("Visual đã chọn", "Selected visual"), systemImage: selectedOnly ? "checkmark" : "")
+                        }
+                    }
+                } label: {
+                    comboBoxLabel(selectedOnly ? bi("Visual đã chọn", "Selected visual") : bi("Toàn bộ trang", "Entire page"),
+                                  width: 126, enabled: enabled)
+                }
             }
             .opacity(0.55)
             .help(bi("BI Pro chưa hỗ trợ phạm vi bộ lọc truy sâu tuỳ chỉnh", "Custom drill-down filter scope is not yet implemented in BI Pro"))

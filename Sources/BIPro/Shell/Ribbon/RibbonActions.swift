@@ -30,7 +30,7 @@ enum RibbonActions {
              .refreshVisuals, .performanceAnalyzer,
              .about, .guidedLearning,
              .editInteractions, .selectionPane, .align, .group, .bringForward, .sendBackward,
-             .visualTable, .dataPointTable, .expandNextLevel, .drillUp, .drillDown,
+             .visualTable, .dataPointTable, .applyDrillFiltersTo, .expandNextLevel, .drillUp, .drillDown,
              .tableName, .columnName, .format, .currencyFormat, .percentFormat, .thousandsFormat, .decimalFormat,
              .summarization, .dataCategory, .sortByColumn,
              .daxFormat, .comment, .uncomment:
@@ -49,7 +49,6 @@ enum RibbonActions {
              .trainingVideos, .documentation, .support,
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
              .examples, .consultingServices,
-             .applyDrillFiltersTo,
              .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
              .dataType, .decimalPlaces, .dataGroups,
              .tmdlFormat, .find, .replace, .commandPalette:
@@ -257,6 +256,10 @@ enum RibbonActions {
             state.showDataTableVisualID = visual.id
             return .performed
 
+        case .applyDrillFiltersTo:
+            // Menu thả xuống ở `RibbonColumnFieldControlView` tự đặt phạm vi (Entire page / Selected visual).
+            return .performed
+
         case .dataPointTable:
             guard let page = state.page, !state.interaction.state(for: page).selection.points.isEmpty else { return .noop }
             state.showDataPointTable = true
@@ -267,7 +270,12 @@ enum RibbonActions {
             state.interaction.drillUp(page: page, visual: visual)
             return .performed
 
-        case .drillDown, .expandNextLevel:
+        case .drillDown:
+            guard let visual = state.visual else { return .noop }
+            state.interaction.toggleDrillMode(visual)
+            return .performed
+
+        case .expandNextLevel:
             guard let visual = state.visual,
                   let spec = state.interaction.loadedSpecs[visual.id] else { return .noop }
             state.interaction.nextLevel(visual: visual, spec: spec)
@@ -327,7 +335,6 @@ enum RibbonActions {
              .trainingVideos, .documentation, .support,
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
              .examples, .consultingServices,
-             .applyDrillFiltersTo,
              .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
              .dataType, .decimalPlaces, .dataGroups,
              .tmdlFormat, .find, .replace, .commandPalette:

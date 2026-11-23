@@ -97,6 +97,7 @@ struct RibbonItemView: View {
         case .performanceAnalyzer: return state.showPerformanceAnalyzer
         case .showSelection, .selectionPane: return state.showSelection
         case .editInteractions: return state.layout.isEditingInteractions
+        case .drillDown: return state.visual.map { state.interaction.isDrillMode($0) } ?? false
         case .viewAs: return !state.interaction.activeRLSRoles.isEmpty
         case .markAsDateTable: return context.isSelectedTableDateTable
         case .snapToGrid: return AppPreferences.shared.snapToGrid

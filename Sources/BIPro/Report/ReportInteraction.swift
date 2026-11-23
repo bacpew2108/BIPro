@@ -360,6 +360,13 @@ final class ReportInteraction {
 
     func depth(of visual: ReportVisual) -> Int { drillDepth[visual.id] ?? 0 }
 
+    /// Chế độ drill (nút ↓ trên Ribbon và trên đầu visual dùng chung): bật thì bấm một điểm sẽ drill xuống điểm đó thay vì chọn (VM 2026-11-23).
+    var drillModeVisualIDs: Set<String> = []
+    func isDrillMode(_ visual: ReportVisual) -> Bool { drillModeVisualIDs.contains(visual.id) }
+    func toggleDrillMode(_ visual: ReportVisual) {
+        if !drillModeVisualIDs.insert(visual.id).inserted { drillModeVisualIDs.remove(visual.id) }
+    }
+
     /// Drill down vào một điểm: sang cấp kế, các cấp trên thành bộ lọc drill (C1.md §2.2: `year IN {2016}`).
     func drillDown(page: ReportPage, visual: ReportVisual, spec: VisualQuerySpec, point: DataPointID) {
         let d = depth(of: visual)
@@ -368,6 +375,17 @@ final class ReportInteraction {
         guard let value = point.values[level.field.queryRef] else { return }
         update(page: page) { $0.drillFilters[visual.id, default: []].append(ColumnValues(column: level.column, values: [value])) }
         drillDepth[visual.id] = d + 1
+    }
+
+    /// "Apply drill down filters to" của visual: `true` = Selected visual, `false` = Entire page (mặc định).
+    func isDrillScopeSelectedOnly(page: ReportPage, visual: ReportVisual) -> Bool {
+        state(for: page).drillSelectedOnly.contains(visual.id)
+    }
+
+    func setDrillScope(page: ReportPage, visual: ReportVisual, selectedOnly: Bool) {
+        update(page: page) {
+            if selectedOnly { $0.drillSelectedOnly.insert(visual.id) } else { $0.drillSelectedOnly.remove(visual.id) }
+        }
     }
 
     func drillUp(page: ReportPage, visual: ReportVisual) {

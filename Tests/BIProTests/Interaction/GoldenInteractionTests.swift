@@ -218,12 +218,18 @@ struct GoldenInteractionTests {
         #expect(DAXQueryBuilder.normalized(assembled.filters[0].tableExpression) == DAXQueryBuilder.normalized(expectedFilter1))
         #expect(DAXQueryBuilder.normalized(assembled.filters[1].tableExpression) == DAXQueryBuilder.normalized(expectedFilter2))
 
-        // Visual khác không nhận drill down
+        // Visual khác: mặc định Apply drill down filters to = Entire page nên nhận đường drill như một lọc cột (VM 2026-11-23);
+        // chỉ khi visual nguồn đặt Selected visual thì mới không nhận.
         let otherTarget = InteractionTarget(visualID: "chart2", visualType: "clusteredColumnChart")
         let otherAssembled = FilterTranslator.assemble(for: otherTarget, staticFilters: reportStaticFilters, state: state)
-        #expect(otherAssembled.filters.count == 2)
-        // Không chứa year IN {2016}
-        #expect(!otherAssembled.filters[0].tableExpression.contains("2016"))
-        #expect(DAXQueryBuilder.normalized(otherAssembled.filters[0].tableExpression) == "FILTER(KEEPFILTERS(VALUES('Dim_Date'[year])), NOT('Dim_Date'[year] IN {9999}))")
+        #expect(otherAssembled.filters.count == 3)
+        #expect(otherAssembled.filters.contains { DAXQueryBuilder.normalized($0.tableExpression) == "TREATAS({2016}, 'Dim_Date'[year])" })
+
+        var selectedOnly = state
+        selectedOnly.drillSelectedOnly.insert("chart1")
+        let isolated = FilterTranslator.assemble(for: otherTarget, staticFilters: reportStaticFilters, state: selectedOnly)
+        #expect(isolated.filters.count == 2)
+        #expect(!isolated.filters[0].tableExpression.contains("2016"))
+        #expect(DAXQueryBuilder.normalized(isolated.filters[0].tableExpression) == "FILTER(KEEPFILTERS(VALUES('Dim_Date'[year])), NOT('Dim_Date'[year] IN {9999}))")
     }
 }

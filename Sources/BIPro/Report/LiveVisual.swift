@@ -27,7 +27,7 @@ struct LiveVisualView: View {
 
     @State private var phase: Phase = .loading
     /// Chế độ drill: bấm vào điểm là drill down (thay cho lọc chéo), như nút mũi tên xuống của Power BI.
-    @State private var drillMode = false
+    private var drillMode: Bool { interaction.isDrillMode(visual) }
     @State private var menu: MenuTarget?
     @State private var hover: MenuTarget?
 
@@ -269,7 +269,7 @@ struct LiveVisualView: View {
         }
         return HStack(spacing: 3) {
             button("arrow.up.left", "Lên một cấp", enabled: depth > 0) { interaction.drillUp(page: page, visual: visual) }
-            button("arrow.down", "Chế độ drill: bấm điểm để xuống cấp", on: drillMode, enabled: depth + 1 < spec.drillLevels.count) { drillMode.toggle() }
+            button("arrow.down", "Chế độ drill: bấm điểm để xuống cấp", on: drillMode, enabled: depth + 1 < spec.drillLevels.count) { interaction.toggleDrillMode(visual) }
             button("arrow.down.to.line", "Xuống một cấp cho cả trục", enabled: depth + 1 < spec.drillLevels.count) { interaction.nextLevel(visual: visual, spec: spec) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

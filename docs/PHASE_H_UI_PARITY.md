@@ -220,6 +220,7 @@ Quan sát này chốt thêm: **UI-A6** (Buttons/Shapes dùng đúng danh sách t
 - Mở Desktop trực tiếp hiện **màn hình Home** (tiêu đề cửa sổ "Untitled - Power BI Desktop"), không tự tạo báo cáo. Có ba khối, tiêu đề có mũi tên thu gọn: "Select a data source or start with a blank report" (6 thẻ), "Recommended" (thẻ "Getting started", BI Pro không làm), "Recent / Shared with me" kèm ô lọc và nút Filter.
 - Thẻ **Excel workbook**: mở báo cáo trống ("Add data to your report") rồi hộp Open lọc tệp Excel ngay. Thẻ **Blank report**: chỉ mở báo cáo trống. BI Pro làm tương tự (thẻ Excel → hộp chọn Excel; SQL Server và nguồn khác → hộp Get Data).
 - Lần bấm đầu vào cửa sổ Desktop chỉ lấy tiêu điểm (rê chuột hiện tooltip), bấm lần hai mới chạy. Ảnh quan sát không lưu vào repo vì lộ tài khoản/đường dẫn cá nhân.
+- **Apply drill down filters to** (tab Data / Drill, quan sát 2026-11-23 trên D3/D2): ô thả xuống có hai mục **Entire page** (mặc định, có dấu ✓) và **Selected visual**; làm mờ khi visual không có phân cấp. Bật chế độ ↓ **Drill down** rồi bấm một cột: với *Entire page* mọi visual khác trên trang bị lọc theo đường drill (KPI, biểu đồ khác đổi theo); với *Selected visual* chỉ visual đó xuống cấp, các visual khác giữ nguyên. Nút ↓ Drill down trên Ribbon là chế độ bật/tắt (hiện trạng nhấn), không phải "xuống cấp cho cả trục" (đó là Expand next level).
 
 ## 4. Hiện trạng BI Pro và khoảng cách
 

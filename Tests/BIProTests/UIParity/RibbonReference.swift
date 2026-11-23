@@ -333,7 +333,7 @@ enum RibbonReference {
         groups: [
             RefGroup(en: "Interactions", items: [
                 RefItem("editInteractions", en: "Edit interactions", kind: .toggle, avail: .contextual),
-                RefItem("applyDrillFiltersTo", en: "Apply drill down filters to", kind: .field, avail: .pending),
+                RefItem("applyDrillFiltersTo", en: "Apply drill down filters to", kind: .field, avail: .contextual),
             ]),
             RefGroup(en: "Arrange", items: [
                 RefItem("bringForward", en: "Bring forward", kind: .large, hasMenu: true, avail: .contextual),
@@ -354,7 +354,7 @@ enum RibbonReference {
                 RefItem("dataPointTable", en: "Data point table", kind: .large, avail: .contextual),
             ]),
             RefGroup(en: "Interactions", items: [
-                RefItem("applyDrillFiltersTo", en: "Apply drill down filters to", kind: .field, avail: .pending),
+                RefItem("applyDrillFiltersTo", en: "Apply drill down filters to", kind: .field, avail: .contextual),
             ]),
             RefGroup(en: "Drill actions", items: [
                 RefItem("drillActionsStackLeft", en: "Drill actions", kind: .smallStack([
@@ -363,7 +363,7 @@ enum RibbonReference {
                 ]), avail: .always),
                 RefItem("drillActionsStackRight", en: "Drill actions", kind: .smallStack([
                     RefItem("drillUp", en: "Drill up", kind: .large, avail: .contextual),
-                    RefItem("drillDown", en: "Drill down", kind: .large, avail: .contextual),
+                    RefItem("drillDown", en: "Drill down", kind: .toggle, avail: .contextual),
                 ]), avail: .always),
                 RefItem("drillThrough", en: "Drill through", kind: .large, avail: .pending),
             ]),
