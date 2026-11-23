@@ -191,7 +191,7 @@ struct RibbonView: View {
                             .fixedSize()
                             .padding(.bottom, 3)
                     }
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 4)
                 }
             }
             .frame(height: UIMetrics.ribbonPanel)

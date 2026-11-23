@@ -356,9 +356,9 @@ struct RibbonItemView: View {
                 }
             }
         }
-        .padding(.horizontal, 5)
+        .padding(.horizontal, 3)
         .padding(.vertical, 3)
-        .frame(minWidth: 44, minHeight: 68, alignment: .top)
+        .frame(minWidth: 42, minHeight: 68, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 4)
                 .fill(isOn ? DS.Palette.accentBrand.opacity(0.14) : .clear)

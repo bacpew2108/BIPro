@@ -215,6 +215,7 @@ final class DocumentState {
     var showQuickMeasureSheet = false
     var showMarkDateTableSheet = false
     var showManageRolesSheet = false
+    var showManageRelationshipsSheet = false
     var showViewAsRoleSheet = false
     var pendingDAXModelUpdates: [DAXDefinedMeasure]? = nil
     /// Trạng thái đồng bộ nút "Áp dụng thay đổi" trên TMDL Ribbon với `TMDLWorkspace`.

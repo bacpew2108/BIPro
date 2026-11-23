@@ -109,6 +109,11 @@ struct RibbonMenusTests {
         RibbonActions.perform(.viewAs, state: state)
         #expect(state.showViewAsRoleSheet == true)
         state.showViewAsRoleSheet = false
+
+        // Manage relationships mở hộp danh sách quan hệ (trước đây chỉ chuyển view Model nên ở view Model là nút chết)
+        RibbonActions.perform(.manageRelationships, state: state)
+        #expect(state.showManageRelationshipsSheet == true)
+        state.showManageRelationshipsSheet = false
     }
 }
 }

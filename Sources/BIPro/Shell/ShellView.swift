@@ -170,6 +170,10 @@ private struct Wave4SheetsModifier: ViewModifier {
                         .preferredColorScheme(colorScheme)
                 }
             }
+            .sheet(isPresented: $state.showManageRelationshipsSheet) {
+                ManageRelationshipsSheet(state: state) { state.showManageRelationshipsSheet = false }
+                    .preferredColorScheme(colorScheme)
+            }
             .sheet(isPresented: $state.showManageRolesSheet) {
                 ManageRolesSheet(state: state) { state.showManageRolesSheet = false }
                     .preferredColorScheme(colorScheme)

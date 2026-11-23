@@ -144,7 +144,7 @@ enum RibbonActions {
 
         // MARK: Modeling & Calculations
         case .manageRelationships:
-            state.mode = .model
+            state.showManageRelationshipsSheet = true
             return .performed
 
         case .newMeasure:

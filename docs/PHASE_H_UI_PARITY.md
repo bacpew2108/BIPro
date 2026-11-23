@@ -216,6 +216,11 @@ Cả hai view mã đều **không** còn nút Run/Apply trên ribbon; chúng n�
 
 Quan sát này chốt thêm: **UI-A6** (Buttons/Shapes dùng đúng danh sách trên), **UI-A9** (Page view có 3 mục), **UI-A5** (Refresh ▾ có 3 mục: nếu BI Pro chưa tách schema/dữ liệu thì mục thừa vô hiệu), **UI-A8** (Themes ▾ có banner + This report + Power BI + Theme gallery), và thêm **UI-E4**: hộp **Options** nhóm GLOBAL/CURRENT FILE (dùng lại `FileOptionsView`/Settings hiện có, các mục chưa có tính năng hiển thị vô hiệu).
 
+### 3.11 Quan sát bổ sung 2026-11-23 (khởi động, VM Desktop 2.159)
+- Mở Desktop trực tiếp hiện **màn hình Home** (tiêu đề cửa sổ "Untitled - Power BI Desktop"), không tự tạo báo cáo. Có ba khối, tiêu đề có mũi tên thu gọn: "Select a data source or start with a blank report" (6 thẻ), "Recommended" (thẻ "Getting started", BI Pro không làm), "Recent / Shared with me" kèm ô lọc và nút Filter.
+- Thẻ **Excel workbook**: mở báo cáo trống ("Add data to your report") rồi hộp Open lọc tệp Excel ngay. Thẻ **Blank report**: chỉ mở báo cáo trống. BI Pro làm tương tự (thẻ Excel → hộp chọn Excel; SQL Server và nguồn khác → hộp Get Data).
+- Lần bấm đầu vào cửa sổ Desktop chỉ lấy tiêu điểm (rê chuột hiện tooltip), bấm lần hai mới chạy. Ảnh quan sát không lưu vào repo vì lộ tài khoản/đường dẫn cá nhân.
+
 ## 4. Hiện trạng BI Pro và khoảng cách
 
 Ảnh `bipro-truoc/b_home.png`. Mã nguồn chính: `Shell/Ribbon.swift` (892 dòng), `Shell/ShellView.swift`, `DesignSystem/{Tokens,Components}.swift`, `DocumentState.swift` (`RibbonTab`, `tabs`).
