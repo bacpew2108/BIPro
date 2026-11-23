@@ -17,10 +17,10 @@ struct TypeChangePlan {
     var notice: String? {
         var parts: [String] = []
         if !droppedFields.isEmpty {
-            parts.append("Đã bỏ \(droppedFields.count) trường không có ô trong loại mới: " + droppedFields.map { "\($0.role) \($0.label)" }.joined(separator: ", "))
+            parts.append(biN("Đã bỏ \(droppedFields.count) trường không có ô trong loại mới: ", "Dropped \(droppedFields.count) field(s) that have no well in the new type: ") + droppedFields.map { "\($0.role) \($0.label)" }.joined(separator: ", "))
         }
         if !droppedObjectKeys.isEmpty {
-            parts.append("Đã bỏ định dạng riêng không dùng được cho loại mới: " + droppedObjectKeys.joined(separator: ", "))
+            parts.append(biN("Đã bỏ định dạng riêng không dùng được cho loại mới: ", "Dropped custom formatting that doesn't apply to the new type: ") + droppedObjectKeys.joined(separator: ", "))
         }
         return parts.isEmpty ? nil : parts.joined(separator: ". ") + "."
     }
@@ -103,7 +103,7 @@ enum TypeChange {
         let keptRefs = Set(plan.wells.flatMap { $0.elements.map(\.field.queryRef) })
         for field in dropped where !keptRefs.contains(field.queryRef) {
             if let first = references(field).first {
-                plan.blocked = "Chưa đổi loại được: \"\(field.label)\" sẽ bị bỏ nhưng \(first.reason). Hãy đổi sắp xếp của visual sang trường khác trước."
+                plan.blocked = biN("Chưa đổi loại được: \"\(field.label)\" sẽ bị bỏ nhưng \(first.reason). Hãy đổi sắp xếp của visual sang trường khác trước.", "Can't change the type yet: \"\(field.label)\" would be dropped but \(first.reason). Change the visual's sort to another field first.")
                 return plan
             }
         }

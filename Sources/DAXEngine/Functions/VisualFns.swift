@@ -3,6 +3,7 @@
 // NATURALLEFTOUTERJOIN, SUBSTITUTEWITHINDEX, GROUPBY, CURRENTGROUP, SAMPLE,
 // SAMPLEAXISWITHLOCALMINMAX, IGNORE, NONVISUAL, ROLLUPADDISSUBTOTAL, ROLLUPGROUP.
 
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -68,7 +69,7 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let naturalLeftOuterJoinBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count == 2, frame.args[0] != nil, frame.args[1] != nil else {
-            throw DAXError(.arity, "NATURALLEFTOUTERJOIN cần đúng 2 bảng")
+            throw DAXError(.arity, lt("NATURALLEFTOUTERJOIN cần đúng 2 bảng", "NATURALLEFTOUTERJOIN needs exactly 2 tables"))
         }
         let left = try frame.table(0)
         let right = try frame.table(1)
@@ -88,7 +89,7 @@ public enum VisualFunctions: FunctionFamily {
                     let rLineage = right.lineage[rIdx]
                     if let lLineage, let rLineage {
                         guard lLineage == rLineage else {
-                            throw DAXError(.typeMismatch, "NATURALLEFTOUTERJOIN: cột '\(lCol)' cùng tên nhưng khác lineage")
+                            throw DAXError(.typeMismatch, lt("NATURALLEFTOUTERJOIN: cột '\(lCol)' cùng tên nhưng khác lineage", "NATURALLEFTOUTERJOIN: column '\(lCol)' has the same name but a different lineage"))
                         }
                     }
                     joinPairs.append((left: lIdx, right: rIdx))
@@ -139,7 +140,7 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let substituteWithIndexBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 3 else {
-            throw DAXError(.arity, "SUBSTITUTEWITHINDEX cần ít nhất bảng, tên và bảng chỉ số")
+            throw DAXError(.arity, lt("SUBSTITUTEWITHINDEX cần ít nhất bảng, tên và bảng chỉ số", "SUBSTITUTEWITHINDEX needs at least a table, a name and an index table"))
         }
         let evaluator = try fkEvaluator(frame)
         let mainTable = try frame.table(0)
@@ -162,7 +163,7 @@ public enum VisualFunctions: FunctionFamily {
                     let iLineage = indexTable.lineage[iIdx]
                     if let mLineage, let iLineage {
                         guard mLineage == iLineage else {
-                            throw DAXError(.typeMismatch, "SUBSTITUTEWITHINDEX: cột '\(mCol)' cùng tên nhưng khác lineage")
+                            throw DAXError(.typeMismatch, lt("SUBSTITUTEWITHINDEX: cột '\(mCol)' cùng tên nhưng khác lineage", "SUBSTITUTEWITHINDEX: column '\(mCol)' has the same name but a different lineage"))
                         }
                     }
                     joinPairs.append((main: mIdx, index: iIdx))
@@ -171,7 +172,7 @@ public enum VisualFunctions: FunctionFamily {
             }
         }
         guard !joinPairs.isEmpty else {
-            throw DAXError(.runtime, "SUBSTITUTEWITHINDEX: không tìm thấy cột nối chung")
+            throw DAXError(.runtime, lt("SUBSTITUTEWITHINDEX: không tìm thấy cột nối chung", "SUBSTITUTEWITHINDEX: no common join column found"))
         }
 
         // Sắp xếp indexTable theo các biểu thức sắp xếp
@@ -260,14 +261,14 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let currentGroupBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let evaluator = frame.eval as? Evaluator, let current = evaluator.currentGroupStack.last else {
-            throw DAXError(.runtime, "CURRENTGROUP() chỉ được dùng bên trong biểu thức của GROUPBY")
+            throw DAXError(.runtime, lt("CURRENTGROUP() chỉ được dùng bên trong biểu thức của GROUPBY", "CURRENTGROUP() can only be used inside a GROUPBY expression"))
         }
         return current
     }
 
     private static let groupByBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 1, frame.args[0] != nil else {
-            throw DAXError(.arity, "GROUPBY cần ít nhất một bảng")
+            throw DAXError(.arity, lt("GROUPBY cần ít nhất một bảng", "GROUPBY needs at least one table"))
         }
         let evaluator = try fkEvaluator(frame)
         let source = try frame.table(0)
@@ -282,7 +283,7 @@ public enum VisualFunctions: FunctionFamily {
             }
             if case .literal(.string(let name)) = arg {
                 guard i + 1 < frame.args.count, let expr = frame.args[i + 1] else {
-                    throw DAXError(.arity, "GROUPBY: thiếu biểu thức cho '\(name)'")
+                    throw DAXError(.arity, lt("GROUPBY: thiếu biểu thức cho '\(name)'", "GROUPBY: missing expression for '\(name)'"))
                 }
                 extensions.append((name: name, expr: expr))
                 i += 2
@@ -366,7 +367,7 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let sampleBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 2, frame.args[1] != nil else {
-            throw DAXError(.arity, "SAMPLE cần kích thước và bảng")
+            throw DAXError(.arity, lt("SAMPLE cần kích thước và bảng", "SAMPLE needs a size and a table"))
         }
         let evaluator = try fkEvaluator(frame)
         let size = try fkTopCount(try frame.scalar(0))
@@ -449,7 +450,7 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let sampleAxisBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 2 else {
-            throw DAXError(.arity, "SAMPLEAXISWITHLOCALMINMAX cần kích thước và bảng")
+            throw DAXError(.arity, lt("SAMPLEAXISWITHLOCALMINMAX cần kích thước và bảng", "SAMPLEAXISWITHLOCALMINMAX needs a size and a table"))
         }
         let size = try fkTopCount(try frame.scalar(0))
         let table = try frame.table(1)
@@ -480,7 +481,7 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let rowBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 2, frame.args.count % 2 == 0 else {
-            throw DAXError(.arity, "ROW cần các cặp (tên, biểu thức)")
+            throw DAXError(.arity, lt("ROW cần các cặp (tên, biểu thức)", "ROW needs (name, expression) pairs"))
         }
         var colNames: [String] = []
         var rowValues: [Value] = []
@@ -500,16 +501,16 @@ public enum VisualFunctions: FunctionFamily {
 
     private static let nonvisualBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count == 1, frame.args[0] != nil else {
-            throw DAXError(.arity, "NONVISUAL cần đúng một bảng")
+            throw DAXError(.arity, lt("NONVISUAL cần đúng một bảng", "NONVISUAL needs exactly one table"))
         }
         return try frame.table(0)
     }
 
     private static let rollupAddIsSubtotalBody: FunctionSpec.TableBody = { (_: CallFrame) throws(DAXError) -> TableValue in
-        throw DAXError(.runtime, "ROLLUPADDISSUBTOTAL chỉ dùng bên trong SUMMARIZECOLUMNS")
+        throw DAXError(.runtime, lt("ROLLUPADDISSUBTOTAL chỉ dùng bên trong SUMMARIZECOLUMNS", "ROLLUPADDISSUBTOTAL can only be used inside SUMMARIZECOLUMNS"))
     }
 
     private static let rollupGroupBody: FunctionSpec.TableBody = { (_: CallFrame) throws(DAXError) -> TableValue in
-        throw DAXError(.runtime, "ROLLUPGROUP chỉ dùng bên trong SUMMARIZECOLUMNS")
+        throw DAXError(.runtime, lt("ROLLUPGROUP chỉ dùng bên trong SUMMARIZECOLUMNS", "ROLLUPGROUP can only be used inside SUMMARIZECOLUMNS"))
     }
 }

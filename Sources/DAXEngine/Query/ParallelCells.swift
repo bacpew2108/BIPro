@@ -1,3 +1,4 @@
+import PBIXKit
 import Foundation
 
 /// Chia `count` ô cho luồng gọi và `helpers` khối phụ trên `queue`; kết quả giữ thứ tự, ô trả nil bị bỏ.
@@ -99,7 +100,7 @@ private final class ParallelCellsShared<Row>: @unchecked Sendable {
     func finish() throws(DAXError) -> [Row] {
         condition.lock(); defer { condition.unlock() }
         if let error { throw error }
-        if stop && next < count { throw DAXError(.cancelled, "đã huỷ") }
+        if stop && next < count { throw DAXError(.cancelled, lt("đã huỷ", "cancelled")) }
         return results.compactMap { $0 }
     }
 }

@@ -280,7 +280,7 @@ public struct QueryDependenciesContent: View {
                         .lineLimit(1)
 
                     HStack(spacing: 4) {
-                        Text(node.kind == .source ? "Tệp" : "Truy vấn")
+                        Text(node.kind == .source ? biN("Tệp", "File") : biN("Truy vấn", "Query"))
                             .font(DS.Typeface.labelSmall)
                             .foregroundStyle(DS.Palette.secondaryLabel)
 

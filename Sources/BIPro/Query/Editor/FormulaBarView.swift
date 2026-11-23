@@ -89,7 +89,7 @@ struct FormulaBarView: View {
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.plain)
-                .help("Áp dụng công thức (Enter)")
+                .help(biN("Áp dụng công thức (Enter)", "Apply formula (Enter)"))
 
                 Button {
                     syncFromState()
@@ -100,7 +100,7 @@ struct FormulaBarView: View {
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.plain)
-                .help("Huỷ thay đổi (Esc)")
+                .help(biN("Huỷ thay đổi (Esc)", "Discard changes (Esc)"))
             }
 
             // Formula Text Input
@@ -146,7 +146,7 @@ struct FormulaBarView: View {
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
-            .help(isExpanded ? "Thu gọn thanh công thức" : "Mở rộng thanh công thức")
+            .help(isExpanded ? biN("Thu gọn thanh công thức", "Collapse formula bar") : biN("Mở rộng thanh công thức", "Expand formula bar"))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)

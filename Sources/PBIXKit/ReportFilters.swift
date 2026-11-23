@@ -282,7 +282,7 @@ extension PBIXFile {
         if let contains = c["Contains"] {
             return "chứa " + (contains["Right"].flatMap { ReportLiteral(expression: $0) }.map(text) ?? "?")
         }
-        return "điều kiện nâng cao"
+        return lt("điều kiện nâng cao", "advanced condition")
     }
 
     private static func list(_ values: JSONValue) -> String {

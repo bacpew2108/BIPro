@@ -30,19 +30,19 @@ public struct ExcelSource: DataSource {
 
     public func items() async throws -> [any SourceItem] {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SourceError.unreadable("File không tồn tại: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("File không tồn tại: \(url.lastPathComponent)", "The file doesn't exist: \(url.lastPathComponent)"))
         }
 
         let zip: ZipArchive
         do {
             zip = try ZipArchive(url: url)
         } catch {
-            throw SourceError.unreadable("Không thể mở file Excel: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể mở file Excel: \(url.lastPathComponent)", "Couldn't open the Excel file: \(url.lastPathComponent)"))
         }
 
         // 1. Đọc workbook.xml và workbook.xml.rels để lấy danh sách trang tính theo thứ tự
         guard let wbData = try? zip.read("xl/workbook.xml") else {
-            throw SourceError.unreadable("Không tìm thấy workbook.xml trong file Excel")
+            throw SourceError.unreadable(lt("Không tìm thấy workbook.xml trong file Excel", "workbook.xml not found in the Excel file"))
         }
 
         let wbParser = WorkbookParser()
@@ -230,7 +230,7 @@ enum ExcelDataLoader {
             var colErrors: [Int: String] = [:]
             for (r, cell) in colCells.enumerated() {
                 if case .error(let errCode) = cell {
-                    colErrors[r] = "Lỗi ô Excel: \(errCode)"
+                    colErrors[r] = lt("Lỗi ô Excel: \(errCode)", "Excel cell error: \(errCode)")
                 }
             }
             if !colErrors.isEmpty {
@@ -364,7 +364,7 @@ private struct ExcelSheetItem: SourceItem, Sendable {
 
         let (zip, sharedStrings, isDateStyle, date1904) = try ExcelDataLoader.loadWorkbookData(url: url)
         guard let sheetData = try? zip.read(info.targetPath) else {
-            throw SourceError.unreadable("Không thể đọc trang tính: \(info.name)")
+            throw SourceError.unreadable(lt("Không thể đọc trang tính: \(info.name)", "Couldn't read the worksheet: \(info.name)"))
         }
 
         let sheetParser = SheetParser(sharedStrings: sharedStrings, isDateStyle: isDateStyle, date1904: date1904)
@@ -489,12 +489,12 @@ private struct ExcelTableItem: SourceItem, Sendable {
         progress?(0.0)
 
         guard let bounds = ExcelRefParser.parseRangeRef(info.ref) else {
-            throw SourceError.unreadable("Vùng ref không hợp lệ: \(info.ref)")
+            throw SourceError.unreadable(lt("Vùng ref không hợp lệ: \(info.ref)", "Invalid ref range: \(info.ref)"))
         }
 
         let (zip, sharedStrings, isDateStyle, date1904) = try ExcelDataLoader.loadWorkbookData(url: url)
         guard let sheetData = try? zip.read(info.sheetPath) else {
-            throw SourceError.unreadable("Không thể đọc sheet chứa bảng: \(info.sheetPath)")
+            throw SourceError.unreadable(lt("Không thể đọc sheet chứa bảng: \(info.sheetPath)", "Couldn't read the sheet containing the table: \(info.sheetPath)"))
         }
 
         let sheetParser = SheetParser(sharedStrings: sharedStrings, isDateStyle: isDateStyle, date1904: date1904)

@@ -17,7 +17,7 @@ struct EnterDataTable: Equatable {
         var message: String {
             switch self {
             case .tooLarge:
-                "Dữ liệu dán quá lớn. Hãy tách thành nhiều bảng, mỗi bảng không quá 3.000 ô, rồi gộp lại trong Power Query."
+                biN("Dữ liệu dán quá lớn. Hãy tách thành nhiều bảng, mỗi bảng không quá 3.000 ô, rồi gộp lại trong Power Query.", "The pasted data is too large. Split it into several tables of at most 3,000 cells each, then combine them in Power Query.")
             }
         }
     }

@@ -75,15 +75,15 @@ public struct MergeDialogModel: Sendable, Equatable {
 
     public var statusMessage: String {
         guard let secondQuery, !secondQuery.isEmpty, !(leftKeys.isEmpty && rightKeys.isEmpty) else {
-            return "Chọn bảng thứ hai và cột khớp ở cả hai bảng."
+            return biN("Chọn bảng thứ hai và cột khớp ở cả hai bảng.", "Select the second table and the matching columns in both tables.")
         }
         if leftKeys.count != rightKeys.count {
-            return "Số cột khoá hai bên phải bằng nhau (trái \(leftKeys.count), phải \(rightKeys.count))."
+            return biN("Số cột khoá hai bên phải bằng nhau (trái \(leftKeys.count), phải \(rightKeys.count)).", "Both sides must have the same number of key columns (left \(leftKeys.count), right \(rightKeys.count)).")
         }
         if let mismatch = firstTypeMismatch() {
-            return "Cột khoá \"\(mismatch.leftName)\" (\(mismatch.leftType)) và \"\(mismatch.rightName)\" (\(mismatch.rightType)) khác kiểu nên sẽ không khớp dòng nào."
+            return biN("Cột khoá \"\(mismatch.leftName)\" (\(mismatch.leftType)) và \"\(mismatch.rightName)\" (\(mismatch.rightType)) khác kiểu nên sẽ không khớp dòng nào.", "Key columns \"\(mismatch.leftName)\" (\(mismatch.leftType)) and \"\(mismatch.rightName)\" (\(mismatch.rightType)) have different types, so no rows will match.")
         }
-        return "Đã chọn \(leftKeys.count) cặp cột khoá."
+        return biN("Đã chọn \(leftKeys.count) cặp cột khoá.", "\(leftKeys.count) key column pair(s) selected.")
     }
 
     public func command() -> StepCommand? {
@@ -137,10 +137,10 @@ public struct MergeDialogModel: Sendable, Equatable {
 
     private func typeDescription(_ type: DAXType) -> String {
         switch type {
-        case .integer, .double, .currency: return "số"
-        case .string: return "văn bản"
-        case .dateTime: return "ngày giờ"
-        case .boolean: return "đúng/sai"
+        case .integer, .double, .currency: return biN("số", "number")
+        case .string: return biN("văn bản", "text")
+        case .dateTime: return biN("ngày giờ", "date/time")
+        case .boolean: return biN("đúng/sai", "true/false")
         }
     }
 }

@@ -1,3 +1,4 @@
+import PBIXKit
 // Phase F (T048): bộ phân tích cú pháp M (đệ quy xuống, ưu tiên toán tử theo tài liệu công khai của ngôn ngữ).
 //
 // Thứ tự ưu tiên (thấp → cao): or, and, is, as, = <>, < > <= >=, + - &, * /, meta (chưa hỗ trợ), một ngôi, postfix.
@@ -42,12 +43,12 @@ private struct Parser {
 
     func unexpected() -> MSyntaxError {
         switch current.kind {
-        case .eof: fail("Biểu thức M kết thúc đột ngột")
-        case .symbol(let s): fail("Cú pháp M: không mong đợi '\(s)'")
-        case .keyword(let k): fail("Cú pháp M: không mong đợi '\(k)'")
-        case .identifier(let n), .quotedIdentifier(let n): fail("Cú pháp M: không mong đợi '\(n)'")
-        case .number: fail("Cú pháp M: không mong đợi số")
-        case .text: fail("Cú pháp M: không mong đợi chuỗi")
+        case .eof: fail(lt("Biểu thức M kết thúc đột ngột", "The M expression ended unexpectedly"))
+        case .symbol(let s): fail(lt("Cú pháp M: không mong đợi '\(s)'", "M syntax: unexpected '\(s)'"))
+        case .keyword(let k): fail(lt("Cú pháp M: không mong đợi '\(k)'", "M syntax: unexpected '\(k)'"))
+        case .identifier(let n), .quotedIdentifier(let n): fail(lt("Cú pháp M: không mong đợi '\(n)'", "M syntax: unexpected '\(n)'"))
+        case .number: fail(lt("Cú pháp M: không mong đợi số", "M syntax: unexpected number"))
+        case .text: fail(lt("Cú pháp M: không mong đợi chuỗi", "M syntax: unexpected string"))
         }
     }
 

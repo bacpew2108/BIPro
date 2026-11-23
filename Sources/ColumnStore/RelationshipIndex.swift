@@ -14,6 +14,7 @@
 // [SUY ĐOÁN] So khớp khoá: số nguyên và currency cùng dạng số nguyên; chuỗi so không phân biệt hoa thường;
 // hai khoá bên một trùng nhau thì lấy dòng gặp trước.
 
+import PBIXKit
 import Foundation
 
 /// Khoá so khớp đã chuẩn hoá. Không có khớp giữa các kiểu khác nhau (ví dụ chuỗi với số).
@@ -91,7 +92,7 @@ public struct RelationshipIndex: Sendable {
     /// `true` khi có dòng bên nhiều thuộc `manyRows` mà khoá không khớp với dòng bên một. Các dòng đó
     /// tham chiếu blank row ảo bên một, nên blank row ấy chỉ thấy được khi hàm này trả `true`.
     public func hasUnmatched(in manyRows: RowSet) -> Bool {
-        precondition(manyRows.universe == manyRowCount + 1, "RelationshipIndex: universe phía nhiều không khớp")
+        precondition(manyRows.universe == manyRowCount + 1, lt("RelationshipIndex: universe phía nhiều không khớp", "RelationshipIndex: the many-side universe doesn't match"))
         // Không có dòng nào không khớp (đã tính khi dựng chỉ mục): khỏi quét cả bảng nhiều ở mỗi lần gọi.
         guard hasUnmatched else { return false }
         let blank = Int32(oneRowCount)
@@ -104,7 +105,7 @@ public struct RelationshipIndex: Sendable {
     /// Dòng bên một được tham chiếu bởi các dòng bên nhiều `manyRows` (hai chiều, expanded table).
     /// Blank row ảo bên nhiều coi như tham chiếu blank row bên một.
     public func oneRows(from manyRows: RowSet) -> RowSet {
-        precondition(manyRows.universe == manyRowCount + 1, "RelationshipIndex: universe phía nhiều không khớp")
+        precondition(manyRows.universe == manyRowCount + 1, lt("RelationshipIndex: universe phía nhiều không khớp", "RelationshipIndex: the many-side universe doesn't match"))
         let blank = oneRowCount
         if manyRows.count * 8 >= oneRowCount {
             var seen = [Bool](repeating: false, count: oneRowCount + 1)
@@ -131,8 +132,8 @@ public struct RelationshipIndex: Sendable {
     /// Chi phí theo số dòng của `restriction`, không theo số dòng bên nhiều. Dùng trong lan truyền khi bên nhiều đã
     /// bị lọc (thường rất ít dòng) và bên một là toàn bộ, nên quét mọi dòng bên nhiều là lãng phí.
     public func manyRows(from oneRows: RowSet, restrictedTo restriction: RowSet) -> RowSet {
-        precondition(oneRows.universe == oneRowCount + 1, "RelationshipIndex: universe phía một không khớp")
-        precondition(restriction.universe == manyRowCount + 1, "RelationshipIndex: universe phía nhiều không khớp")
+        precondition(oneRows.universe == oneRowCount + 1, lt("RelationshipIndex: universe phía một không khớp", "RelationshipIndex: the one-side universe doesn't match"))
+        precondition(restriction.universe == manyRowCount + 1, lt("RelationshipIndex: universe phía nhiều không khớp", "RelationshipIndex: the many-side universe doesn't match"))
         // Bên một rất chọn lọc còn restriction lại rộng (vd cả bảng fact): đi từ posting list của bên một, rồi giao
         // với restriction, thay vì duyệt từng dòng của restriction.
         if codeToPK != nil, oneRows.count * 16 <= manyRowCount, restriction.count * 4 > manyRowCount {
@@ -152,7 +153,7 @@ public struct RelationshipIndex: Sendable {
     }
 
     func manyRows(from oneRows: RowSet, strategy: ManyStrategy) -> RowSet {
-        precondition(oneRows.universe == oneRowCount + 1, "RelationshipIndex: universe phía một không khớp")
+        precondition(oneRows.universe == oneRowCount + 1, lt("RelationshipIndex: universe phía một không khớp", "RelationshipIndex: the one-side universe doesn't match"))
         let blankOne = oneRowCount
         let blankIncluded = oneRows.contains(blankOne)
         let usePostings: Bool

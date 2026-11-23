@@ -251,7 +251,7 @@ struct PageTabs: View {
             }
             Button(bi("Huỷ", "Cancel"), role: .cancel) { renaming = nil }
         }
-        .confirmationDialog("Xoá trang \"\(deleting?.displayName ?? "")\"?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+        .confirmationDialog(bi("Xoá trang \"\(deleting?.displayName ?? "")\"?", "Delete page \"\(deleting?.displayName ?? "")\"?"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
                             titleVisibility: .visible) {
             Button(bi("Xoá", "Delete"), role: .destructive) {
                 if let page = deleting { state.removePage(page.id) }

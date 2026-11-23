@@ -35,7 +35,7 @@ struct KPIVisualView: View {
         case .neutral: context.theme.dataColor(0)
         }
         let valueStr = data.latestValue.value == .blank
-            ? "(Trống)"
+            ? biN("(Trống)", "(Blank)")
             : NumberDisplay.text(data.latestValue, units: context.format.dataLabels.displayUnits, precision: context.format.dataLabels.precision)
 
         GeometryReader { geo in

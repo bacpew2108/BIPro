@@ -297,7 +297,7 @@ struct ColumnFilterPopoverView: View {
                     HStack {
                         Image(systemName: isNumericOrDate ? "arrow.up.circle" : "textformat.characters")
                             .frame(width: 16)
-                        Text(isNumericOrDate ? "Nhỏ đến lớn" : "A đến Z")
+                        Text(isNumericOrDate ? biN("Nhỏ đến lớn", "Smallest to largest") : biN("A đến Z", "A to Z"))
                         Spacer()
                     }
                     .contentShape(Rectangle())
@@ -312,7 +312,7 @@ struct ColumnFilterPopoverView: View {
                     HStack {
                         Image(systemName: isNumericOrDate ? "arrow.down.circle" : "textformat.characters")
                             .frame(width: 16)
-                        Text(isNumericOrDate ? "Lớn đến nhỏ" : "Z đến A")
+                        Text(isNumericOrDate ? biN("Lớn đến nhỏ", "Largest to smallest") : biN("Z đến A", "Z to A"))
                         Spacer()
                     }
                     .contentShape(Rectangle())
@@ -540,7 +540,7 @@ struct ResultGrid: NSViewRepresentable {
             let number = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("#"))
             number.title = "#"
             // Biểu tượng bảng ở góc lưới, như Power BI (ảnh lưới DAX Query View).
-            if let icon = NSImage(systemSymbolName: "tablecells", accessibilityDescription: "Số dòng") {
+            if let icon = NSImage(systemSymbolName: "tablecells", accessibilityDescription: biN("Số dòng", "Row count")) {
                 let attachment = NSTextAttachment()
                 attachment.image = icon
                 let title = NSMutableAttributedString(attachment: attachment)

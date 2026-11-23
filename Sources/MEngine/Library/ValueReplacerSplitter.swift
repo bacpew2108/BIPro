@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm Replacer, Splitter, Combiner.
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -65,7 +66,7 @@ enum ValueReplacerSplitter {
         ) { args in
             let delimiter = try args.text(0, "Splitter.SplitTextByDelimiter")
             let quoteStyle = try args.optional(1).map { v -> Int in
-                guard let n = MOperators.number(v) else { throw MError.expression("Splitter.SplitTextByDelimiter: quoteStyle phải là số") }
+                guard let n = MOperators.number(v) else { throw MError.expression(lt("Splitter.SplitTextByDelimiter: quoteStyle phải là số", "Splitter.SplitTextByDelimiter: quoteStyle must be a number")) }
                 return try MInt.from(n, "Splitter.SplitTextByDelimiter")
             } ?? 0
 
@@ -94,7 +95,7 @@ enum ValueReplacerSplitter {
             observed: false
         ) { args in
             let length = try MInt.from(args.number(0, "Splitter.SplitTextByRepeatedLengths"), "Splitter.SplitTextByRepeatedLengths")
-            guard length > 0 else { throw MError.expression("Splitter.SplitTextByRepeatedLengths: length phải > 0") }
+            guard length > 0 else { throw MError.expression(lt("Splitter.SplitTextByRepeatedLengths: length phải > 0", "Splitter.SplitTextByRepeatedLengths: length must be > 0")) }
             let inner = MFunction(
                 name: "Splitter.SplitTextByRepeatedLengths_inner",
                 parameters: [MParameter(name: "text")],
@@ -123,7 +124,7 @@ enum ValueReplacerSplitter {
         ) { args in
             let posList = try args.list(0, "Splitter.SplitTextByPositions")
             let positions = try posList.map { v -> Int in
-                guard let n = MOperators.number(v) else { throw MError.expression("Splitter.SplitTextByPositions: vị trí phải là số") }
+                guard let n = MOperators.number(v) else { throw MError.expression(lt("Splitter.SplitTextByPositions: vị trí phải là số", "Splitter.SplitTextByPositions: positions must be numbers")) }
                 return try MInt.from(n, "Splitter.SplitTextByPositions")
             }.sorted()
             let inner = MFunction(
@@ -167,7 +168,7 @@ enum ValueReplacerSplitter {
                     case .text(let s):
                         parts.append(s)
                     default:
-                        throw MError.expression("Combiner: phần tử danh sách phải là text hoặc null, nhận \(item.kindName)")
+                        throw MError.expression(lt("Combiner: phần tử danh sách phải là text hoặc null, nhận \(item.kindName)", "Combiner: a list item must be text or null, got \(item.kindName)"))
                     }
                 }
                 return .text(parts.joined(separator: delimiter))

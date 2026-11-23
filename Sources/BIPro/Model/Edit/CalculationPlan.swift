@@ -22,7 +22,7 @@ struct CalculationPlan: Equatable {
         var description: String {
             switch self {
             case .column(let table, let name): "\(table)[\(name)]"
-            case .table(let name): "bảng \(name)"
+            case .table(let name): biN("bảng \(name)", "table \(name)")
             }
         }
     }
@@ -218,7 +218,7 @@ extension CalculationPlan {
                 let stuck = metadata.relationships.filter {
                     (($0.fromTable == table && $0.fromColumn == name) || ($0.toTable == table && $0.toColumn == name)) && !["M:1", "1:1"].contains($0.cardinality)
                 }
-                if !stuck.isEmpty { lines.append("\(node): quan hệ \(stuck.map(\.name).joined(separator: ", ")) chưa dựng lại được chỉ mục") }
+                if !stuck.isEmpty { lines.append(biN("\(node): quan hệ \(stuck.map(\.name).joined(separator: ", ")) chưa dựng lại được chỉ mục", "\(node): relationships \(stuck.map(\.name).joined(separator: ", ")) couldn't rebuild their index")) }
             case .table(let name):
                 var uses: [String] = []
                 if metadata.relationships.contains(where: { $0.fromTable == name || $0.toTable == name }) { uses.append(biN("bảng có quan hệ", "a table with relationships")) }

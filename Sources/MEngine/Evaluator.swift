@@ -5,6 +5,7 @@
 // - Đối số hàm được tính trước khi gọi (M gốc tính lười): đối số lỗi không dùng sẽ ném. [SUY ĐOÁN] chấp nhận được ở phạm vi Phase F.
 // - Một luồng: scope và thunk không chia sẻ giữa các Task.
 
+import PBIXKit
 import ColumnStore
 
 public struct MEvaluator: Sendable {
@@ -38,7 +39,7 @@ public struct MEvaluator: Sendable {
             var result: MValue
             if let step {
                 guard case .letIn(let bindings, _) = expression, bindings.contains(where: { $0.name == step }) else {
-                    throw MError.expression("Bước '\(step)' không có trong truy vấn")
+                    throw MError.expression(lt("Bước '\(step)' không có trong truy vấn", "Step '\(step)' isn't in the query"))
                 }
                 let scope = interpreter.letScope(bindings, parent: interpreter.root)
                 result = try interpreter.lookup(step, in: scope, line: 1)
@@ -78,7 +79,7 @@ final class MThunk: @unchecked Sendable {
             if case .error(let e) = value { throw e }
             return value
         case .evaluating:
-            throw MError.expression("Phát hiện vòng tham chiếu khi tính '\(name)'")
+            throw MError.expression(lt("Phát hiện vòng tham chiếu khi tính '\(name)'", "Circular reference detected while evaluating '\(name)'"))
         case .pending(let expression, let scope):
             state = .evaluating
             do {
@@ -143,7 +144,7 @@ final class Interpreter: @unchecked Sendable {
         if let value = MBuiltins.value(named: name, interpreter: self) { return value }
         if let function = MLibrary.functions[name] { return .function(function) }
         if name.contains(".") || name.hasPrefix("#") { throw MError.unsupported(name, line: line) }
-        throw MError.expression("Tên '\(name)' chưa được khai báo")
+        throw MError.expression(lt("Tên '\(name)' chưa được khai báo", "The name '\(name)' hasn't been declared"))
     }
 
     // MARK: Đánh giá
@@ -161,7 +162,7 @@ final class Interpreter: @unchecked Sendable {
         case .letIn(let bindings, let body): return try evaluate(body, in: letScope(bindings, parent: scope))
         case .ifThenElse(let condition, let whenTrue, let whenFalse):
             guard case .logical(let b) = try evaluate(condition, in: scope) else {
-                throw MError.expression("Điều kiện của if phải là giá trị logic")
+                throw MError.expression(lt("Điều kiện của if phải là giá trị logic", "The condition of if must be a logical value"))
             }
             return try evaluate(b ? whenTrue : whenFalse, in: scope)
         case .function(let parameters, let returnType, let body):
@@ -186,7 +187,7 @@ final class Interpreter: @unchecked Sendable {
         case .asType(let value, let type):
             let v = try evaluate(value, in: scope)
             let resolved = try resolveType(type, in: scope)
-            guard resolved.accepts(v) else { throw MError.expression("Không thể chuyển đổi giá trị \(v.kindName) sang kiểu \(resolved.kind.rawValue)") }
+            guard resolved.accepts(v) else { throw MError.expression(lt("Không thể chuyển đổi giá trị \(v.kindName) sang kiểu \(resolved.kind.rawValue)", "Can't convert a \(v.kindName) value to type \(resolved.kind.rawValue)")) }
             return v
         case .tryOtherwise(let protected, let otherwise): return try evaluateTry(protected, otherwise: otherwise, in: scope)
         case .error(let value): throw try makeError(try evaluate(value, in: scope))
@@ -206,7 +207,7 @@ final class Interpreter: @unchecked Sendable {
             return .logical(b)
         case .meta:
             let value = try evaluate(left, in: scope)
-            guard case .record = try evaluate(right, in: scope) else { throw MError.expression("Siêu dữ liệu sau meta phải là bản ghi") }
+            guard case .record = try evaluate(right, in: scope) else { throw MError.expression(lt("Siêu dữ liệu sau meta phải là bản ghi", "The metadata after meta must be a record")) }
             return value
         default:
             return try MOperators.apply(op, try evaluate(left, in: scope), try evaluate(right, in: scope))
@@ -221,7 +222,7 @@ final class Interpreter: @unchecked Sendable {
             try MCancellation.check()
             if case .range(let from, let to) = item {
                 guard case .number(let a) = try evaluate(from, in: scope), case .number(let b) = try evaluate(to, in: scope),
-                      a == a.rounded(), b == b.rounded() else { throw MError.expression("Khoảng a..b phải là số nguyên") }
+                      a == a.rounded(), b == b.rounded() else { throw MError.expression(lt("Khoảng a..b phải là số nguyên", "The range a..b must be integers")) }
                 if b >= a { values.append(contentsOf: stride(from: a, through: b, by: 1).map { .number($0) }) }
             } else {
                 do { values.append(try evaluate(item, in: scope)) } catch let e as MError { values.append(.error(e)) }
@@ -255,10 +256,10 @@ final class Interpreter: @unchecked Sendable {
         case .error(let e):
             throw e
         default:
-            throw MError.expression("Không thể truy cập trường '\(name)' của giá trị \(target.kindName)")
+            throw MError.expression(lt("Không thể truy cập trường '\(name)' của giá trị \(target.kindName)", "Can't access field '\(name)' of a \(target.kindName) value"))
         }
         if optional { return .null }
-        throw MError.expression("Không tìm thấy trường '\(name)'")
+        throw MError.expression(lt("Không tìm thấy trường '\(name)'", "Field '\(name)' not found"))
     }
 
     private func itemAccess(_ target: MValue, _ index: MValue, optional: Bool) throws -> MValue {
@@ -266,12 +267,12 @@ final class Interpreter: @unchecked Sendable {
         if case .record(let criteria) = index {
             guard case .table(let table) = target else {
                 if case .null = target, optional { return .null }
-                throw MError.expression("Không thể truy cập phần tử của giá trị \(target.kindName)")
+                throw MError.expression(lt("Không thể truy cập phần tử của giá trị \(target.kindName)", "Can't access an item of a \(target.kindName) value"))
             }
             var columns: [(index: Int, value: MValue)] = []
             for field in criteria {
                 guard let column = table.index(ofColumn: field.name) else {
-                    throw MError.expression("Không có cột '\(field.name)' để tìm dòng")
+                    throw MError.expression(lt("Không có cột '\(field.name)' để tìm dòng", "There is no column '\(field.name)' to look up the row"))
                 }
                 columns.append((column, field.value))
             }
@@ -284,30 +285,30 @@ final class Interpreter: @unchecked Sendable {
             case 1: return MTables.row(table, found[0])
             case 0:
                 if optional { return .null }
-                throw MError(reason: "Expression.Error", message: "Không tìm thấy dòng khớp với bản ghi chỉ định")
-            default: throw MError.expression("Có nhiều dòng khớp với bản ghi chỉ định")
+                throw MError(reason: "Expression.Error", message: lt("Không tìm thấy dòng khớp với bản ghi chỉ định", "No row matches the given record"))
+            default: throw MError.expression(lt("Có nhiều dòng khớp với bản ghi chỉ định", "Several rows match the given record"))
             }
         }
-        guard case .number(let d) = index, d == d.rounded(), d >= 0 else { throw MError.expression("Chỉ mục phải là số nguyên không âm") }
+        guard case .number(let d) = index, d == d.rounded(), d >= 0 else { throw MError.expression(lt("Chỉ mục phải là số nguyên không âm", "The index must be a non-negative integer")) }
         let i = try MInt.from(d, "Chỉ mục")
         switch target {
         case .list(let items):
             guard i < items.count else {
                 if optional { return .null }
-                throw MError.expression("Chỉ mục \(i) vượt quá số phần tử (\(items.count))")
+                throw MError.expression(lt("Chỉ mục \(i) vượt quá số phần tử (\(items.count))", "Index \(i) exceeds the item count (\(items.count))"))
             }
             if case .error(let e) = items[i] { throw e }
             return items[i]
         case .table(let table):
             guard i < table.rowCount else {
                 if optional { return .null }
-                throw MError.expression("Chỉ mục \(i) vượt quá số dòng (\(table.rowCount))")
+                throw MError.expression(lt("Chỉ mục \(i) vượt quá số dòng (\(table.rowCount))", "Index \(i) exceeds the row count (\(table.rowCount))"))
             }
             return MTables.row(table, i)
         case .null where optional:
             return .null
         default:
-            throw MError.expression("Không thể truy cập phần tử của giá trị \(target.kindName)")
+            throw MError.expression(lt("Không thể truy cập phần tử của giá trị \(target.kindName)", "Can't access an item of a \(target.kindName) value"))
         }
     }
 
@@ -321,13 +322,13 @@ final class Interpreter: @unchecked Sendable {
             for (index, parameter) in parameters.enumerated() {
                 let value = arguments[index]
                 if let type = resolved[index], !type.accepts(value) {
-                    throw MError.expression("Đối số '\(parameter.name)' không thuộc kiểu \(type.kind.rawValue)")
+                    throw MError.expression(lt("Đối số '\(parameter.name)' không thuộc kiểu \(type.kind.rawValue)", "Argument '\(parameter.name)' isn't of type \(type.kind.rawValue)"))
                 }
                 inner.thunks[parameter.name] = MThunk(name: parameter.name, value: value)
             }
             let result = try evaluate(body, in: inner)
             if let resultType, !resultType.accepts(result) {
-                throw MError.expression("Kết quả không thuộc kiểu \(resultType.kind.rawValue)")
+                throw MError.expression(lt("Kết quả không thuộc kiểu \(resultType.kind.rawValue)", "The result isn't of type \(resultType.kind.rawValue)"))
             }
             return result
         }
@@ -336,11 +337,11 @@ final class Interpreter: @unchecked Sendable {
     private func invoke(_ callee: MExpression, _ arguments: [MExpression], line: Int, in scope: MScope) throws -> MValue {
         try MCancellation.check()
         guard case .function(let function) = try evaluate(callee, in: scope) else {
-            throw MError.expression("Chỉ có thể gọi giá trị kiểu hàm")
+            throw MError.expression(lt("Chỉ có thể gọi giá trị kiểu hàm", "Only a function value can be called"))
         }
         let required = function.parameters.filter { !$0.isOptional }.count
         guard arguments.count >= required, arguments.count <= function.parameters.count else {
-            throw MError.expression("Số đối số không hợp lệ: \(function.name) cần \(required) đến \(function.parameters.count), nhận \(arguments.count)")
+            throw MError.expression(lt("Số đối số không hợp lệ: \(function.name) cần \(required) đến \(function.parameters.count), nhận \(arguments.count)", "Invalid number of arguments: \(function.name) needs \(required) to \(function.parameters.count), got \(arguments.count)"))
         }
         var values = try arguments.map { try evaluate($0, in: scope) }
         values.append(contentsOf: Array(repeating: MValue.null, count: function.parameters.count - values.count))
@@ -373,7 +374,7 @@ final class Interpreter: @unchecked Sendable {
                let field = fields.first(where: { $0.name == "Detail" }), let n = MOperators.number(field.value) { detail = String(n) }
             return MError(reason: text("Reason") ?? "Expression.Error", message: text("Message") ?? "", detail: detail)
         default:
-            throw MError.expression("error cần giá trị text hoặc record")
+            throw MError.expression(lt("error cần giá trị text hoặc record", "error needs a text or record value"))
         }
     }
 }

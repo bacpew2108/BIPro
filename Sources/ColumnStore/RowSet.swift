@@ -1,3 +1,4 @@
+import PBIXKit
 // Tập dòng của một bảng (CS, đợt 1a).
 //
 // Hai dạng lưu trữ, chọn theo mật độ:
@@ -43,9 +44,9 @@ public struct RowSet: Sendable, Hashable {
 
     /// Dựng từ dãy dòng đã sắp tăng dần, không trùng, và mọi dòng nhỏ hơn `universe`.
     public init(universe: Int, sortedRows: [UInt32]) {
-        precondition(universe >= 0, "RowSet: universe âm")
+        precondition(universe >= 0, lt("RowSet: universe âm", "RowSet: negative universe"))
         precondition(RowSet.isValid(sortedRows, universe: universe),
-                     "RowSet: dòng phải tăng dần, không trùng và nhỏ hơn universe")
+                     lt("RowSet: dòng phải tăng dần, không trùng và nhỏ hơn universe", "RowSet: rows must be increasing, unique and smaller than the universe"))
         self = RowSet.make(universe: universe, sortedRows: sortedRows)
     }
 
@@ -57,7 +58,7 @@ public struct RowSet: Sendable, Hashable {
 
     /// Mọi dòng thật 0..<rowCount (không gồm blank row ảo ở chỉ số rowCount).
     public static func all(rowCount: Int) -> RowSet {
-        precondition(rowCount >= 0, "RowSet: rowCount âm")
+        precondition(rowCount >= 0, lt("RowSet: rowCount âm", "RowSet: negative rowCount"))
         let universe = rowCount + 1
         var words = [UInt64](repeating: 0, count: wordCount(universe))
         let full = rowCount >> 6
@@ -68,7 +69,7 @@ public struct RowSet: Sendable, Hashable {
     }
 
     public static func none(universe: Int) -> RowSet {
-        precondition(universe >= 0, "RowSet: universe âm")
+        precondition(universe >= 0, lt("RowSet: universe âm", "RowSet: negative universe"))
         return RowSet(universe: universe, storage: .sparse([]), members: 0)
     }
 
@@ -98,7 +99,7 @@ public struct RowSet: Sendable, Hashable {
     }
 
     public func intersection(_ other: RowSet) -> RowSet {
-        precondition(universe == other.universe, "RowSet khác universe")
+        precondition(universe == other.universe, lt("RowSet khác universe", "RowSets have different universes"))
         switch (storage, other.storage) {
         case (.sparse(let a), .sparse(let b)):
             return RowSet.make(universe: universe, sortedRows: RowSet.mergeIntersection(a, b))
@@ -118,7 +119,7 @@ public struct RowSet: Sendable, Hashable {
     }
 
     public func union(_ other: RowSet) -> RowSet {
-        precondition(universe == other.universe, "RowSet khác universe")
+        precondition(universe == other.universe, lt("RowSet khác universe", "RowSets have different universes"))
         if case .sparse(let a) = storage, case .sparse(let b) = other.storage {
             return RowSet.make(universe: universe, sortedRows: RowSet.mergeUnion(a, b))
         }

@@ -17,6 +17,7 @@
 // [SUY ĐOÁN] TREATAS nhiều cột áp lên bộ lọc: CALCULATE (CORE) chưa nhận bảng nhiều cột, nên phần tuple → dòng nằm ở
 //   `treatasRowFilter`, và ghép vào ngữ cảnh bằng `applying(rows:keep:)`. Cần CORE gọi hàm này trong addTable (xem báo cáo).
 // [SUY ĐOÁN] USERELATIONSHIP và CROSSFILTER tra quan hệ theo cặp cột trong `FilterContext.relationships` (cần `bound(to:)`).
+import PBIXKit
 import ColumnStore
 
 /// Các cột được tham chiếu trực tiếp trong biểu thức (không đi vào thân measure). Mirror của CORE.
@@ -76,7 +77,7 @@ enum FFTarget: Sendable {
 
 /// Phân giải đối số bảng hoặc cột: tham chiếu cột, tên bảng, hoặc biến giữ RowSet. Lỗi với các dạng khác.
 func ffTarget(_ expr: BoundExpr?, _ evaluator: Evaluator) throws(DAXError) -> FFTarget {
-    guard let expr else { throw DAXError(.arity, "đối số bị bỏ trống") }
+    guard let expr else { throw DAXError(.arity, lt("đối số bị bỏ trống", "the argument is empty")) }
     switch expr {
     case .column(let column):
         return .column(column)
@@ -84,9 +85,9 @@ func ffTarget(_ expr: BoundExpr?, _ evaluator: Evaluator) throws(DAXError) -> FF
         return .table(table)
     case .variable(let slot):
         if case .rows(let table, _) = try evaluator.lookupVariable(slot) { return .table(table) }
-        throw DAXError(.typeMismatch, "cần một bảng hoặc một cột")
+        throw DAXError(.typeMismatch, lt("cần một bảng hoặc một cột", "a table or a column is required"))
     default:
-        throw DAXError(.typeMismatch, "cần một bảng hoặc một cột")
+        throw DAXError(.typeMismatch, lt("cần một bảng hoặc một cột", "a table or a column is required"))
     }
 }
 
@@ -105,8 +106,8 @@ func ffPhysicalTable(_ expr: BoundExpr, _ evaluator: Evaluator) throws(DAXError)
 
 /// Đối số phải là một tham chiếu cột.
 func ffColumnArgument(_ expr: BoundExpr?) throws(DAXError) -> ColumnID {
-    guard let expr else { throw DAXError(.arity, "đối số bị bỏ trống") }
-    guard case .column(let column) = expr else { throw DAXError(.expectedColumnRef, "cần một tham chiếu cột") }
+    guard let expr else { throw DAXError(.arity, lt("đối số bị bỏ trống", "the argument is empty")) }
+    guard case .column(let column) = expr else { throw DAXError(.expectedColumnRef, lt("cần một tham chiếu cột", "a column reference is required")) }
     return column
 }
 
@@ -122,7 +123,7 @@ func ffColumnArguments(_ exprs: [BoundExpr]) throws(DAXError) -> [ColumnID] {
 /// Các cột của một bảng trong model. Lỗi nếu bảng không có trong model.
 func ffSchemaColumns(_ table: TableID, _ store: ColumnStore) throws(DAXError) -> [ColumnID] {
     guard let meta = store.schema.table(table) else {
-        throw DAXError(.runtime, "không có bảng \(table) trong model")
+        throw DAXError(.runtime, lt("không có bảng \(table) trong model", "there is no table \(table) in the model"))
     }
     return meta.columns.map(\.id)
 }
@@ -143,7 +144,7 @@ func ffCall<T>(_ body: () throws -> T) throws(DAXError) -> T {
     } catch let error as DAXError {
         throw error
     } catch {
-        throw DAXError(.runtime, "lỗi kho cột: \(error)")
+        throw DAXError(.runtime, lt("lỗi kho cột: \(error)", "column store error: \(error)"))
     }
 }
 
@@ -280,7 +281,7 @@ public enum FilterFunctions: FunctionFamily {
             guard let first = present.first, let table = try ffPhysicalTable(first, evaluator) else { return nil }
             let kept = try ffColumnArguments(Array(present.dropFirst()))
             if let stray = kept.first(where: { $0.table != table }) {
-                throw DAXError(.typeMismatch, "ALLEXCEPT chỉ nhận cột của bảng đầu, không phải \(stray)")
+                throw DAXError(.typeMismatch, lt("ALLEXCEPT chỉ nhận cột của bảng đầu, không phải \(stray)", "ALLEXCEPT only accepts columns of the first table, not \(stray)"))
             }
             let keptSet = Set(kept)
             let removed = try ffSchemaColumns(table, store).filter { !keptSet.contains($0) }
@@ -301,7 +302,7 @@ public enum FilterFunctions: FunctionFamily {
         }
         let present = frame.args.compactMap { $0 }
         guard !present.isEmpty else {
-            throw DAXError(.arity, "ALL cần ít nhất một bảng hoặc một cột")
+            throw DAXError(.arity, lt("ALL cần ít nhất một bảng hoặc một cột", "ALL needs at least one table or column"))
         }
         let columns = try ffColumnArguments(present)
         return try ffColumnsTable(columns, filter: .empty, store: evaluator.store)
@@ -314,7 +315,7 @@ public enum FilterFunctions: FunctionFamily {
     private static let allSelectedBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         let present = frame.args.compactMap { $0 }
         guard !present.isEmpty else {
-            throw DAXError(.typeMismatch, "ALLSELECTED() không dùng được như bảng; chỉ dùng làm bộ sửa đổi trong CALCULATE")
+            throw DAXError(.typeMismatch, lt("ALLSELECTED() không dùng được như bảng; chỉ dùng làm bộ sửa đổi trong CALCULATE", "ALLSELECTED() can't be used as a table; use it only as a modifier in CALCULATE"))
         }
         let evaluator = try fkEvaluator(frame)
         if let physical = try physicalRows("ALLSELECTED", args: frame.args, ctx: frame.ctx, evaluator: evaluator) {
@@ -333,7 +334,7 @@ public enum FilterFunctions: FunctionFamily {
         if let physical = try physicalRows("ALLNOBLANKROW", args: frame.args, ctx: frame.ctx, evaluator: evaluator) {
             return try evaluator.materialize(physical.table, physical.rows)
         }
-        throw DAXError(.typeMismatch, "ALLNOBLANKROW cần một bảng")
+        throw DAXError(.typeMismatch, lt("ALLNOBLANKROW cần một bảng", "ALLNOBLANKROW needs a table"))
     }
 
     // MARK: ALLEXCEPT
@@ -342,11 +343,11 @@ public enum FilterFunctions: FunctionFamily {
     private static let allExceptBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         let present = frame.args.compactMap { $0 }
         guard !present.isEmpty else {
-            throw DAXError(.arity, "ALLEXCEPT cần ít nhất một bảng")
+            throw DAXError(.arity, lt("ALLEXCEPT cần ít nhất một bảng", "ALLEXCEPT needs at least one table"))
         }
         let evaluator = try fkEvaluator(frame)
         guard let physical = try physicalRows("ALLEXCEPT", args: frame.args, ctx: frame.ctx, evaluator: evaluator) else {
-            throw DAXError(.typeMismatch, "đối số đầu của ALLEXCEPT phải là bảng")
+            throw DAXError(.typeMismatch, lt("đối số đầu của ALLEXCEPT phải là bảng", "the first argument of ALLEXCEPT must be a table"))
         }
         return try evaluator.materialize(physical.table, physical.rows)
     }
@@ -372,10 +373,10 @@ public enum FilterFunctions: FunctionFamily {
                 case .table(let value):
                     out.append(.removeColumns(value.lineage.compactMap { $0 }))
                 case .scalar:
-                    throw DAXError(.expectedColumnRef, "REMOVEFILTERS cần một cột hoặc một bảng")
+                    throw DAXError(.expectedColumnRef, lt("REMOVEFILTERS cần một cột hoặc một bảng", "REMOVEFILTERS needs a column or a table"))
                 }
             default:
-                throw DAXError(.expectedColumnRef, "REMOVEFILTERS cần một cột hoặc một bảng")
+                throw DAXError(.expectedColumnRef, lt("REMOVEFILTERS cần một cột hoặc một bảng", "REMOVEFILTERS needs a column or a table"))
             }
         }
         return out
@@ -387,16 +388,16 @@ public enum FilterFunctions: FunctionFamily {
     /// hiện có (`keep: true`). Không ghi đè bộ lọc cũ.
     private static let keepFiltersBody: FunctionSpec.ModifierBody = { (frame: CallFrame) throws(DAXError) -> [ContextModifier] in
         guard let predicate = fkArg(frame, 0) else {
-            throw DAXError(.arity, "KEEPFILTERS cần đúng một đối số bộ lọc")
+            throw DAXError(.arity, lt("KEEPFILTERS cần đúng một đối số bộ lọc", "KEEPFILTERS needs exactly one filter argument"))
         }
         let evaluator = try fkEvaluator(frame)
         let store = evaluator.store
         if try fkIsTableExpression(predicate, evaluator) {
-            throw DAXError(.runtime, "KEEPFILTERS ngoài CALCULATE chưa hỗ trợ bộ lọc theo bảng")
+            throw DAXError(.runtime, lt("KEEPFILTERS ngoài CALCULATE chưa hỗ trợ bộ lọc theo bảng", "KEEPFILTERS outside CALCULATE doesn't support table filters yet"))
         }
         let columns = fkReferencedColumns(predicate)
         guard columns.count == 1, let column = columns.first else {
-            throw DAXError(.runtime, "KEEPFILTERS ngoài CALCULATE chỉ nhận vị ngữ trên đúng một cột")
+            throw DAXError(.runtime, lt("KEEPFILTERS ngoài CALCULATE chỉ nhận vị ngữ trên đúng một cột", "KEEPFILTERS outside CALCULATE only accepts a predicate on exactly one column"))
         }
         let name = store.schema.column(column)?.name ?? ""
         let candidates = try frame.ctx.filter.visibleValues(of: column, in: store)
@@ -418,17 +419,17 @@ public enum FilterFunctions: FunctionFamily {
     /// là tập tuple khác nhau (không kiểm tra cột đích có giá trị đó hay không; kiểm khi áp làm bộ lọc).
     private static let treatasBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard fkArg(frame, 0) != nil else {
-            throw DAXError(.arity, "TREATAS cần bảng nguồn và ít nhất một cột đích")
+            throw DAXError(.arity, lt("TREATAS cần bảng nguồn và ít nhất một cột đích", "TREATAS needs a source table and at least one target column"))
         }
         let evaluator = try fkEvaluator(frame)
         let store = evaluator.store
         let source = try frame.table(0)
         let targets = try ffColumnArguments(frame.args.dropFirst().compactMap { $0 })
         guard !targets.isEmpty else {
-            throw DAXError(.arity, "TREATAS cần ít nhất một cột đích")
+            throw DAXError(.arity, lt("TREATAS cần ít nhất một cột đích", "TREATAS needs at least one target column"))
         }
         guard targets.count == source.columns.count else {
-            throw DAXError(.arity, "TREATAS: bảng nguồn có \(source.columns.count) cột, còn \(targets.count) cột đích")
+            throw DAXError(.arity, lt("TREATAS: bảng nguồn có \(source.columns.count) cột, còn \(targets.count) cột đích", "TREATAS: the source table has \(source.columns.count) columns but there are \(targets.count) target columns"))
         }
         let names = targets.map { store.schema.column($0)?.name ?? "\($0)" }
         if targets.count == 1 {
@@ -442,10 +443,10 @@ public enum FilterFunctions: FunctionFamily {
     /// Tuple có giá trị không tồn tại trong cột đích thì bỏ. Kết quả dùng với `applying(rows:keep:)`.
     static func treatasRowFilter(tuples: TableValue, targets: [ColumnID], store: ColumnStore) throws(DAXError) -> RowsFilter {
         guard let table = targets.first?.table, targets.allSatisfy({ $0.table == table }) else {
-            throw DAXError(.runtime, "TREATAS nhiều cột cần các cột đích cùng một bảng")
+            throw DAXError(.runtime, lt("TREATAS nhiều cột cần các cột đích cùng một bảng", "TREATAS with several columns needs target columns in the same table"))
         }
         guard tuples.columns.count == targets.count else {
-            throw DAXError(.arity, "TREATAS: số cột bảng (\(tuples.columns.count)) khác số cột đích (\(targets.count))")
+            throw DAXError(.arity, lt("TREATAS: số cột bảng (\(tuples.columns.count)) khác số cột đích (\(targets.count))", "TREATAS: the table has \(tuples.columns.count) columns but there are \(targets.count) target columns"))
         }
         let rowCount = try ffCall { try store.rowCount(table) }
         var indexes: [ColumnIndex] = []
@@ -454,7 +455,7 @@ public enum FilterFunctions: FunctionFamily {
         for column in targets {
             let index = try ffCall { try store.index(column) }
             guard index.column.isEncoded else {
-                throw DAXError(.runtime, "TREATAS trên cột dense \(column) chưa được hỗ trợ")
+                throw DAXError(.runtime, lt("TREATAS trên cột dense \(column) chưa được hỗ trợ", "TREATAS on the dense column \(column) isn't supported yet"))
             }
             var map: [String: Int] = [:]
             for code in stride(from: 1, through: index.column.dictionaryCount, by: 1) {
@@ -497,12 +498,12 @@ public enum FilterFunctions: FunctionFamily {
     static func relationshipID(_ a: ColumnID, _ b: ColumnID, in ctx: EvalContext) throws(DAXError) -> RelationshipID {
         let relationships = ctx.filter.relationships
         guard !relationships.isEmpty else {
-            throw DAXError(.runtime, "USERELATIONSHIP và CROSSFILTER cần lược đồ quan hệ (ngữ cảnh gốc gọi bound(to:))")
+            throw DAXError(.runtime, lt("USERELATIONSHIP và CROSSFILTER cần lược đồ quan hệ (ngữ cảnh gốc gọi bound(to:))", "USERELATIONSHIP and CROSSFILTER need a relationship schema (the root context calls bound(to:))"))
         }
         guard let found = relationships.first(where: {
             ($0.manyColumn == a && $0.oneColumn == b) || ($0.manyColumn == b && $0.oneColumn == a)
         }) else {
-            throw DAXError(.runtime, "không có quan hệ giữa \(a) và \(b) trong model")
+            throw DAXError(.runtime, lt("không có quan hệ giữa \(a) và \(b) trong model", "there is no relationship between \(a) and \(b) in the model"))
         }
         return found.id
     }
@@ -523,7 +524,7 @@ public enum FilterFunctions: FunctionFamily {
         case "BOTH": mode = .bothDirections
         case "NONE": mode = CrossFilterMode.none
         default:
-            throw DAXError(.typeMismatch, "CROSSFILTER cần ONEWAY, BOTH hoặc NONE")
+            throw DAXError(.typeMismatch, lt("CROSSFILTER cần ONEWAY, BOTH hoặc NONE", "CROSSFILTER needs ONEWAY, BOTH or NONE"))
         }
         return [.crossFilter(id, mode)]
     }

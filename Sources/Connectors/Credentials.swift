@@ -2,6 +2,7 @@
 // phiên và Keychain (FR-071, hiến pháp IV): không vào `.pbix`, `docs/`, nhật ký hay thông điệp lỗi. Keychain: mục mật khẩu chung
 // (`kSecClassGenericPassword`), dịch vụ "BI Pro – PostgreSQL", tài khoản = máy chủ, dữ liệu = JSON {user, password, allowUnencrypted}.
 
+import PBIXKit
 import Foundation
 import Security
 import Synchronization
@@ -45,7 +46,7 @@ public final class CredentialVault: Sendable {
         item[kSecAttrLabel as String] = "\(service): \(server)"
         let status = SecItemAdd(item as CFDictionary, nil)
         guard status == errSecSuccess else {
-            throw SourceError.unreadable("Không lưu được thông tin đăng nhập vào Keychain (mã \(status)).")
+            throw SourceError.unreadable(lt("Không lưu được thông tin đăng nhập vào Keychain (mã \(status)).", "Couldn't save the credentials to the Keychain (code \(status))."))
         }
     }
 

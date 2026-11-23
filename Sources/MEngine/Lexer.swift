@@ -1,4 +1,5 @@
 // Phase F (T048): bộ tách từ của ngôn ngữ M.
+import PBIXKit
 import Foundation
 
 enum MTokenKind: Equatable {
@@ -45,7 +46,7 @@ enum MLexer {
             i += 1
             var out = String.UnicodeScalarView()
             while true {
-                guard i < chars.count else { throw fail("Chuỗi chưa đóng ngoặc kép", at: begin) }
+                guard i < chars.count else { throw fail(lt("Chuỗi chưa đóng ngoặc kép", "The string has no closing quote"), at: begin) }
                 let c = chars[i]
                 if c == "\"" {
                     if i + 1 < chars.count, chars[i + 1] == "\"" { out.append("\""); i += 2; continue }
@@ -56,7 +57,7 @@ enum MLexer {
                     var j = i + 2
                     var body = ""
                     while j < chars.count, chars[j] != ")" { body.unicodeScalars.append(chars[j]); j += 1 }
-                    guard j < chars.count else { throw fail("Chuỗi thoát #( chưa đóng", at: i) }
+                    guard j < chars.count else { throw fail(lt("Chuỗi thoát #( chưa đóng", "The #( escape sequence isn't closed"), at: i) }
                     for part in body.split(separator: ",") {
                         let name = part.trimmingCharacters(in: .whitespaces)
                         switch name {
@@ -66,7 +67,7 @@ enum MLexer {
                         case "#": out.append("#")
                         default:
                             guard let value = UInt32(name, radix: 16), let scalar = Unicode.Scalar(value) else {
-                                throw fail("Chuỗi thoát không hợp lệ: #(\(name))", at: i)
+                                throw fail(lt("Chuỗi thoát không hợp lệ: #(\(name))", "Invalid escape sequence: #(\(name))"), at: i)
                             }
                             out.append(scalar)
                         }
@@ -93,7 +94,7 @@ enum MLexer {
                 let begin = i
                 i += 2
                 while true {
-                    guard i + 1 < chars.count else { throw fail("Chú thích /* chưa đóng", at: begin) }
+                    guard i + 1 < chars.count else { throw fail(lt("Chú thích /* chưa đóng", "The /* comment isn't closed"), at: begin) }
                     if chars[i] == "*", chars[i + 1] == "/" { i += 2; break }
                     if chars[i] == "\n" { line += 1; lineStart = i + 1 }
                     i += 1
@@ -114,7 +115,7 @@ enum MLexer {
                 var j = i + 1
                 while j < chars.count, isLetter(chars[j]) { j += 1 }
                 let word = "#" + String(String.UnicodeScalarView(chars[(i + 1)..<j]))
-                guard keywords.contains(word) else { throw fail("Từ khoá không hợp lệ: \(word)", at: i) }
+                guard keywords.contains(word) else { throw fail(lt("Từ khoá không hợp lệ: \(word)", "Invalid keyword: \(word)"), at: i) }
                 i = j
                 if word == "#nan" { add(.number(.nan)) } else if word == "#infinity" { add(.number(.infinity)) } else { add(.keyword(word)) }
                 continue
@@ -139,7 +140,7 @@ enum MLexer {
                     let digitsStart = j
                     while j < chars.count, isHex(chars[j]) { j += 1 }
                     guard j > digitsStart, let value = UInt64(String(String.UnicodeScalarView(chars[digitsStart..<j])), radix: 16) else {
-                        throw fail("Số thập lục phân không hợp lệ", at: i)
+                        throw fail(lt("Số thập lục phân không hợp lệ", "Invalid hexadecimal number"), at: i)
                     }
                     i = j
                     add(.number(Double(value)))
@@ -158,7 +159,7 @@ enum MLexer {
                         j = k
                     }
                 }
-                guard let value = Double(String(String.UnicodeScalarView(chars[i..<j]))) else { throw fail("Số không hợp lệ", at: i) }
+                guard let value = Double(String(String.UnicodeScalarView(chars[i..<j]))) else { throw fail(lt("Số không hợp lệ", "Invalid number"), at: i) }
                 i = j
                 add(.number(value))
                 continue
@@ -169,7 +170,7 @@ enum MLexer {
             if three == "..." { i += 3; add(.symbol("...")); continue }
             if ["=>", "<>", "<=", ">=", ".."].contains(two) { i += 2; add(.symbol(two)); continue }
             if "()[]{},=<>+-*/&?@!".unicodeScalars.contains(c) { i += 1; add(.symbol(String(c))); continue }
-            throw fail("Ký tự không hợp lệ: \(c)", at: i)
+            throw fail(lt("Ký tự không hợp lệ: \(c)", "Invalid character: \(c)"), at: i)
         }
         tokens.append(MToken(kind: .eof, line: line, column: i - lineStart + 1, start: chars.count, end: chars.count))
         return tokens

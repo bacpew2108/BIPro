@@ -217,26 +217,26 @@ public enum VertiPaqWriter {
                                    rowNumberGUID: UUID = rowNumberColumnGUID, columns: [ColumnInput],
                                    segmentSize: Int = segmentSizeForNewTables,
                                    segmentRecords: [Int]? = nil) throws -> EncodedTable {
-        guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid("tên bảng rỗng hoặc có ký tự NUL") }
-        guard let first = columns.first else { throw WriteError.invalid("bảng «\(name)» không có cột nào") }
+        guard !name.isEmpty, !name.contains("\0") else { throw WriteError.invalid(lt("tên bảng rỗng hoặc có ký tự NUL", "the table name is empty or contains a NUL character")) }
+        guard let first = columns.first else { throw WriteError.invalid(lt("bảng «\(name)» không có cột nào", "table «\(name)» has no columns")) }
         let rowCount = first.values.count
-        guard rowCount > 0 else { throw WriteError.invalid("bảng «\(name)» không có dòng nào, chưa lưu được bảng rỗng") }
+        guard rowCount > 0 else { throw WriteError.invalid(lt("bảng «\(name)» không có dòng nào, chưa lưu được bảng rỗng", "table «\(name)» has no rows; an empty table can't be saved yet")) }
 
         var ids = Set([tableID, partitionID, rowNumberID])
-        guard ids.count == 3 else { throw WriteError.invalid("ID của bảng, phân vùng và cột RowNumber phải khác nhau") }
+        guard ids.count == 3 else { throw WriteError.invalid(lt("ID của bảng, phân vùng và cột RowNumber phải khác nhau", "The IDs of the table, partition and RowNumber column must differ")) }
         var names = Set<String>()
         for column in columns {
             guard !column.name.isEmpty, !column.name.contains("\0") else {
-                throw WriteError.invalid("bảng «\(name)» có tên cột rỗng hoặc có ký tự NUL")
+                throw WriteError.invalid(lt("bảng «\(name)» có tên cột rỗng hoặc có ký tự NUL", "table «\(name)» has an empty column name or one containing NUL"))
             }
             // Tên cột trong một bảng không phân biệt hoa thường (như mô hình tabular).
             guard names.insert(column.name.lowercased()).inserted else {
-                throw WriteError.invalid("bảng «\(name)» có hai cột trùng tên «\(column.name)» (không phân biệt hoa thường)")
+                throw WriteError.invalid(lt("bảng «\(name)» có hai cột trùng tên «\(column.name)» (không phân biệt hoa thường)", "table «\(name)» has two columns named «\(column.name)» (case-insensitive)"))
             }
             guard column.values.count == rowCount else {
-                throw WriteError.invalid("cột «\(column.name)» có \(column.values.count) dòng, cần \(rowCount)")
+                throw WriteError.invalid(lt("cột «\(column.name)» có \(column.values.count) dòng, cần \(rowCount)", "column «\(column.name)» has \(column.values.count) rows but \(rowCount) are needed"))
             }
-            guard ids.insert(column.id).inserted else { throw WriteError.invalid("ID \(column.id) bị dùng hai lần") }
+            guard ids.insert(column.id).inserted else { throw WriteError.invalid(lt("ID \(column.id) bị dùng hai lần", "ID \(column.id) is used twice")) }
         }
 
         let folders = Folders(table: name, tableID: tableID, partitionID: partitionID)
@@ -320,12 +320,12 @@ public enum VertiPaqWriter {
         if case .boolean(let flags) = values { return try encodeDictionary(.int64(flags.map { $0.map { $0 ? 1 : 0 } })) }
         if case .currency(let amounts) = values {
             guard !amounts.contains(Int64.max) else {
-                throw WriteError.invalid("giá trị tiền tệ 922337203685477,5807 không được hỗ trợ (Desktop cũng từ chối)")
+                throw WriteError.invalid(lt("giá trị tiền tệ 922337203685477,5807 không được hỗ trợ (Desktop cũng từ chối)", "the currency value 922337203685477.5807 isn't supported (Desktop rejects it too)"))
             }
             return try encodeDictionary(.int64(amounts))
         }
         switch values {
-        case .boolean, .currency: fatalError("đã đổi sang số nguyên ở trên")
+        case .boolean, .currency: fatalError(lt("đã đổi sang số nguyên ở trên", "converted to an integer above"))
         case .int64(let v):
             let (ids, order, hasNulls) = assign(v)
             var out = VertiPaqByteWriter()
@@ -344,7 +344,7 @@ public enum VertiPaqWriter {
 
         case .double(let v), .dateTime(let v):
             // -0.0 and 0.0 are one value to the model; NaN has no place in a column.
-            guard v.allSatisfy({ $0 == nil || !$0!.isNaN }) else { throw WriteError.invalid("cột số có giá trị NaN (không phải số), chưa lưu được") }
+            guard v.allSatisfy({ $0 == nil || !$0!.isNaN }) else { throw WriteError.invalid(lt("cột số có giá trị NaN (không phải số), chưa lưu được", "a numeric column has a NaN value and can't be saved yet")) }
             let (ids, order, hasNulls) = assign(v.map { $0.map { $0 == 0 ? 0.0 : $0 } })
             var out = VertiPaqByteWriter()
             out.i32(1)
@@ -356,7 +356,7 @@ public enum VertiPaqWriter {
                                     sortedIDs: sortedIDs(order.indices.sorted { order[$0] < order[$1] }, hasNulls: hasNulls))
 
         case .string(let v):
-            guard v.allSatisfy({ $0 == nil || !$0!.contains("\0") }) else { throw WriteError.invalid("cột chuỗi có giá trị chứa ký tự NUL, chưa lưu được") }
+            guard v.allSatisfy({ $0 == nil || !$0!.contains("\0") }) else { throw WriteError.invalid(lt("cột chuỗi có giá trị chứa ký tự NUL, chưa lưu được", "a text column has a value containing NUL and can't be saved yet")) }
             let (ids, order, hasNulls) = assign(v)
             return DictionaryResult(data: try stringDictionary(order), ids: ids, count: order.count, hasNulls: hasNulls,
                                     sortedIDs: sortedIDs(order.indices.sorted { collates(order[$0], order[$1]) }, hasNulls: hasNulls))
@@ -454,12 +454,12 @@ public enum VertiPaqWriter {
     static func encodeSegment(ids: [Int64], dictionaryCount: Int, segmentSize: Int = recordsPerSegment,
                               segmentRecords: [Int]? = nil) throws -> SegmentResult {
         guard ids.count <= Int(UInt32.max) * 4, ids.allSatisfy({ $0 >= 0 && $0 <= Int64(UInt32.max) }) else {
-            throw WriteError.invalid("đoạn dữ liệu \(ids.count) dòng có mã vượt quá 32 bit, chưa lưu được")
+            throw WriteError.invalid(lt("đoạn dữ liệu \(ids.count) dòng có mã vượt quá 32 bit, chưa lưu được", "a data segment of \(ids.count) rows has codes beyond 32 bits and can't be saved yet"))
         }
-        guard segmentSize > 0 else { throw WriteError.invalid("cỡ đoạn dữ liệu phải lớn hơn 0") }
+        guard segmentSize > 0 else { throw WriteError.invalid(lt("cỡ đoạn dữ liệu phải lớn hơn 0", "the segment size must be greater than 0")) }
         let sizes = segmentRecords ?? segmentLayout(rows: ids.count, segmentSize: segmentSize)
         guard sizes.allSatisfy({ $0 > 0 }), sizes.reduce(0, +) == ids.count else {
-            throw WriteError.invalid("bố cục đoạn dữ liệu không khớp tổng số dòng \(ids.count)")
+            throw WriteError.invalid(lt("bố cục đoạn dữ liệu không khớp tổng số dòng \(ids.count)", "the segment layout doesn't match the total row count \(ids.count)"))
         }
         var idf = VertiPaqByteWriter()
         var blocks: [(meta: VertiPaqByteWriter, start: Int, runTableSize: Int, words: Int)] = []
@@ -504,13 +504,13 @@ public enum VertiPaqWriter {
     /// mỗi đoạn 144 byte (bảng 16 run với một mục `(0xFFFFFFFF, records)`, 0 từ bit-packing).
     static func encodeRowNumberSegment(rowCount: Int, segmentSize: Int = recordsPerSegment,
                                        segmentRecords: [Int]? = nil) throws -> SegmentResult {
-        guard segmentSize > 0 else { throw WriteError.invalid("cỡ đoạn dữ liệu phải lớn hơn 0") }
+        guard segmentSize > 0 else { throw WriteError.invalid(lt("cỡ đoạn dữ liệu phải lớn hơn 0", "the segment size must be greater than 0")) }
         guard rowCount > 0, rowCount + firstDataID - 1 <= Int(UInt32.max) else {
-            throw WriteError.invalid("bảng \(rowCount) dòng vượt quá mã RowNumber 32 bit")
+            throw WriteError.invalid(lt("bảng \(rowCount) dòng vượt quá mã RowNumber 32 bit", "a table of \(rowCount) rows exceeds the 32-bit RowNumber code"))
         }
         let sizes = segmentRecords ?? segmentLayout(rows: rowCount, segmentSize: segmentSize)
         guard sizes.allSatisfy({ $0 > 0 }), sizes.reduce(0, +) == rowCount else {
-            throw WriteError.invalid("bố cục đoạn RowNumber không khớp tổng số dòng \(rowCount)")
+            throw WriteError.invalid(lt("bố cục đoạn RowNumber không khớp tổng số dòng \(rowCount)", "the RowNumber segment layout doesn't match the total row count \(rowCount)"))
         }
         var idf = VertiPaqByteWriter()
         var meta = VertiPaqByteWriter()
@@ -681,7 +681,7 @@ public enum VertiPaqWriter {
     static func bitWidthAndClass(for maximum: UInt64) throws -> (width: Int, compressionClass: Int) {
         let needed = max(1, maximum == 0 ? 1 : 64 - maximum.leadingZeroBitCount)
         guard let width = supportedWidths.first(where: { $0 >= needed }) else {
-            throw WriteError.invalid("cột có quá nhiều giá trị khác nhau (cần \(needed) bit mỗi ô, tối đa 32), chưa lưu được")
+            throw WriteError.invalid(lt("cột có quá nhiều giá trị khác nhau (cần \(needed) bit mỗi ô, tối đa 32), chưa lưu được", "the column has too many distinct values (\(needed) bits per cell needed, 32 max) and can't be saved yet"))
         }
         let compressionClass: Int
         switch width {
@@ -724,7 +724,7 @@ public enum VertiPaqWriter {
         let card = sortedIDs.count
         guard card == dictionaryCount + (hasNulls ? 1 : 0), card > 0 else { throw WriteError.invalid("sorted IDs do not match the dictionary") }
         let maxID = dictionaryCount + 2
-        guard maxID <= Int(UInt32.max) else { throw WriteError.invalid("từ điển cột quá lớn (hơn 4 tỉ mục), chưa lưu được") }
+        guard maxID <= Int(UInt32.max) else { throw WriteError.invalid(lt("từ điển cột quá lớn (hơn 4 tỉ mục), chưa lưu được", "the column dictionary is too large (over 4 billion entries) and can't be saved yet")) }
         let total = maxID + 1
         var position = [Int](repeating: 0, count: total)
         for (pos, id) in sortedIDs.enumerated() { position[Int(id)] = pos }

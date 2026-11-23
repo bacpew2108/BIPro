@@ -10,6 +10,7 @@
 // Hạn chế đã biết (ghi trong báo cáo đợt 1a): chưa phát hiện chu trình measure (circularDependency);
 // measure DEFINE tham chiếu VAR của DEFINE chưa có cơ chế frame, Evaluator của đợt 2 quyết định.
 
+import PBIXKit
 import ColumnStore
 
 public enum Binder {
@@ -29,11 +30,11 @@ public enum Binder {
     /// Bind thân của một measure theo ID trong catalog.
     public static func bindMeasure(_ id: MeasureID, catalog: Catalog) throws(DAXError) -> BoundExpr {
         guard let measure = catalog.measure(id) else {
-            throw DAXError(.unknownName, "không có measure với ID \(id.raw)")
+            throw DAXError(.unknownName, lt("không có measure với ID \(id.raw)", "there is no measure with ID \(id.raw)"))
         }
         if let error = measure.parseError { throw error }
         guard let body = measure.body else {
-            throw DAXError(.syntax, "measure '\(measure.name)' không có biểu thức")
+            throw DAXError(.syntax, lt("measure '\(measure.name)' không có biểu thức", "measure '\(measure.name)' has no expression"))
         }
         return try bind(body, catalog: catalog)
     }
@@ -223,7 +224,7 @@ struct BindScope {
         case .tableConstructor(let rows, let range):
             let width = rows.first?.count ?? 0
             for row in rows where row.count != width {
-                throw DAXError(.arity, "mọi dòng của {…} phải có cùng số cột", range: range)
+                throw DAXError(.arity, lt("mọi dòng của {…} phải có cùng số cột", "all rows of {…} must have the same number of columns"), range: range)
             }
             var bound: [[BoundExpr]] = []
             for row in rows {
@@ -258,7 +259,7 @@ struct BindScope {
         if BindScope.keywordWords.contains(upper) {
             return .keyword(upper)
         }
-        throw DAXError(.unknownName, "không tìm thấy bảng, biến hoặc từ khoá '\(name)'", range: range)
+        throw DAXError(.unknownName, lt("không tìm thấy bảng, biến hoặc từ khoá '\(name)'", "table, variable or keyword '\(name)' not found"), range: range)
     }
 
     private func bindTableName(_ name: String, range: SourceRange) throws(DAXError) -> BoundExpr {
@@ -268,7 +269,7 @@ struct BindScope {
         if let table = catalog.modelTable(named: name) {
             return .table(table.id)
         }
-        throw DAXError(.unknownName, "không tìm thấy bảng '\(name)'", range: range)
+        throw DAXError(.unknownName, lt("không tìm thấy bảng '\(name)'", "table '\(name)' not found"), range: range)
     }
 
     private func bare(_ s: String) -> String {
@@ -293,7 +294,7 @@ struct BindScope {
                 return .column(column)
             }
         }
-        throw DAXError(.unknownName, "không tìm thấy measure hoặc cột [\(name)]", range: range)
+        throw DAXError(.unknownName, lt("không tìm thấy measure hoặc cột [\(name)]", "measure or column [\(name)] not found"), range: range)
     }
 
     /// T[c]: cột của bảng T; nếu không có thì measure hoặc cột DEFINE có tên c (T[m] cho measure).
@@ -302,7 +303,7 @@ struct BindScope {
             if let measure = catalog.measure(named: column, table: table) {
                 return .measure(measure.id)
             }
-            throw DAXError(.unknownName, "không tìm thấy bảng '\(table)'", range: range)
+            throw DAXError(.unknownName, lt("không tìm thấy bảng '\(table)'", "table '\(table)' not found"), range: range)
         }
         if let id = columnID(in: modelTable.id, named: column) {
             return .column(id)
@@ -314,10 +315,10 @@ struct BindScope {
                 return .measure(measure.id)
             }
             throw DAXError(.unknownName,
-                           "không tìm thấy cột '\(table)'[\(column)]; measure [\(column)] thuộc bảng '\(measure.table)'",
+                           lt("không tìm thấy cột '\(table)'[\(column)]; measure [\(column)] thuộc bảng '\(measure.table)'", "column '\(table)'[\(column)] not found; measure [\(column)] belongs to table '\(measure.table)'"),
                            range: range)
         }
-        throw DAXError(.unknownName, "không tìm thấy cột '\(table)'[\(column)]", range: range)
+        throw DAXError(.unknownName, lt("không tìm thấy cột '\(table)'[\(column)]", "column '\(table)'[\(column)] not found"), range: range)
     }
 
     private func columnID(in table: TableID, named name: String) -> ColumnID? {
@@ -330,7 +331,7 @@ struct BindScope {
 
     private mutating func bindCall(_ name: String, args: [Expr?], range: SourceRange) throws(DAXError) -> BoundExpr {
         guard let index = BindScope.functionIndex[name.uppercased()] else {
-            throw DAXError(.unknownName, "không nhận ra hàm '\(name)' (chưa hỗ trợ hoặc sai tên)", range: range)
+            throw DAXError(.unknownName, lt("không nhận ra hàm '\(name)' (chưa hỗ trợ hoặc sai tên)", "unknown function '\(name)' (unsupported or misspelled)"), range: range)
         }
         let spec = FunctionRegistry.all[index]
         let matcher = ArgumentMatcher(spec: spec, args: args)
@@ -388,19 +389,19 @@ struct BindScope {
         switch param.kind {
         case .columnRef:
             guard case .column = bound else {
-                throw DAXError(.expectedColumnRef, "tham số '\(param.name)' của \(functionName) phải là một cột", range: range)
+                throw DAXError(.expectedColumnRef, lt("tham số '\(param.name)' của \(functionName) phải là một cột", "parameter '\(param.name)' of \(functionName) must be a column"), range: range)
             }
         case .tableOrColumnRef:
             switch bound {
             case .literal, .measure, .keyword:
-                throw DAXError(.typeMismatch, "tham số '\(param.name)' của \(functionName) phải là bảng hoặc cột", range: range)
+                throw DAXError(.typeMismatch, lt("tham số '\(param.name)' của \(functionName) phải là bảng hoặc cột", "parameter '\(param.name)' of \(functionName) must be a table or column"), range: range)
             default:
                 break
             }
         case .table:
             switch bound {
             case .literal, .measure, .keyword:
-                throw DAXError(.typeMismatch, "tham số '\(param.name)' của \(functionName) phải là biểu thức bảng", range: range)
+                throw DAXError(.typeMismatch, lt("tham số '\(param.name)' của \(functionName) phải là biểu thức bảng", "parameter '\(param.name)' of \(functionName) must be a table expression"), range: range)
             default:
                 break
             }
@@ -803,11 +804,11 @@ final class ArgumentMatcher {
         }
         let expected: String
         if unbounded {
-            expected = "ít nhất \(minimum)"
+            expected = lt("ít nhất \(minimum)", "at least \(minimum)")
         } else {
             let maximum = params.count
-            expected = minimum == maximum ? "\(minimum)" : "từ \(minimum) đến \(maximum)"
+            expected = minimum == maximum ? "\(minimum)" : lt("từ \(minimum) đến \(maximum)", "\(minimum) to \(maximum)")
         }
-        return "hàm có \(args.count) đối số, cần \(expected)"
+        return lt("hàm có \(args.count) đối số, cần \(expected)", "the function has \(args.count) argument(s) but needs \(expected)")
     }
 }

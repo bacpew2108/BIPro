@@ -189,7 +189,7 @@ public struct CustomColumnDialogContent: View {
                 .background(DS.Palette.canvas)
         } else {
             // Dùng Text khi scrollable == false để ImageRenderer không bị ô trống
-            Text(formula.isEmpty ? "= [Cột]" : formula)
+            Text(formula.isEmpty ? biN("= [Cột]", "= [Column]") : formula)
                 .font(DS.Typeface.mono)
                 .foregroundStyle(formula.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

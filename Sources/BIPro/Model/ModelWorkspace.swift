@@ -660,10 +660,10 @@ struct SemanticModelTree: View {
                     group("roles", bi("Vai trò", "Roles"), "person.badge.shield.checkmark", m?.roles.count ?? 0) {
                         ForEach(m?.roles ?? [], id: \.self) { TreeRow(level: 2, symbol: "person", tint: DS.Palette.secondaryLabel, title: $0) {} }
                     }
-                    group("perspectives", "Phối cảnh", "eye", m?.perspectives.count ?? 0) {
+                    group("perspectives", biN("Phối cảnh", "Perspectives"), "eye", m?.perspectives.count ?? 0) {
                         ForEach(m?.perspectives ?? [], id: \.self) { TreeRow(level: 2, symbol: "eye", tint: DS.Palette.secondaryLabel, title: $0) {} }
                     }
-                    group("cultures", "Ngôn ngữ", "character.book.closed", m?.cultures.count ?? 0) {
+                    group("cultures", biN("Ngôn ngữ", "Cultures"), "character.book.closed", m?.cultures.count ?? 0) {
                         ForEach(m?.cultures ?? [], id: \.self) { TreeRow(level: 2, symbol: "globe", tint: DS.Palette.secondaryLabel, title: $0) {} }
                     }
                 }

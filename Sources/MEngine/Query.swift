@@ -1,6 +1,7 @@
 // Phase F, T055: truy vấn M như danh sách bước. Tách `let … in` ở mức văn bản (giữ nguyên văn từng biểu thức, như Desktop ghi vào
 // `Partition.QueryDefinition`), dựng lại, chèn/xoá/đổi tên bước. Bước phụ thuộc nhau qua tên bước (tham chiếu định danh).
 
+import PBIXKit
 import Foundation
 
 public struct MStep: Sendable, Equatable {
@@ -39,7 +40,7 @@ public struct MQuery: Sendable, Equatable {
         var i = 1
         while true {
             guard let name = bindingName(tokens[i].kind), case .symbol("=") = tokens[i + 1].kind else {
-                throw MSyntaxError(line: tokens[i].line, column: tokens[i].column, message: "Cú pháp M: mong đợi 'tên bước ='")
+                throw MSyntaxError(line: tokens[i].line, column: tokens[i].column, message: lt("Cú pháp M: mong đợi 'tên bước ='", "M syntax: expected 'step name ='"))
             }
             let first = i + 2
             var j = first, parens = 0, lets = 0
@@ -56,7 +57,7 @@ public struct MQuery: Sendable, Equatable {
                 j += 1
             }
             guard j > first else {
-                throw MSyntaxError(line: tokens[j].line, column: tokens[j].column, message: "Bước '\(name)' thiếu biểu thức")
+                throw MSyntaxError(line: tokens[j].line, column: tokens[j].column, message: lt("Bước '\(name)' thiếu biểu thức", "Step '\(name)' has no expression"))
             }
             steps.append(MStep(name: name, expression: text(tokens[first].start, tokens[j - 1].end)))
             if case .symbol(",") = tokens[j].kind { i = j + 1; continue }

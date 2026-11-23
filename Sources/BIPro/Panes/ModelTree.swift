@@ -23,14 +23,14 @@ struct ModelTreeView: View {
         let isEN = language == .en
         return [
             GroupSummary(name: isEN ? "Calculation groups" : "Nhóm tính toán", count: metadata?.calculationGroups.count ?? 0),
-            GroupSummary(name: isEN ? "Cultures" : "Ngôn ngữ", count: metadata?.cultures.count ?? 0),
+            GroupSummary(name: isEN ? "Cultures" : biN("Ngôn ngữ", "Cultures"), count: metadata?.cultures.count ?? 0),
             GroupSummary(name: isEN ? "Expressions" : "Biểu thức", count: metadata?.expressions.count ?? 0),
-            GroupSummary(name: isEN ? "Functions" : "Hàm", count: metadata?.functions.count ?? 0),
+            GroupSummary(name: isEN ? "Functions" : biN("Hàm", "Function"), count: metadata?.functions.count ?? 0),
             GroupSummary(name: isEN ? "Measures" : "Measure", count: metadata?.measures.count ?? 0),
-            GroupSummary(name: isEN ? "Perspectives" : "Phối cảnh", count: metadata?.perspectives.count ?? 0),
+            GroupSummary(name: isEN ? "Perspectives" : biN("Phối cảnh", "Perspectives"), count: metadata?.perspectives.count ?? 0),
             GroupSummary(name: isEN ? "Relationships" : "Quan hệ", count: metadata?.relationships.count ?? 0),
             GroupSummary(name: isEN ? "Roles" : "Vai trò", count: metadata?.roles.count ?? 0),
-            GroupSummary(name: isEN ? "Tables" : "Bảng", count: metadata?.userTables.count ?? 0),
+            GroupSummary(name: isEN ? "Tables" : biN("Bảng", "Table"), count: metadata?.userTables.count ?? 0),
         ]
     }
 

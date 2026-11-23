@@ -27,7 +27,7 @@ extension MType {
             if let constant = libraryConstants[name] { return constant }   // `Int64.Type` đứng ở vị trí kiểu
             if let kind = primitiveKinds[name] { return MType(kind) }
             if let type = variable?(name) { return type }
-            throw MError.expression("Kiểu '\(name)' không tồn tại")
+            throw MError.expression(lt("Kiểu '\(name)' không tồn tại", "The type '\(name)' doesn't exist"))
         case .nullable(let inner): return try resolve(inner, variable: variable).nullable
         case .list(let item): return MType(.list, listItem: [try resolve(item, variable: variable)])
         case .record(let fields): return MType(.record, fields: try resolveFields(fields, variable: variable))
@@ -84,6 +84,7 @@ extension MType {
     }
 }
 
+import PBIXKit
 import ColumnStore
 
 extension MValue {

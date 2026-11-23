@@ -4,6 +4,7 @@
 // Chưa hỗ trợ, báo DAXError .runtime rõ ràng và không trả chuỗi sai: mẫu ngày, E+0, định dạng đặt tên
 // ("General Number", "Fixed", "Percent"…), culture khác en-US.
 // [SUY ĐOÁN, chờ O15] Làm tròn nửa xa số 0 trên 15 chữ số có nghĩa (kiểu Excel), không làm tròn theo nhị phân.
+import PBIXKit
 import Foundation
 
 /// Mẫu số đầy đủ, dùng cho FORMAT và (sau này) ô kết quả, nhãn visual.
@@ -11,7 +12,7 @@ public enum FormatString {
     /// FORMAT(value, pattern, culture). BLANK cho "" (architecture.md §5.6).
     public static func format(_ value: Value, pattern: String, culture: String) throws(DAXError) -> String {
         guard ["en-us", "en"].contains(culture.lowercased()) else {
-            throw DAXError(.runtime, "FORMAT: culture \"\(culture)\" chưa được hỗ trợ (đợt 1b chỉ có en-US)")
+            throw DAXError(.runtime, lt("FORMAT: culture \"\(culture)\" chưa được hỗ trợ (đợt 1b chỉ có en-US)", "FORMAT: culture \"\(culture)\" isn't supported yet (only en-US for now)"))
         }
         if pattern.isEmpty {
             // [SUY ĐOÁN] Mẫu rỗng: trả dạng chuỗi mặc định của giá trị.
@@ -58,10 +59,10 @@ private enum NamedDateFormat: String {
         case .integer(let i): serial = Double(i)
         case .currency(let c): serial = Double(c) / 10_000
         case .boolean, .string:
-            throw DAXError(.typeMismatch, "FORMAT: định dạng ngày cần giá trị ngày hoặc số")
+            throw DAXError(.typeMismatch, lt("FORMAT: định dạng ngày cần giá trị ngày hoặc số", "FORMAT: a date format needs a date or number value"))
         }
         guard serial.isFinite, abs(serial) < 3_000_000 else {
-            throw DAXError(.runtime, "FORMAT: ngày ngoài phạm vi hỗ trợ")
+            throw DAXError(.runtime, lt("FORMAT: ngày ngoài phạm vi hỗ trợ", "FORMAT: the date is outside the supported range"))
         }
         var day = Int(serial.rounded(.down))
         var seconds = Int(((serial - Double(day)) * 86_400).rounded())
@@ -134,9 +135,9 @@ private struct CustomDateFormat {
         case .dateTime(let d), .double(let d): serial = d
         case .integer(let i): serial = Double(i)
         case .currency(let c): serial = Double(c) / 10_000
-        case .boolean, .string: throw DAXError(.typeMismatch, "FORMAT: định dạng ngày cần giá trị ngày hoặc số")
+        case .boolean, .string: throw DAXError(.typeMismatch, lt("FORMAT: định dạng ngày cần giá trị ngày hoặc số", "FORMAT: a date format needs a date or number value"))
         }
-        guard serial.isFinite, abs(serial) < 3_000_000 else { throw DAXError(.runtime, "FORMAT: ngày ngoài phạm vi hỗ trợ") }
+        guard serial.isFinite, abs(serial) < 3_000_000 else { throw DAXError(.runtime, lt("FORMAT: ngày ngoài phạm vi hỗ trợ", "FORMAT: the date is outside the supported range")) }
         let day = Int(serial.rounded(.down))
         // civil_from_days như `NamedDateFormat.dateText`.
         let z = day - 25_569 + 719_468
@@ -280,7 +281,7 @@ struct DecimalText: Sendable, Equatable {
 private let numberSymbols: Set<Character> = ["0", "#", ".", ","]
 
 private func unsupported(_ pattern: String, _ reason: String) -> DAXError {
-    DAXError(.runtime, "FORMAT: mẫu \"\(pattern)\" chưa được hỗ trợ: \(reason)")
+    DAXError(.runtime, lt("FORMAT: mẫu \"\(pattern)\" chưa được hỗ trợ: \(reason)", "FORMAT: the pattern \"\(pattern)\" isn't supported yet: \(reason)"))
 }
 
 /// Tách mẫu thành tối đa 3 phần theo `;`, bỏ qua `;` nằm trong dấu nháy kép hoặc sau `\`.
@@ -310,7 +311,7 @@ private func splitSections(_ pattern: String) throws(DAXError) -> [[Character]] 
         }
         i += 1
     }
-    guard !inQuote else { throw unsupported(pattern, "thiếu dấu nháy kép đóng") }
+    guard !inQuote else { throw unsupported(pattern, lt("thiếu dấu nháy kép đóng", "missing closing double quote")) }
     return parts
 }
 
@@ -324,7 +325,7 @@ private struct NumberBlock {
 
     init(_ run: [Character], pattern: String) throws(DAXError) {
         guard run.filter({ $0 == "." }).count <= 1 else {
-            throw unsupported(pattern, "nhiều dấu thập phân trong một chỗ số")
+            throw unsupported(pattern, lt("nhiều dấu thập phân trong một chỗ số", "more than one decimal point in a digit placeholder"))
         }
         var integerPart = run
         var fraction: [Character] = []
@@ -332,14 +333,14 @@ private struct NumberBlock {
             integerPart = Array(run[..<dot])
             fraction = Array(run[(dot + 1)...])
         }
-        guard !fraction.contains(",") else { throw unsupported(pattern, "dấu phẩy trong phần thập phân") }
+        guard !fraction.contains(",") else { throw unsupported(pattern, lt("dấu phẩy trong phần thập phân", "comma in the decimal part")) }
         var scale = 0
         while integerPart.last == "," {
             integerPart.removeLast()
             scale += 1
         }
         guard integerPart.first != "," else { throw unsupported(pattern, "dấu phẩy đứng đầu chỗ số") }
-        guard !(integerPart.isEmpty && fraction.isEmpty) else { throw unsupported(pattern, "chỗ số rỗng") }
+        guard !(integerPart.isEmpty && fraction.isEmpty) else { throw unsupported(pattern, lt("chỗ số rỗng", "empty digit placeholder")) }
         minInteger = integerPart.filter { $0 == "0" }.count
         grouping = integerPart.contains(",")
         scaleCommas = scale
@@ -384,7 +385,7 @@ private struct FormatSection {
                     run.append(chars[i])
                     i += 1
                 }
-                if block != nil { throw unsupported(pattern, "nhiều hơn một chỗ số trong một phần") }
+                if block != nil { throw unsupported(pattern, lt("nhiều hơn một chỗ số trong một phần", "more than one digit placeholder in a section")) }
                 block = try NumberBlock(run, pattern: pattern)
                 pieces.append(.number)
                 continue
@@ -397,12 +398,12 @@ private struct FormatSection {
                     text.append(chars[j])
                     j += 1
                 }
-                guard j < chars.count else { throw unsupported(pattern, "thiếu dấu nháy kép đóng") }
+                guard j < chars.count else { throw unsupported(pattern, lt("thiếu dấu nháy kép đóng", "missing closing double quote")) }
                 pieces.append(.text(text))
                 i = j + 1
                 continue
             case "\\":
-                guard i + 1 < chars.count else { throw unsupported(pattern, "dấu \\ ở cuối mẫu") }
+                guard i + 1 < chars.count else { throw unsupported(pattern, lt("dấu \\ ở cuối mẫu", "trailing \\ at the end of the pattern")) }
                 pieces.append(.text(String(chars[i + 1])))
                 i += 2
                 continue
@@ -412,11 +413,11 @@ private struct FormatSection {
             case "$", "+", "-", "(", ")", " ", "/", ":":
                 pieces.append(.text(String(c)))     // ký tự literal không cần escape
             default:
-                throw unsupported(pattern, "ký tự \"\(c)\" chưa được hỗ trợ (đặt trong dấu nháy kép hoặc sau \\)")
+                throw unsupported(pattern, lt("ký tự \"\(c)\" chưa được hỗ trợ (đặt trong dấu nháy kép hoặc sau \\)", "character \"\(c)\" isn't supported (put it in double quotes or after \\)"))
             }
             i += 1
         }
-        guard let found = block else { throw unsupported(pattern, "phần không có chỗ số 0 hoặc #") }
+        guard let found = block else { throw unsupported(pattern, lt("phần không có chỗ số 0 hoặc #", "a section has no 0 or # digit placeholder")) }
         self.pieces = pieces
         self.block = found
         self.percentCount = percents
@@ -451,7 +452,7 @@ private struct FormatSpec {
 
     init(pattern: String) throws(DAXError) {
         let parts = try splitSections(pattern)
-        guard parts.count <= 3 else { throw unsupported(pattern, "tối đa 3 phần ngăn bởi ';'") }
+        guard parts.count <= 3 else { throw unsupported(pattern, lt("tối đa 3 phần ngăn bởi ';'", "at most 3 sections separated by ';'")) }
         var built: [FormatSection] = []
         for part in parts {
             built.append(try FormatSection(chars: part, pattern: pattern))

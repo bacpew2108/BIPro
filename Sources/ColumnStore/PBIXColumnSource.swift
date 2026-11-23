@@ -143,7 +143,7 @@ public struct PBIXColumnSource: ColumnSource {
         case .boolean:
             return ColumnBuilder.booleans(values.map { $0.isNaN ? nil : $0 != 0 })
         case .string:
-            throw PBIXColumnSourceError.unexpectedValue(type: type, value: "dữ liệu số")
+            throw PBIXColumnSourceError.unexpectedValue(type: type, value: lt("dữ liệu số", "numeric data"))
         }
     }
 
@@ -218,7 +218,7 @@ public struct PBIXColumnSource: ColumnSource {
             let payload: DenseValues = type == .double ? .doubles(out) : .dates(out)
             return ColumnData(type: type, rowCount: n, payload: .dense(payload))
         case .boolean, .string:
-            throw PBIXColumnSourceError.unexpectedValue(type: type, value: "cột này không có dạng dense")
+            throw PBIXColumnSourceError.unexpectedValue(type: type, value: lt("cột này không có dạng dense", "this column has no dense form"))
         }
     }
 
@@ -276,11 +276,11 @@ public enum PBIXColumnSourceError: Error, Sendable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .misaligned(let table, let column, let expected, let actual):
-            "cột \(table)[\(column)] có \(actual) dòng, bảng có \(expected) dòng"
+            lt("cột \(table)[\(column)] có \(actual) dòng, bảng có \(expected) dòng", "column \(table)[\(column)] has \(actual) rows but the table has \(expected) rows")
         case .invalidCode(let code, let count):
-            "mã \(code) vượt quá dictionary \(count) mục"
+            lt("mã \(code) vượt quá dictionary \(count) mục", "code \(code) exceeds the dictionary of \(count) entries")
         case .unexpectedValue(let type, let value):
-            "giá trị \(value) không khớp kiểu \(type)"
+            lt("giá trị \(value) không khớp kiểu \(type)", "value \(value) doesn't match type \(type)")
         }
     }
 }

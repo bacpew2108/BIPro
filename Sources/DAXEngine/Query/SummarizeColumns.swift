@@ -1,5 +1,6 @@
 // SUMMARIZECOLUMNS (QRY, đợt 2), architecture.md §6 và §8.2 (bước 1–5).
 // Mở rộng Phase C: ROLLUPADDISSUBTOTAL, ROLLUPGROUP, NONVISUAL, và biểu thức bảng.
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -147,12 +148,12 @@ public enum SummarizeColumns {
         // Phần cột nhóm và bảng bộ lọc: đi tới khi gặp chuỗi (tên của cặp đầu tiên).
         while i < args.count, !isNameArgument(args[i]) {
             guard let arg = args[i] else {
-                throw DAXError(.arity, "SUMMARIZECOLUMNS: đối số \(i + 1) bị bỏ trống", range: range)
+                throw DAXError(.arity, lt("SUMMARIZECOLUMNS: đối số \(i + 1) bị bỏ trống", "SUMMARIZECOLUMNS: argument \(i + 1) is empty"), range: range)
             }
             if case .columnRef = arg {
                 let bound = try scope.bind(arg)
                 guard case .column(let column) = bound else {
-                    throw DAXError(.expectedColumnRef, "SUMMARIZECOLUMNS: đối số \(i + 1) phải là cột", range: arg.range)
+                    throw DAXError(.expectedColumnRef, lt("SUMMARIZECOLUMNS: đối số \(i + 1) phải là cột", "SUMMARIZECOLUMNS: argument \(i + 1) must be a column"), range: arg.range)
                 }
                 clauses.append(.plain(column))
             } else if case .call(let name, let inner, _) = arg, name.uppercased() == "ROLLUPADDISSUBTOTAL" {
@@ -173,11 +174,11 @@ public enum SummarizeColumns {
         // Phần cặp ("tên", biểu thức).
         while i < args.count {
             guard let nameArg = args[i], case .string(let name, _) = nameArg else {
-                throw DAXError(.syntax, "SUMMARIZECOLUMNS: đối số \(i + 1) phải là tên (chuỗi)",
+                throw DAXError(.syntax, lt("SUMMARIZECOLUMNS: đối số \(i + 1) phải là tên (chuỗi)", "SUMMARIZECOLUMNS: argument \(i + 1) must be a name (string)"),
                                range: args[i]?.range ?? range)
             }
             guard i + 1 < args.count, let exprArg = args[i + 1] else {
-                throw DAXError(.arity, "SUMMARIZECOLUMNS: thiếu biểu thức cho \"\(name)\"", range: nameArg.range)
+                throw DAXError(.arity, lt("SUMMARIZECOLUMNS: thiếu biểu thức cho \"\(name)\"", "SUMMARIZECOLUMNS: missing expression for \"\(name)\""), range: nameArg.range)
             }
             if case .call(let fname, let inner, _) = exprArg, fname.uppercased() == "IGNORE",
                inner.count == 1, let innerArg = inner[0] {
@@ -196,34 +197,34 @@ public enum SummarizeColumns {
         var i = 0
         while i < args.count {
             guard let arg = args[i] else {
-                throw DAXError(.arity, "ROLLUPADDISSUBTOTAL: đối số \(i + 1) bị bỏ trống", range: range)
+                throw DAXError(.arity, lt("ROLLUPADDISSUBTOTAL: đối số \(i + 1) bị bỏ trống", "ROLLUPADDISSUBTOTAL: argument \(i + 1) is empty"), range: range)
             }
             var cols: [ColumnID] = []
             if case .columnRef = arg {
                 let bound = try scope.bind(arg)
                 guard case .column(let col) = bound else {
-                    throw DAXError(.expectedColumnRef, "ROLLUPADDISSUBTOTAL: đối số \(i + 1) phải là cột", range: arg.range)
+                    throw DAXError(.expectedColumnRef, lt("ROLLUPADDISSUBTOTAL: đối số \(i + 1) phải là cột", "ROLLUPADDISSUBTOTAL: argument \(i + 1) must be a column"), range: arg.range)
                 }
                 cols = [col]
                 i += 1
             } else if case .call(let rname, let rargs, _) = arg, rname.uppercased() == "ROLLUPGROUP" {
                 for rarg in rargs {
                     guard let rarg else {
-                        throw DAXError(.arity, "ROLLUPGROUP: đối số bị bỏ trống", range: arg.range)
+                        throw DAXError(.arity, lt("ROLLUPGROUP: đối số bị bỏ trống", "ROLLUPGROUP: an argument is empty"), range: arg.range)
                     }
                     let bound = try scope.bind(rarg)
                     guard case .column(let col) = bound else {
-                        throw DAXError(.expectedColumnRef, "ROLLUPGROUP: đối số phải là cột", range: rarg.range)
+                        throw DAXError(.expectedColumnRef, lt("ROLLUPGROUP: đối số phải là cột", "ROLLUPGROUP: the argument must be a column"), range: rarg.range)
                     }
                     cols.append(col)
                 }
                 i += 1
             } else {
-                throw DAXError(.syntax, "ROLLUPADDISSUBTOTAL: đối số \(i + 1) phải là cột hoặc ROLLUPGROUP", range: arg.range)
+                throw DAXError(.syntax, lt("ROLLUPADDISSUBTOTAL: đối số \(i + 1) phải là cột hoặc ROLLUPGROUP", "ROLLUPADDISSUBTOTAL: argument \(i + 1) must be a column or ROLLUPGROUP"), range: arg.range)
             }
 
             guard i < args.count, let nameArg = args[i], case .string(let flagName, _) = nameArg else {
-                throw DAXError(.syntax, "ROLLUPADDISSUBTOTAL: thiếu tên cờ cho cấp tổng", range: args[max(0, i - 1)]?.range ?? range)
+                throw DAXError(.syntax, lt("ROLLUPADDISSUBTOTAL: thiếu tên cờ cho cấp tổng", "ROLLUPADDISSUBTOTAL: missing the flag name for the subtotal level"), range: args[max(0, i - 1)]?.range ?? range)
             }
             i += 1
 
@@ -479,7 +480,7 @@ public enum SummarizeColumns {
                 byTable[column.table, default: []].append(i)
             }
             guard !order.isEmpty else {
-                throw DAXError(.runtime, "bảng bộ lọc của SUMMARIZECOLUMNS phải có ít nhất một cột gốc (chưa hỗ trợ bảng không có lineage)")
+                throw DAXError(.runtime, lt("bảng bộ lọc của SUMMARIZECOLUMNS phải có ít nhất một cột gốc (chưa hỗ trợ bảng không có lineage)", "the filter table of SUMMARIZECOLUMNS must have at least one base column (tables without lineage aren't supported yet)"))
             }
             for table0 in order {
                 let indices = byTable[table0] ?? []

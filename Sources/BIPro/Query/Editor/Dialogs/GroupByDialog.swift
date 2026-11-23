@@ -32,8 +32,8 @@ public struct GroupByDialogContent: View {
             SegmentedPill(
                 selection: $model.mode,
                 options: [
-                    .init(value: .basic, title: "Cơ bản"),
-                    .init(value: .advanced, title: "Nâng cao")
+                    .init(value: .basic, title: biN("Cơ bản", "Basic")),
+                    .init(value: .advanced, title: biN("Nâng cao", "Advanced"))
                 ]
             )
 
@@ -152,7 +152,7 @@ public struct GroupByDialogContent: View {
                                 ))
                         } else {
                             HStack {
-                                Text(model.basicNewColumnName.isEmpty ? "Tên cột mới" : model.basicNewColumnName)
+                                Text(model.basicNewColumnName.isEmpty ? biN("Tên cột mới", "New column name") : model.basicNewColumnName)
                                     .font(DS.Typeface.body)
                                     .foregroundStyle(model.basicNewColumnName.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
                                 Spacer()
@@ -232,7 +232,7 @@ public struct GroupByDialogContent: View {
 
     private var basicKeyDropdownLabel: some View {
         HStack {
-            Text(model.basicKey.isEmpty ? "Chọn cột" : model.basicKey)
+            Text(model.basicKey.isEmpty ? biN("Chọn cột", "Select column") : model.basicKey)
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.label)
             Spacer()
@@ -264,7 +264,7 @@ public struct GroupByDialogContent: View {
 
     private var basicColumnDropdownLabel: some View {
         HStack {
-            Text(model.basicColumn ?? "Chọn cột")
+            Text(model.basicColumn ?? biN("Chọn cột", "Select column"))
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.label)
             Spacer()
@@ -357,7 +357,7 @@ public struct GroupByDialogContent: View {
                                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
                         } else {
                             HStack {
-                                Text(model.aggregates[idx].name.isEmpty ? "Tên cột" : model.aggregates[idx].name)
+                                Text(model.aggregates[idx].name.isEmpty ? biN("Tên cột", "Column name") : model.aggregates[idx].name)
                                     .font(DS.Typeface.body)
                                     .foregroundStyle(model.aggregates[idx].name.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
                                 Spacer()
@@ -491,7 +491,7 @@ public struct GroupByDialogContent: View {
 
     private func advancedColumnDropdownLabel(idx: Int) -> some View {
         HStack {
-            Text(model.aggregates[idx].column ?? "Chọn cột")
+            Text(model.aggregates[idx].column ?? biN("Chọn cột", "Select column"))
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.label)
             Spacer()

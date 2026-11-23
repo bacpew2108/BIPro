@@ -270,8 +270,8 @@ struct VisualContainerView: View {
         for role in Set(categories.map(\.role)) where categories.contains(where: { $0.role == role && $0.active != nil }) {
             categories.removeAll { $0.role == role && $0.active != true }
         }
-        let v = values.joined(separator: " và ")
-        return categories.isEmpty ? v : "\(v) theo \(categories.map(\.label).joined(separator: " và "))"
+        let v = values.joined(separator: biN(" và ", " and "))
+        return categories.isEmpty ? v : "\(v) theo \(categories.map(\.label).joined(separator: biN(" và ", " and ")))"
     }
 }
 
@@ -487,7 +487,7 @@ struct ActionButtonVisual: View {
 
     private var actionDescription: String {
         switch link.type {
-        case "PageNavigation": "Chuyển trang"
+        case "PageNavigation": biN("Chuyển trang", "Switch page")
         case "Bookmark": workspace.bookmarks.first { $0.id == link.target }?.displayName ?? "Bookmark"
         default: link.type
         }

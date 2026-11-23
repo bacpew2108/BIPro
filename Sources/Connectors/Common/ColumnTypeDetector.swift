@@ -1,3 +1,4 @@
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -89,7 +90,7 @@ public enum ColumnTypeDetector {
                         values.append(val)
                     } else {
                         values.append(nil)
-                        errors[i] = "Không thể chuyển '\(s)' sang số nguyên"
+                        errors[i] = lt("Không thể chuyển '\(s)' sang số nguyên", "Couldn't convert '\(s)' to an integer")
                     }
                 } else {
                     values.append(nil)
@@ -107,7 +108,7 @@ public enum ColumnTypeDetector {
                         values.append(val)
                     } else {
                         values.append(nil)
-                        errors[i] = "Không thể chuyển '\(s)' sang số thực"
+                        errors[i] = lt("Không thể chuyển '\(s)' sang số thực", "Couldn't convert '\(s)' to a decimal number")
                     }
                 } else {
                     values.append(nil)
@@ -127,7 +128,7 @@ public enum ColumnTypeDetector {
                         values.append(false)
                     } else {
                         values.append(nil)
-                        errors[i] = "Không thể chuyển '\(s)' sang logic"
+                        errors[i] = lt("Không thể chuyển '\(s)' sang logic", "Couldn't convert '\(s)' to a logical value")
                     }
                 } else {
                     values.append(nil)
@@ -145,7 +146,7 @@ public enum ColumnTypeDetector {
                         values.append(val)
                     } else {
                         values.append(nil)
-                        errors[i] = "Không thể chuyển '\(s)' sang ngày giờ"
+                        errors[i] = lt("Không thể chuyển '\(s)' sang ngày giờ", "Couldn't convert '\(s)' to date/time")
                     }
                 } else {
                     values.append(nil)

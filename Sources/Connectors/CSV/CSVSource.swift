@@ -1,3 +1,4 @@
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -32,7 +33,7 @@ public struct CSVSource: DataSource {
 
     public func items() async throws -> [any SourceItem] {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SourceError.unreadable("File không tồn tại: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("File không tồn tại: \(url.lastPathComponent)", "The file doesn't exist: \(url.lastPathComponent)"))
         }
         let name = url.deletingPathExtension().lastPathComponent
         return [CSVItem(name: name, url: url, options: options)]
@@ -93,7 +94,7 @@ private struct CSVItem: SourceItem, Sendable {
             }
             for (i, row) in dataRows.enumerated() {
                 if row.count > headers.count {
-                    throw SourceError.unreadable("Dòng \(i + 2) có nhiều cột hơn tiêu đề (\(row.count) so với \(headers.count))")
+                    throw SourceError.unreadable(lt("Dòng \(i + 2) có nhiều cột hơn tiêu đề (\(row.count) so với \(headers.count))", "Row \(i + 2) has more columns than the header (\(row.count) vs \(headers.count))"))
                 } else if row.count < headers.count {
                     dataRows[i].append(contentsOf: repeatElement(nil, count: headers.count - row.count))
                 }
@@ -107,7 +108,7 @@ private struct CSVItem: SourceItem, Sendable {
             }
             for (i, row) in dataRows.enumerated() {
                 if row.count > headers.count {
-                    throw SourceError.unreadable("Dòng \(i + 1) có nhiều cột hơn tiêu đề (\(row.count) so với \(headers.count))")
+                    throw SourceError.unreadable(lt("Dòng \(i + 1) có nhiều cột hơn tiêu đề (\(row.count) so với \(headers.count))", "Row \(i + 1) has more columns than the header (\(row.count) vs \(headers.count))"))
                 } else if row.count < headers.count {
                     dataRows[i].append(contentsOf: repeatElement(nil, count: headers.count - row.count))
                 }

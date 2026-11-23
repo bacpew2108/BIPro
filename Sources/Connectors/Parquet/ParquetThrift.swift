@@ -1,6 +1,7 @@
 // Phase F, T089 (US7): đọc siêu dữ liệu Parquet (footer `FileMetaData`, `PageHeader`) theo giao thức Thrift Compact, tự viết theo đặc tả
 // parquet-format (`parquet.thrift`). Chỉ giữ các trường BI Pro dùng; trường khác bỏ qua theo kiểu (không cần biết nghĩa).
 
+import PBIXKit
 import Foundation
 
 /// Giá trị Thrift đã giải mã (dạng cây, không cần lược đồ trước).
@@ -29,10 +30,10 @@ struct ThriftCompactReader {
         self.index = index
     }
 
-    static func failure(_ what: String) -> SourceError { .unreadable("Tệp Parquet hỏng: \(what)") }
+    static func failure(_ what: String) -> SourceError { .unreadable(lt("Tệp Parquet hỏng: \(what)", "Corrupt Parquet file: \(what)")) }
 
     mutating func byte() throws -> UInt8 {
-        guard index < bytes.count else { throw Self.failure("siêu dữ liệu bị cắt") }
+        guard index < bytes.count else { throw Self.failure(lt("siêu dữ liệu bị cắt", "truncated metadata")) }
         defer { index += 1 }
         return bytes[index]
     }
@@ -45,7 +46,7 @@ struct ThriftCompactReader {
             result |= UInt64(b & 0x7F) << shift
             if b & 0x80 == 0 { return result }
             shift += 7
-            guard shift < 64 else { throw Self.failure("varint quá dài") }
+            guard shift < 64 else { throw Self.failure(lt("varint quá dài", "varint too long")) }
         }
     }
 
@@ -56,7 +57,7 @@ struct ThriftCompactReader {
 
     /// Đọc một struct (đến STOP).
     mutating func structure(depth: Int = 0) throws -> [Int16: ThriftValue] {
-        guard depth < 64 else { throw Self.failure("lồng quá sâu") }
+        guard depth < 64 else { throw Self.failure(lt("lồng quá sâu", "nested too deeply")) }
         var fields: [Int16: ThriftValue] = [:]
         var lastID: Int16 = 0
         while true {
@@ -77,14 +78,14 @@ struct ThriftCompactReader {
         case 3: return .int(Int64(Int8(bitPattern: try byte())))
         case 4, 5, 6: return .int(try zigzag())
         case 7:
-            guard index + 8 <= bytes.count else { throw Self.failure("double bị cắt") }
+            guard index + 8 <= bytes.count else { throw Self.failure(lt("double bị cắt", "truncated double")) }
             var bits: UInt64 = 0
             for k in 0..<8 { bits |= UInt64(bytes[index + k]) << (8 * UInt64(k)) }
             index += 8
             return .double(Double(bitPattern: bits))
         case 8:
             let length = Int(try varint())
-            guard length >= 0, index + length <= bytes.count else { throw Self.failure("chuỗi bị cắt") }
+            guard length >= 0, index + length <= bytes.count else { throw Self.failure(lt("chuỗi bị cắt", "truncated string")) }
             defer { index += length }
             return .binary(bytes[index..<index + length])
         case 9, 10:
@@ -92,7 +93,7 @@ struct ThriftCompactReader {
             var count = Int(header >> 4)
             if count == 15 { count = Int(try varint()) }
             let element = header & 0x0F
-            guard count <= bytes.count else { throw Self.failure("danh sách quá dài") }
+            guard count <= bytes.count else { throw Self.failure(lt("danh sách quá dài", "list too long")) }
             var items: [ThriftValue] = []
             items.reserveCapacity(count)
             for _ in 0..<count {
@@ -109,7 +110,7 @@ struct ThriftCompactReader {
             }
             return .map
         case 12: return .structure(try structure(depth: depth + 1))
-        default: throw Self.failure("kiểu Thrift lạ \(type)")
+        default: throw Self.failure(lt("kiểu Thrift lạ \(type)", "unexpected Thrift type \(type)"))
         }
     }
 }
@@ -177,8 +178,8 @@ struct ParquetFileMetaData {
             guard let g = group.fields else { throw ThriftCompactReader.failure("row group") }
             let columns = try (g[1]?.list ?? []).map { chunk -> ParquetColumnChunk in
                 guard let c = chunk.fields else { throw ThriftCompactReader.failure("column chunk") }
-                if let file = c[1]?.string, !file.isEmpty { throw SourceError.unsupported("Parquet có cột nằm ở tệp ngoài (\(file))") }
-                guard let m = c[3]?.fields else { throw ThriftCompactReader.failure("thiếu ColumnMetaData") }
+                if let file = c[1]?.string, !file.isEmpty { throw SourceError.unsupported(lt("Parquet có cột nằm ở tệp ngoài (\(file))", "Parquet has a column in an external file (\(file))")) }
+                guard let m = c[3]?.fields else { throw ThriftCompactReader.failure(lt("thiếu ColumnMetaData", "missing ColumnMetaData")) }
                 return ParquetColumnChunk(path: (m[3]?.list ?? []).compactMap(\.string), physical: Int(m[1]?.int ?? -1), codec: Int(m[4]?.int ?? 0),
                                           valueCount: Int(m[5]?.int ?? 0), dataPageOffset: Int(m[9]?.int ?? 0),
                                           dictionaryPageOffset: m[11]?.int.map(Int.init), totalCompressedSize: Int(m[7]?.int ?? 0))
@@ -203,7 +204,7 @@ struct ParquetPageHeader {
         type = Int(f[1]?.int ?? -1)
         uncompressedSize = Int(f[2]?.int ?? 0)
         compressedSize = Int(f[3]?.int ?? 0)
-        guard uncompressedSize >= 0, compressedSize >= 0 else { throw ThriftCompactReader.failure("cỡ trang âm") }
+        guard uncompressedSize >= 0, compressedSize >= 0 else { throw ThriftCompactReader.failure(lt("cỡ trang âm", "negative page size")) }
         switch type {
         case 0:
             let h = f[5]?.fields ?? [:]

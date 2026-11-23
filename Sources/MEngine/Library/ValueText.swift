@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm Text.
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -47,7 +48,7 @@ enum ValueText {
             let s = secs % 60
             return .text(String(format: "%02d:%02d:%02d", h, m, s))
         default:
-            throw MError.expression("Text.From: chưa hỗ trợ chuyển đổi từ kiểu \(value.kindName)")
+            throw MError.expression(lt("Text.From: chưa hỗ trợ chuyển đổi từ kiểu \(value.kindName)", "Text.From: conversion from type \(value.kindName) isn't supported yet"))
         }
     }
 
@@ -99,7 +100,7 @@ enum ValueText {
                 } else if case .null = t {
                     trimChars = .whitespacesAndNewlines
                 } else {
-                    throw MError.expression("Text.Trim: đối số 2 phải là text hoặc null, nhận \(t.kindName)")
+                    throw MError.expression(lt("Text.Trim: đối số 2 phải là text hoặc null, nhận \(t.kindName)", "Text.Trim: argument 2 must be text or null, got \(t.kindName)"))
                 }
             } else {
                 trimChars = .whitespacesAndNewlines
@@ -189,7 +190,7 @@ enum ValueText {
         ) { args in
             let list = try args.list(0, "Text.Combine")
             let separator = try args.optional(1).map { v in
-                guard case .text(let s) = v else { throw MError.expression("Text.Combine: separator phải là text") }
+                guard case .text(let s) = v else { throw MError.expression(lt("Text.Combine: separator phải là text", "Text.Combine: the separator must be text")) }
                 return s
             } ?? ""
             var parts: [String] = []
@@ -200,7 +201,7 @@ enum ValueText {
                 case .text(let s):
                     parts.append(s)
                 default:
-                    throw MError.expression("Text.Combine: phần tử danh sách phải là text hoặc null, nhận \(item.kindName)")
+                    throw MError.expression(lt("Text.Combine: phần tử danh sách phải là text hoặc null, nhận \(item.kindName)", "Text.Combine: a list item must be text or null, got \(item.kindName)"))
                 }
             }
             return .text(parts.joined(separator: separator))
@@ -224,7 +225,7 @@ enum ValueText {
             if case .null = args[0] { return .null }
             let s = try args.text(0, "Text.Start")
             let count = try MInt.from(args.number(1, "Text.Start"), "Text.Start")
-            guard count >= 0 else { throw MError.expression("Text.Start: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Text.Start: count không được âm", "Text.Start: count can't be negative")) }
             return .text(String(s.prefix(count)))
         },
 
@@ -237,7 +238,7 @@ enum ValueText {
             if case .null = args[0] { return .null }
             let s = try args.text(0, "Text.End")
             let count = try MInt.from(args.number(1, "Text.End"), "Text.End")
-            guard count >= 0 else { throw MError.expression("Text.End: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Text.End: count không được âm", "Text.End: count can't be negative")) }
             return .text(String(s.suffix(count)))
         },
 
@@ -250,7 +251,7 @@ enum ValueText {
             if case .null = args[0] { return .null }
             let s = try args.text(0, "Text.PadStart")
             let targetCount = try MInt.from(args.number(1, "Text.PadStart"), "Text.PadStart")
-            guard targetCount >= 0 else { throw MError.expression("Text.PadStart: count không được âm") }
+            guard targetCount >= 0 else { throw MError.expression(lt("Text.PadStart: count không được âm", "Text.PadStart: count can't be negative")) }
             if s.count >= targetCount { return .text(s) }
             let padChar: Character
             if let c = args.optional(2) {
@@ -330,14 +331,14 @@ enum ValueText {
             let s = try args.text(0, "Text.Range")
             let offset = try MInt.from(args.number(1, "Text.Range"), "Text.Range")
             guard offset >= 0, offset <= s.count else {
-                throw MError.expression("Text.Range: offset \(offset) nằm ngoài độ dài chuỗi \(s.count)")
+                throw MError.expression(lt("Text.Range: offset \(offset) nằm ngoài độ dài chuỗi \(s.count)", "Text.Range: offset \(offset) is outside the string length \(s.count)"))
             }
             let startIdx = s.index(s.startIndex, offsetBy: offset)
             if let countVal = args.optional(2) {
-                guard let n = MOperators.number(countVal) else { throw MError.expression("Text.Range: count phải là số") }
+                guard let n = MOperators.number(countVal) else { throw MError.expression(lt("Text.Range: count phải là số", "Text.Range: count must be a number")) }
                 let count = try MInt.from(n, "Text.Range")
                 guard count >= 0, offset + count <= s.count else {
-                    throw MError.expression("Text.Range: count \(count) vượt quá cuối chuỗi")
+                    throw MError.expression(lt("Text.Range: count \(count) vượt quá cuối chuỗi", "Text.Range: count \(count) goes past the end of the string"))
                 }
                 let endIdx = s.index(startIdx, offsetBy: count)
                 return .text(String(s[startIdx..<endIdx]))

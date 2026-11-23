@@ -58,7 +58,7 @@ struct RelationshipDraft: Equatable {
             notes.append(biN("Đã có quan hệ hoạt động giữa \(many.table) và \(one.table), nên quan hệ mới không hoạt động.", "There is already an active relationship between \(many.table) and \(one.table), so the new relationship is inactive."))
         } else if Self.connected(model, many.table, one.table) {
             forcedInactive = true
-            notes.append("Hai bảng đã nối với nhau qua các quan hệ hoạt động khác; bật thêm quan hệ này tạo đường lọc mơ hồ, nên nó không hoạt động.")
+            notes.append(biN("Hai bảng đã nối với nhau qua các quan hệ hoạt động khác; bật thêm quan hệ này tạo đường lọc mơ hồ, nên nó không hoạt động.", "The two tables are already connected through other active relationships; activating this one would create an ambiguous filter path, so it is inactive."))
         }
         let relationship = NewRelationship(name: UUID().uuidString.lowercased(), fromTable: many.table, fromColumn: many.column,
                                            toTable: one.table, toColumn: one.column, fromMany: true, toMany: false,

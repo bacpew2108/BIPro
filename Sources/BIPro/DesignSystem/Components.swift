@@ -85,7 +85,7 @@ struct RibbonButton: View {
         .buttonStyle(.plain)
         .disabled(phase != nil || disabledReason != nil)
         .opacity(phase != nil || disabledReason != nil ? 0.8 : 1)
-        .help(phase.map { "\(title): có ở \($0)" } ?? disabledReason ?? title)
+        .help(phase.map { biN("\(title): có ở \($0)", "\(title): available in \($0)") } ?? disabledReason ?? title)
         .accessibilityLabel(title)
     }
 }

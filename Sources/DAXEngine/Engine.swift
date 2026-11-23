@@ -1,4 +1,5 @@
 // Façade công khai của DAXEngine (lead). Từ đợt 2: execute và evaluate chạy thật; validate trả lỗi cú pháp.
+import PBIXKit
 import ColumnStore
 
 public final class DAXEngine: Sendable {
@@ -34,7 +35,7 @@ public final class DAXEngine: Sendable {
     /// `table` là bảng chủ của measure khi tên có thể trùng giữa các bảng.
     public func evaluate(measure: String, table: String?, filters: [FilterItem]) async throws(DAXError) -> Value {
         guard let found = catalog.measure(named: measure, table: table) else {
-            throw DAXError(.unknownName, "không tìm thấy measure \"\(measure)\"")
+            throw DAXError(.unknownName, lt("không tìm thấy measure \"\(measure)\"", "measure \"\(measure)\" not found"))
         }
         let base = EvalContext(filter: FilterContext(items: filters).bound(to: catalog.schema), row: nil)
         let evaluator = Evaluator(store: store, catalog: catalog)
@@ -46,12 +47,12 @@ public final class DAXEngine: Sendable {
     /// (chuyển ngữ cảnh) dùng được.
     public func calculatedColumn(table: String, expression: String) throws(DAXError) -> [Value] {
         guard let schemaTable = store.schema.table(named: table) else {
-            throw DAXError(.unknownName, "không tìm thấy bảng \"\(table)\"")
+            throw DAXError(.unknownName, lt("không tìm thấy bảng \"\(table)\"", "table \"\(table)\" not found"))
         }
         let bound = try Binder.bind(try parseExpression(expression), catalog: catalog, rowTable: schemaTable.id)
         let evaluator = Evaluator(store: store, catalog: catalog)
         let rows: RowSet
-        do { rows = try store.allRows(schemaTable.id) } catch { throw DAXError(.runtime, "không đọc được bảng \"\(table)\": \(error)") }
+        do { rows = try store.allRows(schemaTable.id) } catch { throw DAXError(.runtime, lt("không đọc được bảng \"\(table)\": \(error)", "couldn't read table \"\(table)\": \(error)")) }
         var values: [Value] = []
         values.reserveCapacity(rows.count)
         try evaluator.iteratePhysical(schemaTable.id, rows, EvalContext()) { (ctx: EvalContext) throws(DAXError) in

@@ -13,18 +13,18 @@ enum ComparisonKind: String, CaseIterable, Hashable, Sendable {
 
     var title: String {
         switch self {
-        case .isEqual: "là"
-        case .isNot: "không phải"
-        case .lessThan: "nhỏ hơn"
-        case .lessOrEqual: "nhỏ hơn hoặc bằng"
-        case .greaterThan: "lớn hơn"
-        case .greaterOrEqual: "lớn hơn hoặc bằng"
-        case .contains: "chứa"
-        case .doesNotContain: "không chứa"
-        case .startsWith: "bắt đầu bằng"
-        case .doesNotStartWith: "không bắt đầu bằng"
-        case .isBlank: "trống"
-        case .isNotBlank: "không trống"
+        case .isEqual: biN("là", "is")
+        case .isNot: biN("không phải", "is not")
+        case .lessThan: biN("nhỏ hơn", "is less than")
+        case .lessOrEqual: biN("nhỏ hơn hoặc bằng", "is less than or equal to")
+        case .greaterThan: biN("lớn hơn", "is greater than")
+        case .greaterOrEqual: biN("lớn hơn hoặc bằng", "is greater than or equal to")
+        case .contains: biN("chứa", "contains")
+        case .doesNotContain: biN("không chứa", "does not contain")
+        case .startsWith: biN("bắt đầu bằng", "starts with")
+        case .doesNotStartWith: biN("không bắt đầu bằng", "does not start with")
+        case .isBlank: biN("trống", "is blank")
+        case .isNotBlank: biN("không trống", "is not blank")
         }
     }
 

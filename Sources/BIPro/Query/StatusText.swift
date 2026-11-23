@@ -39,18 +39,18 @@ enum StatusText {
     ) -> String {
         switch status {
         case .idle:
-            return "Chưa chạy"
+            return biN("Chưa chạy", "Not run")
         case .running:
-            return "Đang chạy…"
+            return biN("Đang chạy…", "Running…")
         case .cancelled:
-            return "Đã huỷ"
+            return biN("Đã huỷ", "Cancelled")
         case .failed:
-            return "Lỗi"
+            return biN("Lỗi", "Error")
         case .done:
             let elapsedStr = elapsed(elapsedNanoseconds)
             let colsStr = formatNumber(columns)
             let rowsStr = formatNumber(rows)
-            return "Thành công (\(elapsedStr)) · Truy vấn \(queryIndex)/\(queryCount) · Kết quả \(resultIndex)/\(resultCount) · \(colsStr) cột, \(rowsStr) dòng"
+            return biN("Thành công (\(elapsedStr)) · Truy vấn \(queryIndex)/\(queryCount) · Kết quả \(resultIndex)/\(resultCount) · \(colsStr) cột, \(rowsStr) dòng", "Succeeded (\(elapsedStr)) · Query \(queryIndex)/\(queryCount) · Result \(resultIndex)/\(resultCount) · \(colsStr) columns, \(rowsStr) rows")
         }
     }
 }

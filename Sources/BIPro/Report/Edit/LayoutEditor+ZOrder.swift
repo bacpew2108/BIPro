@@ -62,7 +62,7 @@ extension LayoutEditor {
         if Set(chosen.map { $0.parentGroup ?? "" }).count > 1 { return biN("Chỉ đổi lớp được các visual cùng cấp (cùng nhóm hoặc cùng ngoài nhóm).", "Only visuals at the same level (same group or all outside groups) can change layers.") }
         let level = items(of: pageID).filter { ($0.parentGroup ?? "") == (chosen.first?.parentGroup ?? "") }
         let order = Self.reordered(level.map(\.id), moving: selection, command)
-        return order == level.map(\.id) ? "Visual đã ở \(command.isForward ? "trên cùng" : "dưới cùng")." : nil
+        return order == level.map(\.id) ? biN("Visual đã ở \(command.isForward ? "trên cùng" : "dưới cùng").", "The visual is already at the \(command.isForward ? "top" : "bottom").") : nil
     }
 
     /// Đổi thứ tự lớp của vùng chọn trong cùng cấp: đúng một bước hoàn tác, giữ nguyên tập giá trị z (chỉ hoán vị).

@@ -19,6 +19,7 @@
 // đó luôn đúng vì được giao lại với tập dòng chính xác.
 // [SUY ĐOÁN] CROSSFILTER(…, None) được coi như tắt quan hệ (isActive = false).
 
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -369,7 +370,7 @@ public struct FilterContext: Sendable, Hashable {
     /// Thứ tự theo `ColumnIndex.sortRank` (cột mã hoá) hoặc theo dòng (cột dense).
     public func visibleValues(of column: ColumnID, in store: ColumnStore) throws(DAXError) -> [Value] {
         guard store.schema.column(column) != nil else {
-            throw DAXError(.runtime, "Không có cột \(column) trong model")
+            throw DAXError(.runtime, lt("Không có cột \(column) trong model", "There is no column \(column) in the model"))
         }
         let rows = try visibleRows(in: store, table: column.table, overrides: [])
         return try values(of: column, among: rows, store: store)
@@ -554,7 +555,7 @@ public struct FilterContext: Sendable, Hashable {
 
     private func computeEncodedCodeSet(for item: FilterItem, store: ColumnStore) throws(DAXError) -> CodeSet? {
         guard let meta = store.schema.column(item.column) else {
-            throw DAXError(.runtime, "Không có cột \(item.column) trong model")
+            throw DAXError(.runtime, lt("Không có cột \(item.column) trong model", "There is no column \(item.column) in the model"))
         }
         let index = try guarded { try store.index(item.column) }
         guard index.column.isEncoded else { return nil }
@@ -584,7 +585,7 @@ public struct FilterContext: Sendable, Hashable {
     /// khớp khi mục có BLANK, như dòng mã 0 ở cột mã hoá. Universe là số dòng + 1.
     private func denseRows(for item: FilterItem, store: ColumnStore) throws(DAXError) -> RowSet {
         guard let meta = store.schema.column(item.column) else {
-            throw DAXError(.runtime, "Không có cột \(item.column) trong model")
+            throw DAXError(.runtime, lt("Không có cột \(item.column) trong model", "There is no column \(item.column) in the model"))
         }
         let rowCount = try guarded { try store.rowCount(item.column.table) }
         var targets = Set<StoredValue>()
@@ -614,7 +615,7 @@ public struct FilterContext: Sendable, Hashable {
         let rowCount = try guarded { try store.rowCount(filter.table) }
         let universe = rowCount + 1
         guard let meta = store.schema.table(filter.table) else {
-            throw DAXError(.runtime, "Không có bảng \(filter.table) trong model")
+            throw DAXError(.runtime, lt("Không có bảng \(filter.table) trong model", "There is no table \(filter.table) in the model"))
         }
         var encoded: [ColumnData] = []
         var dense: [ColumnData] = []
@@ -651,9 +652,9 @@ public struct FilterContext: Sendable, Hashable {
         } catch let error as PropagationError {
             switch error {
             case .ambiguousPath(let from, let to):
-                throw DAXError(.ambiguousPath, "Lan truyền bộ lọc mơ hồ từ \(from) tới \(to)")
+                throw DAXError(.ambiguousPath, lt("Lan truyền bộ lọc mơ hồ từ \(from) tới \(to)", "Ambiguous filter propagation from \(from) to \(to)"))
             case .unknownRelationship(let relationship):
-                throw DAXError(.runtime, "Không có quan hệ \(relationship.raw) trong model")
+                throw DAXError(.runtime, lt("Không có quan hệ \(relationship.raw) trong model", "There is no relationship \(relationship.raw) in the model"))
             }
         } catch {
             throw DAXError(.runtime, "\(error)")

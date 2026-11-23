@@ -1,3 +1,4 @@
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -12,7 +13,7 @@ enum CSVParser {
     /// [SUY ĐOÁN] Tự dò mã hoá từ BOM hoặc nội dung mẫu UTF-8 / Windows-1252
     static func detectEncoding(url: URL, preferred: String.Encoding?) throws -> DetectionResult {
         guard let handle = try? FileHandle(forReadingFrom: url) else {
-            throw SourceError.unreadable("Không thể mở file: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể mở file: \(url.lastPathComponent)", "Couldn't open the file: \(url.lastPathComponent)"))
         }
         defer { try? handle.close() }
 
@@ -101,7 +102,7 @@ enum CSVParser {
         chunkSize: Int = 65536
     ) async throws -> [[String?]] {
         guard let handle = try? FileHandle(forReadingFrom: url) else {
-            throw SourceError.unreadable("Không thể đọc file: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể đọc file: \(url.lastPathComponent)", "Couldn't read the file: \(url.lastPathComponent)"))
         }
         defer { try? handle.close() }
 

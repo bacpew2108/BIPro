@@ -50,7 +50,7 @@ public enum RelationshipIndex {
                 }
                 guard let value else { continue }
                 guard byValue.updateValue(r + 1, forKey: value) == nil else {
-                    throw WriteError.invalid("cột \(oneName) có giá trị trùng (\(value)), không làm phía một của quan hệ được")
+                    throw WriteError.invalid(lt("cột \(oneName) có giá trị trùng (\(value)), không làm phía một của quan hệ được", "column \(oneName) has a duplicate value (\(value)) and can't be the one side of a relationship"))
                 }
             }
             let magnitude = from.magnitude == 0 ? 1 : from.magnitude
@@ -58,7 +58,7 @@ public enum RelationshipIndex {
             let top = max(reservedIDs - 1, ids.max() ?? 0)
             return (0...top).map { id in id < reservedIDs ? 0 : byValue[Double(id + from.baseID) / magnitude] ?? 0 }
         case .empty:
-            throw WriteError.invalid("cột \(from.tableName)[\(from.columnName)] không có dữ liệu, chưa tạo được chỉ mục quan hệ")
+            throw WriteError.invalid(lt("cột \(from.tableName)[\(from.columnName)] không có dữ liệu, chưa tạo được chỉ mục quan hệ", "column \(from.tableName)[\(from.columnName)] has no data, so a relationship index can't be created yet"))
         }
     }
 
@@ -81,7 +81,7 @@ public enum RelationshipIndex {
         for (r, value) in one.enumerated() {
             if case .null = value { continue }
             guard row.updateValue(r + 1, forKey: value) == nil else {
-                throw WriteError.invalid("cột \(oneName) có giá trị trùng (\(value)), không làm phía một của quan hệ được")
+                throw WriteError.invalid(lt("cột \(oneName) có giá trị trùng (\(value)), không làm phía một của quan hệ được", "column \(oneName) has a duplicate value (\(value)) and can't be the one side of a relationship"))
             }
         }
         return Array(repeating: 0, count: reservedIDs) + manyDictionary.map { row[$0] ?? 0 }
@@ -91,9 +91,9 @@ public enum RelationshipIndex {
     public static func encode(values: [Int], toRowCount: Int) throws -> (idf: Data, meta: Data) {
         let needed = max(1, Int.bitWidth - toRowCount.leadingZeroBitCount)
         guard let choice = widths.first(where: { $0.bits >= needed }) else {
-            throw WriteError.invalid("bảng phía một có \(toRowCount) dòng, quá lớn cho chỉ mục")
+            throw WriteError.invalid(lt("bảng phía một có \(toRowCount) dòng, quá lớn cho chỉ mục", "the one-side table has \(toRowCount) rows, too large for the index"))
         }
-        guard values.allSatisfy({ $0 >= 0 && $0 <= toRowCount }) else { throw WriteError.invalid("giá trị chỉ mục ngoài miền") }
+        guard values.allSatisfy({ $0 >= 0 && $0 <= toRowCount }) else { throw WriteError.invalid(lt("giá trị chỉ mục ngoài miền", "index value out of range")) }
         let perWord = 64 / choice.bits
         let wordCount = values.count / perWord + 1
         var words = [UInt64](repeating: 0, count: wordCount)

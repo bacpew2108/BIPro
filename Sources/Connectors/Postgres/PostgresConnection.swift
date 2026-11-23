@@ -5,6 +5,7 @@
 // Kết quả trả về dạng chữ (định dạng 0); DateStyle ISO nên ngày là `yyyy-MM-dd`, ngày giờ `yyyy-MM-dd HH:mm:ss[.ffffff]`.
 // Thông điệp lỗi không bao giờ chứa mật khẩu.
 
+import PBIXKit
 import ColumnStore
 import CryptoKit
 import Foundation
@@ -85,8 +86,8 @@ final class PostgresConnection {
 
     /// Mở kết nối, thương lượng SSL, xác thực, chờ ReadyForQuery.
     static func open(_ address: PostgresAddress, credential: PostgresCredential) async throws -> PostgresConnection {
-        guard !address.host.isEmpty else { throw SourceError.unreadable("Chưa nhập máy chủ PostgreSQL.") }
-        guard !address.database.isEmpty else { throw SourceError.unreadable("Chưa nhập tên cơ sở dữ liệu.") }
+        guard !address.host.isEmpty else { throw SourceError.unreadable(lt("Chưa nhập máy chủ PostgreSQL.", "No PostgreSQL server entered.")) }
+        guard !address.database.isEmpty else { throw SourceError.unreadable(lt("Chưa nhập tên cơ sở dữ liệu.", "No database name entered.")) }
         let connection = PostgresConnection(address: address)
         connection.task.resume()
         do {
@@ -123,10 +124,10 @@ final class PostgresConnection {
         case UInt8(ascii: "N"):
             guard allowUnencrypted else {
                 throw SourceError.insecureConnection(
-                    "Không kết nối được tới \(address.server) bằng kết nối mã hoá. Muốn truy cập nguồn này bằng kết nối không mã hoá thì bấm OK.")
+                    lt("Không kết nối được tới \(address.server) bằng kết nối mã hoá. Muốn truy cập nguồn này bằng kết nối không mã hoá thì bấm OK.", "Couldn't connect to \(address.server) with an encrypted connection. To access this source with an unencrypted connection, click OK."))
             }
         default:
-            throw SourceError.unreadable("Máy chủ \(address.server) không trả lời theo giao thức PostgreSQL.")
+            throw SourceError.unreadable(lt("Máy chủ \(address.server) không trả lời theo giao thức PostgreSQL.", "The server \(address.server) didn't answer using the PostgreSQL protocol."))
         }
     }
 
@@ -165,14 +166,14 @@ final class PostgresConnection {
                     let first = Array(client.clientFirstMessage.utf8)
                     try await sendPassword(Self.cString("SCRAM-SHA-256") + Self.int32(Int32(first.count)) + first)
                 case 11:
-                    guard var client = scram else { throw SourceError.authentication("Máy chủ gửi bước SCRAM không mong đợi.") }
+                    guard var client = scram else { throw SourceError.authentication(lt("Máy chủ gửi bước SCRAM không mong đợi.", "The server sent an unexpected SCRAM step.")) }
                     let final = try client.clientFinalMessage(serverFirst: String(decoding: reader.rest(), as: UTF8.self))
                     scram = client
                     try await sendPassword(Array(final.utf8))
                 case 12:
                     try scram?.verify(serverFinal: String(decoding: reader.rest(), as: UTF8.self))
                 default:
-                    throw SourceError.unsupported("phương thức xác thực PostgreSQL mã \(code)")
+                    throw SourceError.unsupported(lt("phương thức xác thực PostgreSQL mã \(code)", "PostgreSQL authentication method code \(code)"))
                 }
             case UInt8(ascii: "E"):
                 throw Self.error(from: payload, address: address)
@@ -264,7 +265,7 @@ final class PostgresConnection {
     private func readMessage() async throws -> (UInt8, [UInt8]) {
         let header = try await readBytes(5)
         let length = Int(Int32(bigEndian: header[1...4].withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }))
-        guard length >= 4 else { throw SourceError.unreadable("Máy chủ \(address.server) gửi gói tin hỏng.") }
+        guard length >= 4 else { throw SourceError.unreadable(lt("Máy chủ \(address.server) gửi gói tin hỏng.", "The server \(address.server) sent a corrupt packet.")) }
         return (header[0], try await readBytes(length - 4))
     }
 
@@ -282,7 +283,7 @@ final class PostgresConnection {
                 if cursor > 0 { buffer.removeFirst(cursor); cursor = 0 }
                 buffer.append(contentsOf: chunk)
             } else if atEOF {
-                throw SourceError.unreadable("Máy chủ \(address.server) đã đóng kết nối.")
+                throw SourceError.unreadable(lt("Máy chủ \(address.server) đã đóng kết nối.", "The server \(address.server) closed the connection."))
             }
         }
         let out = Array(buffer[cursor..<(cursor + count)])
@@ -295,15 +296,15 @@ final class PostgresConnection {
         let ns = error as NSError
         let reason: String
         switch ns.code {
-        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: reason = "không tìm thấy máy chủ"
-        case NSURLErrorCannotConnectToHost: reason = "máy chủ từ chối kết nối (sai cổng hoặc PostgreSQL chưa chạy)"
-        case NSURLErrorTimedOut: reason = "hết thời gian chờ"
+        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: reason = lt("không tìm thấy máy chủ", "server not found")
+        case NSURLErrorCannotConnectToHost: reason = lt("máy chủ từ chối kết nối (sai cổng hoặc PostgreSQL chưa chạy)", "the server refused the connection (wrong port or PostgreSQL isn't running)")
+        case NSURLErrorTimedOut: reason = lt("hết thời gian chờ", "timed out")
         case NSURLErrorSecureConnectionFailed, NSURLErrorServerCertificateUntrusted, NSURLErrorServerCertificateHasUnknownRoot,
              NSURLErrorServerCertificateHasBadDate, NSURLErrorServerCertificateNotYetValid:
-            reason = "kết nối mã hoá thất bại (chứng chỉ máy chủ không tin cậy)"
+            reason = lt("kết nối mã hoá thất bại (chứng chỉ máy chủ không tin cậy)", "encrypted connection failed (untrusted server certificate)")
         default: reason = ns.localizedDescription
         }
-        return SourceError.unreadable("Không kết nối được máy chủ PostgreSQL \(address.server): \(reason).")
+        return SourceError.unreadable(lt("Không kết nối được máy chủ PostgreSQL \(address.server): \(reason).", "Couldn't connect to the PostgreSQL server \(address.server): \(reason)."))
     }
 
     // MARK: Lỗi máy chủ
@@ -318,14 +319,14 @@ final class PostgresConnection {
             fields[code] = reader.cString() ?? ""
         }
         let sqlState = fields[UInt8(ascii: "C")] ?? ""
-        let message = fields[UInt8(ascii: "M")] ?? "lỗi không rõ"
+        let message = fields[UInt8(ascii: "M")] ?? lt("lỗi không rõ", "unknown error")
         switch sqlState {
         case "28P01", "28000":
-            return .authentication("Không xác thực được bằng thông tin đăng nhập đã nhập. Hãy thử lại.")
+            return .authentication(lt("Không xác thực được bằng thông tin đăng nhập đã nhập. Hãy thử lại.", "Couldn't authenticate with the credentials entered. Try again."))
         case "3D000":
-            return .unreadable("Máy chủ \(address.server) không có cơ sở dữ liệu \"\(address.database)\".")
+            return .unreadable(lt("Máy chủ \(address.server) không có cơ sở dữ liệu \"\(address.database)\".", "The server \(address.server) has no database \"\(address.database)\"."))
         default:
-            return .unreadable("PostgreSQL báo lỗi (\(sqlState)): \(message)")
+            return .unreadable(lt("PostgreSQL báo lỗi (\(sqlState)): \(message)", "PostgreSQL reported an error (\(sqlState)): \(message)"))
         }
     }
 

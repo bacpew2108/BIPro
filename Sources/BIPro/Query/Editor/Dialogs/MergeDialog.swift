@@ -5,12 +5,12 @@ import MEngine
 extension JoinChoice {
     public var localizedTitle: String {
         switch self {
-        case .leftOuter: return "Ngoài trái (tất cả từ bảng đầu, khớp từ bảng thứ hai)"
-        case .rightOuter: return "Ngoài phải (tất cả từ bảng thứ hai, khớp từ bảng đầu)"
-        case .fullOuter: return "Ngoài đầy đủ (tất cả hàng của cả hai)"
-        case .inner: return "Trong (chỉ hàng khớp)"
-        case .leftAnti: return "Chống trái (chỉ hàng của bảng đầu không khớp)"
-        case .rightAnti: return "Chống phải (chỉ hàng của bảng thứ hai không khớp)"
+        case .leftOuter: return biN("Ngoài trái (tất cả từ bảng đầu, khớp từ bảng thứ hai)", "Left outer (all from first, matching from second)")
+        case .rightOuter: return biN("Ngoài phải (tất cả từ bảng thứ hai, khớp từ bảng đầu)", "Right outer (all from second, matching from first)")
+        case .fullOuter: return biN("Ngoài đầy đủ (tất cả hàng của cả hai)", "Full outer (all rows from both)")
+        case .inner: return biN("Trong (chỉ hàng khớp)", "Inner (only matching rows)")
+        case .leftAnti: return biN("Chống trái (chỉ hàng của bảng đầu không khớp)", "Left anti (rows only in first)")
+        case .rightAnti: return biN("Chống phải (chỉ hàng của bảng thứ hai không khớp)", "Right anti (rows only in second)")
         }
     }
 }
@@ -241,7 +241,7 @@ public struct MergeDialogContent: View {
             Image(systemName: "tablecells")
                 .font(.system(size: 11))
                 .foregroundStyle(model.secondQuery != nil ? DS.Palette.accent : DS.Palette.tertiaryLabel)
-            Text(model.secondQuery ?? "Chọn bảng thứ hai...")
+            Text(model.secondQuery ?? biN("Chọn bảng thứ hai...", "Select the second table..."))
                 .font(DS.Typeface.body)
                 .foregroundStyle(model.secondQuery != nil ? DS.Palette.label : DS.Palette.tertiaryLabel)
             Spacer()
@@ -434,7 +434,7 @@ public struct MergeDialog: View {
             QueryColumnInfo(name: $0.name, type: $0.data.type)
         }
         self._model = State(initialValue: MergeDialogModel(
-            primaryQueryName: state.selectedQuery?.name ?? "Bảng chính",
+            primaryQueryName: state.selectedQuery?.name ?? biN("Bảng chính", "Primary table"),
             leftColumns: leftCols
         ))
     }
@@ -488,7 +488,7 @@ public struct MergeDialog: View {
                     self.model.rightColumns = cols
                     self.secondaryPreview = prev
                 } else {
-                    self.secondaryErrorMessage = "Không thể tải dữ liệu xem trước của truy vấn."
+                    self.secondaryErrorMessage = biN("Không thể tải dữ liệu xem trước của truy vấn.", "Couldn't load the query's preview data.")
                 }
             }
         }

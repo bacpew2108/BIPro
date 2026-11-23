@@ -92,8 +92,8 @@ public struct PBIXQuickLookSummary: Sendable, Equatable {
     public static func load(from pbix: PBIXFile, fileName: String) throws -> PBIXQuickLookSummary {
         let formatLabel: String = switch pbix.reportFormat {
         case .pbir: "PBIR"
-        case .legacyLayout: "Layout (cũ)"
-        case .none: "Không có báo cáo"
+        case .legacyLayout: lt("Layout (cũ)", "Layout (legacy)")
+        case .none: lt("Không có báo cáo", "No report")
         }
 
         let report = (try? pbix.loadReport()) ?? ReportDefinition(pages: [])

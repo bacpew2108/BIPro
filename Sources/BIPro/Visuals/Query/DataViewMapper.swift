@@ -10,7 +10,7 @@ import Foundation
 
 enum DataViewMapper {
     static func map(_ result: QueryResult, spec: VisualQuerySpec) -> DataView {
-        guard let body = result.tables.last else { return .empty(reason: "Không có dữ liệu") }
+        guard let body = result.tables.last else { return .empty(reason: biN("Không có dữ liệu", "No data")) }
         switch spec.shape {
         case .card: return card(body, spec: spec)
         case .slicer: return slicer(body, spec: spec)
@@ -85,10 +85,10 @@ enum DataViewMapper {
 
     private static func card(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
         let index = Index(body)
-        guard let row = body.rows.first else { return .empty(reason: "Không có dữ liệu") }
+        guard let row = body.rows.first else { return .empty(reason: biN("Không có dữ liệu", "No data")) }
         // Giá trị của card là measure ở Values; measure màu/icon chỉ để định dạng.
         guard let m = spec.measures.first(where: { if case .value = $0.purpose { true } else { false } }) else {
-            return .empty(reason: "Card không có giá trị")
+            return .empty(reason: biN("Card không có giá trị", "The card has no value"))
         }
         return .single(SingleValueData(measure: m.field, cell: cell(m, row: row, index: index, spec: spec)))
     }
@@ -97,7 +97,7 @@ enum DataViewMapper {
 
     private static func slicer(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
         let index = Index(body)
-        guard let g = spec.primary.first, let i = index.column(g.column) else { return .empty(reason: "Slicer không có cột") }
+        guard let g = spec.primary.first, let i = index.column(g.column) else { return .empty(reason: biN("Slicer không có cột", "The slicer has no column")) }
         let format = g.field.formatString
         if spec.drillLevels.count >= 2, let flag = index.result("IsDM1Total"), let grand = index.result("IsGrandTotalRowTotal"),
            let child = index.column(spec.drillLevels[1].column) {
@@ -197,7 +197,7 @@ enum DataViewMapper {
     // MARK: - Matrix
 
     private static func matrix(_ result: QueryResult, spec: VisualQuerySpec) -> DataView {
-        guard let body = result.tables.last else { return .empty(reason: "Không có dữ liệu") }
+        guard let body = result.tables.last else { return .empty(reason: biN("Không có dữ liệu", "No data")) }
         let index = Index(body)
         let rowIdx = spec.primary.map { index.column($0.column) }
         let rowTotal = index.result("IsGrandTotalRowTotal")
@@ -286,11 +286,11 @@ enum DataViewMapper {
     // MARK: - Table (tableEx)
 
     private static func flatTable(_ result: QueryResult, spec: VisualQuerySpec) -> DataView {
-        guard let body = result.tables.last else { return .empty(reason: "Không có dữ liệu") }
+        guard let body = result.tables.last else { return .empty(reason: biN("Không có dữ liệu", "No data")) }
         let index = Index(body)
         let measures = visibleMeasures(spec)
         let ordered = spec.orderedFields.isEmpty ? (spec.primary.map(\.field) + measures.map(\.field)) : spec.orderedFields
-        guard !ordered.isEmpty else { return .empty(reason: "Bảng chưa có trường nào") }
+        guard !ordered.isEmpty else { return .empty(reason: biN("Bảng chưa có trường nào", "The table has no fields yet")) }
 
         let groupByRef = Dictionary(spec.primary.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
         let measureByRef = Dictionary(measures.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
@@ -331,7 +331,7 @@ enum DataViewMapper {
         let yM = measures.first { $0.field.role == "Y" }
         let sizeM = measures.first { $0.field.role == "Size" }
         let tooltipMs = measures.filter { $0.field.role == "Tooltips" }
-        guard xM != nil || yM != nil else { return .empty(reason: "Biểu đồ phân tán cần trục X hoặc Y") }
+        guard xM != nil || yM != nil else { return .empty(reason: biN("Biểu đồ phân tán cần trục X hoặc Y", "A scatter chart needs an X or Y axis")) }
 
         let catGroup = spec.primary.first
         let serGroup = spec.secondary.first
@@ -401,10 +401,10 @@ enum DataViewMapper {
 
     private static func gauge(_ body: ResultTable, spec: VisualQuerySpec) -> DataView {
         let index = Index(body)
-        guard let row = body.rows.first else { return .empty(reason: "Không có dữ liệu") }
+        guard let row = body.rows.first else { return .empty(reason: biN("Không có dữ liệu", "No data")) }
         let measures = visibleMeasures(spec)
         guard let yM = measures.first(where: { $0.field.role == "Y" }) ?? measures.first(where: { $0.purpose == .value }) else {
-            return .empty(reason: "Đồng hồ đo cần giá trị")
+            return .empty(reason: biN("Đồng hồ đo cần giá trị", "A gauge needs a value"))
         }
         let minM = measures.first { $0.field.role == "MinValue" }
         let maxM = measures.first { $0.field.role == "MaxValue" }
@@ -424,7 +424,7 @@ enum DataViewMapper {
         let index = Index(body)
         let measures = visibleMeasures(spec)
         guard let indM = measures.first(where: { $0.field.role == "Indicator" }) ?? measures.first(where: { $0.purpose == .value }) else {
-            return .empty(reason: "KPI cần chỉ số (Indicator)")
+            return .empty(reason: biN("KPI cần chỉ số (Indicator)", "A KPI needs an indicator"))
         }
         let goalM = measures.first { $0.field.role == "Goal" }
         let trendGroup = spec.primary.first
@@ -465,7 +465,7 @@ enum DataViewMapper {
         let index = Index(body)
         let measures = visibleMeasures(spec)
         let ordered = spec.orderedFields.isEmpty ? (spec.primary.map(\.field) + measures.map(\.field)) : spec.orderedFields
-        guard !ordered.isEmpty else { return .empty(reason: "Thẻ nhiều hàng chưa có trường nào") }
+        guard !ordered.isEmpty else { return .empty(reason: biN("Thẻ nhiều hàng chưa có trường nào", "The multi-row card has no fields yet")) }
 
         let groupByRef = Dictionary(spec.primary.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })
         let measureByRef = Dictionary(measures.map { ($0.field.queryRef, $0) }, uniquingKeysWith: { a, _ in a })

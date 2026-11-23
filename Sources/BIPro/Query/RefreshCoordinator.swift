@@ -142,7 +142,7 @@ enum RefreshCoordinator {
                     let env = MEnvironment(bindings: bindingsSnapshot)
                     let value = try await MEvaluator(environment: env).evaluate(source: mSource)
                     guard case .table(let fresh) = value else {
-                        throw MError.expression("Truy vấn trả về \(value.kindName), không phải bảng")
+                        throw MError.expression(biN("Truy vấn trả về \(value.kindName), không phải bảng", "The query returned \(value.kindName), not a table"))
                     }
                     return .success(fresh)
                 } catch {

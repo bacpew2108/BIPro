@@ -1,6 +1,7 @@
 // Phase F, T089 (US7): giải nén trang Parquet (UNCOMPRESSED, SNAPPY tự viết theo đặc tả định dạng Snappy, GZIP qua framework Compression
 // của Apple) và giải mã RLE/bit-packed hybrid (mức định nghĩa, chỉ số từ điển, boolean RLE). Codec khác báo "chưa hỗ trợ" kèm tên.
 
+import PBIXKit
 import Compression
 import Foundation
 
@@ -15,13 +16,13 @@ enum ParquetCodec {
         case 0: return Array(input)
         case 1: return try snappy(input, size: size)
         case 2: return try gzip(input, size: size)
-        default: throw SourceError.unsupported("Parquet nén \(name(codec))")
+        default: throw SourceError.unsupported(lt("Parquet nén \(name(codec))", "Parquet compressed with \(name(codec))"))
         }
     }
 
     /// Snappy dạng khối: varint độ dài gốc, rồi các phần tử literal/copy.
     static func snappy(_ input: ArraySlice<UInt8>, size: Int) throws -> [UInt8] {
-        let bad = SourceError.unreadable("Tệp Parquet hỏng: khối Snappy sai")
+        let bad = SourceError.unreadable(lt("Tệp Parquet hỏng: khối Snappy sai", "Corrupt Parquet file: bad Snappy block"))
         var i = input.startIndex
         var length = 0, shift = 0
         while true {
@@ -79,7 +80,7 @@ enum ParquetCodec {
 
     /// GZIP (RFC 1952): bỏ phần đầu (và các trường tuỳ chọn theo cờ), phần thân là DEFLATE thô (`COMPRESSION_ZLIB`).
     static func gzip(_ input: ArraySlice<UInt8>, size: Int) throws -> [UInt8] {
-        let bad = SourceError.unreadable("Tệp Parquet hỏng: khối GZIP sai")
+        let bad = SourceError.unreadable(lt("Tệp Parquet hỏng: khối GZIP sai", "Corrupt Parquet file: bad GZIP block"))
         let b = Array(input)
         guard b.count >= 18, b[0] == 0x1F, b[1] == 0x8B, b[2] == 8 else { throw bad }
         let flags = b[3]
@@ -113,7 +114,7 @@ struct ParquetBytes {
         self.end = end ?? bytes.count
     }
 
-    static let truncated = SourceError.unreadable("Tệp Parquet hỏng: trang dữ liệu bị cắt")
+    static let truncated = SourceError.unreadable(lt("Tệp Parquet hỏng: trang dữ liệu bị cắt", "Corrupt Parquet file: truncated data page"))
 
     mutating func uleb() throws -> Int {
         var result = 0, shift = 0

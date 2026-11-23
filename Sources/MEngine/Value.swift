@@ -1,5 +1,6 @@
 // Phase F (T005): giá trị của ngôn ngữ M. Xem specs/010-f-get-data-power-query-t3/data-model.md, contracts/m-engine.md.
 
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -22,8 +23,8 @@ public struct MError: Error, Sendable, Equatable {
     }
 
     public static func unsupported(_ name: String, line: Int? = nil) -> MError {
-        let where_ = line.map { " (dòng \($0))" } ?? ""
-        return MError(reason: "Expression.Unsupported", message: "Chưa hỗ trợ: \(name)\(where_)", detail: name)
+        let where_ = line.map { lt(" (dòng \($0))", " (line \($0))") } ?? ""
+        return MError(reason: "Expression.Unsupported", message: lt("Chưa hỗ trợ: \(name)\(where_)", "Not supported yet: \(name)\(where_)"), detail: name)
     }
 }
 
@@ -118,7 +119,7 @@ public struct MFunction: @unchecked Sendable {
 public enum MInt {
     public static func from(_ value: Double, _ context: String) throws -> Int {
         guard value.isFinite, abs(value) <= 9_007_199_254_740_992 else {
-            throw MError(reason: "Expression.Error", message: "\(context): số \(value) nằm ngoài phạm vi số nguyên")
+            throw MError(reason: "Expression.Error", message: lt("\(context): số \(value) nằm ngoài phạm vi số nguyên", "\(context): the number \(value) is outside the integer range"))
         }
         return Int(value)
     }

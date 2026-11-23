@@ -1,6 +1,7 @@
 // Đợt tồn đọng sau Phase F, T026: giá trị nhị phân cho M của Enter Data (VM-F11a, docs/phase-f2-evidence/vm-f11/QUAN-SAT.md mục a):
 // `Binary.FromText("…", BinaryEncoding.Base64)` rồi `Binary.Decompress(…, Compression.Deflate)` (Deflate thô, không header zlib) rồi
 // `Json.Document`. Hằng số theo tài liệu M: BinaryEncoding.Base64 0, Hex 1; Compression.GZip 0, Deflate 1.
+import PBIXKit
 import Compression
 import Foundation
 
@@ -23,22 +24,22 @@ enum BinaryLibrary {
         switch try args.optional(1).map({ try MInt.from(MOperators.number($0) ?? -1, "Binary.FromText") }) ?? 0 {
         case 0:
             guard let data = Data(base64Encoded: text, options: .ignoreUnknownCharacters), !(data.isEmpty && !text.isEmpty) else {
-                throw MError(reason: "DataFormat.Error", message: "Binary.FromText: chuỗi không phải Base64 hợp lệ")
+                throw MError(reason: "DataFormat.Error", message: lt("Binary.FromText: chuỗi không phải Base64 hợp lệ", "Binary.FromText: the string isn't valid Base64"))
             }
             return .binary(data)
         case 1:
             let digits = Array(text.utf8)
-            guard digits.count.isMultiple(of: 2) else { throw MError(reason: "DataFormat.Error", message: "Binary.FromText: chuỗi Hex lẻ ký tự") }
+            guard digits.count.isMultiple(of: 2) else { throw MError(reason: "DataFormat.Error", message: lt("Binary.FromText: chuỗi Hex lẻ ký tự", "Binary.FromText: the Hex string has an odd number of characters")) }
             var bytes: [UInt8] = []
             for i in stride(from: 0, to: digits.count, by: 2) {
                 guard let byte = UInt8(String(decoding: digits[i...i + 1], as: UTF8.self), radix: 16) else {
-                    throw MError(reason: "DataFormat.Error", message: "Binary.FromText: chuỗi không phải Hex hợp lệ")
+                    throw MError(reason: "DataFormat.Error", message: lt("Binary.FromText: chuỗi không phải Hex hợp lệ", "Binary.FromText: the string isn't valid Hex"))
                 }
                 bytes.append(byte)
             }
             return .binary(Data(bytes))
         default:
-            throw MError.expression("Binary.FromText: encoding không hợp lệ")
+            throw MError.expression(lt("Binary.FromText: encoding không hợp lệ", "Binary.FromText: invalid encoding"))
         }
     }
 
@@ -47,10 +48,10 @@ enum BinaryLibrary {
         name: "Binary.Decompress", parameters: [MParameter(name: "binary"), MParameter(name: "compressionType")], observed: true
     ) { args in
         guard case .binary(let data) = args[0] else {
-            throw MError.expression("Binary.Decompress: đối số 1 phải là binary, nhận \(args[0].kindName)")
+            throw MError.expression(lt("Binary.Decompress: đối số 1 phải là binary, nhận \(args[0].kindName)", "Binary.Decompress: argument 1 must be binary, got \(args[0].kindName)"))
         }
         guard try MInt.from(MOperators.number(args[1]) ?? -1, "Binary.Decompress") == 1 else {
-            throw MError.unsupported("Binary.Decompress với kiểu nén khác Compression.Deflate")
+            throw MError.unsupported(lt("Binary.Decompress với kiểu nén khác Compression.Deflate", "Binary.Decompress with a compression type other than Compression.Deflate"))
         }
         return .binary(try MBinary.inflate(data))
     }
@@ -68,7 +69,7 @@ public enum MBinary {
         let stream = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
         defer { stream.deallocate() }
         guard compression_stream_init(stream, operation, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
-            throw MError.expression("Binary: không khởi tạo được bộ nén")
+            throw MError.expression(lt("Binary: không khởi tạo được bộ nén", "Binary: couldn't create the compressor"))
         }
         defer { compression_stream_destroy(stream) }
         let chunk = 64 * 1024
@@ -89,11 +90,11 @@ public enum MBinary {
                 case COMPRESSION_STATUS_OK:
                     // Dữ liệu cụt hoặc rỗng: bộ giải nén trả OK mãi mà không đọc thêm, không ra thêm byte nào.
                     if produced == 0, stream.pointee.src_size == before {
-                        throw MError(reason: "DataFormat.Error", message: "Binary.Decompress: dữ liệu nén Deflate bị cụt")
+                        throw MError(reason: "DataFormat.Error", message: lt("Binary.Decompress: dữ liệu nén Deflate bị cụt", "Binary.Decompress: the Deflate data is truncated"))
                     }
                     continue
                 case COMPRESSION_STATUS_END: return output
-                default: throw MError(reason: "DataFormat.Error", message: "Binary.Decompress: dữ liệu nén Deflate hỏng")
+                default: throw MError(reason: "DataFormat.Error", message: lt("Binary.Decompress: dữ liệu nén Deflate hỏng", "Binary.Decompress: the Deflate data is corrupt"))
                 }
             }
         }

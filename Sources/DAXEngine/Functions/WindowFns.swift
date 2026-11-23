@@ -8,6 +8,7 @@
 //   vị trí hiện tại (current row) được xác định bằng cách so khớp mọi cột có lineage/tên khớp từ rowStack/filter hiện tại
 //   với từng dòng trong phân vùng (partition) đã sắp xếp theo ORDERBY.
 
+import PBIXKit
 import ColumnStore
 
 public enum WindowFunctions: FunctionFamily {
@@ -39,7 +40,7 @@ public enum WindowFunctions: FunctionFamily {
 
     private static func clauseStub(_ name: String) -> FunctionSpec.TableBody {
         return { _ throws(DAXError) -> TableValue in
-            throw DAXError(.runtime, "\(name) chỉ được dùng làm đối số bên trong OFFSET, INDEX hoặc WINDOW")
+            throw DAXError(.runtime, lt("\(name) chỉ được dùng làm đối số bên trong OFFSET, INDEX hoặc WINDOW", "\(name) can only be used as an argument inside OFFSET, INDEX or WINDOW"))
         }
     }
 
@@ -113,7 +114,7 @@ public enum WindowFunctions: FunctionFamily {
     private static func resolveWindow(_ frame: CallFrame, relationIndex: Int, clauseStart: Int) throws(DAXError) -> ResolvedWindow {
         let evaluator = try fkEvaluator(frame)
         guard let relExpr = fkArg(frame, relationIndex) else {
-            throw DAXError(.arity, "hàm cửa sổ cần đối số bảng relation")
+            throw DAXError(.arity, lt("hàm cửa sổ cần đối số bảng relation", "a window function needs a relation table argument"))
         }
         let source = try evaluator.table(relExpr, in: frame.ctx)
 

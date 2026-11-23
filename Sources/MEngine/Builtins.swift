@@ -1,6 +1,7 @@
 // Phase F (T049): giá trị dựng sẵn của ngôn ngữ (không thuộc thư viện hàm của gói F-MFUN): `#table`, `#date`, `#datetime`,
 // `#time`, `#duration` và hằng kiểu (`Int64.Type`, ...).
 
+import PBIXKit
 import ColumnStore
 
 enum MBuiltins {
@@ -41,7 +42,7 @@ enum MBuiltins {
     private static func ints(_ args: [MValue], _ names: [String]) throws -> [Double] {
         try zip(args, names).map { value, name in
             guard let n = MOperators.number(value), n.isFinite, abs(n) < 1e9, n == n.rounded() || name == "giây" else {
-                throw MError.expression("Giá trị \(name) phải là số")
+                throw MError.expression(lt("Giá trị \(name) phải là số", "The value \(name) must be a number"))
             }
             return n
         }
@@ -55,7 +56,7 @@ enum MBuiltins {
         switch args[0] {
         case .list(let items):
             for item in items {
-                guard case .text(let name) = item else { throw MError.expression("Tên cột của #table phải là text") }
+                guard case .text(let name) = item else { throw MError.expression(lt("Tên cột của #table phải là text", "Column names of #table must be text")) }
                 names.append(name)
                 types.append(nil)
             }
@@ -65,15 +66,15 @@ enum MBuiltins {
                 types.append(field.type)
             }
         default:
-            throw MError.unsupported("#table với tham số cột kiểu \(args[0].kindName)")
+            throw MError.unsupported(lt("#table với tham số cột kiểu \(args[0].kindName)", "#table with a column parameter of type \(args[0].kindName)"))
         }
-        guard case .list(let rowValues) = args[1] else { throw MError.expression("Các hàng của #table phải là danh sách") }
+        guard case .list(let rowValues) = args[1] else { throw MError.expression(lt("Các hàng của #table phải là danh sách", "The rows of #table must be a list")) }
         var rows: [[MValue]] = []
         for (index, row) in rowValues.enumerated() {
             if case .error(let e) = row { throw e }
-            guard case .list(let cells) = row else { throw MError.expression("Hàng \(index + 1) của #table phải là danh sách") }
+            guard case .list(let cells) = row else { throw MError.expression(lt("Hàng \(index + 1) của #table phải là danh sách", "Row \(index + 1) of #table must be a list")) }
             guard cells.count == names.count else {
-                throw MError.expression("Số cột của hàng \(index + 1) (\(cells.count)) khác số cột của bảng (\(names.count))")
+                throw MError.expression(lt("Số cột của hàng \(index + 1) (\(cells.count)) khác số cột của bảng (\(names.count))", "Row \(index + 1) has \(cells.count) columns but the table has \(names.count)"))
             }
             rows.append(cells)
         }
@@ -85,8 +86,8 @@ enum MBuiltins {
     ) { args in
         let v = try ints(args, ["năm", "tháng", "ngày"])
         guard let serial = MDates.serial(year: Int(v[0]), month: Int(v[1]), day: Int(v[2])) else {
-            if !(1...12).contains(Int(v[1])) { throw MError.expression("Giá trị tháng không hợp lệ: \(Int(v[1]))") }
-            throw MError.expression("Ngày không tồn tại: \(Int(v[0]))-\(Int(v[1]))-\(Int(v[2]))")
+            if !(1...12).contains(Int(v[1])) { throw MError.expression(lt("Giá trị tháng không hợp lệ: \(Int(v[1]))", "Invalid month value: \(Int(v[1]))")) }
+            throw MError.expression(lt("Ngày không tồn tại: \(Int(v[0]))-\(Int(v[1]))-\(Int(v[2]))", "The date doesn't exist: \(Int(v[0]))-\(Int(v[1]))-\(Int(v[2]))"))
         }
         return .date(serial)
     }
@@ -96,7 +97,7 @@ enum MBuiltins {
     ) { args in
         let v = try ints(args, ["năm", "tháng", "ngày", "giờ", "phút", "giây"])
         guard let serial = MDates.serial(year: Int(v[0]), month: Int(v[1]), day: Int(v[2])) else {
-            throw MError.expression("Giá trị tháng hoặc ngày không hợp lệ")
+            throw MError.expression(lt("Giá trị tháng hoặc ngày không hợp lệ", "Invalid month or day value"))
         }
         return .dateTime(serial + (v[3] * 3600 + v[4] * 60 + v[5]) / 86_400)
     }

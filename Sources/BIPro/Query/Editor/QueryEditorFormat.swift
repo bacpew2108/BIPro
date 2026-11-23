@@ -15,9 +15,9 @@ public enum QueryEditorFormat {
             return rows <= 999 ? "\(columns) columns · \(rows) rows" : "\(columns) columns · 999+ rows"
         }
         if rows <= 999 {
-            return "\(columns) cột · \(rows) dòng"
+            return biN("\(columns) cột · \(rows) dòng", "\(columns) columns · \(rows) rows")
         } else {
-            return "\(columns) cột · 999+ dòng"
+            return biN("\(columns) cột · 999+ dòng", "\(columns) columns · 999+ rows")
         }
     }
 
@@ -27,9 +27,9 @@ public enum QueryEditorFormat {
             return rowsProfiled >= 1000 ? "Based on top 1000 rows" : "Based on \(rowsProfiled) rows"
         }
         if rowsProfiled >= 1000 {
-            return "Dựa trên 1000 dòng đầu"
+            return biN("Dựa trên 1000 dòng đầu", "Based on the first 1000 rows")
         } else {
-            return "Dựa trên \(rowsProfiled) dòng"
+            return biN("Dựa trên \(rowsProfiled) dòng", "Based on \(rowsProfiled) rows")
         }
     }
 
@@ -41,7 +41,7 @@ public enum QueryEditorFormat {
         case .string:
             return "ABC"
         case .dateTime:
-            return "Ngày"
+            return biN("Ngày", "Date")
         case .boolean:
             return "T/F"
         }
@@ -50,7 +50,7 @@ public enum QueryEditorFormat {
     /// Nhãn kiểu có xét kiểu Power Query của nguồn (VM-F15): Time → "Giờ", Duration → "TG", Binary → "Bin".
     public static func typeBadge(_ type: DAXType, source: MSourceType?) -> String {
         switch source {
-        case .time: "Giờ"
+        case .time: biN("Giờ", "Time")
         case .duration: "TG"
         case .binary: "Bin"
         default: typeBadge(type)

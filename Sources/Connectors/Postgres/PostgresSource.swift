@@ -6,6 +6,7 @@
 // time → Time (giờ trong ngày, `sourceType` time); interval → Duration (ngày, tháng = 30 ngày); bytea → Binary (chữ hex, `sourceType` binary,
 // mô hình bỏ cột); mảng → chữ dạng PostgreSQL in ra (Text.Type). Kiểu khác báo "chưa hỗ trợ" kèm tên kiểu và tên cột.
 
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -120,7 +121,7 @@ public struct PostgresItem: SourceItem {
             defer { lookup?.close() }
             let typeName = (try? await lookup?.rows("select format_type(\(unsupported.typeOID), \(unsupported.typeModifier))").first?.first ?? nil)
                 ?? "oid \(unsupported.typeOID)"
-            throw SourceError.unsupported("kiểu PostgreSQL \"\(typeName)\" ở cột \"\(unsupported.name)\"")
+            throw SourceError.unsupported(lt("kiểu PostgreSQL \"\(typeName)\" ở cột \"\(unsupported.name)\"", "PostgreSQL type \"\(typeName)\" in column \"\(unsupported.name)\""))
         }
         progress?(1)
         return try builder.build()
@@ -183,17 +184,17 @@ struct PostgresTableBuilder {
             case .dateTime:
                 let value = text.flatMap { DateHelper.parseDateTime($0) }
                 if let text, value == nil {
-                    throw SourceError.unsupported("giá trị ngày \"\(text)\" ở cột \"\(column.field.name)\"")
+                    throw SourceError.unsupported(lt("giá trị ngày \"\(text)\" ở cột \"\(column.field.name)\"", "date value \"\(text)\" in column \"\(column.field.name)\""))
                 }
                 column.doubles.append(value)
             case .zonedDateTime:
                 let value = text.flatMap { Self.localDateTime($0, zone: .current) }.map(Self.centiseconds)
-                if let text, value == nil { throw SourceError.unsupported("giá trị ngày giờ \"\(text)\" ở cột \"\(column.field.name)\"") }
+                if let text, value == nil { throw SourceError.unsupported(lt("giá trị ngày giờ \"\(text)\" ở cột \"\(column.field.name)\"", "date/time value \"\(text)\" in column \"\(column.field.name)\"")) }
                 column.doubles.append(value)
             case .time: column.doubles.append(text.flatMap(Self.timeOfDay).map(Self.centiseconds))
             case .interval:
                 let value = text.flatMap(Self.intervalDays)
-                if let text, value == nil { throw SourceError.unsupported("khoảng thời gian \"\(text)\" ở cột \"\(column.field.name)\"") }
+                if let text, value == nil { throw SourceError.unsupported(lt("khoảng thời gian \"\(text)\" ở cột \"\(column.field.name)\"", "time interval \"\(text)\" in column \"\(column.field.name)\"")) }
                 column.doubles.append(value)
             case .binary, .text: column.strings.append(text)
             case .unsupported: break

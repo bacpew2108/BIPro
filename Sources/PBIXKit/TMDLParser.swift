@@ -9,7 +9,7 @@ public struct TMDLParseError: Error, Equatable, CustomStringConvertible {
     /// Dòng (đếm từ 1) trong tài liệu.
     public let line: Int
     public let message: String
-    public var description: String { "\(path) dòng \(line): \(message)" }
+    public var description: String { lt("\(path) dòng \(line): \(message)", "\(path) line \(line): \(message)") }
 }
 
 public struct TMDLIssue: Sendable, Hashable, CustomStringConvertible {
@@ -21,7 +21,7 @@ public struct TMDLIssue: Sendable, Hashable, CustomStringConvertible {
         self.line = line
         self.message = message
     }
-    public var description: String { line.map { "\(path) dòng \($0): \(message)" } ?? "\(path): \(message)" }
+    public var description: String { line.map { lt("\(path) dòng \($0): \(message)", "\(path) line \($0): \(message)") } ?? "\(path): \(message)" }
 }
 
 public struct TMDLApplyResult: Sendable {
@@ -117,7 +117,7 @@ public enum TMDLParser {
                 model.relationships += try parseRelationships(lines, path: doc.path)
             default:
                 guard ["model", "role", "cultureInfo", "ref", "expression", "perspective", "dataSource", "function"].contains(keyword) else {
-                    throw TMDLParseError(path: doc.path, line: first.number, message: "không nhận ra khối '\(first.text.prefix(30))' (cần table hoặc relationship)")
+                    throw TMDLParseError(path: doc.path, line: first.number, message: lt("không nhận ra khối '\(first.text.prefix(30))' (cần table hoặc relationship)", "unrecognized block '\(first.text.prefix(30))' (expected table or relationship)"))
                 }
                 model.otherDocuments[doc.path] = lines.map { String(repeating: "\t", count: $0.depth) + $0.text }.joined(separator: "\n")
             }
@@ -155,7 +155,7 @@ public enum TMDLParser {
                 }
                 name.append(chars[i]); i += 1
             }
-            throw TMDLParseError(path: path, line: line, message: "tên trong nháy đơn không đóng")
+            throw TMDLParseError(path: path, line: line, message: lt("tên trong nháy đơn không đóng", "unterminated single-quoted name"))
         }
         var name = "", i = 0
         while i < chars.count, !chars[i].isWhitespace, chars[i] != "=", !(stopAtDot && chars[i] == ".") { name.append(chars[i]); i += 1 }
@@ -178,9 +178,9 @@ public enum TMDLParser {
     }
 
     private static func parseTable(_ all: [Line], path: String) throws -> TMDLModel.Table {
-        guard let headerIndex = all.firstIndex(where: { !$0.text.hasPrefix("///") }) else { throw TMDLParseError(path: path, line: 1, message: "tài liệu rỗng") }
+        guard let headerIndex = all.firstIndex(where: { !$0.text.hasPrefix("///") }) else { throw TMDLParseError(path: path, line: 1, message: lt("tài liệu rỗng", "empty document")) }
         let header = all[headerIndex]
-        guard header.depth == 0 else { throw TMDLParseError(path: path, line: header.number, message: "thụt lề không đúng ở đầu khối") }
+        guard header.depth == 0 else { throw TMDLParseError(path: path, line: header.number, message: lt("thụt lề không đúng ở đầu khối", "incorrect indentation at the start of the block")) }
         let (name, _) = try readName(String(header.text.dropFirst("table".count)).trimmingCharacters(in: .whitespaces), path: path, line: header.number)
         var table = TMDLModel.Table(path: path, name: name, line: header.number)
         table.description = docComment(before: headerIndex, in: all)
@@ -190,7 +190,7 @@ public enum TMDLParser {
             let line = lines[i]
             if line.text.hasPrefix("///") { i += 1; continue }
             guard line.depth == 1 else {
-                throw TMDLParseError(path: path, line: line.number, message: "thụt lề không đúng (cần một cấp dưới table)")
+                throw TMDLParseError(path: path, line: line.number, message: lt("thụt lề không đúng (cần một cấp dưới table)", "incorrect indentation (one level below table expected)"))
             }
             let body = children(of: i, in: lines)
             let keyword = line.text.split(separator: " ", maxSplits: 1).first.map(String.init) ?? line.text
@@ -240,8 +240,8 @@ public enum TMDLParser {
     private static func parseMeasure(_ lines: [Line], at index: Int, body: Range<Int>, path: String) throws -> TMDLModel.Measure {
         let line = lines[index]
         let (name, rest) = try readName(String(line.text.dropFirst("measure".count)).trimmingCharacters(in: .whitespaces), path: path, line: line.number)
-        guard !name.isEmpty else { throw TMDLParseError(path: path, line: line.number, message: "measure thiếu tên") }
-        guard rest.hasPrefix("=") else { throw TMDLParseError(path: path, line: line.number, message: "thiếu dấu '=' và biểu thức sau tên measure \(name)") }
+        guard !name.isEmpty else { throw TMDLParseError(path: path, line: line.number, message: lt("measure thiếu tên", "measure has no name")) }
+        guard rest.hasPrefix("=") else { throw TMDLParseError(path: path, line: line.number, message: lt("thiếu dấu '=' và biểu thức sau tên measure \(name)", "missing '=' and expression after measure name \(name)")) }
         var measure = TMDLModel.Measure(name: name, expression: String(rest.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines), line: line.number)
         measure.description = docComment(before: index, in: lines)
         let multi = multilineExpression(lines, body: body, depth: line.depth)
@@ -263,7 +263,7 @@ public enum TMDLParser {
     private static func parseColumn(_ lines: [Line], at index: Int, body: Range<Int>, path: String) throws -> TMDLModel.Column {
         let line = lines[index]
         let (name, rest) = try readName(String(line.text.dropFirst("column".count)).trimmingCharacters(in: .whitespaces), path: path, line: line.number)
-        guard !name.isEmpty else { throw TMDLParseError(path: path, line: line.number, message: "column thiếu tên") }
+        guard !name.isEmpty else { throw TMDLParseError(path: path, line: line.number, message: lt("column thiếu tên", "column has no name")) }
         var column = TMDLModel.Column(name: name, line: line.number)
         column.description = docComment(before: index, in: lines)
         var multi: (text: String, consumed: Set<Int>) = ("", [])
@@ -272,7 +272,7 @@ public enum TMDLParser {
             multi = multilineExpression(lines, body: body, depth: line.depth)
             if column.expression?.isEmpty == true { column.expression = multi.text }
         } else if !rest.isEmpty {
-            throw TMDLParseError(path: path, line: line.number, message: "sau tên cột chỉ được có '=' và biểu thức")
+            throw TMDLParseError(path: path, line: line.number, message: lt("sau tên cột chỉ được có '=' và biểu thức", "only '=' and an expression may follow a column name"))
         }
         for k in body where !multi.consumed.contains(k) {
             let prop = lines[k]
@@ -301,7 +301,7 @@ public enum TMDLParser {
             let line = all[i]
             if line.text.hasPrefix("///") { i += 1; continue }
             guard line.depth == 0, line.text.hasPrefix("relationship") else {
-                throw TMDLParseError(path: path, line: line.number, message: "cần khối relationship")
+                throw TMDLParseError(path: path, line: line.number, message: lt("cần khối relationship", "a relationship block is required"))
             }
             let (name, _) = try readName(String(line.text.dropFirst("relationship".count)).trimmingCharacters(in: .whitespaces), path: path, line: line.number)
             var relationship = TMDLModel.Relationship(path: path, name: name, line: line.number)
@@ -329,9 +329,9 @@ public enum TMDLParser {
     /// `Bảng.Cột` với mỗi phần trần hoặc trong nháy đơn.
     private static func splitColumnRef(_ text: String, path: String, line: Int) throws -> (table: String, column: String) {
         let (table, rest) = try readName(text, path: path, line: line, stopAtDot: true)
-        guard rest.hasPrefix("."), !table.isEmpty else { throw TMDLParseError(path: path, line: line, message: "cần dạng Bảng.Cột") }
+        guard rest.hasPrefix("."), !table.isEmpty else { throw TMDLParseError(path: path, line: line, message: lt("cần dạng Bảng.Cột", "the form Table.Column is required")) }
         let (column, tail) = try readName(String(rest.dropFirst()), path: path, line: line, stopAtDot: true)
-        guard !column.isEmpty, tail.isEmpty else { throw TMDLParseError(path: path, line: line, message: "cần dạng Bảng.Cột") }
+        guard !column.isEmpty, tail.isEmpty else { throw TMDLParseError(path: path, line: line, message: lt("cần dạng Bảng.Cột", "the form Table.Column is required")) }
         return (table, column)
     }
 
@@ -362,14 +362,14 @@ public enum TMDLParser {
         func issue(_ path: String, _ line: Int?, _ message: String) { issues.append(TMDLIssue(path: path, line: line, message: message)) }
 
         for (path, text) in newModel.otherDocuments where oldModel.otherDocuments[path] != text {
-            issue(path, nil, "tài liệu này (model, vai trò, ngôn ngữ) chưa áp dụng được")
+            issue(path, nil, lt("tài liệu này (model, vai trò, ngôn ngữ) chưa áp dụng được", "this document (model, roles, cultures) can't be applied yet"))
         }
         let oldTables = Dictionary(oldModel.tables.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         let newTableNames = Set(newModel.tables.map(\.name))
-        for t in oldModel.tables where !newTableNames.contains(t.name) { issue(t.path, nil, "xoá bảng \(t.name) chưa được hỗ trợ") }
+        for t in oldModel.tables where !newTableNames.contains(t.name) { issue(t.path, nil, lt("xoá bảng \(t.name) chưa được hỗ trợ", "deleting table \(t.name) isn't supported yet")) }
         for table in newModel.tables {
             guard let before = oldTables[table.name] else {
-                issue(table.path, table.line, "bảng mới \(table.name) cần nguồn dữ liệu, hãy tạo qua Get Data hoặc Bảng mới")
+                issue(table.path, table.line, lt("bảng mới \(table.name) cần nguồn dữ liệu, hãy tạo qua Get Data hoặc Bảng mới", "the new table \(table.name) needs a data source; create it through Get Data or New table"))
                 continue
             }
             diffTable(before, table, edits: &edits, issue: issue)
@@ -383,7 +383,7 @@ public enum TMDLParser {
             guard let before = oldRel[r.name] else {
                 if r.fromCardinality == "one" { issue(r.path, r.line, "quan hệ một-một chưa được hỗ trợ") }
                 else if r.toCardinality == "many" { issue(r.path, r.line, "quan hệ nhiều-nhiều chưa được hỗ trợ") }
-                else if r.fromTable.isEmpty || r.toTable.isEmpty { issue(r.path, r.line, "quan hệ \(r.name) thiếu fromColumn hoặc toColumn") }
+                else if r.fromTable.isEmpty || r.toTable.isEmpty { issue(r.path, r.line, lt("quan hệ \(r.name) thiếu fromColumn hoặc toColumn", "relationship \(r.name) is missing fromColumn or toColumn")) }
                 else {
                     edits.append(.addRelationship(NewRelationship(name: r.name, fromTable: r.fromTable, fromColumn: r.fromColumn, toTable: r.toTable,
                                                                   toColumn: r.toColumn, fromMany: true, toMany: false, isActive: r.isActive,
@@ -392,12 +392,12 @@ public enum TMDLParser {
                 continue
             }
             if (before.fromTable, before.fromColumn, before.toTable, before.toColumn) != (r.fromTable, r.fromColumn, r.toTable, r.toColumn) {
-                issue(r.path, r.line, "đổi cột đầu quan hệ \(r.name) chưa được hỗ trợ (xoá rồi tạo quan hệ mới)")
+                issue(r.path, r.line, lt("đổi cột đầu quan hệ \(r.name) chưa được hỗ trợ (xoá rồi tạo quan hệ mới)", "changing the end columns of relationship \(r.name) isn't supported yet (delete it and create a new one)"))
             }
             if before.fromCardinality != r.fromCardinality || before.toCardinality != r.toCardinality {
-                issue(r.path, r.line, "đổi bản số quan hệ \(r.name) chưa được hỗ trợ")
+                issue(r.path, r.line, lt("đổi bản số quan hệ \(r.name) chưa được hỗ trợ", "changing the cardinality of relationship \(r.name) isn't supported yet"))
             }
-            if before.other != r.other { issue(r.path, r.line, "thuộc tính khác của quan hệ \(r.name) chưa được hỗ trợ") }
+            if before.other != r.other { issue(r.path, r.line, lt("thuộc tính khác của quan hệ \(r.name) chưa được hỗ trợ", "other properties of relationship \(r.name) aren't supported yet")) }
             var patch = RelationshipPatch()
             if before.isActive != r.isActive { patch.isActive = r.isActive }
             if before.crossFilteringBehavior != r.crossFilteringBehavior { patch.crossFilteringBehavior = r.crossFilteringBehavior }
@@ -413,12 +413,12 @@ public enum TMDLParser {
     private static func diffTable(_ old: TMDLModel.Table, _ new: TMDLModel.Table, edits: inout ModelEdits,
                                   issue: (String, Int?, String) -> Void) {
         if old.isHidden != new.isHidden { edits.append(.updateTable(name: new.name, patch: TablePatch(isHidden: new.isHidden))) }
-        if old.other != new.other { issue(new.path, new.line, "thuộc tính của bảng \(new.name) (ví dụ lineageTag) chưa sửa được") }
-        if old.description != new.description { issue(new.path, new.line, "mô tả bảng \(new.name) chưa sửa được") }
+        if old.other != new.other { issue(new.path, new.line, lt("thuộc tính của bảng \(new.name) (ví dụ lineageTag) chưa sửa được", "properties of table \(new.name) (for example lineageTag) can't be edited yet")) }
+        if old.description != new.description { issue(new.path, new.line, lt("mô tả bảng \(new.name) chưa sửa được", "the description of table \(new.name) can't be edited yet")) }
         if old.opaque != new.opaque {
             let kind = new.opaque.first(where: { !old.opaque.contains($0) }) ?? old.opaque.first(where: { !new.opaque.contains($0) }) ?? ""
-            let word = kind.split(separator: " ").first.map(String.init) ?? "khối"
-            issue(new.path, nil, "\(word) của bảng \(new.name) đã đổi nhưng chưa áp dụng được (partition, hierarchy chưa sửa được)")
+            let word = kind.split(separator: " ").first.map(String.init) ?? lt("khối", "block")
+            issue(new.path, nil, lt("\(word) của bảng \(new.name) đã đổi nhưng chưa áp dụng được (partition, hierarchy chưa sửa được)", "\(word) of table \(new.name) changed but can't be applied yet (partitions and hierarchies can't be edited yet)"))
         }
         // Measure
         let oldM = Dictionary(old.measures.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
@@ -431,7 +431,7 @@ public enum TMDLParser {
                                                     displayFolder: m.displayFolder, description: m.description, isHidden: m.isHidden)))
                 continue
             }
-            if before.other != m.other { issue(new.path, m.line, "thuộc tính khác của measure \(m.name) (ví dụ lineageTag) chưa sửa được") }
+            if before.other != m.other { issue(new.path, m.line, lt("thuộc tính khác của measure \(m.name) (ví dụ lineageTag) chưa sửa được", "other properties of measure \(m.name) (for example lineageTag) can't be edited yet")) }
             var patch = MeasurePatch()
             if before.expression != m.expression { patch.expression = m.expression }
             patch.formatString = assign(before.formatString, m.formatString)
@@ -443,13 +443,13 @@ public enum TMDLParser {
         // Cột
         let oldC = Dictionary(old.columns.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         let newCNames = Set(new.columns.map(\.name))
-        for c in old.columns where !newCNames.contains(c.name) { issue(new.path, nil, "xoá cột \(c.name) chưa được hỗ trợ") }
+        for c in old.columns where !newCNames.contains(c.name) { issue(new.path, nil, lt("xoá cột \(c.name) chưa được hỗ trợ", "deleting column \(c.name) isn't supported yet")) }
         for c in new.columns {
-            guard let before = oldC[c.name] else { issue(new.path, c.line, "cột mới \(c.name) cần dữ liệu, hãy tạo qua Power Query hoặc Cột mới"); continue }
-            if before.dataType != c.dataType { issue(new.path, c.line, "đổi kiểu dữ liệu của cột \(c.name) chưa được hỗ trợ") }
-            if before.expression != c.expression { issue(new.path, c.line, "cột tính toán \(c.name) chỉ xem, chưa sửa được công thức") }
-            if before.isKey != c.isKey || before.sourceColumn != c.sourceColumn { issue(new.path, c.line, "isKey và sourceColumn của cột \(c.name) chưa sửa được") }
-            if before.other != c.other { issue(new.path, c.line, "thuộc tính khác của cột \(c.name) (ví dụ lineageTag) chưa sửa được") }
+            guard let before = oldC[c.name] else { issue(new.path, c.line, lt("cột mới \(c.name) cần dữ liệu, hãy tạo qua Power Query hoặc Cột mới", "the new column \(c.name) needs data; create it through Power Query or New column")); continue }
+            if before.dataType != c.dataType { issue(new.path, c.line, lt("đổi kiểu dữ liệu của cột \(c.name) chưa được hỗ trợ", "changing the data type of column \(c.name) isn't supported yet")) }
+            if before.expression != c.expression { issue(new.path, c.line, lt("cột tính toán \(c.name) chỉ xem, chưa sửa được công thức", "calculated column \(c.name) is read-only; its formula can't be edited yet")) }
+            if before.isKey != c.isKey || before.sourceColumn != c.sourceColumn { issue(new.path, c.line, lt("isKey và sourceColumn của cột \(c.name) chưa sửa được", "isKey and sourceColumn of column \(c.name) can't be edited yet")) }
+            if before.other != c.other { issue(new.path, c.line, lt("thuộc tính khác của cột \(c.name) (ví dụ lineageTag) chưa sửa được", "other properties of column \(c.name) (for example lineageTag) can't be edited yet")) }
             var patch = ColumnPatch()
             if before.isHidden != c.isHidden { patch.isHidden = c.isHidden }
             patch.formatString = assign(before.formatString, c.formatString)
@@ -459,7 +459,7 @@ public enum TMDLParser {
             patch.sortBy = assign(before.sortByColumn, c.sortByColumn)
             if before.summarizeBy != c.summarizeBy {
                 if let name = c.summarizeBy, let code = summarizeCode(name) { patch.summarizeBy = code }
-                else { issue(new.path, c.line, "summarizeBy của cột \(c.name) không hợp lệ") }
+                else { issue(new.path, c.line, lt("summarizeBy của cột \(c.name) không hợp lệ", "summarizeBy of column \(c.name) isn't valid")) }
             }
             if patch != ColumnPatch() { edits.append(.updateColumn(table: new.name, name: c.name, patch: patch)) }
         }

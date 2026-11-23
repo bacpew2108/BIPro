@@ -33,15 +33,15 @@ enum SourceFunctions {
     static let odbcDataSource = MFunction(
         name: "Odbc.DataSource", parameters: [MParameter(name: "connectionString"), MParameter(name: "options", isOptional: true)], observed: true
     ) { args in
-        guard case .text(let connection) = args[0] else { throw MError.expression("Odbc.DataSource: chuỗi kết nối phải là text") }
+        guard case .text(let connection) = args[0] else { throw MError.expression(biN("Odbc.DataSource: chuỗi kết nối phải là text", "Odbc.DataSource: the connection string must be text")) }
         let properties = SQLiteODBC.properties(connection)
-        let driver = properties["driver"] ?? (properties["dsn"].map { "DSN \($0)" } ?? "không rõ")
+        let driver = properties["driver"] ?? (properties["dsn"].map { "DSN \($0)" } ?? biN("không rõ", "unknown"))
         let unsupported = MError(reason: "DataSource.Error",
-                                 message: "Chưa hỗ trợ ODBC driver \(driver): BI Pro chỉ đọc được tệp SQLite qua chuỗi kết nối có Database=đường_dẫn.")
+                                 message: biN("Chưa hỗ trợ ODBC driver \(driver): BI Pro chỉ đọc được tệp SQLite qua chuỗi kết nối có Database=đường_dẫn.", "The ODBC driver \(driver) isn't supported: BI Pro can only read SQLite files through a connection string with Database=path."))
         guard let path = properties["database"] ?? properties["data source"] else { throw unsupported }
         guard FileManager.default.fileExists(atPath: path) else {
             throw MError(reason: "DataSource.Error",
-                         message: "Không tìm thấy tệp SQLite \"\(path)\". Tệp có thể đã bị xoá, đổi tên hoặc nằm trên máy khác.", detail: path)
+                         message: biN("Không tìm thấy tệp SQLite \"\(path)\". Tệp có thể đã bị xoá, đổi tên hoặc nằm trên máy khác.", "Couldn't find the SQLite file \"\(path)\". It may have been deleted, renamed, or be on another machine."), detail: path)
         }
         // T044: tên driver tuỳ máy (Devart, SQLite3 ODBC Driver…); BI Pro đọc thẳng tệp nên chỉ cần tệp là SQLite thật.
         guard SQLiteODBC.isSQLiteFile(path) else { throw unsupported }
@@ -83,12 +83,12 @@ enum SourceFunctions {
                   parameters: [MParameter(name: "server"), MParameter(name: "database"), MParameter(name: "options", isOptional: true)],
                   observed: true) { args in
             guard case .text(let server) = args[0], case .text(let database) = args[1] else {
-                throw MError.expression("PostgreSQL.Database: máy chủ và cơ sở dữ liệu phải là text")
+                throw MError.expression(biN("PostgreSQL.Database: máy chủ và cơ sở dữ liệu phải là text", "PostgreSQL.Database: the server and database must be text"))
             }
             let address = PostgresAddress(server: server, database: database)
             guard let credential = credentials.credential(for: address.server) else {
                 throw MError(reason: "DataSource.Error",
-                             message: "Cần thông tin đăng nhập để kết nối tới máy chủ PostgreSQL \(address.server). Hãy mở Get Data ▸ PostgreSQL để nhập.")
+                             message: biN("Cần thông tin đăng nhập để kết nối tới máy chủ PostgreSQL \(address.server). Hãy mở Get Data ▸ PostgreSQL để nhập.", "Credentials are required to connect to the PostgreSQL server \(address.server). Open Get Data ▸ PostgreSQL to enter them."))
             }
             var query: String?
             if case .record(let fields) = args[2], case .text(let sql)? = fields.first(where: { $0.name == "Query" })?.value { query = sql }
@@ -125,14 +125,14 @@ enum SourceFunctions {
                      MParameter(name: "options", isOptional: true)],
         observed: true
     ) { args in
-        guard case .text(let sql) = args[1] else { throw MError.expression("Value.NativeQuery: câu truy vấn phải là text") }
+        guard case .text(let sql) = args[1] else { throw MError.expression(biN("Value.NativeQuery: câu truy vấn phải là text", "Value.NativeQuery: the query must be text")) }
         if case .null = args[2] {} else if case .record(let fields) = args[2], fields.isEmpty {} else {
-            throw MError(reason: "Expression.Error", message: "Value.NativeQuery: chưa hỗ trợ tham số câu lệnh")
+            throw MError(reason: "Expression.Error", message: biN("Value.NativeQuery: chưa hỗ trợ tham số câu lệnh", "Value.NativeQuery: statement parameters aren't supported yet"))
         }
         guard case .table(let navigation) = args[0], let dataColumn = navigation.index(ofColumn: "Data"),
               let target = navigation.structured[dataColumn]?.values.lazy.compactMap({ ($0 as? MDeferred)?.tag as? PostgresTarget }).first
         else {
-            throw MError(reason: "Expression.Error", message: "Value.NativeQuery: chỉ chạy được trên kết quả của PostgreSQL.Database (có ít nhất một bảng)")
+            throw MError(reason: "Expression.Error", message: biN("Value.NativeQuery: chỉ chạy được trên kết quả của PostgreSQL.Database (có ít nhất một bảng)", "Value.NativeQuery: only works on the result of PostgreSQL.Database (with at least one table)"))
         }
         return try runQuery(target, sql: sql)
     }
@@ -149,10 +149,10 @@ enum SourceFunctions {
     // MARK: File.Contents
 
     static let fileContents = MFunction(name: "File.Contents", parameters: [MParameter(name: "path"), MParameter(name: "options", isOptional: true)], observed: false) { args in
-        guard case .text(let path) = args[0] else { throw MError.expression("File.Contents: đường dẫn phải là text") }
+        guard case .text(let path) = args[0] else { throw MError.expression(biN("File.Contents: đường dẫn phải là text", "File.Contents: the path must be text")) }
         guard FileManager.default.fileExists(atPath: path) else {
             throw MError(reason: "DataSource.Error",
-                         message: "Không tìm thấy tệp nguồn \"\(path)\". Tệp có thể đã bị xoá, đổi tên hoặc nằm trên máy khác.", detail: path)
+                         message: biN("Không tìm thấy tệp nguồn \"\(path)\". Tệp có thể đã bị xoá, đổi tên hoặc nằm trên máy khác.", "Couldn't find the source file \"\(path)\". It may have been deleted, renamed, or be on another machine."), detail: path)
         }
         return .text(path)
     }
@@ -160,7 +160,7 @@ enum SourceFunctions {
     // MARK: Csv.Document
 
     static let csvDocument = MFunction(name: "Csv.Document", parameters: [MParameter(name: "source"), MParameter(name: "options", isOptional: true)], observed: false) { args in
-        guard case .text(let path) = args[0] else { throw MError.expression("Csv.Document: nguồn phải là kết quả của File.Contents") }
+        guard case .text(let path) = args[0] else { throw MError.expression(biN("Csv.Document: nguồn phải là kết quả của File.Contents", "Csv.Document: the source must be the result of File.Contents")) }
         var delimiter: Character?
         var encoding: String.Encoding?
         if case .record(let fields) = args[1] {
@@ -203,12 +203,12 @@ enum SourceFunctions {
     ) { args in
         // Enter Data (T028): `Json.Document(Binary.Decompress(…))` truyền nhị phân.
         if case .binary(let data) = args[0] { return try MJson.parse(data) }
-        guard case .text(let text) = args[0] else { throw MError.expression("Json.Document: nguồn phải là kết quả của File.Contents hoặc text") }
+        guard case .text(let text) = args[0] else { throw MError.expression(biN("Json.Document: nguồn phải là kết quả của File.Contents hoặc text", "Json.Document: the source must be the result of File.Contents or text")) }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.hasPrefix("{"), !trimmed.hasPrefix("["), FileManager.default.fileExists(atPath: text) {
             let data: Data
             do { data = try Data(contentsOf: URL(fileURLWithPath: text)) } catch {
-                throw MError(reason: "DataSource.Error", message: "Không đọc được tệp \"\(text)\".", detail: text)
+                throw MError(reason: "DataSource.Error", message: biN("Không đọc được tệp \"\(text)\".", "Couldn't read the file \"\(text)\"."), detail: text)
             }
             return try MJson.parse(data)
         }
@@ -222,7 +222,7 @@ enum SourceFunctions {
     static let parquetDocument = MFunction(
         name: "Parquet.Document", parameters: [MParameter(name: "binary"), MParameter(name: "options", isOptional: true)], observed: true
     ) { args in
-        guard case .text(let path) = args[0] else { throw MError.expression("Parquet.Document: nguồn phải là kết quả của File.Contents") }
+        guard case .text(let path) = args[0] else { throw MError.expression(biN("Parquet.Document: nguồn phải là kết quả của File.Contents", "Parquet.Document: the source must be the result of File.Contents")) }
         let table = try blocking {
             try ParquetFile(url: URL(fileURLWithPath: path)).read(rowLimit: nil, progress: nil)
         }
@@ -259,7 +259,7 @@ enum SourceFunctions {
         name: "Excel.Workbook", parameters: [MParameter(name: "workbook"), MParameter(name: "useHeaders", isOptional: true), MParameter(name: "delayTypes", isOptional: true)],
         observed: false
     ) { args in
-        guard case .text(let path) = args[0] else { throw MError.expression("Excel.Workbook: nguồn phải là kết quả của File.Contents") }
+        guard case .text(let path) = args[0] else { throw MError.expression(biN("Excel.Workbook: nguồn phải là kết quả của File.Contents", "Excel.Workbook: the source must be the result of File.Contents")) }
         let useHeaders: Bool
         if case .logical(let flag) = args[1] { useHeaders = flag } else { useHeaders = false }
         let loaded: [(name: String, kind: String, data: TableData)] = try blocking {
@@ -315,8 +315,8 @@ enum SourceFunctions {
     private static func message(for error: SourceError) -> String {
         switch error {
         case .unreadable(let text), .encoding(let text), .unsupported(let text), .authentication(let text), .insecureConnection(let text): text
-        case .empty: "Nguồn không có dữ liệu."
-        case .cancelled: "Đã huỷ."
+        case .empty: biN("Nguồn không có dữ liệu.", "The source has no data.")
+        case .cancelled: biN("Đã huỷ.", "Cancelled.")
         }
     }
 }

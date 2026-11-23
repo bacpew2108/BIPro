@@ -34,7 +34,7 @@ extension DocumentState {
             if let blocker = autoDateTimeBlocker { return blocker }
             guard let model = workspace.metadata else { return biN("File không có mô hình dữ liệu.", "The file has no data model.") }
             if !options.autoDateTime, let users = variationUsers.nilIfEmpty {
-                return "Chưa tắt được Tự động ngày/giờ: visual vẫn dùng phân cấp ngày (\(users.joined(separator: ", "))). "
+                return biN("Chưa tắt được Tự động ngày/giờ: visual vẫn dùng phân cấp ngày (\(users.joined(separator: ", "))). ", "Can't turn off Auto date/time yet: visuals still use the date hierarchy (\(users.joined(separator: ", "))). ")
                     + biN("Bỏ phân cấp ngày khỏi các visual đó rồi tắt lại.", "Remove the date hierarchy from those visuals, then turn it off again.")
             }
             if let refusal = modelEditor.apply(AutoDateTime.toggle(enabled: options.autoDateTime, model: model)) { return refusal }

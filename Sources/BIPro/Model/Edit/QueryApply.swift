@@ -40,7 +40,7 @@ extension QueryEditorState {
             guard query.isModified || query.savedQueryName != nil else { continue }
             let data: TableData
             do { data = try await evaluateFull(query) } catch {
-                return "Truy vấn \"\(query.name)\" lỗi: \(message(for: error, in: query))"
+                return biN("Truy vấn \"\(query.name)\" lỗi: \(message(for: error, in: query))", "Query \"\(query.name)\" has an error: \(message(for: error, in: query))")
             }
             let name = query.loadedTableName ?? TableNaming.uniqueName(query.name, taken: taken)
             taken.insert(name)

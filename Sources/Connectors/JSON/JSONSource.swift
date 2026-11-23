@@ -1,3 +1,4 @@
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -11,7 +12,7 @@ public struct JSONSource: DataSource {
 
     public func items() async throws -> [any SourceItem] {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SourceError.unreadable("File không tồn tại: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("File không tồn tại: \(url.lastPathComponent)", "The file doesn't exist: \(url.lastPathComponent)"))
         }
         let name = url.deletingPathExtension().lastPathComponent
         return [JSONItem(name: name, url: url)]
@@ -42,7 +43,7 @@ private struct JSONItem: SourceItem, Sendable {
         do {
             data = try Data(contentsOf: url)
         } catch {
-            throw SourceError.unreadable("Không thể đọc file: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể đọc file: \(url.lastPathComponent)", "Couldn't read the file: \(url.lastPathComponent)"))
         }
 
         if data.isEmpty {
@@ -53,7 +54,7 @@ private struct JSONItem: SourceItem, Sendable {
         do {
             jsonObject = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
         } catch {
-            throw SourceError.unreadable("JSON không hợp lệ: \(error.localizedDescription)")
+            throw SourceError.unreadable(lt("JSON không hợp lệ: \(error.localizedDescription)", "Invalid JSON: \(error.localizedDescription)"))
         }
 
         if Task.isCancelled { throw SourceError.cancelled }
@@ -70,7 +71,7 @@ private struct JSONItem: SourceItem, Sendable {
         } else if let primitives = jsonObject as? [Any] {
             table = try buildTableFromPrimitives(primitives: primitives)
         } else {
-            throw SourceError.unreadable("Cấu trúc JSON gốc không được hỗ trợ")
+            throw SourceError.unreadable(lt("Cấu trúc JSON gốc không được hỗ trợ", "The root JSON structure isn't supported"))
         }
 
         progress?(1.0)

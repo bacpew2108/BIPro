@@ -530,7 +530,7 @@ struct RibbonItemView: View {
         }
         if item.id == .sqlServer {
             return bi(
-                "SQL Server (BI Pro hỗ trợ kết nối PostgreSQL và SQLite)",
+                biN("SQL Server (BI Pro hỗ trợ kết nối PostgreSQL và SQLite)", "SQL Server (BI Pro supports PostgreSQL and SQLite connections)"),
                 "SQL Server (BI Pro supports PostgreSQL and SQLite connections)"
             )
         }

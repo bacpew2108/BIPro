@@ -70,7 +70,7 @@ enum QueryRunner {
     static func execute(_ text: String, workspace: Workspace) async -> Result<QueryResult, DAXError> {
         do {
             let engine = try await Task.detached(priority: .userInitiated) { try workspace.daxEngine() }.value
-            if Task.isCancelled { return .failure(DAXError(.cancelled, "Đã huỷ")) }
+            if Task.isCancelled { return .failure(DAXError(.cancelled, biN("Đã huỷ", "Cancelled"))) }
             return .success(try await engine.execute(text))
         } catch let error as DAXError {
             return .failure(error)

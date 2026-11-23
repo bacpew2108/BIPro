@@ -49,7 +49,7 @@ public enum DiagramLayoutPatch {
         guard tabs != nil || !moves.isEmpty || !zoom.isEmpty || !removals.isEmpty else { return data }
         let hasBOM = data.count >= 2 && data[data.startIndex] == 0xFF && data[data.startIndex + 1] == 0xFE
         guard var text = String(data: hasBOM ? data.dropFirst(2) : data, encoding: .utf16LittleEndian) else {
-            throw WriteError.invalid("DiagramLayout không phải UTF-16LE")
+            throw WriteError.invalid(lt("DiagramLayout không phải UTF-16LE", "DiagramLayout isn't UTF-16LE"))
         }
         if let tabs { text = try restructure(text, tabs: tabs, selected: selected) }
         if !removals.isEmpty { text = try remove(removals, from: text) }
@@ -63,7 +63,7 @@ public enum DiagramLayoutPatch {
         var starts: [String.Index] = []
         var cursor = text.startIndex
         while let found = text.range(of: marker, range: cursor..<text.endIndex) { starts.append(found.lowerBound); cursor = found.upperBound }
-        guard !starts.isEmpty else { throw WriteError.invalid("DiagramLayout không có tab nào") }
+        guard !starts.isEmpty else { throw WriteError.invalid(lt("DiagramLayout không có tab nào", "DiagramLayout has no tabs")) }
         func name(of start: String.Index, end: String.Index) -> String? {
             guard let key = text.range(of: #""name":""#, range: start..<end) else { return nil }
             return stringLiteral(in: text, from: key.upperBound)?.value
@@ -84,7 +84,7 @@ public enum DiagramLayoutPatch {
             }
             text.replaceSubrange(start..<end, with: segment)
         }
-        if let missing = diagrams.subtracting(handled).first { throw WriteError.invalid("DiagramLayout không có tab \(missing)") }
+        if let missing = diagrams.subtracting(handled).first { throw WriteError.invalid(lt("DiagramLayout không có tab \(missing)", "DiagramLayout has no tab \(missing)")) }
         var out = hasBOM ? Data([0xFF, 0xFE]) : Data()
         out.append(text.data(using: .utf16LittleEndian)!)
         return out
@@ -100,7 +100,7 @@ public enum DiagramLayoutPatch {
             // `{"location":{"x":…,"y":…},"nodeIndex":"…"`: tìm `"location":{` ngay trước nút.
             guard let locationKey = segment.range(of: #""location":{"#, options: .backwards, range: segment.startIndex..<found.lowerBound),
                   let close = segment.range(of: "}", range: locationKey.upperBound..<found.lowerBound) else {
-                throw WriteError.invalid("nút \(move.table) trong DiagramLayout có dạng lạ")
+                throw WriteError.invalid(lt("nút \(move.table) trong DiagramLayout có dạng lạ", "node \(move.table) in DiagramLayout has an unexpected shape"))
             }
             var out = segment
             out.replaceSubrange(locationKey.upperBound..<close.lowerBound, with: #""x":\#(number(move.x)),"y":\#(number(move.y))"#)
@@ -108,7 +108,7 @@ public enum DiagramLayoutPatch {
         }
         // Thẻ chưa có nút: thêm nút cỡ mặc định cuối mảng `nodes` của tab này.
         guard let nodesEnd = segment.range(of: #"],"name":""#) ?? segment.range(of: "]", options: .backwards) else {
-            throw WriteError.invalid("DiagramLayout không có mảng nút")
+            throw WriteError.invalid(lt("DiagramLayout không có mảng nút", "DiagramLayout has no node array"))
         }
         let tag = lineageTag(move.table).map { #","nodeLineageTag":"\#($0)""# } ?? ""
         let entry = #"{"location":{"x":\#(number(move.x)),"y":\#(number(move.y))},"nodeIndex":"\#(move.table)"\#(tag),"size":{"height":300,"width":234},"zIndex":0}"#
@@ -119,10 +119,10 @@ public enum DiagramLayoutPatch {
     }
 
     private static func setZoom(_ percent: Double, in segment: String) throws -> String {
-        guard let key = segment.range(of: #""zoomValue":"#) else { throw WriteError.invalid("tab không có zoomValue") }
+        guard let key = segment.range(of: #""zoomValue":"#) else { throw WriteError.invalid(lt("tab không có zoomValue", "the tab has no zoomValue")) }
         let rest = segment[key.upperBound...]
         let length = rest.prefix { "0123456789.-eE+".contains($0) }.count
-        guard length > 0 else { throw WriteError.invalid("zoomValue lạ") }
+        guard length > 0 else { throw WriteError.invalid(lt("zoomValue lạ", "unexpected zoomValue")) }
         var out = segment
         let end = segment.index(key.upperBound, offsetBy: length)
         out.replaceSubrange(key.upperBound..<end, with: number(percent))
@@ -166,7 +166,7 @@ public enum DiagramLayoutPatch {
 
     /// Phạm vi chính xác của từng phần tử trong mảng `diagrams` (quét ngoặc nhọn, bỏ qua chuỗi).
     private static func diagramRanges(in text: String) throws -> [Range<String.Index>] {
-        guard let key = text.range(of: #""diagrams":["#) else { throw WriteError.invalid("DiagramLayout không có mảng diagrams") }
+        guard let key = text.range(of: #""diagrams":["#) else { throw WriteError.invalid(lt("DiagramLayout không có mảng diagrams", "DiagramLayout has no diagrams array")) }
         var ranges: [Range<String.Index>] = []
         var index = key.upperBound
         var depth = 0
@@ -189,18 +189,18 @@ public enum DiagramLayoutPatch {
             }
             index = text.index(after: index)
         }
-        throw WriteError.invalid("DiagramLayout: mảng diagrams không đóng")
+        throw WriteError.invalid(lt("DiagramLayout: mảng diagrams không đóng", "DiagramLayout: the diagrams array isn't closed"))
     }
 
     private static func restructure(_ text: String, tabs: [Tab], selected: String?) throws -> String {
         let ranges = try diagramRanges(in: text)
-        guard let first = ranges.first, let last = ranges.last else { throw WriteError.invalid("DiagramLayout không có tab nào") }
+        guard let first = ranges.first, let last = ranges.last else { throw WriteError.invalid(lt("DiagramLayout không có tab nào", "DiagramLayout has no tabs")) }
         var names: [String] = []
         var segments: [String] = []
         for range in ranges {
             let segment = String(text[range])
             guard let key = segment.range(of: #""name":""#), let literal = stringLiteral(in: segment, from: key.upperBound) else {
-                throw WriteError.invalid("tab trong DiagramLayout không có tên")
+                throw WriteError.invalid(lt("tab trong DiagramLayout không có tên", "a tab in DiagramLayout has no name"))
             }
             names.append(literal.value)
             segments.append(segment)
@@ -210,7 +210,7 @@ public enum DiagramLayoutPatch {
         for tab in tabs {
             guard let source = tab.source else { continue }
             guard source >= 0, source < segments.count, sources.insert(source).inserted else {
-                throw WriteError.invalid("tab \(tab.name) trỏ tới tab nguồn không hợp lệ")
+                throw WriteError.invalid(lt("tab \(tab.name) trỏ tới tab nguồn không hợp lệ", "tab \(tab.name) points to an invalid source tab"))
             }
         }
         var renamed: [String: String] = [:]
@@ -251,9 +251,9 @@ public enum DiagramLayoutPatch {
     /// Đặt lại `"ordinal":N` ở đầu tab.
     private static func setOrdinal(_ value: Int, in segment: String) throws -> String {
         let marker = #"{"ordinal":"#
-        guard segment.hasPrefix(marker) else { throw WriteError.invalid("tab trong DiagramLayout không bắt đầu bằng ordinal") }
+        guard segment.hasPrefix(marker) else { throw WriteError.invalid(lt("tab trong DiagramLayout không bắt đầu bằng ordinal", "a tab in DiagramLayout doesn't start with an ordinal")) }
         let digits = segment.dropFirst(marker.count).prefix { $0.isNumber }
-        guard !digits.isEmpty else { throw WriteError.invalid("ordinal lạ") }
+        guard !digits.isEmpty else { throw WriteError.invalid(lt("ordinal lạ", "unexpected ordinal")) }
         guard String(digits) != String(value) else { return segment }
         return marker + String(value) + segment.dropFirst(marker.count + digits.count)
     }
@@ -308,6 +308,6 @@ public enum DiagramLayoutPatch {
             }
             index = text.index(after: index)
         }
-        throw WriteError.invalid("DiagramLayout: mảng nút không đóng")
+        throw WriteError.invalid(lt("DiagramLayout: mảng nút không đóng", "DiagramLayout: the node array isn't closed"))
     }
 }

@@ -234,10 +234,10 @@ public final class QueryEditorState {
     /// Thêm bước cho lệnh Ribbon ngay sau bước đang chọn. Bước đang chọn không phải bước cuối thì cần `confirmInsert` (hộp "Insert Step").
     @discardableResult
     public func perform(_ command: StepCommand, confirmInsert: Bool = false) -> StepCommandOutcome {
-        guard let queryIndex = selectedQueryIndex, let index = selectedStepIndex else { return .rejected("Chưa có truy vấn nào được chọn.") }
+        guard let queryIndex = selectedQueryIndex, let index = selectedStepIndex else { return .rejected(biN("Chưa có truy vấn nào được chọn.", "No query is selected.")) }
         var query = queries[queryIndex]
         if index < query.lockedStepCount - 1 {
-            return .rejected("Bước nguồn do BI Pro tạo (\(query.lockedStepCount) bước đầu): chỉ thêm bước sau bước \"\(query.steps[query.lockedStepCount - 1].name)\".")
+            return .rejected(biN("Bước nguồn do BI Pro tạo (\(query.lockedStepCount) bước đầu): chỉ thêm bước sau bước \"\(query.steps[query.lockedStepCount - 1].name)\".", "The source steps were created by BI Pro (first \(query.lockedStepCount) steps): you can only add steps after step \"\(query.steps[query.lockedStepCount - 1].name)\"."))
         }
         if index < query.steps.count - 1, !confirmInsert { return .needsInsertConfirmation }
         var mquery = query.mquery
@@ -255,10 +255,10 @@ public final class QueryEditorState {
     /// Xoá bước. Từ chối với bước khoá. Bước đứng sau trỏ vào bước bị xoá được nối về bước đứng trước ([SUY ĐOÁN], xem `MQuery.removeStep`).
     @discardableResult
     public func deleteStep(at index: Int) -> String? {
-        guard let queryIndex = selectedQueryIndex, queries[queryIndex].steps.indices.contains(index) else { return "Không có bước này." }
+        guard let queryIndex = selectedQueryIndex, queries[queryIndex].steps.indices.contains(index) else { return biN("Không có bước này.", "There is no such step.") }
         let query = queries[queryIndex]
         if let reason = lockedReason(query, index) { return reason }
-        if query.steps.count == 1 { return "Truy vấn phải có ít nhất một bước." }
+        if query.steps.count == 1 { return biN("Truy vấn phải có ít nhất một bước.", "A query must have at least one step.") }
         var mquery = query.mquery
         mquery.removeStep(at: index)
         commit(reshaped(query, from: mquery), at: queryIndex, select: min(index, mquery.steps.count - 1))
@@ -268,12 +268,12 @@ public final class QueryEditorState {
     /// Đổi tên bước (và các tham chiếu ở bước sau). Tên rỗng hoặc trùng bị từ chối.
     @discardableResult
     public func renameStep(at index: Int, to newName: String) -> String? {
-        guard let queryIndex = selectedQueryIndex, queries[queryIndex].steps.indices.contains(index) else { return "Không có bước này." }
+        guard let queryIndex = selectedQueryIndex, queries[queryIndex].steps.indices.contains(index) else { return biN("Không có bước này.", "There is no such step.") }
         let query = queries[queryIndex]
         if let reason = lockedReason(query, index) { return reason }
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty { return "Tên bước không được để trống." }
-        if query.steps.enumerated().contains(where: { $0.offset != index && $0.element.name == name }) { return "Đã có bước tên \"\(name)\"." }
+        if name.isEmpty { return biN("Tên bước không được để trống.", "The step name can't be empty.") }
+        if query.steps.enumerated().contains(where: { $0.offset != index && $0.element.name == name }) { return biN("Đã có bước tên \"\(name)\".", "A step named \"\(name)\" already exists.") }
         var mquery = query.mquery
         mquery.renameStep(at: index, to: name)
         commit(reshaped(query, from: mquery, keepingIDsByIndex: true), at: queryIndex, select: index)
@@ -283,14 +283,14 @@ public final class QueryEditorState {
     /// Sửa biểu thức M của bước (thanh công thức). Lỗi cú pháp bị từ chối kèm dòng và cột.
     @discardableResult
     public func setExpression(at index: Int, _ expression: String) -> String? {
-        guard let queryIndex = selectedQueryIndex, queries[queryIndex].steps.indices.contains(index) else { return "Không có bước này." }
+        guard let queryIndex = selectedQueryIndex, queries[queryIndex].steps.indices.contains(index) else { return biN("Không có bước này.", "There is no such step.") }
         var query = queries[queryIndex]
         if let reason = lockedReason(query, index) { return reason }
         let text = expression.trimmingCharacters(in: .whitespacesAndNewlines)
         // Thanh công thức gửi lại khi mất tiêu điểm: không đổi chữ thì không phải thay đổi (không bật "Đã sửa").
         if text == query.steps[index].expression { return nil }
         do { _ = try MParser.parse(text) } catch let error as MSyntaxError {
-            return "Dòng \(error.line), cột \(error.column): \(error.message)"
+            return biN("Dòng \(error.line), cột \(error.column): \(error.message)", "Line \(error.line), column \(error.column): \(error.message)")
         } catch { return "\(error)" }
         query.steps[index].expression = text
         query.steps[index].kind = StepKind.custom
@@ -308,17 +308,17 @@ public final class QueryEditorState {
     @discardableResult
     func setEnterData(_ table: EnterDataTable) -> String? {
         guard let query = selectedQuery, let index = query.steps.firstIndex(where: { $0.name == "Source" }),
-              let source = (try? MQuery.parse(table.m))?.steps.first(where: { $0.name == "Source" }) else { return "Không có bước Source." }
+              let source = (try? MQuery.parse(table.m))?.steps.first(where: { $0.name == "Source" }) else { return biN("Không có bước Source.", "There is no Source step.") }
         return setExpression(at: index, source.expression)
     }
 
     /// Đổi chỗ bước với bước kế (`offset` -1 lên, +1 xuống). Không kiểm phụ thuộc: bước hỏng hiện lỗi ở Applied Steps.
     @discardableResult
     public func moveStep(at index: Int, by offset: Int) -> String? {
-        guard let queryIndex = selectedQueryIndex else { return "Chưa có truy vấn nào được chọn." }
+        guard let queryIndex = selectedQueryIndex else { return biN("Chưa có truy vấn nào được chọn.", "No query is selected.") }
         var query = queries[queryIndex]
         let target = index + offset
-        guard query.steps.indices.contains(index), query.steps.indices.contains(target) else { return "Không di chuyển được bước này." }
+        guard query.steps.indices.contains(index), query.steps.indices.contains(target) else { return biN("Không di chuyển được bước này.", "This step can't be moved.") }
         if let reason = lockedReason(query, index) ?? lockedReason(query, target) { return reason }
         query.steps.swapAt(index, target)
         commit(query, at: queryIndex, select: target)
@@ -331,17 +331,17 @@ public final class QueryEditorState {
     /// Áp văn bản M đã sửa ở Advanced Editor: phân tích lại thành bước. Các bước khoá phải giữ nguyên; kết quả phải là bước cuối.
     @discardableResult
     public func applyAdvancedSource(_ text: String) -> String? {
-        guard let queryIndex = selectedQueryIndex else { return "Chưa có truy vấn nào được chọn." }
+        guard let queryIndex = selectedQueryIndex else { return biN("Chưa có truy vấn nào được chọn.", "No query is selected.") }
         var query = queries[queryIndex]
         let parsed: MQuery
         do { parsed = try MQuery.parse(text) } catch let error as MSyntaxError {
-            return "Dòng \(error.line), cột \(error.column): \(error.message)"
+            return biN("Dòng \(error.line), cột \(error.column): \(error.message)", "Line \(error.line), column \(error.column): \(error.message)")
         } catch { return "\(error)" }
         let locked = query.steps.prefix(query.lockedStepCount).map { MStep(name: $0.name, expression: $0.expression) }
         guard Array(parsed.steps.prefix(locked.count)) == locked else {
-            return "Không sửa được \(locked.count) bước đầu do nguồn tạo (BI Pro chưa nạp lại nguồn từ M)."
+            return biN("Không sửa được \(locked.count) bước đầu do nguồn tạo (BI Pro chưa nạp lại nguồn từ M).", "The first \(locked.count) steps were created by the source and can't be edited (BI Pro can't reload the source from M yet).")
         }
-        guard parsed.resultName == parsed.steps.last?.name else { return "Kết quả sau \"in\" phải là bước cuối cùng." }
+        guard parsed.resultName == parsed.steps.last?.name else { return biN("Kết quả sau \"in\" phải là bước cuối cùng.", "The result after \"in\" must be the last step.") }
         let byName = Dictionary(query.steps.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         query.steps = parsed.steps.map { step in
             if var old = byName[step.name] {
@@ -360,14 +360,14 @@ public final class QueryEditorState {
     /// Đổi tên truy vấn chưa nạp (tên bảng sẽ là tên truy vấn). Tên rỗng, trùng truy vấn khác hoặc trùng bảng đã có bị từ chối.
     @discardableResult
     public func renameQuery(_ id: UUID, to newName: String, existingTableNames: Set<String> = []) -> String? {
-        guard let queryIndex = queries.firstIndex(where: { $0.id == id }) else { return "Không có truy vấn này." }
+        guard let queryIndex = queries.firstIndex(where: { $0.id == id }) else { return biN("Không có truy vấn này.", "There is no such query.") }
         var query = queries[queryIndex]
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty { return "Tên truy vấn không được để trống." }
-        if query.loadedTableName != nil { return "Truy vấn đã nạp thành bảng \"\(query.loadedTableName!)\": đổi tên bảng ở khung Dữ liệu." }
+        if name.isEmpty { return biN("Tên truy vấn không được để trống.", "The query name can't be empty.") }
+        if query.loadedTableName != nil { return biN("Truy vấn đã nạp thành bảng \"\(query.loadedTableName!)\": đổi tên bảng ở khung Dữ liệu.", "The query is loaded as table \"\(query.loadedTableName!)\": rename the table in the Data pane.") }
         let others = Set(queries.filter { $0.id != id }.map { $0.name.lowercased() })
         if others.contains(name.lowercased()) || existingTableNames.contains(where: { $0.lowercased() == name.lowercased() }) {
-            return "Đã có truy vấn hoặc bảng tên \"\(name)\"."
+            return biN("Đã có truy vấn hoặc bảng tên \"\(name)\".", "A query or table named \"\(name)\" already exists.")
         }
         let oldName = query.name
         query.name = name
@@ -436,7 +436,7 @@ public final class QueryEditorState {
             guard mine == generation else { return }
             guard case .table(let table) = value else {
                 preview = nil; profiles = []
-                errorMessage = "Bước \"\(name)\" không trả về bảng (\(value.kindName))."
+                errorMessage = biN("Bước \"\(name)\" không trả về bảng (\(value.kindName)).", "Step \"\(name)\" doesn't return a table (\(value.kindName)).")
                 stepErrors[name] = errorMessage
                 return
             }
@@ -457,7 +457,7 @@ public final class QueryEditorState {
     /// (khác dữ liệu cũ thì truy vấn thành "chưa áp dụng", Close & Apply sẽ thay bảng). Không đọc được (tệp mất, đổi chỗ, nằm trên máy khác)
     /// thì giữ nguyên dữ liệu đã lưu và trả lý do tiếng Việt. Truy vấn không có bước khoá luôn đọc từ nguồn nên không cần làm mới.
     public func refreshSource(of id: UUID) async -> String? {
-        guard let index = queries.firstIndex(where: { $0.id == id }) else { return "Chưa có truy vấn nào được chọn." }
+        guard let index = queries.firstIndex(where: { $0.id == id }) else { return biN("Chưa có truy vấn nào được chọn.", "No query is selected.") }
         let query = queries[index]
         guard query.lockedStepCount > 0 else { return nil }
         let locked = MQuery(steps: query.steps.prefix(query.lockedStepCount).map { MStep(name: $0.name, expression: $0.expression) },
@@ -466,9 +466,9 @@ public final class QueryEditorState {
         do {
             value = try await MEvaluator(environment: MEnvironment(bindings: SourceFunctions.bindings)).evaluate(source: locked.source)
         } catch {
-            return "Không làm mới được nguồn của \"\(query.name)\": \(Self.message(error, hasBase: true, locked: true)) Dữ liệu đã lưu trong file được giữ nguyên."
+            return biN("Không làm mới được nguồn của \"\(query.name)\": \(Self.message(error, hasBase: true, locked: true)) Dữ liệu đã lưu trong file được giữ nguyên.", "Couldn't refresh the source of \"\(query.name)\": \(Self.message(error, hasBase: true, locked: true)) The data saved in the file was left unchanged.")
         }
-        guard case .table(let fresh) = value else { return "Nguồn của \"\(query.name)\" không trả về bảng (\(value.kindName))." }
+        guard case .table(let fresh) = value else { return biN("Nguồn của \"\(query.name)\" không trả về bảng (\(value.kindName)).", "The source of \"\(query.name)\" doesn't return a table (\(value.kindName)).") }
         await ensureBase(query)
         // Trong lúc chờ đọc nguồn, người dùng có thể đã xoá hoặc đổi thứ tự truy vấn: tìm lại theo id, không dùng chỉ số cũ (lỗi T096).
         guard let current = queries.firstIndex(where: { $0.id == id }) else { return nil }
@@ -485,9 +485,9 @@ public final class QueryEditorState {
 
     /// Đánh giá đủ (không cắt dòng) kết quả của truy vấn, cho Close & Apply.
     func evaluateFull(_ query: QueryModel, rowLimit: Int? = nil) async throws -> TableData {
-        guard !query.steps.isEmpty else { throw MError.expression("Truy vấn không có bước nào.") }
+        guard !query.steps.isEmpty else { throw MError.expression(biN("Truy vấn không có bước nào.", "The query has no steps.")) }
         let value = try await preparedCache(for: query).preview(effectiveQuery(query), stepIndex: query.steps.count - 1, rowLimit: rowLimit)
-        guard case .table(let table) = value else { throw MError.expression("Kết quả không phải bảng (\(value.kindName)).") }
+        guard case .table(let table) = value else { throw MError.expression(biN("Kết quả không phải bảng (\(value.kindName)).", "The result isn't a table (\(value.kindName)).")) }
         return table
     }
 
@@ -501,7 +501,7 @@ public final class QueryEditorState {
 
     private func lockedReason(_ query: QueryModel, _ index: Int) -> String? {
         index < query.lockedStepCount
-            ? "Bước \"\(query.steps[index].name)\" do nguồn tạo hoặc đọc từ file: chưa sửa được (BI Pro chưa nạp lại nguồn từ M)."
+            ? biN("Bước \"\(query.steps[index].name)\" do nguồn tạo hoặc đọc từ file: chưa sửa được (BI Pro chưa nạp lại nguồn từ M).", "Step \"\(query.steps[index].name)\" was created by the source or read from the file and can't be edited yet (BI Pro can't reload the source from M yet).")
             : nil
     }
 
@@ -597,7 +597,7 @@ public final class QueryEditorState {
             let value = try await MPreviewCache(environment: environment)
                 .preview(effectiveQuery(dependency), stepIndex: dependency.steps.count - 1, rowLimit: nil)
             guard case .table(let table) = value else {
-                throw MError.expression("Truy vấn \"\(name)\" không trả về bảng (\(value.kindName)).")
+                throw MError.expression(biN("Truy vấn \"\(name)\" không trả về bảng (\(value.kindName)).", "Query \"\(name)\" doesn't return a table (\(value.kindName))."))
             }
             dependencyResults[dependency.id] = (signature, table)
             bindings[name] = .table(table)
@@ -615,10 +615,10 @@ public final class QueryEditorState {
 
     private static func message(_ error: Error, hasBase: Bool, locked: Bool) -> String {
         if let m = error as? MError {
-            if m.message.contains(baseBinding) { return "Chưa có dữ liệu nguồn của truy vấn này." }
+            if m.message.contains(baseBinding) { return biN("Chưa có dữ liệu nguồn của truy vấn này.", "This query has no source data yet.") }
             return m.reason == "Expression.Unsupported" ? m.message : "\(m.reason): \(m.message)"
         }
-        if let s = error as? MSyntaxError { return "Dòng \(s.line), cột \(s.column): \(s.message)" }
+        if let s = error as? MSyntaxError { return biN("Dòng \(s.line), cột \(s.column): \(s.message)", "Line \(s.line), column \(s.column): \(s.message)") }
         return "\(error)"
     }
 

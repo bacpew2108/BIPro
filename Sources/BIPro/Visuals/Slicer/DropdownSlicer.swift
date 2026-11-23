@@ -200,7 +200,7 @@ private struct SlicerNodeRow: View {
     var body: some View {
         let state = SlicerTree.state(of: item.path, in: selection, roots: roots)
         let labelText = item.node.value == .blank
-            ? "(Trống)"
+            ? biN("(Trống)", "(Blank)")
             : NumberDisplay.plain(DataCell(item.node.value, formatString: item.node.formatString))
 
         HStack(spacing: 6) {

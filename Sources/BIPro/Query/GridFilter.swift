@@ -20,7 +20,7 @@ public struct GridFilter: Sendable {
     /// Nhãn hiển thị của một giá trị: BLANK là "(Trống)", còn lại dùng `ResultFormat.display(_:)`.
     public static func displayLabel(for value: Value) -> String {
         if case .blank = value {
-            return "(Trống)"
+            return biN("(Trống)", "(Blank)")
         }
         return ResultFormat.display(value)
     }

@@ -14,7 +14,7 @@ enum WellKind: Hashable {
 
     init(_ kind: FieldRef.Kind) { self = kind == .measure ? .measure : .column }
 
-    var label: String { self == .column ? "cột" : "measure" }
+    var label: String { self == .column ? biN("cột", "column") : "measure" }
 }
 
 /// Luật của một ô trường (`specs/003-d2-build-pane-field-well/research.md` R5).
@@ -112,7 +112,7 @@ enum WellRules {
     // MARK: Từ chối
 
     static let unverifiedReason = biN("Ô này chưa kiểm với Power BI Desktop (buổi VM-D2), nên chưa thêm trường được.", "This well hasn't been verified against Power BI Desktop (session VM-D2), so fields can't be added yet.")
-    static let aggregationReason = "Ô này cần measure: mô hình đặt \"discourage implicit measures\" (như Nhom6) nên Power BI Desktop cũng chặn cột ở ô này (VM-D2b). Hãy tạo measure, ví dụ SUM(Bảng[Cột])."
+    static var aggregationReason: String { biN("Ô này cần measure: mô hình đặt \"discourage implicit measures\" (như Nhom6) nên Power BI Desktop cũng chặn cột ở ô này (VM-D2b). Hãy tạo measure, ví dụ SUM(Bảng[Cột]).", "This well needs a measure: the model sets \"discourage implicit measures\" (like Nhom6), so Power BI Desktop also blocks columns in this well (VM-D2b). Create a measure, for example SUM(Table[Column]).") }
 
     /// Lý do không thêm được `field` vào ô `role` của `visual`, hoặc nil nếu thêm được.
     /// `implicitMeasures`: mô hình không đặt "discourage implicit measures" thì ô chỉ nhận measure cũng nhận cột (thành trường gộp,
@@ -124,13 +124,13 @@ enum WellRules {
         let kind = WellKind(field.kind)
         if implicitMeasures, field.kind == .column, rule.accepts == [.measure] {
             if visual.fields.contains(where: { $0.kind == .aggregation && $0.entity == field.entity && $0.property == field.property }) {
-                return "Cột \"\(field.property)\" đã được gộp trong visual này; đổi phép gộp ở trường đang có."
+                return biN("Cột \"\(field.property)\" đã được gộp trong visual này; đổi phép gộp ở trường đang có.", "The column \"\(field.property)\" is already aggregated in this visual; change the aggregation on the existing field.")
             }
             return nil
         }
         guard rule.accepts.contains(kind) else {
             if kind == .column, rule.accepts == [.measure] { return aggregationReason }
-            return "Ô \"\(rule.label)\" chỉ nhận \(rule.accepts.map(\.label).sorted().joined(separator: " hoặc "))."
+            return biN("Ô \"\(rule.label)\" chỉ nhận \(rule.accepts.map(\.label).sorted().joined(separator: " hoặc ")).", "The well \"\(rule.label)\" only accepts \(rule.accepts.map(\.label).sorted().joined(separator: " or ")).")
         }
         // Desktop cho thêm cùng một measure hai lần vào một ô (VM-D2 `R-D2-h-dup`); cột trùng thì chưa quan sát nên từ chối.
         if kind == .column, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {

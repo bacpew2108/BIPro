@@ -4,6 +4,7 @@
 //
 // Bản ghi, danh sách trong ô bảng nằm ở `TableData.structured` (cột giữ chỗ "Record"/"List"); `MTables.cell` trả lại giá trị gốc.
 
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -17,7 +18,7 @@ public enum MJson {
         parser.skipSpace()
         let value = try parser.value(depth: 0)
         parser.skipSpace()
-        guard parser.index == bytes.count else { throw parser.failure("thừa ký tự sau giá trị JSON") }
+        guard parser.index == bytes.count else { throw parser.failure(lt("thừa ký tự sau giá trị JSON", "extra characters after the JSON value")) }
         return value
     }
 
@@ -26,7 +27,7 @@ public enum MJson {
         var index = 0
 
         func failure(_ what: String) -> MError {
-            MError(reason: "DataFormat.Error", message: "JSON không hợp lệ: \(what) (vị trí \(index))")
+            MError(reason: "DataFormat.Error", message: lt("JSON không hợp lệ: \(what) (vị trí \(index))", "Invalid JSON: \(what) (position \(index))"))
         }
 
         mutating func skipSpace() {
@@ -34,8 +35,8 @@ public enum MJson {
         }
 
         mutating func value(depth: Int) throws -> MValue {
-            guard depth < 512 else { throw failure("lồng quá sâu") }
-            guard index < bytes.count else { throw failure("hết dữ liệu") }
+            guard depth < 512 else { throw failure(lt("lồng quá sâu", "nested too deeply")) }
+            guard index < bytes.count else { throw failure(lt("hết dữ liệu", "unexpected end of data")) }
             switch bytes[index] {
             case UInt8(ascii: "{"):
                 index += 1
@@ -44,10 +45,10 @@ public enum MJson {
                 if index < bytes.count, bytes[index] == UInt8(ascii: "}") { index += 1; return .record(fields) }
                 while true {
                     skipSpace()
-                    guard index < bytes.count, bytes[index] == UInt8(ascii: "\"") else { throw failure("cần tên trường") }
+                    guard index < bytes.count, bytes[index] == UInt8(ascii: "\"") else { throw failure(lt("cần tên trường", "a field name is required")) }
                     let name = try string()
                     skipSpace()
-                    guard index < bytes.count, bytes[index] == UInt8(ascii: ":") else { throw failure("cần dấu ':'") }
+                    guard index < bytes.count, bytes[index] == UInt8(ascii: ":") else { throw failure(lt("cần dấu ':'", "':' is required")) }
                     index += 1
                     skipSpace()
                     let item = try value(depth: depth + 1)
@@ -55,10 +56,10 @@ public enum MJson {
                     if let existing = fields.firstIndex(where: { $0.name == name }) { fields[existing] = MField(name: name, value: item) }
                     else { fields.append(MField(name: name, value: item)) }
                     skipSpace()
-                    guard index < bytes.count else { throw failure("thiếu '}'") }
+                    guard index < bytes.count else { throw failure(lt("thiếu '}'", "missing '}'")) }
                     if bytes[index] == UInt8(ascii: ",") { index += 1; continue }
                     if bytes[index] == UInt8(ascii: "}") { index += 1; return .record(fields) }
-                    throw failure("cần ',' hoặc '}'")
+                    throw failure(lt("cần ',' hoặc '}'", "',' or '}' is required"))
                 }
             case UInt8(ascii: "["):
                 index += 1
@@ -69,10 +70,10 @@ public enum MJson {
                     skipSpace()
                     items.append(try value(depth: depth + 1))
                     skipSpace()
-                    guard index < bytes.count else { throw failure("thiếu ']'") }
+                    guard index < bytes.count else { throw failure(lt("thiếu ']'", "missing ']'")) }
                     if bytes[index] == UInt8(ascii: ",") { index += 1; continue }
                     if bytes[index] == UInt8(ascii: "]") { index += 1; return .list(items) }
-                    throw failure("cần ',' hoặc ']'")
+                    throw failure(lt("cần ',' hoặc ']'", "',' or ']' is required"))
                 }
             case UInt8(ascii: "\""):
                 return .text(try string())
@@ -86,7 +87,7 @@ public enum MJson {
 
         mutating func literal(_ word: String) throws {
             let w = Array(word.utf8)
-            guard index + w.count <= bytes.count, Array(bytes[index..<index + w.count]) == w else { throw failure("giá trị lạ") }
+            guard index + w.count <= bytes.count, Array(bytes[index..<index + w.count]) == w else { throw failure(lt("giá trị lạ", "unexpected value")) }
             index += w.count
         }
 
@@ -95,7 +96,7 @@ public enum MJson {
             while index < bytes.count, "+-0123456789.eE".utf8.contains(bytes[index]) { index += 1 }
             guard index > start, let text = String(bytes: bytes[start..<index], encoding: .ascii), let d = Double(text) else {
                 index = start
-                throw failure("giá trị lạ")
+                throw failure(lt("giá trị lạ", "unexpected value"))
             }
             return d
         }
@@ -107,7 +108,7 @@ public enum MJson {
                 let b = bytes[index]
                 if b == UInt8(ascii: "\"") {
                     index += 1
-                    guard let s = String(bytes: out, encoding: .utf8) else { throw failure("chuỗi không phải UTF-8") }
+                    guard let s = String(bytes: out, encoding: .utf8) else { throw failure(lt("chuỗi không phải UTF-8", "the string isn't UTF-8")) }
                     return s
                 }
                 if b == UInt8(ascii: "\\") {
@@ -140,14 +141,14 @@ public enum MJson {
                             let scalar = Unicode.Scalar(value) ?? "\u{FFFD}"
                             out.append(contentsOf: Array(String(Character(scalar)).utf8))
                         }
-                    default: throw failure("ký tự thoát lạ")
+                    default: throw failure(lt("ký tự thoát lạ", "unexpected escape character"))
                     }
                     continue
                 }
                 out.append(b)
                 index += 1
             }
-            throw failure("chuỗi chưa đóng")
+            throw failure(lt("chuỗi chưa đóng", "unterminated string"))
         }
 
         mutating func hex4() throws -> UInt32 {
@@ -190,15 +191,15 @@ enum JsonLibrary {
         let items = try args.list(0, "Table.FromList")
         let split: (MValue) throws -> [MValue]
         if let splitter = args.optional(1) {
-            guard case .function(let f) = splitter else { throw MError.expression("Table.FromList: splitter phải là hàm") }
+            guard case .function(let f) = splitter else { throw MError.expression(lt("Table.FromList: splitter phải là hàm", "Table.FromList: the splitter must be a function")) }
             split = { item in
                 let parts = try f.call([item])
-                guard case .list(let values) = parts else { throw MError.expression("Table.FromList: splitter phải trả danh sách") }
+                guard case .list(let values) = parts else { throw MError.expression(lt("Table.FromList: splitter phải trả danh sách", "Table.FromList: the splitter must return a list")) }
                 return values
             }
         } else {
             split = { item in
-                guard case .text(let s) = item else { throw MError.expression("Table.FromList: phần tử không phải text, cần splitter") }
+                guard case .text(let s) = item else { throw MError.expression(lt("Table.FromList: phần tử không phải text, cần splitter", "Table.FromList: an item isn't text, a splitter is needed")) }
                 return s.split(separator: ",", omittingEmptySubsequences: false).map { .text(String($0)) }
             }
         }
@@ -210,9 +211,9 @@ enum JsonLibrary {
         switch args.optional(2) {
         case .none: names = (0..<(rows.first?.count ?? 1)).map { "Column\($0 + 1)" }
         case .number(let n)?: names = (0..<max(try MInt.from(n, "Table.FromList"), 0)).map { "Column\($0 + 1)" }
-        case .list(let list)?: names = try list.map { v in guard case .text(let s) = v else { throw MError.expression("Table.FromList: tên cột phải là text") }; return s }
+        case .list(let list)?: names = try list.map { v in guard case .text(let s) = v else { throw MError.expression(lt("Table.FromList: tên cột phải là text", "Table.FromList: column names must be text")) }; return s }
         case .type(let t)? where t.kind == .table: names = t.fields.map(\.name)
-        default: throw MError.expression("Table.FromList: tham số columns không hợp lệ")
+        default: throw MError.expression(lt("Table.FromList: tham số columns không hợp lệ", "Table.FromList: invalid columns parameter"))
         }
         if names.isEmpty { names = ["Column1"] }
         let fill = args.optional(3) ?? .null
@@ -225,7 +226,7 @@ enum JsonLibrary {
                         switch extra {
                         case 0: columns[c].append(.list(Array(row[c...])))
                         case 2: columns[c].append(row[c])
-                        default: columns[c].append(.error(MError.expression("Có \(row.count) giá trị trong khi bảng chỉ có \(names.count) cột")))
+                        default: columns[c].append(.error(MError.expression(lt("Có \(row.count) giá trị trong khi bảng chỉ có \(names.count) cột", "There are \(row.count) values but the table has only \(names.count) columns"))))
                         }
                     } else {
                         columns[c].append(row[c])
@@ -247,21 +248,21 @@ enum JsonLibrary {
     ) { args in
         let items = try args.list(0, "Table.FromRecords")
         let records: [[MField]] = try items.map { item in
-            guard case .record(let fields) = item else { throw MError.expression("Table.FromRecords: phần tử không phải bản ghi (\(item.kindName))") }
+            guard case .record(let fields) = item else { throw MError.expression(lt("Table.FromRecords: phần tử không phải bản ghi (\(item.kindName))", "Table.FromRecords: an item isn't a record (\(item.kindName))")) }
             return fields
         }
         let names: [String]
         switch args.optional(1) {
         case .none: names = records.first?.map(\.name) ?? []
-        case .list(let list)?: names = try list.map { v in guard case .text(let s) = v else { throw MError.expression("Table.FromRecords: tên cột phải là text") }; return s }
+        case .list(let list)?: names = try list.map { v in guard case .text(let s) = v else { throw MError.expression(lt("Table.FromRecords: tên cột phải là text", "Table.FromRecords: column names must be text")) }; return s }
         case .type(let t)? where t.kind == .table: names = t.fields.map(\.name)
-        default: throw MError.expression("Table.FromRecords: tham số columns không hợp lệ")
+        default: throw MError.expression(lt("Table.FromRecords: tham số columns không hợp lệ", "Table.FromRecords: invalid columns parameter"))
         }
         let useNull = MOperators.number(args[2]) == 2
         let columns = names.map { name in
             records.map { fields -> MValue in
                 if let field = fields.first(where: { $0.name == name }) { return field.value }
-                return useNull ? .null : .error(MError.expression("Không tìm thấy trường '\(name)' của bản ghi"))
+                return useNull ? .null : .error(MError.expression(lt("Không tìm thấy trường '\(name)' của bản ghi", "Field '\(name)' of the record not found")))
             }
         }
         return .table(try MTables.build(names: names, types: Array(repeating: nil, count: names.count), columns: columns))
@@ -276,10 +277,10 @@ enum JsonLibrary {
     ) { args in
         let table = try args.table(0, "Table.ExpandRecordColumn")
         let name = try args.text(1, "Table.ExpandRecordColumn")
-        guard let column = table.index(ofColumn: name) else { throw MError.expression("Không tìm thấy cột '\(name)' của bảng") }
+        guard let column = table.index(ofColumn: name) else { throw MError.expression(lt("Không tìm thấy cột '\(name)' của bảng", "Column '\(name)' of the table not found")) }
         let fields = try TableRowsHelper.extractColumnNames(args[2], functionName: "Table.ExpandRecordColumn")
         let renamed = try args.optional(3).map { try TableRowsHelper.extractColumnNames($0, functionName: "Table.ExpandRecordColumn") } ?? fields
-        guard renamed.count == fields.count else { throw MError.expression("Table.ExpandRecordColumn: số tên mới khác số trường") }
+        guard renamed.count == fields.count else { throw MError.expression(lt("Table.ExpandRecordColumn: số tên mới khác số trường", "Table.ExpandRecordColumn: the number of new names differs from the number of fields")) }
         var names: [String] = [], columns: [[MValue]] = []
         for (index, col) in table.columns.enumerated() {
             if index != column {
@@ -295,13 +296,13 @@ enum JsonLibrary {
                     case .record(let values): values.first { $0.name == field }?.value ?? .null
                     case .null: .null
                     case .error: cell
-                    default: .error(MError.expression("Không chuyển được giá trị kiểu \(cell.kindName) thành Record"))
+                    default: .error(MError.expression(lt("Không chuyển được giá trị kiểu \(cell.kindName) thành Record", "Can't convert a \(cell.kindName) value to a Record")))
                     }
                 })
             }
         }
         if let duplicate = Dictionary(grouping: names, by: { $0 }).first(where: { $0.value.count > 1 })?.key {
-            throw MError.expression("Cột '\(duplicate)' của bảng đã có")
+            throw MError.expression(lt("Cột '\(duplicate)' của bảng đã có", "The table already has a column '\(duplicate)'"))
         }
         return .table(try MTables.build(names: names, types: types(table, names: names, except: column, added: fields.count), columns: columns))
     }
@@ -313,7 +314,7 @@ enum JsonLibrary {
     ) { args in
         let table = try args.table(0, "Table.ExpandListColumn")
         let name = try args.text(1, "Table.ExpandListColumn")
-        guard let column = table.index(ofColumn: name) else { throw MError.expression("Không tìm thấy cột '\(name)' của bảng") }
+        guard let column = table.index(ofColumn: name) else { throw MError.expression(lt("Không tìm thấy cột '\(name)' của bảng", "Column '\(name)' of the table not found")) }
         var sourceRows: [Int] = []
         var expanded: [MValue] = []
         for row in 0..<table.rowCount {
@@ -346,7 +347,7 @@ enum JsonLibrary {
     // MARK: Record.*
 
     private static func record(_ args: [MValue], _ function: String) throws -> [MField] {
-        guard case .record(let fields) = args[0] else { throw MError.expression("\(function): đối số 1 phải là bản ghi, nhận \(args[0].kindName)") }
+        guard case .record(let fields) = args[0] else { throw MError.expression(lt("\(function): đối số 1 phải là bản ghi, nhận \(args[0].kindName)", "\(function): argument 1 must be a record, got \(args[0].kindName)")) }
         return fields
     }
 
@@ -365,7 +366,7 @@ enum JsonLibrary {
     static let recordField = MFunction(name: "Record.Field", parameters: [MParameter(name: "record"), MParameter(name: "field")], observed: false) { args in
         let fields = try record(args, "Record.Field")
         let name = try args.text(1, "Record.Field")
-        guard let field = fields.first(where: { $0.name == name }) else { throw MError.expression("Không tìm thấy trường '\(name)' của bản ghi") }
+        guard let field = fields.first(where: { $0.name == name }) else { throw MError.expression(lt("Không tìm thấy trường '\(name)' của bản ghi", "Field '\(name)' of the record not found")) }
         return field.value
     }
 

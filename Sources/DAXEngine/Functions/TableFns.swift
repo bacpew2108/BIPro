@@ -32,6 +32,7 @@
 // [SUY ĐOÁN] RELATEDTABLE từ phía nhiều tới phía một chỉ biến đổi ngữ cảnh rồi lấy bảng đích, nên trả toàn bộ bảng
 //   đích (không chỉ dòng liên quan), như hành vi thường gặp của DAX. Chưa đối chiếu oracle.
 // [SUY ĐOÁN] CROSSJOIN vật chất hoá từng đầu vào đúng một lần (không theo từng cặp). Đầu vào là bảng nhỏ trong MiniBank.
+import PBIXKit
 import ColumnStore
 
 // MARK: - Tiện ích dùng chung cho các hàm F-KIT và F-TABLE (cùng module)
@@ -39,7 +40,7 @@ import ColumnStore
 /// Evaluator của CORE, để đọc khung row, biến và bảng vật lý. Lỗi nếu evaluator thuộc loại khác.
 func fkEvaluator(_ frame: CallFrame) throws(DAXError) -> Evaluator {
     guard let evaluator = frame.eval as? Evaluator else {
-        throw DAXError(.runtime, "hàm này cần Evaluator của CORE")
+        throw DAXError(.runtime, lt("hàm này cần Evaluator của CORE", "this function needs the CORE evaluator"))
     }
     return evaluator
 }
@@ -114,7 +115,7 @@ func fkManyToOnePath(from: TableID, to: TableID, schema: ModelSchema) -> [Relati
 /// Thứ tự: cột trong chính một khung đang mở; rồi đi theo quan hệ many→one từ khung gần nhất.
 func fkRelatedValue(_ column: ColumnID, _ evaluator: Evaluator, _ ctx: EvalContext) throws(DAXError) -> Value {
     guard ctx.row != nil else {
-        throw DAXError(.runtime, "RELATED cần row context")
+        throw DAXError(.runtime, lt("RELATED cần row context", "RELATED needs a row context"))
     }
     let store = evaluator.store
     let frames = evaluator.rowStack
@@ -186,7 +187,7 @@ func fkRelatedValue(_ column: ColumnID, _ evaluator: Evaluator, _ ctx: EvalConte
         }
     }
     let name = store.schema.table(column.table)?.name ?? "\(column.table)"
-    throw DAXError(.runtime, "RELATED: không có quan hệ many→one từ bảng hiện tại tới \(name)")
+    throw DAXError(.runtime, lt("RELATED: không có quan hệ many→one từ bảng hiện tại tới \(name)", "RELATED: there is no many→one relationship from the current table to \(name)"))
 }
 
 /// Vật chất hoá đúng các dòng `ordered` (theo thứ tự cho trước, không trùng) của bảng vật lý. Chỉ các dòng này
@@ -205,7 +206,7 @@ func fkMaterializeOrdered(_ table: TableID, _ ordered: [Int],
     rows.reserveCapacity(ordered.count)
     for r in ordered {
         guard let k = position[r], k < materialized.rows.count else {
-            throw DAXError(.runtime, "vật chất hoá: dòng \(r) không có trong kết quả")
+            throw DAXError(.runtime, lt("vật chất hoá: dòng \(r) không có trong kết quả", "materialization: row \(r) isn't in the result"))
         }
         rows.append(materialized.rows[k])
     }
@@ -226,11 +227,11 @@ func fkNamedPairs(_ frame: CallFrame, from: Int) throws(DAXError) -> [(name: Str
     var i = from
     while i < frame.args.count {
         guard i + 1 < frame.args.count, let expr = frame.args[i + 1] else {
-            throw DAXError(.arity, "\(frame.args.count) đối số: cần cặp tên và biểu thức")
+            throw DAXError(.arity, lt("\(frame.args.count) đối số: cần cặp tên và biểu thức", "\(frame.args.count) arguments: name and expression pairs are required"))
         }
         let name = try frame.scalar(i)
         guard case .string(let text) = name else {
-            throw DAXError(.typeMismatch, "tên cột phải là chuỗi")
+            throw DAXError(.typeMismatch, lt("tên cột phải là chuỗi", "the column name must be a string"))
         }
         out.append((name: text, expr: expr))
         i += 2
@@ -246,9 +247,9 @@ func fkTopCount(_ value: Value) throws(DAXError) -> Int {
     case .integer(let x): return max(0, Int(clamping: x))
     case .currency(let c): d = Double(c) / 10_000
     case .double(let x): d = x
-    default: throw DAXError(.typeMismatch, "n của TOPN phải là số")
+    default: throw DAXError(.typeMismatch, lt("n của TOPN phải là số", "the n of TOPN must be a number"))
     }
-    guard d.isFinite else { throw DAXError(.runtime, "n của TOPN không hữu hạn") }
+    guard d.isFinite else { throw DAXError(.runtime, lt("n của TOPN không hữu hạn", "the n of TOPN isn't finite")) }
     return max(0, Int(min(max(d.rounded(.down), -1e15), 1e15)))
 }
 
@@ -346,7 +347,7 @@ public enum TableFunctions: FunctionFamily {
         var depth = 1
         if frame.args.count > 1, frame.args[1] != nil {
             depth = Int(try frame.scalar(1).asDouble())
-            guard depth >= 1 else { throw DAXError(.runtime, "EARLIER: số cấp phải từ 1 trở lên") }
+            guard depth >= 1 else { throw DAXError(.runtime, lt("EARLIER: số cấp phải từ 1 trở lên", "EARLIER: the level count must be 1 or more")) }
         }
         return try fkEvaluator(frame).outerRowValue(column, skipping: depth, outermost: false)
     }
@@ -360,7 +361,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let filterBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let sourceExpr = fkArg(frame, 0), let predicate = fkArg(frame, 1) else {
-            throw DAXError(.arity, "FILTER cần bảng và vị ngữ")
+            throw DAXError(.arity, lt("FILTER cần bảng và vị ngữ", "FILTER needs a table and a predicate"))
         }
         let evaluator = try fkEvaluator(frame)
         if let physical = try fkFilterMatches(args: frame.args, evaluator: evaluator, ctx: frame.ctx) {
@@ -382,7 +383,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let valuesBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let expr = fkArg(frame, 0) else {
-            throw DAXError(.arity, "VALUES cần một đối số")
+            throw DAXError(.arity, lt("VALUES cần một đối số", "VALUES needs one argument"))
         }
         if case .column(let column) = expr {
             let evaluator = try fkEvaluator(frame)
@@ -398,7 +399,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let distinctBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let expr = fkArg(frame, 0) else {
-            throw DAXError(.arity, "DISTINCT cần một đối số")
+            throw DAXError(.arity, lt("DISTINCT cần một đối số", "DISTINCT needs one argument"))
         }
         let evaluator = try fkEvaluator(frame)
         if case .column(let column) = expr {
@@ -431,7 +432,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let summarizeBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard fkArg(frame, 0) != nil else {
-            throw DAXError(.arity, "SUMMARIZE cần một bảng")
+            throw DAXError(.arity, lt("SUMMARIZE cần một bảng", "SUMMARIZE needs a table"))
         }
         let evaluator = try fkEvaluator(frame)
         var groups: [(expr: BoundExpr, name: String, lineage: ColumnID?)] = []
@@ -439,7 +440,7 @@ public enum TableFunctions: FunctionFamily {
         var i = 1
         while i < frame.args.count {
             guard let arg = frame.args[i] else {
-                throw DAXError(.arity, "SUMMARIZE: đối số \(i + 1) bị bỏ trống")
+                throw DAXError(.arity, lt("SUMMARIZE: đối số \(i + 1) bị bỏ trống", "SUMMARIZE: argument \(i + 1) is empty"))
             }
             switch arg {
             case .column(let column):
@@ -450,12 +451,12 @@ public enum TableFunctions: FunctionFamily {
                 i += 1
             case .literal(.string(let name)):
                 guard i + 1 < frame.args.count, let expr = frame.args[i + 1] else {
-                    throw DAXError(.arity, "SUMMARIZE: tên \(name) thiếu biểu thức")
+                    throw DAXError(.arity, lt("SUMMARIZE: tên \(name) thiếu biểu thức", "SUMMARIZE: the name \(name) has no expression"))
                 }
                 extensions.append((name: name, expr: expr))
                 i += 2
             default:
-                throw DAXError(.typeMismatch, "SUMMARIZE: nhóm phải là cột của bảng hoặc bảng liên quan")
+                throw DAXError(.typeMismatch, lt("SUMMARIZE: nhóm phải là cột của bảng hoặc bảng liên quan", "SUMMARIZE: groups must be columns of the table or a related table"))
             }
         }
 
@@ -511,7 +512,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let addColumnsBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let sourceExpr = fkArg(frame, 0) else {
-            throw DAXError(.arity, "ADDCOLUMNS cần một bảng")
+            throw DAXError(.arity, lt("ADDCOLUMNS cần một bảng", "ADDCOLUMNS needs a table"))
         }
         let evaluator = try fkEvaluator(frame)
         let pairs = try fkNamedPairs(frame, from: 1)
@@ -535,7 +536,7 @@ public enum TableFunctions: FunctionFamily {
             base = source
         }
         guard perRow.count == base.rows.count else {
-            throw DAXError(.runtime, "ADDCOLUMNS: số dòng lặp và số dòng nguồn không khớp")
+            throw DAXError(.runtime, lt("ADDCOLUMNS: số dòng lặp và số dòng nguồn không khớp", "ADDCOLUMNS: the iterated row count doesn't match the source row count"))
         }
         var rows: [[Value]] = []
         rows.reserveCapacity(base.rows.count)
@@ -550,7 +551,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let crossJoinBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 2 else {
-            throw DAXError(.arity, "CROSSJOIN cần ít nhất hai bảng")
+            throw DAXError(.arity, lt("CROSSJOIN cần ít nhất hai bảng", "CROSSJOIN needs at least two tables"))
         }
         var result = try frame.table(0)
         for i in 1..<frame.args.count {
@@ -563,7 +564,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let topNBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let sourceExpr = fkArg(frame, 1) else {
-            throw DAXError(.arity, "TOPN cần n và một bảng")
+            throw DAXError(.arity, lt("TOPN cần n và một bảng", "TOPN needs n and a table"))
         }
         let evaluator = try fkEvaluator(frame)
         let n = try fkTopCount(try frame.scalar(0))
@@ -598,7 +599,7 @@ public enum TableFunctions: FunctionFamily {
             i += 1
         }
         guard !orderSpecs.isEmpty else {
-            throw DAXError(.arity, "TOPN cần ít nhất một biểu thức sắp xếp")
+            throw DAXError(.arity, lt("TOPN cần ít nhất một biểu thức sắp xếp", "TOPN needs at least one sort expression"))
         }
 
         // Khoá sắp xếp của từng dòng nguồn; `index` là dòng vật lý, hoặc chỉ số dòng của bảng ảo.
@@ -664,7 +665,7 @@ public enum TableFunctions: FunctionFamily {
             return try fkMaterializeOrdered(physical.table, chosen.map { entries[$0].index }, evaluator)
         }
         guard let source = virtualSource else {
-            throw DAXError(.runtime, "TOPN: thiếu nguồn")
+            throw DAXError(.runtime, lt("TOPN: thiếu nguồn", "TOPN: missing source"))
         }
         return TableValue(columns: source.columns, rows: chosen.map { source.rows[entries[$0].index] },
                           lineage: source.lineage)
@@ -676,7 +677,7 @@ public enum TableFunctions: FunctionFamily {
         let column = try frame.column(0)
         let evaluator = try fkEvaluator(frame)
         guard frame.ctx.row != nil else {
-            throw DAXError(.runtime, "RELATED cần row context")
+            throw DAXError(.runtime, lt("RELATED cần row context", "RELATED needs a row context"))
         }
         return try fkRelatedValue(column, evaluator, frame.ctx)
     }
@@ -685,7 +686,7 @@ public enum TableFunctions: FunctionFamily {
 
     private static let relatedTableBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard let expr = fkArg(frame, 0) else {
-            throw DAXError(.arity, "RELATEDTABLE cần một bảng")
+            throw DAXError(.arity, lt("RELATEDTABLE cần một bảng", "RELATEDTABLE needs a table"))
         }
         let evaluator = try fkEvaluator(frame)
         var ctx = frame.ctx
@@ -706,7 +707,7 @@ public enum TableFunctions: FunctionFamily {
         let hasAlt = tailCount % 2 == 1
         let pairCount = tailCount / 2
         guard pairCount >= 1 else {
-            throw DAXError(.arity, "LOOKUPVALUE cần ít nhất một cặp (search_column, search_value)")
+            throw DAXError(.arity, lt("LOOKUPVALUE cần ít nhất một cặp (search_column, search_value)", "LOOKUPVALUE needs at least one (search_column, search_value) pair"))
         }
         var searchCols: [ColumnID] = []
         var searchVals: [Value] = []
@@ -736,7 +737,7 @@ public enum TableFunctions: FunctionFamily {
                 if let prev = matchedValue {
                     if prev != v {
                         if hasAlt { return try frame.scalar(frame.args.count - 1) }
-                        throw DAXError(.multipleValues, "LOOKUPVALUE: có nhiều giá trị khác nhau khớp điều kiện")
+                        throw DAXError(.multipleValues, lt("LOOKUPVALUE: có nhiều giá trị khác nhau khớp điều kiện", "LOOKUPVALUE: several different values match the condition"))
                     }
                 } else {
                     matchedValue = v
@@ -769,13 +770,13 @@ public enum TableFunctions: FunctionFamily {
 
     /// UNION(t1, t2, ...): nối giữ nguyên bản sao (multiset — VM-V11B!).
     private static let unionBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
-        guard frame.args.count >= 2 else { throw DAXError(.arity, "UNION cần ít nhất hai bảng") }
+        guard frame.args.count >= 2 else { throw DAXError(.arity, lt("UNION cần ít nhất hai bảng", "UNION needs at least two tables")) }
         let first = try frame.table(0)
         var rows = first.rows
         for i in 1..<frame.args.count {
             let next = try frame.table(i)
             guard next.columns.count == first.columns.count else {
-                throw DAXError(.arity, "UNION: các bảng phải có cùng số cột (\(first.columns.count) và \(next.columns.count))")
+                throw DAXError(.arity, lt("UNION: các bảng phải có cùng số cột (\(first.columns.count) và \(next.columns.count))", "UNION: the tables must have the same number of columns (\(first.columns.count) and \(next.columns.count))"))
             }
             rows += next.rows
         }
@@ -787,7 +788,7 @@ public enum TableFunctions: FunctionFamily {
         let left = try frame.table(0)
         let right = try frame.table(1)
         guard left.columns.count == right.columns.count else {
-            throw DAXError(.arity, "INTERSECT: hai bảng phải có cùng số cột")
+            throw DAXError(.arity, lt("INTERSECT: hai bảng phải có cùng số cột", "INTERSECT: the two tables must have the same number of columns"))
         }
         let rightSet = Set(right.rows)
         let kept = left.rows.filter { rightSet.contains($0) }
@@ -799,7 +800,7 @@ public enum TableFunctions: FunctionFamily {
         let left = try frame.table(0)
         let right = try frame.table(1)
         guard left.columns.count == right.columns.count else {
-            throw DAXError(.arity, "EXCEPT: hai bảng phải có cùng số cột")
+            throw DAXError(.arity, lt("EXCEPT: hai bảng phải có cùng số cột", "EXCEPT: the two tables must have the same number of columns"))
         }
         let rightSet = Set(right.rows)
         let kept = left.rows.filter { !rightSet.contains($0) }
@@ -816,13 +817,13 @@ public enum TableFunctions: FunctionFamily {
         let start = try sVal.asDouble()
         let end = try eVal.asDouble()
         let inc = try incVal.asDouble()
-        guard inc > 0 else { throw DAXError(.runtime, "GENERATESERIES: incrementValue phải lớn hơn 0") }
+        guard inc > 0 else { throw DAXError(.runtime, lt("GENERATESERIES: incrementValue phải lớn hơn 0", "GENERATESERIES: incrementValue must be greater than 0")) }
         guard start <= end else { return TableValue(columns: ["[Value]"], rows: []) }
         var rows: [[Value]] = []
         var cur = start
         let eps = inc * 1e-9
         while cur <= end + eps {
-            guard rows.count < 1_000_000 else { throw DAXError(.runtime, "GENERATESERIES: quá 1 triệu dòng") }
+            guard rows.count < 1_000_000 else { throw DAXError(.runtime, lt("GENERATESERIES: quá 1 triệu dòng", "GENERATESERIES: more than 1 million rows")) }
             rows.append([allInt ? .integer(Int64(cur.rounded())) : .double(cur)])
             cur += inc
         }
@@ -832,7 +833,7 @@ public enum TableFunctions: FunctionFamily {
     /// DATATABLE(col1, TYPE1, ..., {{row1}, {row2}}): ép kiểu từng ô theo TYPE khai báo.
     private static let dataTableBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         guard frame.args.count >= 3, (frame.args.count - 1) % 2 == 0 else {
-            throw DAXError(.arity, "DATATABLE cần các cặp (tên cột, kiểu) và mảng dữ liệu cuối")
+            throw DAXError(.arity, lt("DATATABLE cần các cặp (tên cột, kiểu) và mảng dữ liệu cuối", "DATATABLE needs (column name, type) pairs and a data array at the end"))
         }
         let colCount = (frame.args.count - 1) / 2
         var names: [String] = []
@@ -840,10 +841,10 @@ public enum TableFunctions: FunctionFamily {
         for k in 0..<colCount {
             let nVal = try frame.scalar(2 * k)
             guard case .string(let name) = nVal else {
-                throw DAXError(.typeMismatch, "DATATABLE: tên cột phải là chuỗi")
+                throw DAXError(.typeMismatch, lt("DATATABLE: tên cột phải là chuỗi", "DATATABLE: the column name must be a string"))
             }
             guard let t = frame.keyword(2 * k + 1)?.uppercased() else {
-                throw DAXError(.typeMismatch, "DATATABLE: kiểu cột phải là STRING, INTEGER, DOUBLE, BOOLEAN, DATETIME hoặc CURRENCY")
+                throw DAXError(.typeMismatch, lt("DATATABLE: kiểu cột phải là STRING, INTEGER, DOUBLE, BOOLEAN, DATETIME hoặc CURRENCY", "DATATABLE: the column type must be STRING, INTEGER, DOUBLE, BOOLEAN, DATETIME or CURRENCY"))
             }
             names.append(name)
             types.append(t)
@@ -853,7 +854,7 @@ public enum TableFunctions: FunctionFamily {
         coercedRows.reserveCapacity(raw.rows.count)
         for row in raw.rows {
             guard row.count == colCount else {
-                throw DAXError(.arity, "DATATABLE: dòng có \(row.count) giá trị, cần \(colCount)")
+                throw DAXError(.arity, lt("DATATABLE: dòng có \(row.count) giá trị, cần \(colCount)", "DATATABLE: a row has \(row.count) values but \(colCount) are needed"))
             }
             var out: [Value] = []
             for (c, v) in row.enumerated() {

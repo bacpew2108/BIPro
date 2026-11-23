@@ -1,6 +1,7 @@
 // Ép kiểu, số học, so sánh, logic, nối chuỗi và BLANK của `Value` (VAL, đợt 1b).
 // Quy tắc chính: docs/phase-b-research/architecture.md §5.5; so khớp oracle: docs/PHASE_B_PLAN.md §5.3.
 // Chỗ tài liệu chưa chốt được ghi [SUY ĐOÁN] và chờ oracle (O1 lưới, O2 Copy, O15 làm tròn).
+import PBIXKit
 import Foundation
 
 // MARK: - Toán hạng số đã ép
@@ -275,7 +276,7 @@ extension Value {
             guard let a, let b else { return .blank }
             return .double(pow(a.asDouble, b.asDouble))
         default:
-            throw DAXError(.runtime, "toán tử \(op.rawValue) không phải toán tử số học")
+            throw DAXError(.runtime, lt("toán tử \(op.rawValue) không phải toán tử số học", "operator \(op.rawValue) isn't an arithmetic operator"))
         }
     }
 
@@ -319,7 +320,7 @@ extension Value {
         case .lessEqual: return .boolean(ord == .less || ord == .equal)
         case .greaterEqual: return .boolean(ord == .greater || ord == .equal)
         default:
-            throw DAXError(.runtime, "toán tử \(op.rawValue) không phải toán tử so sánh")
+            throw DAXError(.runtime, lt("toán tử \(op.rawValue) không phải toán tử so sánh", "operator \(op.rawValue) isn't a comparison operator"))
         }
     }
 
@@ -330,7 +331,7 @@ extension Value {
         switch op {
         case .and: return .boolean(a && b)
         case .or: return .boolean(a || b)
-        default: throw DAXError(.runtime, "toán tử \(op.rawValue) không phải toán tử logic")
+        default: throw DAXError(.runtime, lt("toán tử \(op.rawValue) không phải toán tử logic", "operator \(op.rawValue) isn't a logical operator"))
         }
     }
 

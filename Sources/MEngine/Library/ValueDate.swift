@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm Date.
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -45,7 +46,7 @@ enum ValueDate {
                 let civil = ValueDateHelper.civilFromSerial(d)
                 return .number(Double(civil.year))
             default:
-                throw MError.expression("Date.Year: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.Year: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.Year: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -61,7 +62,7 @@ enum ValueDate {
                 let civil = ValueDateHelper.civilFromSerial(d)
                 return .number(Double(civil.month))
             default:
-                throw MError.expression("Date.Month: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.Month: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.Month: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -77,7 +78,7 @@ enum ValueDate {
                 let civil = ValueDateHelper.civilFromSerial(d)
                 return .number(Double(civil.day))
             default:
-                throw MError.expression("Date.Day: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.Day: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.Day: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -93,11 +94,11 @@ enum ValueDate {
             case .dateTime(let d): return .date(floor(d))
             case .text(let s):
                 guard let serial = ValueDateHelper.parseDateString(s) else {
-                    throw MError.expression("DataFormat.Error: Không thể chuyển '\(s)' sang Date")
+                    throw MError.expression(lt("DataFormat.Error: Không thể chuyển '\(s)' sang Date", "DataFormat.Error: Couldn't convert '\(s)' to Date"))
                 }
                 return .date(serial)
             default:
-                throw MError.expression("Date.From: chưa hỗ trợ chuyển đổi từ kiểu \(args[0].kindName)")
+                throw MError.expression(lt("Date.From: chưa hỗ trợ chuyển đổi từ kiểu \(args[0].kindName)", "Date.From: conversion from type \(args[0].kindName) isn't supported yet"))
             }
         },
 
@@ -113,7 +114,7 @@ enum ValueDate {
             case .date(let d): return .date(d + days)
             case .dateTime(let d): return .dateTime(d + days)
             default:
-                throw MError.expression("Date.AddDays: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.AddDays: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.AddDays: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -138,7 +139,7 @@ enum ValueDate {
                 isDateTime = true
                 timeFraction = val - d
             default:
-                throw MError.expression("Date.AddMonths: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.AddMonths: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.AddMonths: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
 
             let civil = ValueDateHelper.civilFromSerial(d)
@@ -148,7 +149,7 @@ enum ValueDate {
             let maxDay = MDates.daysInMonth(year: newYear, month: newMonth)
             let newDay = min(civil.day, maxDay)
             guard let newSerial = MDates.serial(year: newYear, month: newMonth, day: newDay) else {
-                throw MError.expression("Date.AddMonths: tính ngày mới không thành công")
+                throw MError.expression(lt("Date.AddMonths: tính ngày mới không thành công", "Date.AddMonths: couldn't compute the new date"))
             }
             return isDateTime ? .dateTime(newSerial + timeFraction) : .date(newSerial)
         },
@@ -165,13 +166,13 @@ enum ValueDate {
             case .date(let val): d = val
             case .dateTime(let val): d = floor(val)
             default:
-                throw MError.expression("Date.DayOfWeek: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.DayOfWeek: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.DayOfWeek: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
             // 1899-12-30 (serial 0) là Thứ Bảy (Saturday = 6). Sunday = 0, Monday = 1, ..., Saturday = 6.
             let serialInt = try MInt.from(floor(d), "Date.DayOfWeek")
             let sundayZeroDOW = ((serialInt + 6) % 7 + 7) % 7
             let firstDay = try args.optional(1).map { v -> Int in
-                guard let n = MOperators.number(v) else { throw MError.expression("Date.DayOfWeek: firstDayOfWeek phải là số") }
+                guard let n = MOperators.number(v) else { throw MError.expression(lt("Date.DayOfWeek: firstDayOfWeek phải là số", "Date.DayOfWeek: firstDayOfWeek must be a number")) }
                 return try MInt.from(n, "Date.DayOfWeek")
             } ?? 0
             let adjusted = ((sundayZeroDOW - firstDay) % 7 + 7) % 7
@@ -190,7 +191,7 @@ enum ValueDate {
                 let civil = ValueDateHelper.civilFromSerial(d)
                 return .number(Double((civil.month - 1) / 3 + 1))
             default:
-                throw MError.expression("Date.QuarterOfYear: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.QuarterOfYear: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.QuarterOfYear: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -210,7 +211,7 @@ enum ValueDate {
                 guard let serial = MDates.serial(year: civil.year, month: civil.month, day: 1) else { return .null }
                 return .dateTime(serial)
             default:
-                throw MError.expression("Date.StartOfMonth: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.StartOfMonth: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.StartOfMonth: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -232,7 +233,7 @@ enum ValueDate {
                 guard let serial = MDates.serial(year: civil.year, month: civil.month, day: last) else { return .null }
                 return .dateTime(serial + (86399.0 / 86400.0))
             default:
-                throw MError.expression("Date.EndOfMonth: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.EndOfMonth: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.EndOfMonth: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -250,7 +251,7 @@ enum ValueDate {
                 let idx = max(1, min(12, civil.month)) - 1
                 return .text(names[idx])
             default:
-                throw MError.expression("Date.MonthName: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.MonthName: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.MonthName: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         },
 
@@ -267,7 +268,7 @@ enum ValueDate {
                 let idx = ((serialInt + 6) % 7 + 7) % 7
                 return .text(names[idx])
             default:
-                throw MError.expression("Date.DayOfWeekName: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)")
+                throw MError.expression(lt("Date.DayOfWeekName: đối số 1 phải là date hoặc datetime, nhận \(args[0].kindName)", "Date.DayOfWeekName: argument 1 must be a date or datetime, got \(args[0].kindName)"))
             }
         }
     ]

@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm dòng (Table.SelectRows, Table.Sort, ...).
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -17,7 +18,7 @@ public enum TableRowsLibrary {
                 let rowRecord = MTables.row(table, r)
                 let res = try condition.call([rowRecord])
                 guard case .logical(let b) = res else {
-                    throw MError.expression("Table.SelectRows: vị từ phải trả về true hoặc false, nhận \(res.kindName)")
+                    throw MError.expression(lt("Table.SelectRows: vị từ phải trả về true hoặc false, nhận \(res.kindName)", "Table.SelectRows: the predicate must return true or false, got \(res.kindName)"))
                 }
                 if b { kept.append(r) }
             }
@@ -37,15 +38,15 @@ public enum TableRowsLibrary {
                 switch item {
                 case .text(let col):
                     guard let idx = table.index(ofColumn: col) else {
-                        throw MError.expression("Table.Sort: không tìm thấy cột '\(col)'")
+                        throw MError.expression(lt("Table.Sort: không tìm thấy cột '\(col)'", "Table.Sort: column '\(col)' not found"))
                     }
                     return (idx, false)
                 case .list(let pair):
                     guard !pair.isEmpty, case .text(let col) = pair[0] else {
-                        throw MError.expression("Table.Sort: phần tử tiêu chí sắp xếp phải bắt đầu bằng tên cột")
+                        throw MError.expression(lt("Table.Sort: phần tử tiêu chí sắp xếp phải bắt đầu bằng tên cột", "Table.Sort: a sort criterion must start with a column name"))
                     }
                     guard let idx = table.index(ofColumn: col) else {
-                        throw MError.expression("Table.Sort: không tìm thấy cột '\(col)'")
+                        throw MError.expression(lt("Table.Sort: không tìm thấy cột '\(col)'", "Table.Sort: column '\(col)' not found"))
                     }
                     var desc = false
                     if pair.count > 1 {
@@ -55,7 +56,7 @@ public enum TableRowsLibrary {
                     }
                     return (idx, desc)
                 default:
-                    throw MError.expression("Table.Sort: tiêu chí sắp xếp không hợp lệ: \(item.kindName)")
+                    throw MError.expression(lt("Table.Sort: tiêu chí sắp xếp không hợp lệ: \(item.kindName)", "Table.Sort: invalid sort criterion: \(item.kindName)"))
                 }
             }
 
@@ -71,7 +72,7 @@ public enum TableRowsLibrary {
                     }
                 }
             default:
-                throw MError.expression("Table.Sort: tiêu chí sắp xếp phải là text hoặc list")
+                throw MError.expression(lt("Table.Sort: tiêu chí sắp xếp phải là text hoặc list", "Table.Sort: the sort criterion must be text or a list"))
             }
 
             // Tiền trích xuất giá trị cột sắp xếp để so sánh O(1) không tốn chi phí gọi hàm/tạo đối tượng
@@ -174,7 +175,7 @@ public enum TableRowsLibrary {
             let arg1 = args[1]
             if let n = MOperators.number(arg1) {
                 let count = try MInt.from(n, "Table.FirstN")
-                guard count >= 0 else { throw MError.expression("Table.FirstN: count không được âm") }
+                guard count >= 0 else { throw MError.expression(lt("Table.FirstN: count không được âm", "Table.FirstN: count can't be negative")) }
                 let take = min(count, table.rowCount)
                 return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(0..<take)))
             } else if case .function(let cond) = arg1 {
@@ -182,14 +183,14 @@ public enum TableRowsLibrary {
                 for r in 0..<table.rowCount {
                     let res = try cond.call([MTables.row(table, r)])
                     guard case .logical(let b) = res else {
-                        throw MError.expression("Table.FirstN: điều kiện phải trả về logic, nhận \(res.kindName)")
+                        throw MError.expression(lt("Table.FirstN: điều kiện phải trả về logic, nhận \(res.kindName)", "Table.FirstN: the condition must return a logical value, got \(res.kindName)"))
                     }
                     if !b { break }
                     kept.append(r)
                 }
                 return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: kept))
             } else {
-                throw MError.expression("Table.FirstN: đối số 2 phải là số hoặc hàm điều kiện")
+                throw MError.expression(lt("Table.FirstN: đối số 2 phải là số hoặc hàm điều kiện", "Table.FirstN: argument 2 must be a number or a condition function"))
             }
         },
 
@@ -203,13 +204,13 @@ public enum TableRowsLibrary {
             let count: Int
             if let c = countVal {
                 guard let n = MOperators.number(c) else {
-                    throw MError.expression("Table.Skip: count phải là số")
+                    throw MError.expression(lt("Table.Skip: count phải là số", "Table.Skip: count must be a number"))
                 }
                 count = try MInt.from(n, "Table.Skip")
             } else {
                 count = 1
             }
-            guard count >= 0 else { throw MError.expression("Table.Skip: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Table.Skip: count không được âm", "Table.Skip: count can't be negative")) }
             let start = min(count, table.rowCount)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(start..<table.rowCount)))
         },
@@ -222,7 +223,7 @@ public enum TableRowsLibrary {
         ) { args in
             let table = try args.table(0, "Table.LastN")
             let count = try MInt.from(args.number(1, "Table.LastN"), "Table.LastN")
-            guard count >= 0 else { throw MError.expression("Table.LastN: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Table.LastN: count không được âm", "Table.LastN: count can't be negative")) }
             let take = min(count, table.rowCount)
             let start = table.rowCount - take
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(start..<table.rowCount)))
@@ -236,7 +237,7 @@ public enum TableRowsLibrary {
         ) { args in
             let table = try args.table(0, "Table.RemoveFirstN")
             let count = try args.optional(1).flatMap(MOperators.number).map { try MInt.from($0, "Table.RemoveFirstN") } ?? 1
-            guard count >= 0 else { throw MError.expression("Table.RemoveFirstN: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Table.RemoveFirstN: count không được âm", "Table.RemoveFirstN: count can't be negative")) }
             let start = min(count, table.rowCount)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(start..<table.rowCount)))
         },
@@ -249,7 +250,7 @@ public enum TableRowsLibrary {
         ) { args in
             let table = try args.table(0, "Table.RemoveLastN")
             let count = try args.optional(1).flatMap(MOperators.number).map { try MInt.from($0, "Table.RemoveLastN") } ?? 1
-            guard count >= 0 else { throw MError.expression("Table.RemoveLastN: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Table.RemoveLastN: count không được âm", "Table.RemoveLastN: count can't be negative")) }
             let keptCount = max(0, table.rowCount - count)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(0..<keptCount)))
         },
@@ -262,10 +263,10 @@ public enum TableRowsLibrary {
         ) { args in
             let table = try args.table(0, "Table.Range")
             let offset = try MInt.from(args.number(1, "Table.Range"), "Table.Range")
-            guard offset >= 0 else { throw MError.expression("Table.Range: offset không được âm") }
+            guard offset >= 0 else { throw MError.expression(lt("Table.Range: offset không được âm", "Table.Range: offset can't be negative")) }
             let start = min(offset, table.rowCount)
             let count = try args.optional(2).flatMap(MOperators.number).map { try MInt.from($0, "Table.Range") } ?? (table.rowCount - start)
-            guard count >= 0 else { throw MError.expression("Table.Range: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("Table.Range: count không được âm", "Table.Range: count can't be negative")) }
             let end = min(start + count, table.rowCount)
             return .table(try TableRowsHelper.sliceRows(table: table, rowIndices: Array(start..<end)))
         },
@@ -281,7 +282,7 @@ public enum TableRowsLibrary {
                 let colNames = try TableRowsHelper.extractColumnNames(crit, functionName: "Table.Distinct")
                 keyColumns = try colNames.map { name in
                     guard let idx = table.index(ofColumn: name) else {
-                        throw MError.expression("Table.Distinct: không tìm thấy cột '\(name)'")
+                        throw MError.expression(lt("Table.Distinct: không tìm thấy cột '\(name)'", "Table.Distinct: column '\(name)' not found"))
                     }
                     return idx
                 }
@@ -467,14 +468,14 @@ public enum TableRowsLibrary {
             case .list(let pairs):
                 for item in pairs {
                     guard case .list(let pair) = item, pair.count >= 2, case .text(let col) = pair[0] else {
-                        throw MError.expression("Table.ReplaceErrorValues: mỗi mục phải là {tên cột, giá trị thay thế}")
+                        throw MError.expression(lt("Table.ReplaceErrorValues: mỗi mục phải là {tên cột, giá trị thay thế}", "Table.ReplaceErrorValues: each item must be {column name, replacement value}"))
                     }
                     replacements[col] = pair[1]
                 }
             case .record(let fields):
                 for f in fields { replacements[f.name] = f.value }
             default:
-                throw MError.expression("Table.ReplaceErrorValues: đối số 2 phải là list hoặc record")
+                throw MError.expression(lt("Table.ReplaceErrorValues: đối số 2 phải là list hoặc record", "Table.ReplaceErrorValues: argument 2 must be a list or record"))
             }
 
             var newColumns: [TableColumn] = []
@@ -514,7 +515,7 @@ public enum TableRowsLibrary {
             if let c = args.optional(1) {
                 let names = try TableRowsHelper.extractColumnNames(c, functionName: "Table.RemoveRowsWithErrors")
                 checkCols = Set(try names.map { n in
-                    guard let idx = table.index(ofColumn: n) else { throw MError.expression("Table.RemoveRowsWithErrors: không tìm thấy cột '\(n)'") }
+                    guard let idx = table.index(ofColumn: n) else { throw MError.expression(lt("Table.RemoveRowsWithErrors: không tìm thấy cột '\(n)'", "Table.RemoveRowsWithErrors: column '\(n)' not found")) }
                     return idx
                 })
             } else {
@@ -546,7 +547,7 @@ public enum TableRowsLibrary {
             if let c = args.optional(1) {
                 let names = try TableRowsHelper.extractColumnNames(c, functionName: "Table.SelectRowsWithErrors")
                 checkCols = Set(try names.map { n in
-                    guard let idx = table.index(ofColumn: n) else { throw MError.expression("Table.SelectRowsWithErrors: không tìm thấy cột '\(n)'") }
+                    guard let idx = table.index(ofColumn: n) else { throw MError.expression(lt("Table.SelectRowsWithErrors: không tìm thấy cột '\(n)'", "Table.SelectRowsWithErrors: column '\(n)' not found")) }
                     return idx
                 })
             } else {
@@ -576,7 +577,7 @@ public enum TableRowsLibrary {
             observed: true
         ) { args in
             let rows = try args.list(0, "Table.FromRows").map { row -> [MValue] in
-                guard case .list(let values) = row else { throw MError.expression("Table.FromRows: mỗi hàng phải là danh sách, nhận \(row.kindName)") }
+                guard case .list(let values) = row else { throw MError.expression(lt("Table.FromRows: mỗi hàng phải là danh sách, nhận \(row.kindName)", "Table.FromRows: each row must be a list, got \(row.kindName)")) }
                 return values
             }
             var names: [String]
@@ -590,7 +591,7 @@ public enum TableRowsLibrary {
                 types = names.map { _ in nil }
             case .list(let list)?:
                 names = try list.map { value in
-                    guard case .text(let name) = value else { throw MError.expression("Table.FromRows: tên cột phải là text") }
+                    guard case .text(let name) = value else { throw MError.expression(lt("Table.FromRows: tên cột phải là text", "Table.FromRows: column names must be text")) }
                     return name
                 }
                 types = names.map { _ in nil }
@@ -598,11 +599,11 @@ public enum TableRowsLibrary {
                 names = type.fields.map(\.name)
                 types = type.fields.map { $0.type.kind == .any ? nil : $0.type }
             default:
-                throw MError.expression("Table.FromRows: tham số columns không hợp lệ")
+                throw MError.expression(lt("Table.FromRows: tham số columns không hợp lệ", "Table.FromRows: invalid columns parameter"))
             }
             let filled = try rows.map { row -> [MValue] in
                 guard row.count <= names.count else {
-                    throw MError.expression("Table.FromRows: hàng có \(row.count) giá trị trong khi bảng có \(names.count) cột")
+                    throw MError.expression(lt("Table.FromRows: hàng có \(row.count) giá trị trong khi bảng có \(names.count) cột", "Table.FromRows: a row has \(row.count) values but the table has \(names.count) columns"))
                 }
                 return row + Array(repeating: MValue.null, count: names.count - row.count)
             }

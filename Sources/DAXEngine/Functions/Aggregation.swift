@@ -17,6 +17,7 @@
 // [SUY ĐOÁN] COUNTROWS() không đối số dùng bảng vật lý của row context gần nhất; bảng ảo báo lỗi.
 // [SUY ĐOÁN] DISTINCTCOUNT tính BLANK thấy được là một giá trị; dòng BLANK ảo của bảng chiều được tính.
 // [SUY ĐOÁN] AVERAGE/SUMX trên cột ngày hoặc văn bản báo .typeMismatch. Kiểu kết quả của FKAccumulator xem ở dưới.
+import PBIXKit
 import ColumnStore
 
 /// Cộng Neumaier: bù sai số làm tròn khi cộng số thực (đúng cho các số cùng dấu lớn và nhỏ xen kẽ).
@@ -73,7 +74,7 @@ public enum AggregationFunctions: FunctionFamily {
             guard kind == .integer || kind == .currency || kind == .double else {
                 let store = try fkEvaluator(frame).store
                 let label = store.schema.column(column)?.name ?? "\(column)"
-                throw DAXError(.typeMismatch, "\(name) không hỗ trợ cột \(label) có kiểu \(kind)")
+                throw DAXError(.typeMismatch, lt("\(name) không hỗ trợ cột \(label) có kiểu \(kind)", "\(name) doesn't support column \(label) of type \(kind)"))
             }
             var values: [Double] = []
             try fkForEachRow(rows) { (r: Int) throws(DAXError) in
@@ -124,7 +125,7 @@ public enum AggregationFunctions: FunctionFamily {
             guard kind == .integer || kind == .currency || kind == .double else {
                 let store = try fkEvaluator(frame).store
                 let label = store.schema.column(column)?.name ?? "\(column)"
-                throw DAXError(.typeMismatch, "\(name) không hỗ trợ cột \(label) có kiểu \(kind)")
+                throw DAXError(.typeMismatch, lt("\(name) không hỗ trợ cột \(label) có kiểu \(kind)", "\(name) doesn't support column \(label) of type \(kind)"))
             }
             var values: [Double] = []
             try fkForEachRow(rows) { (r: Int) throws(DAXError) in
@@ -156,7 +157,7 @@ public enum AggregationFunctions: FunctionFamily {
         let kind = data.type
         guard kind == .integer || kind == .currency || kind == .double else {
             let name = store.schema.column(column)?.name ?? "\(column)"
-            throw DAXError(.typeMismatch, "SUM không hỗ trợ cột \(name) có kiểu \(kind)")
+            throw DAXError(.typeMismatch, lt("SUM không hỗ trợ cột \(name) có kiểu \(kind)", "SUM doesn't support column \(name) of type \(kind)"))
         }
         let rows = try evaluator.visibleRows(of: column.table, in: frame.ctx)
 
@@ -195,10 +196,10 @@ public enum AggregationFunctions: FunctionFamily {
             }
         }
         if mismatch {
-            throw DAXError(.typeMismatch, "SUM gặp giá trị không khớp kiểu của cột")
+            throw DAXError(.typeMismatch, lt("SUM gặp giá trị không khớp kiểu của cột", "SUM found a value that doesn't match the column type"))
         }
         if overflow {
-            throw DAXError(.runtime, "SUM tràn Int64")
+            throw DAXError(.runtime, lt("SUM tràn Int64", "SUM overflowed Int64"))
         }
         if count == 0 { return .blank }
         switch kind {
@@ -224,7 +225,7 @@ public enum AggregationFunctions: FunctionFamily {
         guard data.type == .integer || data.type == .currency || data.type == .double else {
             let store = try fkEvaluator(frame).store
             let name = store.schema.column(column)?.name ?? "\(column)"
-            throw DAXError(.typeMismatch, "AVERAGE không hỗ trợ cột \(name) có kiểu \(data.type)")
+            throw DAXError(.typeMismatch, lt("AVERAGE không hỗ trợ cột \(name) có kiểu \(data.type)", "AVERAGE doesn't support column \(name) of type \(data.type)"))
         }
         var acc = FKAccumulator()
         try fkForEachRow(rows) { (r: Int) throws(DAXError) in
@@ -268,12 +269,12 @@ public enum AggregationFunctions: FunctionFamily {
         return { (frame: CallFrame) throws(DAXError) -> Value in
             if case .column(let column)? = fkArg(frame, 0) {
                 guard frame.isBlankArgument(1) else {
-                    throw DAXError(.arity, "\(wantMax ? "MAX" : "MIN") với một cột chỉ nhận một đối số")
+                    throw DAXError(.arity, lt("\(wantMax ? "MAX" : "MIN") với một cột chỉ nhận một đối số", "\(wantMax ? "MAX" : "MIN") with a column takes only one argument"))
                 }
                 return try extremeOfColumn(frame, column, wantMax: wantMax)
             }
             guard !frame.isBlankArgument(0), !frame.isBlankArgument(1) else {
-                throw DAXError(.arity, "\(wantMax ? "MAX" : "MIN") cần một cột hoặc hai giá trị")
+                throw DAXError(.arity, lt("\(wantMax ? "MAX" : "MIN") cần một cột hoặc hai giá trị", "\(wantMax ? "MAX" : "MIN") needs a column or two values"))
             }
             let first = try frame.scalar(0)
             let second = try frame.scalar(1)
@@ -340,12 +341,12 @@ public enum AggregationFunctions: FunctionFamily {
         let evaluator = try fkEvaluator(frame)
         if frame.isBlankArgument(0) {
             guard let row = frame.ctx.row, row.table != Evaluator.virtualTable else {
-                throw DAXError(.arity, "COUNTROWS() cần đối số bảng hoặc row context của một bảng vật lý")
+                throw DAXError(.arity, lt("COUNTROWS() cần đối số bảng hoặc row context của một bảng vật lý", "COUNTROWS() needs a table argument or the row context of a physical table"))
             }
             return countValue(try evaluator.visibleRows(of: row.table, in: frame.ctx).count)
         }
         guard let expr = fkArg(frame, 0) else {
-            throw DAXError(.arity, "COUNTROWS cần đối số bảng")
+            throw DAXError(.arity, lt("COUNTROWS cần đối số bảng", "COUNTROWS needs a table argument"))
         }
         return countValue(try fkCountTable(expr, evaluator, frame.ctx))
     }
@@ -436,18 +437,18 @@ struct FKAccumulator {
             return
         case .integer(let v):
             let step = integers.addingReportingOverflow(v)
-            guard !step.overflow else { throw DAXError(.runtime, "tổng số nguyên tràn Int64") }
+            guard !step.overflow else { throw DAXError(.runtime, lt("tổng số nguyên tràn Int64", "integer sum overflowed Int64")) }
             integers = step.partialValue
         case .currency(let v):
             sawCurrency = true
             let step = currencies.addingReportingOverflow(v)
-            guard !step.overflow else { throw DAXError(.runtime, "tổng currency tràn Int64") }
+            guard !step.overflow else { throw DAXError(.runtime, lt("tổng currency tràn Int64", "currency sum overflowed Int64")) }
             currencies = step.partialValue
         case .double(let d):
             sawDouble = true
             reals.add(d)
         case .string, .boolean, .dateTime:
-            throw DAXError(.typeMismatch, "không cộng hoặc lấy trung bình được giá trị không phải số")
+            throw DAXError(.typeMismatch, lt("không cộng hoặc lấy trung bình được giá trị không phải số", "can't sum or average non-numeric values"))
         }
         count += 1
     }
@@ -456,7 +457,7 @@ struct FKAccumulator {
     private func currencyUnits() throws(DAXError) -> Int64 {
         let scaled = integers.multipliedReportingOverflow(by: 10_000)
         let total = scaled.partialValue.addingReportingOverflow(currencies)
-        guard !scaled.overflow, !total.overflow else { throw DAXError(.runtime, "tổng currency tràn Int64") }
+        guard !scaled.overflow, !total.overflow else { throw DAXError(.runtime, lt("tổng currency tràn Int64", "currency sum overflowed Int64")) }
         return total.partialValue
     }
 

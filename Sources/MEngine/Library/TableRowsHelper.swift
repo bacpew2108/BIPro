@@ -1,4 +1,5 @@
 // Phase F: Trợ giúp cho thư viện dòng TableRowsLibrary (cắt dòng, dịch errorMask, tối ưu hiệu năng).
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -94,13 +95,13 @@ enum TableRowsHelper {
             var names: [String] = []
             for item in items {
                 guard case .text(let s) = item else {
-                    throw MError.expression("\(functionName): tên cột trong danh sách phải là text, nhận \(item.kindName)")
+                    throw MError.expression(lt("\(functionName): tên cột trong danh sách phải là text, nhận \(item.kindName)", "\(functionName): column names in the list must be text, got \(item.kindName)"))
                 }
                 names.append(s)
             }
             return names
         default:
-            throw MError.expression("\(functionName): đối số cột phải là text hoặc list text, nhận \(value.kindName)")
+            throw MError.expression(lt("\(functionName): đối số cột phải là text hoặc list text, nhận \(value.kindName)", "\(functionName): the column argument must be text or a list of text, got \(value.kindName)"))
         }
     }
 }

@@ -1,3 +1,4 @@
+import PBIXKit
 import Foundation
 import ColumnStore
 #if canImport(Darwin)
@@ -16,14 +17,14 @@ public struct SQLiteSource: DataSource {
 
     public func items() async throws -> [any SourceItem] {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SourceError.unreadable("File không tồn tại: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("File không tồn tại: \(url.lastPathComponent)", "The file doesn't exist: \(url.lastPathComponent)"))
         }
 
         var db: OpaquePointer?
         let rc = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil)
         guard rc == SQLITE_OK, let db = db else {
             if let db = db { sqlite3_close(db) }
-            throw SourceError.unreadable("Không thể mở cơ sở dữ liệu SQLite: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể mở cơ sở dữ liệu SQLite: \(url.lastPathComponent)", "Couldn't open the SQLite database: \(url.lastPathComponent)"))
         }
         defer { sqlite3_close(db) }
 
@@ -36,7 +37,7 @@ public struct SQLiteSource: DataSource {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else {
             let msg = String(cString: sqlite3_errmsg(db))
-            throw SourceError.unreadable("Lỗi truy vấn sqlite_master: \(msg)")
+            throw SourceError.unreadable(lt("Lỗi truy vấn sqlite_master: \(msg)", "sqlite_master query error: \(msg)"))
         }
         defer { sqlite3_finalize(stmt) }
 
@@ -158,7 +159,7 @@ private struct SQLiteItem: SourceItem, Sendable {
         let rc = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY, nil)
         guard rc == SQLITE_OK, let db = db else {
             if let db = db { sqlite3_close(db) }
-            throw SourceError.unreadable("Không thể mở cơ sở dữ liệu SQLite: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể mở cơ sở dữ liệu SQLite: \(url.lastPathComponent)", "Couldn't open the SQLite database: \(url.lastPathComponent)"))
         }
         defer { sqlite3_close(db) }
 
@@ -169,7 +170,7 @@ private struct SQLiteItem: SourceItem, Sendable {
         var pStmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, pragmaSQL, -1, &pStmt, nil) == SQLITE_OK else {
             let msg = String(cString: sqlite3_errmsg(db))
-            throw SourceError.unreadable("Lỗi đọc schema: \(msg)")
+            throw SourceError.unreadable(lt("Lỗi đọc schema: \(msg)", "Schema read error: \(msg)"))
         }
 
         var colInfos: [(name: String, type: DAXType)] = []
@@ -179,7 +180,7 @@ private struct SQLiteItem: SourceItem, Sendable {
             let cType = sqlite3_column_text(pStmt, 2).map { String(cString: $0) } ?? ""
             if cType.uppercased().contains("BLOB") {
                 sqlite3_finalize(pStmt)
-                throw SourceError.unsupported("cột BLOB '\(cName)' không được hỗ trợ")
+                throw SourceError.unsupported(lt("cột BLOB '\(cName)' không được hỗ trợ", "BLOB column '\(cName)' isn't supported"))
             }
             let daxType = SQLiteHelper.mapDeclaredType(cType)
             colInfos.append((cName, daxType))
@@ -200,7 +201,7 @@ private struct SQLiteItem: SourceItem, Sendable {
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, selectSQL, -1, &stmt, nil) == SQLITE_OK else {
             let msg = String(cString: sqlite3_errmsg(db))
-            throw SourceError.unreadable("Lỗi thực thi truy vấn: \(msg)")
+            throw SourceError.unreadable(lt("Lỗi thực thi truy vấn: \(msg)", "Query execution error: \(msg)"))
         }
         defer { sqlite3_finalize(stmt) }
 
@@ -290,7 +291,7 @@ private struct SQLiteItem: SourceItem, Sendable {
                         } else {
                             dateBuilders[dateIdx].append(nil)
                             if errorMask[col] == nil { errorMask[col] = [:] }
-                            errorMask[col]![rowIdx] = "Không thể chuyển '\(text)' sang ngày giờ"
+                            errorMask[col]![rowIdx] = lt("Không thể chuyển '\(text)' sang ngày giờ", "Couldn't convert '\(text)' to date/time")
                         }
                     }
                     dateIdx += 1

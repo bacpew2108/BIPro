@@ -1,3 +1,4 @@
+import PBIXKit
 // Hợp đồng UI ↔ engine (lead, nháp đợt 0). Chốt sau khi có quan sát O1–O3 (docs/phase-b-research/oracle-ui.md §2.5).
 // BIPro chỉ phụ thuộc vào các protocol này, không gọi thẳng vào DAXEngine.
 
@@ -38,7 +39,7 @@ public struct FakeQueryRunner: DAXQueryRunning {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
         }
         if Task.isCancelled {
-            throw DAXError(.cancelled, "đã huỷ")
+            throw DAXError(.cancelled, lt("đã huỷ", "cancelled"))
         }
         switch outcome {
         case .success(let result): return result

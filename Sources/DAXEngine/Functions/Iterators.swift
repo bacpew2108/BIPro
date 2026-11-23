@@ -15,6 +15,7 @@
 //   (row context ngoài). value BLANK cho BLANK. Dòng BLANK của bảng không được xếp hạng. Mặc định DESC và SKIP
 //   [SUY ĐOÁN, theo tài liệu DAX đã biết]: SKIP cho 1,1,3; DENSE cho 1,1,2.
 
+import PBIXKit
 import ColumnStore
 
 public enum IteratorFunctions: FunctionFamily {
@@ -93,11 +94,11 @@ public enum IteratorFunctions: FunctionFamily {
         var position = 3
         while position < frame.args.count {
             guard let arg = frame.args[position] else {
-                throw DAXError(.arity, "CONCATENATEX: đối số \(position + 1) bị bỏ trống")
+                throw DAXError(.arity, lt("CONCATENATEX: đối số \(position + 1) bị bỏ trống", "CONCATENATEX: argument \(position + 1) is empty"))
             }
             if case .keyword(let word) = arg {
                 guard let last = spec.indices.last, spec[last].desc == nil, word == "ASC" || word == "DESC" else {
-                    throw DAXError(.arity, "CONCATENATEX: ASC hoặc DESC phải đứng ngay sau một biểu thức sắp xếp")
+                    throw DAXError(.arity, lt("CONCATENATEX: ASC hoặc DESC phải đứng ngay sau một biểu thức sắp xếp", "CONCATENATEX: ASC or DESC must come right after a sort expression"))
                 }
                 spec[last].desc = word == "DESC"
             } else {
@@ -142,7 +143,7 @@ public enum IteratorFunctions: FunctionFamily {
     private static let percentileBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
         let k = try frame.scalar(2).asDouble()
         guard k >= 0, k <= 1 else {
-            throw DAXError(.runtime, "PERCENTILEX.INC: k phải nằm trong khoảng [0, 1]")
+            throw DAXError(.runtime, lt("PERCENTILEX.INC: k phải nằm trong khoảng [0, 1]", "PERCENTILEX.INC: k must be within [0, 1]"))
         }
         let descending = frame.keyword(3) == "DESC"
         // Với mỗi mẫu: giá trị đã đổi về số thực, và cờ cho biết mẫu có phải currency (giữ đơn vị ×10^4).
@@ -158,7 +159,7 @@ public enum IteratorFunctions: FunctionFamily {
             case .currency(let c):
                 samples.append((Double(c), true))
             case .string, .boolean, .dateTime:
-                throw DAXError(.typeMismatch, "PERCENTILEX.INC cần biểu thức số")
+                throw DAXError(.typeMismatch, lt("PERCENTILEX.INC cần biểu thức số", "PERCENTILEX.INC needs a numeric expression"))
             }
         }
         guard !samples.isEmpty else { return .blank }
@@ -193,12 +194,12 @@ public enum IteratorFunctions: FunctionFamily {
                 case "DESC": descending = true
                 case "DENSE": dense = true
                 case "SKIP": dense = false
-                default: throw DAXError(.typeMismatch, "RANKX: từ khoá \(word) không hợp lệ")
+                default: throw DAXError(.typeMismatch, lt("RANKX: từ khoá \(word) không hợp lệ", "RANKX: the keyword \(word) isn't valid"))
                 }
             } else if position == 2 {
                 explicitValue = arg
             } else {
-                throw DAXError(.arity, "RANKX: đối số \(position + 1) phải là từ khoá")
+                throw DAXError(.arity, lt("RANKX: đối số \(position + 1) phải là từ khoá", "RANKX: argument \(position + 1) must be a keyword"))
             }
         }
         // value mặc định: biểu thức tính ở ngữ cảnh gọi (trước khi lặp bảng).
@@ -267,7 +268,7 @@ func fkRequireComparable(_ values: [Value]) throws(DAXError) {
         case .boolean: group = 2
         }
         if let previous = seen, previous != group {
-            throw DAXError(.typeMismatch, "các giá trị khoá sắp xếp khác kiểu, không so sánh được")
+            throw DAXError(.typeMismatch, lt("các giá trị khoá sắp xếp khác kiểu, không so sánh được", "the sort key values have different types and can't be compared"))
         }
         seen = group
     }

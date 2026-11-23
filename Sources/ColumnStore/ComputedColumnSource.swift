@@ -2,6 +2,7 @@
 // đây (`setColumn`, `setTable`); mọi cột khác đọc từ kho cột bên dưới (kho gốc hoặc kho có bảng nạp chồng), nên thêm cột tính toán không
 // làm giải mã lại các bảng lớn. `schema` là lược đồ hiệu lực, có cả cột/bảng tính toán.
 
+import PBIXKit
 import Foundation
 
 public final class ComputedColumnSource: ColumnSource, @unchecked Sendable {
@@ -37,12 +38,12 @@ public final class ComputedColumnSource: ColumnSource, @unchecked Sendable {
         if let data = lock.withLock({ columns[id] }) { return data }
         if let table = lock.withLock({ tables[id.table] }) {
             guard let data = table.columns[column.name] else {
-                throw ColumnStoreError.storageMissing("cột \(column.name) không có trong kết quả bảng tính toán")
+                throw ColumnStoreError.storageMissing(lt("cột \(column.name) không có trong kết quả bảng tính toán", "column \(column.name) isn't in the calculated table result"))
             }
             return data
         }
         if column.isCalculated, base.schema.column(id) == nil {
-            throw ColumnStoreError.storageMissing("cột tính toán \(column.name) chưa được tính")
+            throw ColumnStoreError.storageMissing(lt("cột tính toán \(column.name) chưa được tính", "calculated column \(column.name) hasn't been computed yet"))
         }
         return try base.column(id)
     }

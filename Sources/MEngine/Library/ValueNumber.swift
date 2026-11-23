@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm Number.
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -41,11 +42,11 @@ enum ValueNumber {
             if case .null = args[0] { return .null }
             let n = try args.number(0, "Number.Round")
             let digits = try args.optional(1).map { v -> Int in
-                guard let d = MOperators.number(v) else { throw MError.expression("Number.Round: digits phải là số") }
+                guard let d = MOperators.number(v) else { throw MError.expression(lt("Number.Round: digits phải là số", "Number.Round: digits must be a number")) }
                 return try MInt.from(d, "Number.Round")
             } ?? 0
             let mode = try args.optional(2).map { v -> Int in
-                guard let m = MOperators.number(v), (0...4).contains(m) else { throw MError.expression("Number.Round: roundingMode không hợp lệ") }
+                guard let m = MOperators.number(v), (0...4).contains(m) else { throw MError.expression(lt("Number.Round: roundingMode không hợp lệ", "Number.Round: invalid roundingMode")) }
                 return Int(m)
             } ?? 4
             return .number(MRounding.round(n, digits: digits, mode: mode))
@@ -71,7 +72,7 @@ enum ValueNumber {
             if case .null = args[0] { return .null }
             let n = try args.number(0, "Number.RoundDown")
             let digits = try args.optional(1).map { v -> Int in
-                guard let d = MOperators.number(v) else { throw MError.expression("Number.RoundDown: digits phải là số") }
+                guard let d = MOperators.number(v) else { throw MError.expression(lt("Number.RoundDown: digits phải là số", "Number.RoundDown: digits must be a number")) }
                 return try MInt.from(d, "Number.RoundDown")
             } ?? 0
             let factor = pow(10.0, Double(digits))
@@ -88,7 +89,7 @@ enum ValueNumber {
             if case .null = args[0] { return .null }
             let n = try args.number(0, "Number.RoundUp")
             let digits = try args.optional(1).map { v -> Int in
-                guard let d = MOperators.number(v) else { throw MError.expression("Number.RoundUp: digits phải là số") }
+                guard let d = MOperators.number(v) else { throw MError.expression(lt("Number.RoundUp: digits phải là số", "Number.RoundUp: digits must be a number")) }
                 return try MInt.from(d, "Number.RoundUp")
             } ?? 0
             let factor = pow(10.0, Double(digits))

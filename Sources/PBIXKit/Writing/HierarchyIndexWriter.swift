@@ -38,9 +38,9 @@ public enum HierarchyIndex {
     // MARK: Dựng cây
 
     public static func build(_ levels: [Level]) throws -> Nodes {
-        guard let first = levels.first else { throw WriteError.invalid("phân cấp không có cấp nào") }
+        guard let first = levels.first else { throw WriteError.invalid(lt("phân cấp không có cấp nào", "the hierarchy has no levels")) }
         let rows = first.dataIDs.count
-        guard levels.allSatisfy({ $0.dataIDs.count == rows }) else { throw WriteError.invalid("các cột cấp của phân cấp lệch số dòng") }
+        guard levels.allSatisfy({ $0.dataIDs.count == rows }) else { throw WriteError.invalid(lt("các cột cấp của phân cấp lệch số dòng", "the level columns of the hierarchy have different row counts")) }
         var nodes = Nodes()
         var groups: [[Int]] = [Array(0..<rows)]
         var groupParent: [Int64] = [0]
@@ -76,7 +76,7 @@ public enum HierarchyIndex {
             nodes.childCount[p] += 1
         }
         for i in nodes.childCount.indices where nodes.childCount[i] > 0 { nodes.childCount[i] += 1 }
-        guard nodes.count <= Int(UInt32.max) else { throw WriteError.invalid("phân cấp quá nhiều nút") }
+        guard nodes.count <= Int(UInt32.max) else { throw WriteError.invalid(lt("phân cấp quá nhiều nút", "the hierarchy has too many nodes")) }
         nodes.structureType = nodes.count == distinctTotal ? 1 : 2
         return nodes
     }
@@ -129,7 +129,7 @@ public enum HierarchyIndex {
         let own = try VertiPaqWriter.encodeDictionary(values)
         let ownRank = Dictionary(uniqueKeysWithValues: own.sortedIDs.enumerated().map { ($1, $0) })
         guard let sortBy else { return Level(dataIDs: own.ids, rank: ownRank) }
-        guard sortBy.count == values.count else { throw WriteError.invalid("cột sắp theo lệch số dòng") }
+        guard sortBy.count == values.count else { throw WriteError.invalid(lt("cột sắp theo lệch số dòng", "the sort-by column has a different row count")) }
         let other = try VertiPaqWriter.encodeDictionary(sortBy)
         let otherRank = Dictionary(uniqueKeysWithValues: other.sortedIDs.enumerated().map { ($1, $0) })
         return Level(dataIDs: own.ids, rank: sortedRank(own.ids, own: ownRank, by: other.ids, rank: otherRank))
@@ -142,7 +142,7 @@ public enum HierarchyIndex {
         let ownRank = try positions(columnID: columnID, abf: abf) ?? Dictionary(uniqueKeysWithValues: Set(ids).sorted().enumerated().map { ($1, $0) })
         guard let sortBy else { return Level(dataIDs: ids, rank: ownRank) }
         let otherIDs = try dataIDs(sortBy.column, abf: abf)
-        guard otherIDs.count == ids.count else { throw WriteError.invalid("cột sắp theo lệch số dòng") }
+        guard otherIDs.count == ids.count else { throw WriteError.invalid(lt("cột sắp theo lệch số dòng", "the sort-by column has a different row count")) }
         let otherRank = try positions(columnID: sortBy.id, abf: abf)
             ?? Dictionary(uniqueKeysWithValues: Set(otherIDs).sorted().enumerated().map { ($1, $0) })
         return Level(dataIDs: ids, rank: sortedRank(ids, own: ownRank, by: otherIDs, rank: otherRank))
@@ -168,7 +168,7 @@ public enum HierarchyIndex {
 
     public static func level(_ own: Ranked, sortBy: Ranked?) throws -> Level {
         guard let sortBy else { return Level(dataIDs: own.ids, rank: own.rank) }
-        guard sortBy.ids.count == own.ids.count else { throw WriteError.invalid("cột sắp theo lệch số dòng") }
+        guard sortBy.ids.count == own.ids.count else { throw WriteError.invalid(lt("cột sắp theo lệch số dòng", "the sort-by column has a different row count")) }
         return Level(dataIDs: own.ids, rank: sortedRank(own.ids, own: own.rank, by: sortBy.ids, rank: sortBy.rank))
     }
 

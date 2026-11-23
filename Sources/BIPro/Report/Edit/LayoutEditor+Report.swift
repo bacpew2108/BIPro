@@ -287,7 +287,7 @@ extension LayoutEditor {
             if generated, case .set(let filter) = change {
                 revertOps.append((key, .remove(name: FilterExport.cardName(for: key, column: filter.column))))
             } else if !generated {
-                notes.append("Bộ lọc \(key.filterID): hoàn tác sau khi lưu chưa khôi phục được thẻ có sẵn trong file; mở lại file gốc để đưa về như cũ.")
+                notes.append(biN("Bộ lọc \(key.filterID): hoàn tác sau khi lưu chưa khôi phục được thẻ có sẵn trong file; mở lại file gốc để đưa về như cũ.", "Filter \(key.filterID): undoing after saving can't restore a card that was already in the file; reopen the original file to get back to the original."))
             }
         }
         guard !reportEdits.filters.isEmpty || !revertOps.isEmpty else { return }

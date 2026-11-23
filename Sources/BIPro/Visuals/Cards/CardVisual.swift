@@ -10,7 +10,7 @@ enum CardVisual {
     /// - Chuỗi/khác giữ nguyên văn.
     static func text(for data: SingleValueData, format: VisualFormat) -> String {
         if case .blank = data.cell.value {
-            return "(Trống)"
+            return biN("(Trống)", "(Blank)")
         }
         return NumberDisplay.text(
             data.cell,

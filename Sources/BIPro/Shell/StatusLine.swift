@@ -28,13 +28,13 @@ enum StatusLine {
             let rowUnit = isEN ? (rows == 1 ? "row" : "rows") : "dòng"
             var result = isEN
                 ? "Table: \(table) (\(rows.formatted()) \(rowUnit))"
-                : "Bảng: \(table) (\(rows.formatted()) \(rowUnit))"
+                : biN("Bảng: \(table) (\(rows.formatted()) \(rowUnit))", "Table: \(table) (\(rows.formatted()) \(rowUnit))")
             if let col = state.column {
                 let distinct = distinctCount(table: table, column: col, workspace: state.workspace)
                 let distUnit = isEN ? (distinct == 1 ? "distinct value" : "distinct values") : "giá trị phân biệt"
                 result += isEN
                     ? " Column: \(col) (\(distinct.formatted()) \(distUnit))"
-                    : " Cột: \(col) (\(distinct.formatted()) \(distUnit))"
+                    : biN(" Cột: \(col) (\(distinct.formatted()) \(distUnit))", " Column: \(col) (\(distinct.formatted()) \(distUnit))")
             }
             return result
 
@@ -43,7 +43,7 @@ enum StatusLine {
             let relCount = state.workspace.metadata?.relationships.count ?? 0
             return isEN
                 ? "\(tableCount) tables · \(relCount) relationships"
-                : "\(tableCount) bảng · \(relCount) quan hệ"
+                : biN("\(tableCount) bảng · \(relCount) quan hệ", "\(tableCount) tables · \(relCount) relationships")
 
         case .daxQuery:
             let total = max(1, state.daxQueries.count)

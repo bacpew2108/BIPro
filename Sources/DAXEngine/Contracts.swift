@@ -2,6 +2,7 @@
 // Muốn đổi thì gửi yêu cầu cho lead, tối đa một lần mỗi đợt (docs/PHASE_B_PLAN.md §3.2).
 // Chi tiết ngữ nghĩa: docs/phase-b-research/architecture.md §4–5 và §8.3.
 
+import PBIXKit
 import ColumnStore
 
 // MARK: - Lỗi và vị trí
@@ -41,7 +42,7 @@ public struct DAXError: Error, Sendable, Hashable {
 
     /// Hàm chưa được cài đặt (dùng cho stub của đợt 0).
     public static func unsupported(_ name: String) -> DAXError {
-        DAXError(.unsupportedFunction, "\(name) chưa được hỗ trợ")
+        DAXError(.unsupportedFunction, lt("\(name) chưa được hỗ trợ", "\(name) isn't supported yet"))
     }
 }
 
@@ -195,17 +196,17 @@ public struct CallFrame: Sendable {
     }
 
     public func scalar(_ i: Int, in ctx: EvalContext) throws(DAXError) -> Value {
-        guard let expr = argument(i) else { throw DAXError(.arity, "đối số \(i + 1) bị bỏ trống") }
+        guard let expr = argument(i) else { throw DAXError(.arity, lt("đối số \(i + 1) bị bỏ trống", "argument \(i + 1) is empty")) }
         return try eval.scalar(expr, in: ctx)
     }
 
     public func table(_ i: Int) throws(DAXError) -> TableValue {
-        guard let expr = argument(i) else { throw DAXError(.arity, "đối số \(i + 1) bị bỏ trống") }
+        guard let expr = argument(i) else { throw DAXError(.arity, lt("đối số \(i + 1) bị bỏ trống", "argument \(i + 1) is empty")) }
         return try eval.table(expr, in: ctx)
     }
 
     public func column(_ i: Int) throws(DAXError) -> ColumnID {
-        guard let expr = argument(i) else { throw DAXError(.arity, "đối số \(i + 1) bị bỏ trống") }
+        guard let expr = argument(i) else { throw DAXError(.arity, lt("đối số \(i + 1) bị bỏ trống", "argument \(i + 1) is empty")) }
         return try eval.column(expr, in: ctx)
     }
 

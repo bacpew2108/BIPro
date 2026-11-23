@@ -71,7 +71,7 @@ private struct FlowOrGridRow: View {
                 let cell = idx < row.count ? row[idx] : .blank
                 let text = TableVisualView.cellText(cell, field: field)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(text.isEmpty ? "(Trống)" : text)
+                    Text(text.isEmpty ? biN("(Trống)", "(Blank)") : text)
                         .font(.system(size: valueFont, weight: .semibold).monospacedDigit())
                         .foregroundStyle(Color(hex: "#252423") ?? .primary)
                         .lineLimit(1)

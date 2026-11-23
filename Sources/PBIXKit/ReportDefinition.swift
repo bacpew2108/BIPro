@@ -101,8 +101,8 @@ public struct ReportField: Sendable, Hashable {
     /// Mã `Aggregation.Function` của PBIR (0 Sum … 8 Variance, VM-F10) cho `.aggregation`.
     public var aggregationFunction: Int?
     /// Tên phép gộp theo mã PBIR (VM-F10: 2 là Count (Distinct), 5 là Count).
-    public static let aggregateNames = [0: "Tổng", 1: "Trung bình", 2: "Số lượng (riêng biệt)", 3: "Nhỏ nhất", 4: "Lớn nhất",
-                                        5: "Số lượng", 6: "Trung vị", 7: "Độ lệch chuẩn", 8: "Phương sai"]
+    public static let aggregateNames = [0: lt("Tổng", "Sum"), 1: lt("Trung bình", "Average"), 2: lt("Số lượng (riêng biệt)", "Count (distinct)"), 3: lt("Nhỏ nhất", "Minimum"), 4: lt("Lớn nhất", "Maximum"),
+                                        5: lt("Số lượng", "Count"), 6: lt("Trung vị", "Median"), 7: lt("Độ lệch chuẩn", "Standard deviation"), 8: lt("Phương sai", "Variance")]
     public var displayName: String?
     public var queryRef: String
     /// `nativeQueryRef` và `active` của phần tử `projections[]` (PBIR); nil khi file không có.
@@ -130,7 +130,7 @@ public struct ReportField: Sendable, Hashable {
 
     public var label: String {
         if let displayName, !displayName.isEmpty { return displayName }
-        if let function { return "\(function) của \(property)" }
+        if let function { return lt("\(function) của \(property)", "\(function) of \(property)") }
         return property
     }
 }
@@ -366,7 +366,7 @@ extension PBIXFile {
         if let aggregation = json["Aggregation"], var inner = parseField(aggregation["Expression"], aliases: aliases) {
             inner.kind = .aggregation
             let code = Int(aggregation["Function"]?.number ?? -1)
-            inner.function = ReportField.aggregateNames[code] ?? "Gộp"
+            inner.function = ReportField.aggregateNames[code] ?? lt("Gộp", "Aggregated")
             inner.aggregationFunction = code >= 0 ? code : nil
             return inner
         }

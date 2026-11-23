@@ -39,7 +39,7 @@ public enum NewDocument {
         let (abfBytes, _) = try DataModelStream.decompress(NewDocumentTemplate.dataModel)
         let abf = try ABFBackup(data: abfBytes)
         guard let metadataFile = abf.file(named: PBIXWriter.metadataPath) else {
-            throw WriteError.invalid("mẫu tài liệu trống không có \(PBIXWriter.metadataPath)")
+            throw WriteError.invalid(lt("mẫu tài liệu trống không có \(PBIXWriter.metadataPath)", "the blank document template has no \(PBIXWriter.metadataPath)"))
         }
         var metadata = try MetadataWriter(sqlite: try abf.contents(of: metadataFile))
         try metadata.setModelAnnotation(name: "__PBI_TimeIntelligenceEnabled", value: "1")

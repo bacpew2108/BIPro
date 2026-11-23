@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm List.
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -11,7 +12,7 @@ enum ValueList {
                 switch item {
                 case .list(let inner): out.append(contentsOf: inner)
                 case .error(let error): throw error
-                default: throw MError.expression("List.Combine: phần tử phải là danh sách, nhận \(item.kindName)")
+                default: throw MError.expression(lt("List.Combine: phần tử phải là danh sách, nhận \(item.kindName)", "List.Combine: an item must be a list, got \(item.kindName)"))
                 }
             }
             return .list(out)
@@ -25,7 +26,7 @@ enum ValueList {
                 case .null: continue
                 case .number(let n): numbers.append(n)
                 case .currency(let c): numbers.append(Double(c) / 10_000)
-                default: throw MError.expression("List.Median: phần tử danh sách không phải số, nhận \(item.kindName)")
+                default: throw MError.expression(lt("List.Median: phần tử danh sách không phải số, nhận \(item.kindName)", "List.Median: a list item isn't a number, got \(item.kindName)"))
                 }
             }
             guard !numbers.isEmpty else { return .null }
@@ -53,7 +54,7 @@ enum ValueList {
                     total += Double(c) / 10_000
                     count += 1
                 default:
-                    throw MError.expression("List.Sum: phần tử danh sách không phải số, nhận \(item.kindName)")
+                    throw MError.expression(lt("List.Sum: phần tử danh sách không phải số, nhận \(item.kindName)", "List.Sum: a list item isn't a number, got \(item.kindName)"))
                 }
             }
             if count == 0 { return .null }
@@ -142,7 +143,7 @@ enum ValueList {
                     total += Double(c) / 10_000
                     count += 1
                 default:
-                    throw MError.expression("List.Average: phần tử không phải số, nhận \(item.kindName)")
+                    throw MError.expression(lt("List.Average: phần tử không phải số, nhận \(item.kindName)", "List.Average: an item isn't a number, got \(item.kindName)"))
                 }
             }
             if count == 0 { return .null }
@@ -213,7 +214,7 @@ enum ValueList {
             for item in list {
                 let keep = try f.call([item])
                 guard case .logical(let b) = keep else {
-                    throw MError.expression("List.Select: vị từ phải trả logic, nhận \(keep.kindName)")
+                    throw MError.expression(lt("List.Select: vị từ phải trả logic, nhận \(keep.kindName)", "List.Select: the predicate must return a logical value, got \(keep.kindName)"))
                 }
                 if b { selected.append(item) }
             }
@@ -262,12 +263,12 @@ enum ValueList {
         ) { args in
             let start = try args.number(0, "List.Numbers")
             let count = try args.optional(1).map { v -> Int in
-                guard let n = MOperators.number(v) else { throw MError.expression("List.Numbers: count phải là số") }
+                guard let n = MOperators.number(v) else { throw MError.expression(lt("List.Numbers: count phải là số", "List.Numbers: count must be a number")) }
                 return try MInt.from(n, "List.Numbers")
             } ?? 1
-            guard count >= 0 else { throw MError.expression("List.Numbers: count không được âm") }
+            guard count >= 0 else { throw MError.expression(lt("List.Numbers: count không được âm", "List.Numbers: count can't be negative")) }
             let increment = try args.optional(2).map { v -> Double in
-                guard let n = MOperators.number(v) else { throw MError.expression("List.Numbers: increment phải là số") }
+                guard let n = MOperators.number(v) else { throw MError.expression(lt("List.Numbers: increment phải là số", "List.Numbers: increment must be a number")) }
                 return n
             } ?? 1.0
             var numbers: [MValue] = []

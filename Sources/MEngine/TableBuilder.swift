@@ -1,5 +1,6 @@
 // Phase F (T049): cầu nối giữa giá trị M (`MValue`) và `TableData`, dùng cho `#table`, thư viện `Table.*` và nạp nguồn.
 
+import PBIXKit
 import ColumnStore
 import Synchronization
 
@@ -75,7 +76,7 @@ public enum MTables {
 
     /// Dựng bảng từ các hàng giá trị. `types[i] == nil` thì suy kiểu cột từ giá trị (xem `inferType`).
     public static func build(names: [String], types: [MType?], rows: [[MValue]]) throws -> TableData {
-        guard names.count == types.count else { throw MError.expression("Số tên cột và số kiểu không khớp") }
+        guard names.count == types.count else { throw MError.expression(lt("Số tên cột và số kiểu không khớp", "The number of column names doesn't match the number of types")) }
         return try build(names: names, types: types, columns: names.indices.map { index in rows.map { $0[index] } })
     }
 
@@ -94,7 +95,7 @@ public enum MTables {
             if values.contains(where: { placeholder($0) != nil }) {
                 let declared = types[index]?.kind
                 guard declared == nil || declared == .any || declared == .anynonnull || declared == .text || declared == .record || declared == .list || declared == .table else {
-                    throw MError.expression("Giá trị không khớp kiểu \(declared!.rawValue) của cột '\(name)'")
+                    throw MError.expression(lt("Giá trị không khớp kiểu \(declared!.rawValue) của cột '\(name)'", "A value doesn't match type \(declared!.rawValue) of column '\(name)'"))
                 }
                 var cells: [Int: any Sendable] = [:]
                 var labels: [String?] = []
@@ -118,9 +119,9 @@ public enum MTables {
         do {
             return try TableData(columns: columns, errorMask: mask, nested: nested, structured: structured)
         } catch TableDataError.duplicateColumn(let name) {
-            throw MError.expression("Tên cột trùng: \(name)")
+            throw MError.expression(lt("Tên cột trùng: \(name)", "Duplicate column name: \(name)"))
         } catch TableDataError.emptyColumnName {
-            throw MError.expression("Tên cột không được rỗng")
+            throw MError.expression(lt("Tên cột không được rỗng", "Column names can't be empty"))
         }
     }
 
@@ -137,9 +138,9 @@ public enum MTables {
             case .logical: k = .logical
             case .date, .dateTime: k = .datetime
             case .error(let e): throw e
-            default: throw MError.unsupported("cột '\(name)' chứa giá trị không phải số, chuỗi, logic hoặc ngày")
+            default: throw MError.unsupported(lt("cột '\(name)' chứa giá trị không phải số, chuỗi, logic hoặc ngày", "column '\(name)' contains values that aren't numbers, text, logical or dates"))
             }
-            if let kind, kind != k { throw MError.unsupported("cột '\(name)' lẫn nhiều kiểu (any)") }
+            if let kind, kind != k { throw MError.unsupported(lt("cột '\(name)' lẫn nhiều kiểu (any)", "column '\(name)' mixes several types (any)")) }
             kind = k
         }
         return MType(kind ?? .text, isNullable: true)
@@ -148,7 +149,7 @@ public enum MTables {
     static func column(_ values: [MValue], type declared: MType?, name: String) throws -> ColumnData {
         let explicit = declared.flatMap { $0.kind == .any || $0.kind == .anynonnull ? nil : $0 }
         let type = try explicit ?? inferType(values, name: name)
-        func mismatch(_ v: MValue) -> MError { MError.expression("Giá trị không khớp kiểu \(type.kind.rawValue) của cột '\(name)'") }
+        func mismatch(_ v: MValue) -> MError { MError.expression(lt("Giá trị không khớp kiểu \(type.kind.rawValue) của cột '\(name)'", "A value doesn't match type \(type.kind.rawValue) of column '\(name)'")) }
         func number(_ v: MValue) throws -> Double? {
             switch v {
             case .null: return nil
@@ -162,7 +163,7 @@ public enum MTables {
         case .int64, .int32, .int16, .int8:
             return ColumnBuilder.integers(try values.map { v in
                 guard let d = try number(v) else { return nil }
-                guard d == d.rounded(), abs(d) < 9.2e18 else { throw MError.expression("Giá trị \(d) không phải số nguyên (cột '\(name)')") }
+                guard d == d.rounded(), abs(d) < 9.2e18 else { throw MError.expression(lt("Giá trị \(d) không phải số nguyên (cột '\(name)')", "The value \(d) isn't an integer (column '\(name)')")) }
                 return Int64(d)
             })
         case .number, .double, .decimal, .percentage, .any, .anynonnull:
@@ -197,7 +198,7 @@ public enum MTables {
                 }
             })
         default:
-            throw MError.unsupported("kiểu cột \(type.kind.rawValue)")
+            throw MError.unsupported(lt("kiểu cột \(type.kind.rawValue)", "column type \(type.kind.rawValue)"))
         }
     }
 }

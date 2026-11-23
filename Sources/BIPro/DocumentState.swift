@@ -12,10 +12,10 @@ enum WorkspaceMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .report: "Báo cáo"
-        case .table: "Bảng"
-        case .model: "Mô hình"
-        case .daxQuery: "Truy vấn DAX"
+        case .report: biN("Báo cáo", "Report")
+        case .table: biN("Bảng", "Table")
+        case .model: biN("Mô hình", "Model")
+        case .daxQuery: biN("Truy vấn DAX", "DAX query")
         case .tmdl: "TMDL"
         }
     }
@@ -510,7 +510,7 @@ struct DAXQueryTab: Identifiable, Hashable {
     EVALUATE
     SUMMARIZECOLUMNS(
         'Dim_Date'[year],
-        "Số giao dịch", [Trans Count]
+        biN("Số giao dịch", "Transaction count"), [Trans Count]
     )
     ORDER BY 'Dim_Date'[year]
     """ }

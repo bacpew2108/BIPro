@@ -72,8 +72,8 @@ struct AddDataPanel: View {
                 + Text("Data").bold()
                 + Text(" pane.")
         }
-        return Text("Sau khi nạp, dữ liệu của bạn sẽ hiện trong pane ")
-            + Text("Dữ liệu").bold()
+        return Text(biN("Sau khi nạp, dữ liệu của bạn sẽ hiện trong pane ", "Once loaded, your data will appear in the "))
+            + Text(biN("Dữ liệu", "Data")).bold() + Text(biN("", " pane."))
             + Text(".")
     }
 

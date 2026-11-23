@@ -16,6 +16,7 @@
 // [SUY ĐOÁN] Tham chiếu cột không có row context: nếu bộ lọc có đúng một giá trị thì trả giá trị đó, không có
 //   thì trả BLANK, nhiều giá trị thì báo lỗi. Đây là hành vi quan sát thường gặp, chưa đối chiếu oracle.
 // [SUY ĐOÁN] Tên sentinel `virtualTable` (raw = -1) chỉ dùng làm dấu row context cho khung bảng ảo.
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -127,12 +128,12 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         case .virtualColumn(let name):
             return try virtualColumnValue(name, ctx)
         case .table:
-            throw DAXError(.typeMismatch, "biểu thức bảng không dùng được như giá trị")
+            throw DAXError(.typeMismatch, lt("biểu thức bảng không dùng được như giá trị", "a table expression can't be used as a value"))
         case .measure(let id):
             return try measureValue(id, ctx)
         case .variable(let slot):
             guard case .scalar(let value) = try lookupVariable(slot) else {
-                throw DAXError(.typeMismatch, "biến bảng không dùng được như giá trị")
+                throw DAXError(.typeMismatch, lt("biến bảng không dùng được như giá trị", "a table variable can't be used as a value"))
             }
             return value
         case .call(let fid, let args):
@@ -141,9 +142,9 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             case .scalar(let body):
                 return try body(CallFrame(args: args, ctx: ctx, eval: self))
             case .table:
-                throw DAXError(.typeMismatch, "\(spec.name) trả về bảng, không dùng như giá trị")
+                throw DAXError(.typeMismatch, lt("\(spec.name) trả về bảng, không dùng như giá trị", "\(spec.name) returns a table and can't be used as a value"))
             case .modifier:
-                throw DAXError(.typeMismatch, "\(spec.name) chỉ dùng làm bộ sửa đổi trong CALCULATE")
+                throw DAXError(.typeMismatch, lt("\(spec.name) chỉ dùng làm bộ sửa đổi trong CALCULATE", "\(spec.name) can only be used as a modifier in CALCULATE"))
             }
         case .unary(let op, let operand):
             return try Value.unary(op, try scalar(operand, in: ctx))
@@ -154,13 +155,13 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
                 try scalar(body, in: ctx)
             }
         case .tableConstructor:
-            throw DAXError(.typeMismatch, "{…} không dùng được như giá trị")
+            throw DAXError(.typeMismatch, lt("{…} không dùng được như giá trị", "{…} can't be used as a value"))
         case .keyword(let word):
-            throw DAXError(.typeMismatch, "từ khoá \(word) không phải giá trị")
+            throw DAXError(.typeMismatch, lt("từ khoá \(word) không phải giá trị", "the keyword \(word) isn't a value"))
         case .tuple:
-            throw DAXError(.typeMismatch, "bộ giá trị (tuple) không dùng được như giá trị")
+            throw DAXError(.typeMismatch, lt("bộ giá trị (tuple) không dùng được như giá trị", "a tuple can't be used as a value"))
         case .summarize:
-            throw DAXError(.typeMismatch, "biểu thức bảng SUMMARIZECOLUMNS không dùng được như giá trị")
+            throw DAXError(.typeMismatch, lt("biểu thức bảng SUMMARIZECOLUMNS không dùng được như giá trị", "a SUMMARIZECOLUMNS table expression can't be used as a value"))
         }
     }
 
@@ -174,7 +175,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             switch try lookupVariable(slot) {
             case .table(let value): return value
             case .rows(let id, let rows): return try materialize(id, rows)
-            case .scalar: throw DAXError(.typeMismatch, "biến vô hướng không dùng được như bảng")
+            case .scalar: throw DAXError(.typeMismatch, lt("biến vô hướng không dùng được như bảng", "a scalar variable can't be used as a table"))
             }
         case .varBlock(let slots, let values, let body):
             return try withBlock(slots, values, ctx) { () throws(DAXError) -> TableValue in
@@ -186,7 +187,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
                 return try table(inner, in: ctx)
             }
             guard case .table(let body) = spec.impl else {
-                throw DAXError(.typeMismatch, "\(spec.name) không trả về bảng")
+                throw DAXError(.typeMismatch, lt("\(spec.name) không trả về bảng", "\(spec.name) doesn't return a table"))
             }
             return try body(CallFrame(args: args, ctx: ctx, eval: self))
         case .tableConstructor(let columns, let rows):
@@ -202,13 +203,13 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             let names = columns == 1 ? ["[Value]"] : (1...max(columns, 1)).map { "[Value\($0)]" }
             return TableValue(columns: names, rows: out)
         default:
-            throw DAXError(.typeMismatch, "biểu thức không phải biểu thức bảng")
+            throw DAXError(.typeMismatch, lt("biểu thức không phải biểu thức bảng", "the expression isn't a table expression"))
         }
     }
 
     public func column(_ expr: BoundExpr, in ctx: EvalContext) throws(DAXError) -> ColumnID {
         guard case .column(let id) = expr else {
-            throw DAXError(.expectedColumnRef, "cần một tham chiếu cột")
+            throw DAXError(.expectedColumnRef, lt("cần một tham chiếu cột", "a column reference is required"))
         }
         return id
     }
@@ -236,7 +237,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             switch try lookupVariable(slot) {
             case .rows(let id, let rows): try iteratePhysical(id, rows, ctx, body)
             case .table(let value): try iterate(value, in: ctx, body)
-            case .scalar: throw DAXError(.typeMismatch, "biến vô hướng không lặp được")
+            case .scalar: throw DAXError(.typeMismatch, lt("biến vô hướng không lặp được", "a scalar variable can't be iterated"))
             }
         case .varBlock(let slots, let values, let inner):
             try withBlock(slots, values, ctx) { () throws(DAXError) in
@@ -296,7 +297,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
     /// Trùng kết quả `FilterContext.visibleValues`, nhưng không lan truyền lại bộ lọc ở mỗi lần gọi.
     public func visibleValues(of column: ColumnID, in ctx: EvalContext) throws(DAXError) -> [Value] {
         guard store.schema.column(column) != nil else {
-            throw DAXError(.runtime, "Không có cột \(column) trong model")
+            throw DAXError(.runtime, lt("Không có cột \(column) trong model", "There is no column \(column) in the model"))
         }
         let key = ValuesCacheKey(column: column, fingerprint: ctx.filter.fingerprint)
         if let hit = cache.values.values(for: key) { return hit }
@@ -313,7 +314,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         } catch let error as DAXError {
             throw error
         } catch {
-            throw DAXError(.runtime, "lỗi kho cột: \(error)")
+            throw DAXError(.runtime, lt("lỗi kho cột: \(error)", "column store error: \(error)"))
         }
     }
 
@@ -321,13 +322,13 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
     /// Gọi trong mọi vòng lặp dài của đường nóng. Khi không có Task huỷ thì chỉ là một lần đọc cờ.
     @inline(__always)
     func checkCancelled() throws(DAXError) {
-        if isCancelledNow { throw DAXError(.cancelled, "đã huỷ") }
+        if isCancelledNow { throw DAXError(.cancelled, lt("đã huỷ", "cancelled")) }
     }
 
     func specification(_ fid: FunctionID) throws(DAXError) -> FunctionSpec {
         let index = Int(fid.raw)
         guard index >= 0, index < functions.count else {
-            throw DAXError(.unknownName, "hàm #\(fid.raw) không có trong bảng hàm")
+            throw DAXError(.unknownName, lt("hàm #\(fid.raw) không có trong bảng hàm", "function #\(fid.raw) isn't in the function table"))
         }
         return functions[index]
     }
@@ -358,7 +359,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
     func lookupVariable(_ slot: Int) throws(DAXError) -> VarValue {
         guard let block = varStack.last(where: { $0.slots.contains(slot) }),
               let index = block.slots.firstIndex(of: slot) else {
-            throw DAXError(.runtime, "biến slot \(slot) không có trong phạm vi hiện tại")
+            throw DAXError(.runtime, lt("biến slot \(slot) không có trong phạm vi hiện tại", "variable slot \(slot) isn't in the current scope"))
         }
         if let value = block.values[index] { return value }
         let value = try evaluateCell(of: block, index: index)
@@ -424,7 +425,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         let values = try visibleValues(of: id, in: ctx)
         if values.count == 1 { return values[0] }
         if values.isEmpty { return .blank }
-        throw DAXError(.multipleValues, "không xác định được một giá trị của cột \(id) (có \(values.count) giá trị)")
+        throw DAXError(.multipleValues, lt("không xác định được một giá trị của cột \(id) (có \(values.count) giá trị)", "couldn't determine a single value of column \(id) (it has \(values.count) values)"))
     }
 
     /// EARLIER/EARLIEST: giá trị của cột ở một khung row bao ngoài. Các khung chứa cột xếp từ trong ra ngoài; EARLIER bỏ `skipping`
@@ -443,11 +444,11 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         }
         if outermost {
             guard matches.count >= 2, let last = matches.last else {
-                throw DAXError(.runtime, "EARLIEST/EARLIER tham chiếu tới row context không có")
+                throw DAXError(.runtime, lt("EARLIEST/EARLIER tham chiếu tới row context không có", "EARLIEST/EARLIER refers to a row context that doesn't exist"))
             }
             return last
         }
-        guard skipping < matches.count else { throw DAXError(.runtime, "EARLIER/EARLIEST tham chiếu tới row context không có") }
+        guard skipping < matches.count else { throw DAXError(.runtime, lt("EARLIER/EARLIEST tham chiếu tới row context không có", "EARLIER/EARLIEST refers to a row context that doesn't exist")) }
         return matches[skipping]
     }
 
@@ -465,7 +466,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
                 }
             }
         }
-        throw DAXError(.unknownName, "không tìm thấy cột ảo [\(name)] trong row context")
+        throw DAXError(.unknownName, lt("không tìm thấy cột ảo [\(name)] trong row context", "virtual column [\(name)] not found in the row context"))
     }
 
     // MARK: - Measure
@@ -483,7 +484,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
                                   virtualRowsDigest: digest)
         if let hit = cache.measures.value(for: key) { return hit }
         guard measuresInProgress.insert(id).inserted else {
-            throw DAXError(.circularDependency, "measure \(id.raw) tham chiếu vòng tới chính nó")
+            throw DAXError(.circularDependency, lt("measure \(id.raw) tham chiếu vòng tới chính nó", "measure \(id.raw) references itself circularly"))
         }
         defer { measuresInProgress.remove(id) }
         let value = try scalar(body, in: EvalContext(filter: filter, row: ctx.row))
@@ -541,7 +542,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
 
     private func computeTransitionRows(_ table: TableID, _ row: Int) throws(DAXError) -> RowSet {
         guard let schemaTable = store.schema.table(table) else {
-            throw DAXError(.runtime, "không có bảng \(table) trong model")
+            throw DAXError(.runtime, lt("không có bảng \(table) trong model", "there is no table \(table) in the model"))
         }
         let rowCount = try runtimeCall { try store.rowCount(table) }
         let universe = rowCount + 1
@@ -604,7 +605,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
     /// Đọc các dòng của T thành bảng ảo (chỉ cho bảng nhỏ hoặc khi bắt buộc).
     func materialize(_ table: TableID, _ rows: RowSet) throws(DAXError) -> TableValue {
         guard let schemaTable = store.schema.table(table) else {
-            throw DAXError(.runtime, "không có bảng \(table) trong model")
+            throw DAXError(.runtime, lt("không có bảng \(table) trong model", "there is no table \(table) in the model"))
         }
         var datas: [ColumnData] = []
         for column in schemaTable.columns {
@@ -621,7 +622,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
             }
             out.append(datas.map { Value(stored: $0.value(at: r)) })
         }
-        if cancelled { throw DAXError(.cancelled, "đã huỷ") }
+        if cancelled { throw DAXError(.cancelled, lt("đã huỷ", "cancelled")) }
         materializedRowCount += out.count
         return TableValue(columns: schemaTable.columns.map(\.name), rows: out,
                           lineage: schemaTable.columns.map { $0.id })
@@ -635,7 +636,7 @@ public final class Evaluator: Evaluating, @unchecked Sendable {
         rows.forEach { r in
             guard failure == nil else { return }
             if isCancelledNow {
-                failure = DAXError(.cancelled, "đã huỷ")
+                failure = DAXError(.cancelled, lt("đã huỷ", "cancelled"))
                 return
             }
             rowStack.append(.base(table, r))
@@ -750,10 +751,10 @@ public extension CallFrame {
     /// Lặp trên đối số bảng thứ `i` mà không materialize bảng vật lý. Bảng ảo lặp như `iterate`.
     func iterateArgument(_ i: Int, _ body: (EvalContext) throws(DAXError) -> Void) throws(DAXError) {
         guard i >= 0, i < args.count, let expr = args[i] else {
-            throw DAXError(.arity, "đối số \(i + 1) bị bỏ trống")
+            throw DAXError(.arity, lt("đối số \(i + 1) bị bỏ trống", "argument \(i + 1) is empty"))
         }
         guard let evaluator = eval as? Evaluator else {
-            throw DAXError(.runtime, "evaluator không phải Evaluator của CORE")
+            throw DAXError(.runtime, lt("evaluator không phải Evaluator của CORE", "the evaluator isn't a CORE evaluator"))
         }
         try evaluator.iterateExpr(expr, in: ctx, body)
     }

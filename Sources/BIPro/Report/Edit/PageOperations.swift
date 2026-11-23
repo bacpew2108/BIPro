@@ -222,13 +222,13 @@ extension LayoutEditor {
         }
         var parts = [biN("Đã xoá trang \"\(target.displayName)\"", "Deleted page \"\(target.displayName)\"")]
         if !impact.removed.isEmpty {
-            parts.append("gỡ \(impact.removed.count) bookmark trỏ tới trang: " + impact.removed.sorted().map(title).joined(separator: ", "))
+            parts.append(biN("gỡ \(impact.removed.count) bookmark trỏ tới trang: ", "remove \(impact.removed.count) bookmark(s) pointing to the page: ") + impact.removed.sorted().map(title).joined(separator: ", "))
         }
         if !impact.trimmed.isEmpty {
-            parts.append("bỏ trang khỏi \(impact.trimmed.count) bookmark: " + impact.trimmed.keys.sorted().map(title).joined(separator: ", "))
+            parts.append(biN("bỏ trang khỏi \(impact.trimmed.count) bookmark: ", "drop the page from \(impact.trimmed.count) bookmark(s): ") + impact.trimmed.keys.sorted().map(title).joined(separator: ", "))
         }
         if !buttons.isEmpty {
-            parts.append("\(buttons.count) nút điều hướng vẫn trỏ tới trang này (như Power BI Desktop): " + buttons.joined(separator: ", "))
+            parts.append(biN("\(buttons.count) nút điều hướng vẫn trỏ tới trang này (như Power BI Desktop): ", "\(buttons.count) navigation button(s) still point to this page (as in Power BI Desktop): ") + buttons.joined(separator: ", "))
         }
         setNotice(parts.joined(separator: "; ") + ".")
         return nil

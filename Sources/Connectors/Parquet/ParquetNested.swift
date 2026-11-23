@@ -2,6 +2,7 @@
 // (definition) theo Dremel. Độ sâu lồng tối đa 3 (struct hoặc LIST tính một tầng); sâu hơn, MAP, hay danh sách kiểu cũ không chú thích LIST
 // thì báo "Chưa hỗ trợ" kèm tên cột. Ô lồng của bảng giữ chỗ bằng chữ "Record"/"List" kèm giá trị ở `TableData.structured` (như JSON, T087);
 // BI Pro đổi `ParquetValue` sang giá trị M ở `Parquet.Document`.
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -78,7 +79,7 @@ final class ParquetNode: @unchecked Sendable {
     func unsupportedReason() -> String? {
         if isMap { return "Parquet cột \(path.joined(separator: ".")) kiểu MAP" }
         if element.repetition == 2 && !isLeaf && !isList { return "Parquet cột \(path.joined(separator: ".")) lặp không chú thích LIST" }
-        if isLeaf, element.repetition == 2, path.count == 1 { return "Parquet cột \(element.name) lặp không chú thích LIST" }
+        if isLeaf, element.repetition == 2, path.count == 1 { return lt("Parquet cột \(element.name) lặp không chú thích LIST", "Parquet column \(element.name) repeats without a LIST annotation") }
         if isList, listElement == nil { return "Parquet cột \(path.joined(separator: ".")) dạng LIST lạ" }
         for child in children {
             // Nhóm lặp trong LIST là khung của danh sách, không xét như cột lặp riêng.

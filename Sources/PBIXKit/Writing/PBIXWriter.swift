@@ -268,7 +268,7 @@ public enum PBIXWriter {
                 // Phía nào nằm trong bộ nhớ thì dùng ô của nó, phía kia đọc từ ABF (phía nhiều theo từ điển của ABF).
                 func abfColumn(_ table: String, _ column: String) throws -> DecodedColumn {
                     guard let storage = sourceModel.storage(table: table, column: column) else {
-                        throw WriteError.invalid("cột \(table)[\(column)] không có dữ liệu lưu trữ")
+                        throw WriteError.invalid(lt("cột \(table)[\(column)] không có dữ liệu lưu trữ", "column \(table)[\(column)] has no stored data"))
                     }
                     return try VertiPaq.decodeColumn(storage, abf: abf)
                 }
@@ -279,11 +279,11 @@ public enum PBIXWriter {
                     return (try RelationshipIndex.values(manyDictionary: datePart(RelationshipIndex.dictionary(ofCells: fromCells)), oneCells: datePart(one), oneName: oneName), one.count)
                 }
                 guard let storage = sourceModel.storage(table: new.fromTable, column: new.fromColumn) else {
-                    throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] không có dữ liệu lưu trữ")
+                    throw WriteError.invalid(lt("cột \(new.fromTable)[\(new.fromColumn)] không có dữ liệu lưu trữ", "column \(new.fromTable)[\(new.fromColumn)] has no stored data"))
                 }
                 if new.joinOnDateBehavior == 2 {
                     guard case .dictionary(_, let dictionary) = try abfColumn(new.fromTable, new.fromColumn).storage else {
-                        throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] không mã hoá bằng từ điển, chưa tạo được chỉ mục quan hệ")
+                        throw WriteError.invalid(lt("cột \(new.fromTable)[\(new.fromColumn)] không mã hoá bằng từ điển, chưa tạo được chỉ mục quan hệ", "column \(new.fromTable)[\(new.fromColumn)] isn't dictionary-encoded, so a relationship index can't be created yet"))
                     }
                     return (try RelationshipIndex.values(manyDictionary: datePart(dictionary), oneCells: datePart(one), oneName: oneName), one.count)
                 }
@@ -291,7 +291,7 @@ public enum PBIXWriter {
             }
             guard let from = sourceModel.storage(table: new.fromTable, column: new.fromColumn),
                   let to = sourceModel.storage(table: new.toTable, column: new.toColumn) else {
-                throw WriteError.invalid("cột \(new.fromTable)[\(new.fromColumn)] hoặc \(new.toTable)[\(new.toColumn)] không có dữ liệu lưu trữ")
+                throw WriteError.invalid(lt("cột \(new.fromTable)[\(new.fromColumn)] hoặc \(new.toTable)[\(new.toColumn)] không có dữ liệu lưu trữ", "column \(new.fromTable)[\(new.fromColumn)] or \(new.toTable)[\(new.toColumn)] has no stored data"))
             }
             return (try RelationshipIndex.values(from: from, to: to, abf: abf), try VertiPaq.rowCount(to, abf: abf))
         }
@@ -301,7 +301,7 @@ public enum PBIXWriter {
                 func values(_ column: String) throws -> VertiPaqWriter.Values {
                     guard let v = memory.columns.first(where: { $0.name == column })?.values
                             ?? calculatedByKey["\(table)[\(column)]".lowercased()] else {
-                        throw WriteError.invalid("bảng \(table) không có cột \(column)")
+                        throw WriteError.invalid(lt("bảng \(table) không có cột \(column)", "table \(table) has no column \(column)"))
                     }
                     return v
                 }
@@ -310,7 +310,7 @@ public enum PBIXWriter {
             func stored(_ column: String) throws -> (ModelMetadata.ColumnStorage, Int) {
                 guard let storage = sourceModel.storage(table: table, column: column),
                       let id = sourceModel.columns.first(where: { $0.tableName == table && $0.name == column })?.id else {
-                    throw WriteError.invalid("cột \(table)[\(column)] không có dữ liệu lưu trữ")
+                    throw WriteError.invalid(lt("cột \(table)[\(column)] không có dữ liệu lưu trữ", "column \(table)[\(column)] has no stored data"))
                 }
                 return (storage, id)
             }

@@ -22,6 +22,7 @@
 //   buổi 2 T2-time-edges, buổi 3 T5-edges). Chi tiết ở `shiftSerials`.
 // - [SUY ĐOÁN] Khoảng dịch qua năm đếm theo lịch thường: 01/01/2024 −1 tháng = 01/12/2023.
 // - [SUY ĐOÁN] Tập ngày không liên tục: mỗi ngày được dịch độc lập. DAX có thể xử lý khác; chưa đối chiếu.
+import PBIXKit
 import ColumnStore
 
 public enum TimeIntelligenceFunctions: FunctionFamily {
@@ -79,7 +80,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
 
     static func dateAddBody(_ frame: CallFrame) throws(DAXError) -> TableValue {
         guard let unit = frame.keyword(2) else {
-            throw DAXError(.typeMismatch, "DATEADD: đối số 3 phải là DAY, MONTH, QUARTER hoặc YEAR")
+            throw DAXError(.typeMismatch, lt("DATEADD: đối số 3 phải là DAY, MONTH, QUARTER hoặc YEAR", "DATEADD: argument 3 must be DAY, MONTH, QUARTER or YEAR"))
         }
         let count = try intervalCount(try frame.scalar(1))
         return try shiftedDates(frame, count: count, unit: unit.uppercased())
@@ -107,10 +108,10 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
 
     private static func dateSource(_ frame: CallFrame) throws(DAXError) -> DateSource {
         guard let evaluator = frame.eval as? Evaluator else {
-            throw DAXError(.runtime, "hàm này cần Evaluator của CORE")
+            throw DAXError(.runtime, lt("hàm này cần Evaluator của CORE", "this function needs the CORE evaluator"))
         }
         guard let expr = frame.args.first ?? nil else {
-            throw DAXError(.arity, "DATEADD và SAMEPERIODLASTYEAR cần đối số ngày")
+            throw DAXError(.arity, lt("DATEADD và SAMEPERIODLASTYEAR cần đối số ngày", "DATEADD and SAMEPERIODLASTYEAR need a date argument"))
         }
         switch expr {
         case .column(let id):
@@ -119,15 +120,15 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
                               serials: try serialsOfColumn(id, evaluator, frame.ctx))
         case .table(let id):
             let name = evaluator.store.schema.table(id)?.name ?? "\(id)"
-            throw DAXError(.runtime, "đối số ngày của DATEADD phải là một cột ngày, không phải cả bảng \(name)")
+            throw DAXError(.runtime, lt("đối số ngày của DATEADD phải là một cột ngày, không phải cả bảng \(name)", "the date argument of DATEADD must be a date column, not the whole table \(name)"))
         case .variable(let slot):
             switch try evaluator.lookupVariable(slot) {
             case .table(let value):
                 return try dateSource(of: value, store: evaluator.store)
             case .rows:
-                throw DAXError(.runtime, "đối số ngày của DATEADD phải là một cột ngày, không phải cả bảng")
+                throw DAXError(.runtime, lt("đối số ngày của DATEADD phải là một cột ngày, không phải cả bảng", "the date argument of DATEADD must be a date column, not a whole table"))
             case .scalar:
-                throw DAXError(.typeMismatch, "đối số ngày của DATEADD không phải bảng hay cột")
+                throw DAXError(.typeMismatch, lt("đối số ngày của DATEADD không phải bảng hay cột", "the date argument of DATEADD is neither a table nor a column"))
             }
         default:
             return try dateSource(of: try frame.table(0), store: evaluator.store)
@@ -147,12 +148,12 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
                 }
             }
             guard candidates.count == 1, let only = candidates.first else {
-                throw DAXError(.runtime, "bảng đối số của DATEADD có \(candidates.count) cột ngày, cần đúng một")
+                throw DAXError(.runtime, lt("bảng đối số của DATEADD có \(candidates.count) cột ngày, cần đúng một", "the table argument of DATEADD has \(candidates.count) date columns; exactly one is required"))
             }
             pick = only
         }
         guard let column = table.lineage[pick] else {
-            throw DAXError(.runtime, "bảng đối số của DATEADD không có lineage về cột ngày")
+            throw DAXError(.runtime, lt("bảng đối số của DATEADD không có lineage về cột ngày", "the table argument of DATEADD has no lineage to a date column"))
         }
         let meta = try dateColumn(column, store: store)
         var serials: [Double] = []
@@ -197,20 +198,20 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
         switch value {
         case .dateTime(let d): return [d]
         case .blank: return []
-        default: throw DAXError(.typeMismatch, "cột \(column) có giá trị không phải ngày")
+        default: throw DAXError(.typeMismatch, lt("cột \(column) có giá trị không phải ngày", "column \(column) has values that aren't dates"))
         }
     }
 
     /// Kiểm tra cột ngày: kiểu dateTime, thuộc bảng được đánh dấu bảng ngày.
     private static func dateColumn(_ id: ColumnID, store: ColumnStore) throws(DAXError) -> ModelSchema.Column {
         guard let table = store.schema.table(id.table), let column = store.schema.column(id) else {
-            throw DAXError(.runtime, "không có cột \(id) trong model")
+            throw DAXError(.runtime, lt("không có cột \(id) trong model", "there is no column \(id) in the model"))
         }
         guard column.type == .dateTime else {
-            throw DAXError(.runtime, "\(table.name)[\(column.name)] không phải cột ngày, DATEADD cần cột ngày của bảng ngày")
+            throw DAXError(.runtime, lt("\(table.name)[\(column.name)] không phải cột ngày, DATEADD cần cột ngày của bảng ngày", "\(table.name)[\(column.name)] isn't a date column; DATEADD needs a date column of a date table"))
         }
         guard table.isDateTable else {
-            throw DAXError(.runtime, "bảng \(table.name) chưa được đánh dấu bảng ngày (dataCategory = Time), DATEADD không dùng được")
+            throw DAXError(.runtime, lt("bảng \(table.name) chưa được đánh dấu bảng ngày (dataCategory = Time), DATEADD không dùng được", "table \(table.name) isn't marked as a date table (dataCategory = Time), so DATEADD can't be used"))
         }
         return column
     }
@@ -219,7 +220,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
     private static func intervalCount(_ value: Value) throws(DAXError) -> Int {
         let d = try value.asDouble()
         guard d.isFinite, d == d.rounded(.towardZero), abs(d) <= 1_000_000 else {
-            throw DAXError(.typeMismatch, "DATEADD: number_of_intervals phải là số nguyên")
+            throw DAXError(.typeMismatch, lt("DATEADD: number_of_intervals phải là số nguyên", "DATEADD: number_of_intervals must be an integer"))
         }
         return Int(d)
     }
@@ -248,7 +249,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
         out.reserveCapacity(serials.count)
         for serial in serials {
             guard serial.isFinite, abs(serial) < 1.0e9 else {
-                throw DAXError(.runtime, "ngày ngoài phạm vi hỗ trợ")
+                throw DAXError(.runtime, lt("ngày ngoài phạm vi hỗ trợ", "the date is outside the supported range"))
             }
             let shifted = try shiftSerial(serial, count: count, unit: unit)
             out.append(shifted)
@@ -274,7 +275,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
     /// Kết quả ngoài 01/01/1900 – 31/12/9999 thì báo lỗi.
     static func shiftSerial(_ serial: Double, count: Int, unit: String) throws(DAXError) -> Double {
         guard serial.isFinite, abs(serial) < 1.0e9 else {
-            throw DAXError(.runtime, "ngày ngoài phạm vi hỗ trợ")
+            throw DAXError(.runtime, lt("ngày ngoài phạm vi hỗ trợ", "the date is outside the supported range"))
         }
         let day = serial.rounded(.down)
         let fraction = serial - day
@@ -288,7 +289,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
             case "MONTH": monthsPerStep = 1
             case "QUARTER": monthsPerStep = 3
             case "YEAR": monthsPerStep = 12
-            default: throw DAXError(.typeMismatch, "DATEADD: khoảng \(unit) không được hỗ trợ")
+            default: throw DAXError(.typeMismatch, lt("DATEADD: khoảng \(unit) không được hỗ trợ", "DATEADD: the interval \(unit) isn't supported"))
             }
             let (y, m, d) = tiCivilFromDays(days - tiOLEToUnixDays)
             let total = y * 12 + (m - 1) + count * monthsPerStep
@@ -299,7 +300,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
             resultDays = tiDaysFromCivil(targetYear, targetMonth, targetDay) + tiOLEToUnixDays
         }
         guard resultDays >= 1, resultDays <= tiMaxOLEDay else {
-            throw DAXError(.runtime, "DATEADD: ngày kết quả nằm ngoài 1900–9999")
+            throw DAXError(.runtime, lt("DATEADD: ngày kết quả nằm ngoài 1900–9999", "DATEADD: the resulting date is outside 1900–9999"))
         }
         return Double(resultDays) + fraction
     }
@@ -341,12 +342,12 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
             if let num = Int(trimWS(piece)) { parts.append(num) }
         }
         guard parts.count >= 2 else {
-            throw DAXError(.runtime, "year_end_date '\(raw)' không hợp lệ (cần dạng M/D như \"6/30\")")
+            throw DAXError(.runtime, lt("year_end_date '\(raw)' không hợp lệ (cần dạng M/D như \"6/30\")", "year_end_date '\(raw)' isn't valid (expected the form M/D, such as \"6/30\")"))
         }
         let a = parts[0], b = parts[1]
         if (1...12).contains(a) && (1...31).contains(b) { return (a, b) }
         if (1...12).contains(b) && (1...31).contains(a) { return (b, a) }
-        throw DAXError(.runtime, "year_end_date '\(raw)' không hợp lệ")
+        throw DAXError(.runtime, lt("year_end_date '\(raw)' không hợp lệ", "year_end_date '\(raw)' isn't valid"))
     }
 
     /// Trả bảng 1 cột có lineage chứa các ngày của cột nằm trong `[loDay, hiDay]` (serial OLE nguyên).
@@ -408,7 +409,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
     private static func totalToDateBody(_ frame: CallFrame, kind: String) throws(DAXError) -> Value {
         let evaluator = try fkEvaluator(frame)
         guard let expr = frame.args[0], let datesExpr = frame.args[1] else {
-            throw DAXError(.arity, "TOTAL\(kind) cần biểu thức và cột ngày")
+            throw DAXError(.arity, lt("TOTAL\(kind) cần biểu thức và cột ngày", "TOTAL\(kind) needs an expression and a date column"))
         }
         var extraFilters: [BoundExpr?] = []
         var yearEnd: (month: Int, day: Int) = (12, 31)
@@ -457,7 +458,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
         let startSerial = (try startVal.asDouble()).rounded(.down)
         let n = try intervalCount(try frame.scalar(2))
         guard let unit = frame.keyword(3)?.uppercased() else {
-            throw DAXError(.typeMismatch, "DATESINPERIOD: interval phải là DAY, MONTH, QUARTER hoặc YEAR")
+            throw DAXError(.typeMismatch, lt("DATESINPERIOD: interval phải là DAY, MONTH, QUARTER hoặc YEAR", "DATESINPERIOD: interval must be DAY, MONTH, QUARTER or YEAR"))
         }
         if n == 0 { return TableValue.values(of: source.column, name: source.name, values: []) }
         let startDay = Int(startSerial)
@@ -532,7 +533,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
         }
         let n = try intervalCount(try frame.scalar(1))
         guard let unit = frame.keyword(2)?.uppercased() else {
-            throw DAXError(.typeMismatch, "PARALLELPERIOD: interval phải là MONTH, QUARTER hoặc YEAR")
+            throw DAXError(.typeMismatch, lt("PARALLELPERIOD: interval phải là MONTH, QUARTER hoặc YEAR", "PARALLELPERIOD: interval must be MONTH, QUARTER or YEAR"))
         }
         let (y1, m1, _) = tiCivilFromDays(Int(minS.rounded(.down)) - tiOLEToUnixDays)
         let (y2, m2, _) = tiCivilFromDays(Int(maxS.rounded(.down)) - tiOLEToUnixDays)
@@ -557,7 +558,7 @@ public enum TimeIntelligenceFunctions: FunctionFamily {
             loDay = tiDaysFromCivil(y1 + n, 1, 1) + tiOLEToUnixDays
             hiDay = tiDaysFromCivil(y2 + n, 12, 31) + tiOLEToUnixDays
         default:
-            throw DAXError(.typeMismatch, "PARALLELPERIOD: interval \(unit) không hỗ trợ")
+            throw DAXError(.typeMismatch, lt("PARALLELPERIOD: interval \(unit) không hỗ trợ", "PARALLELPERIOD: the interval \(unit) isn't supported"))
         }
         return try datesInRange(source, loDay: loDay, hiDay: hiDay, evaluator: evaluator)
     }

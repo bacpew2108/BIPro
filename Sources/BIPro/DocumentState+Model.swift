@@ -149,7 +149,7 @@ extension DocumentState {
         }.value
         guard case .ok(let info) = check else {
             if case .failed(let problem) = check {
-                let place = problem.line.map { " (dòng \($0), cột \(problem.column ?? 1))" } ?? ""
+                let place = problem.line.map { biN(" (dòng \($0), cột \(problem.column ?? 1))", " (line \($0), column \(problem.column ?? 1))") } ?? ""
                 draft.message = problem.message + place
             }
             return
@@ -657,7 +657,7 @@ extension DocumentState {
         case .currency(let v): (Double(v) / 10_000).formatted()
         case .string(let v): "\"\(v)\""
         case .boolean(let v): v ? "TRUE" : "FALSE"
-        case .dateTime(let v): "ngày \(v)"
+        case .dateTime(let v): biN("ngày \(v)", "date \(v)")
         }
     }
 }

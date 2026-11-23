@@ -28,7 +28,7 @@ enum JsonQuery {
         if let cached = cache.withLock({ $0[key] }) { return cached }
         let data: Data
         do { data = try Data(contentsOf: URL(fileURLWithPath: location)) } catch {
-            throw SourceError.unreadable("Không thể đọc file: \(URL(fileURLWithPath: location).lastPathComponent)")
+            throw SourceError.unreadable(biN("Không thể đọc file: \(URL(fileURLWithPath: location).lastPathComponent)", "Couldn't read the file: \(URL(fileURLWithPath: location).lastPathComponent)"))
         }
         guard !data.isEmpty else { throw SourceError.empty }
         let root: MValue
@@ -48,9 +48,9 @@ enum JsonQuery {
         func apply(_ step: MStep, kind: String) throws -> TableData {
             let value: MValue
             do { value = try MEvaluator(environment: MEnvironment(bindings: bindings)).evaluateNow(source: step.expression) } catch let error as MError {
-                throw SourceError.unreadable("Bước \(step.name): \(error.message)")
+                throw SourceError.unreadable(biN("Bước \(step.name): \(error.message)", "Step \(step.name): \(error.message)"))
             }
-            guard case .table(let table) = value else { throw SourceError.unreadable("Bước \(step.name) không ra bảng") }
+            guard case .table(let table) = value else { throw SourceError.unreadable(biN("Bước \(step.name) không ra bảng", "Step \(step.name) doesn't produce a table")) }
             steps.append(QueryStep(name: step.name, expression: step.expression, kind: kind))
             bindings[step.name] = value
             return table
@@ -138,7 +138,7 @@ struct JsonQuerySource: DataSource {
 
     func items() async throws -> [any SourceItem] {
         guard FileManager.default.fileExists(atPath: url.path) else {
-            throw SourceError.unreadable("File không tồn tại: \(url.lastPathComponent)")
+            throw SourceError.unreadable(biN("File không tồn tại: \(url.lastPathComponent)", "The file doesn't exist: \(url.lastPathComponent)"))
         }
         return [JsonQueryItem(name: url.deletingPathExtension().lastPathComponent, url: url)]
     }

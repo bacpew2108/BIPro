@@ -224,7 +224,7 @@ enum DocumentSaver {
         guard userColumns(written) == userColumns(expected), newColumns(written) == newColumns(expected) else {
             let odd = Set(userColumns(written)).symmetricDifference(userColumns(expected)).map { "\($0.tableName)[\($0.name)]" }
                 + Set(newColumns(written)).symmetricDifference(newColumns(expected))
-            throw SaveError.verificationFailed("cột đọc lại khác mô hình đang sửa (\(Set(odd).sorted().prefix(4).joined(separator: ", ")))")
+            throw SaveError.verificationFailed(biN("cột đọc lại khác mô hình đang sửa (\(Set(odd).sorted().prefix(4).joined(separator: ", ")))", "columns read back differ from the model being edited (\(Set(odd).sorted().prefix(4).joined(separator: ", ")))"))
         }
     }
 

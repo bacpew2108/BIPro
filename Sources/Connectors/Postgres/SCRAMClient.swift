@@ -2,6 +2,7 @@
 // PostgreSQL bỏ qua tên trong "n=" (dùng tên ở gói khởi động) nên gọi với `username` rỗng. Không chuẩn hoá SASLprep: mật khẩu
 // dùng nguyên byte UTF-8 (máy chủ PostgreSQL cũng dùng nguyên byte khi SASLprep không áp được).
 
+import PBIXKit
 import CommonCrypto
 import CryptoKit
 import Foundation
@@ -34,7 +35,7 @@ struct SCRAMClient {
         guard let serverNonce = fields["r"], serverNonce.hasPrefix(nonce), serverNonce.count > nonce.count,
               let saltText = fields["s"], let salt = Data(base64Encoded: saltText),
               let iterationText = fields["i"], let iterations = Int(iterationText), iterations > 0
-        else { throw SourceError.authentication("Máy chủ trả bước xác thực SCRAM không hợp lệ.") }
+        else { throw SourceError.authentication(lt("Máy chủ trả bước xác thực SCRAM không hợp lệ.", "The server returned an invalid SCRAM authentication step.")) }
         saltedPassword = Self.pbkdf2(password: Data(password.utf8), salt: salt, iterations: iterations)
         let withoutProof = "c=biws,r=\(serverNonce)"
         authMessage = "\(clientFirstBare),\(serverFirst),\(withoutProof)"
@@ -51,7 +52,7 @@ struct SCRAMClient {
         let serverKey = Self.hmac(saltedPassword, "Server Key")
         let expected = Self.hmac(serverKey, authMessage).base64EncodedString()
         guard let signature = fields["v"], signature == expected else {
-            throw SourceError.authentication("Chữ ký xác thực của máy chủ không khớp.")
+            throw SourceError.authentication(lt("Chữ ký xác thực của máy chủ không khớp.", "The server's authentication signature doesn't match."))
         }
     }
 

@@ -19,6 +19,7 @@
 // Giới hạn đã biết: DEFINE MEASURE không thấy DEFINE VAR (Binder chỉ tra VAR của phạm vi truy vấn);
 // Evaluating không có frame biến, nên các tham chiếu `.variable` còn lại ném lỗi ở evaluator.
 
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -209,16 +210,16 @@ public enum QueryExecutor {
     static func bindRowPairs(_ args: [Expr?], range: SourceRange,
                              scope: inout BindScope) throws(DAXError) -> [(name: String, expr: BoundExpr)] {
         guard !args.isEmpty, args.count % 2 == 0 else {
-            throw DAXError(.arity, "ROW cần các cặp (tên, biểu thức)", range: range)
+            throw DAXError(.arity, lt("ROW cần các cặp (tên, biểu thức)", "ROW needs (name, expression) pairs"), range: range)
         }
         var out: [(name: String, expr: BoundExpr)] = []
         var i = 0
         while i < args.count {
             guard let nameArg = args[i], case .string(let name, _) = nameArg else {
-                throw DAXError(.syntax, "ROW: tên cột phải là chuỗi", range: args[i]?.range ?? range)
+                throw DAXError(.syntax, lt("ROW: tên cột phải là chuỗi", "ROW: the column name must be a string"), range: args[i]?.range ?? range)
             }
             guard let exprArg = args[i + 1] else {
-                throw DAXError(.arity, "ROW: thiếu biểu thức cho \"\(name)\"", range: nameArg.range)
+                throw DAXError(.arity, lt("ROW: thiếu biểu thức cho \"\(name)\"", "ROW: missing expression for \"\(name)\""), range: nameArg.range)
             }
             out.append((name: name, expr: try scope.bind(exprArg)))
             i += 2
@@ -305,10 +306,10 @@ public enum QueryExecutor {
         }
         if !statement.startAt.isEmpty {
             guard !keys.isEmpty else {
-                throw DAXError(.syntax, "START AT cần có ORDER BY")
+                throw DAXError(.syntax, lt("START AT cần có ORDER BY", "START AT needs an ORDER BY"))
             }
             guard statement.startAt.count == keys.count else {
-                throw DAXError(.arity, "START AT có \(statement.startAt.count) giá trị nhưng ORDER BY có \(keys.count) cột")
+                throw DAXError(.arity, lt("START AT có \(statement.startAt.count) giá trị nhưng ORDER BY có \(keys.count) cột", "START AT has \(statement.startAt.count) values but ORDER BY has \(keys.count) columns"))
             }
             var start: [Value] = []
             for expr in statement.startAt {
@@ -354,7 +355,7 @@ public enum QueryExecutor {
             let key = try headerKey(item.expr)
             guard let index = matchHeader(key, lowered) else {
                 throw DAXError(.unknownName,
-                               "ORDER BY: không có cột \(key) trong kết quả (biểu thức tuỳ ý chưa hỗ trợ)",
+                               lt("ORDER BY: không có cột \(key) trong kết quả (biểu thức tuỳ ý chưa hỗ trợ)", "ORDER BY: column \(key) isn't in the result (arbitrary expressions aren't supported yet)"),
                                range: item.expr.range)
             }
             keys.append((index: index, ascending: item.ascending))
@@ -372,7 +373,7 @@ public enum QueryExecutor {
         case .bracketRef(let name, _):
             return "[\(name)]".lowercased()
         default:
-            throw DAXError(.unsupportedFunction, "ORDER BY chỉ nhận cột hoặc [tên cột] của kết quả", range: expr.range)
+            throw DAXError(.unsupportedFunction, lt("ORDER BY chỉ nhận cột hoặc [tên cột] của kết quả", "ORDER BY only accepts a column or [column name] of the result"), range: expr.range)
         }
     }
 
@@ -497,7 +498,7 @@ public enum QueryExecutor {
     /// Huỷ: ném `.cancelled` khi Task hiện tại đã bị huỷ.
     static func checkCancelled() throws(DAXError) {
         if Task.isCancelled {
-            throw DAXError(.cancelled, "đã huỷ")
+            throw DAXError(.cancelled, lt("đã huỷ", "cancelled"))
         }
     }
 

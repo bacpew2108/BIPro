@@ -12,6 +12,7 @@
 //   tập tuple đổi thành tập dòng của bảng đích (`FilterFunctions.treatasRowFilter`), rồi ghi đè CHỈ các cột của
 //   bảng ảo (`removingColumns`), không ghi đè mọi cột của bảng. Bộ lọc bảng đó được áp như `.rows` với `removedColumns` rỗng.
 //   Lan truyền sang bảng khác vẫn dùng tập mã từng cột của FC, nên có thể rộng hơn đáp án (xem FilterContext.swift).
+import PBIXKit
 import ColumnStore
 
 public enum CalculateFunctions: FunctionFamily {
@@ -27,7 +28,7 @@ public enum CalculateFunctions: FunctionFamily {
     private static let calculateBody: FunctionSpec.ScalarBody = { (frame: CallFrame) throws(DAXError) -> Value in
         let evaluator = try calculateEvaluator(frame)
         guard let expression = frame.args.first ?? nil else {
-            throw DAXError(.arity, "CALCULATE cần biểu thức")
+            throw DAXError(.arity, lt("CALCULATE cần biểu thức", "CALCULATE needs an expression"))
         }
         let ctx = try evaluator.calculatedContext(Array(frame.args.dropFirst()), frame.ctx)
         return try evaluator.scalar(expression, in: ctx)
@@ -36,7 +37,7 @@ public enum CalculateFunctions: FunctionFamily {
     private static let calculateTableBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         let evaluator = try calculateEvaluator(frame)
         guard let expression = frame.args.first ?? nil else {
-            throw DAXError(.arity, "CALCULATETABLE cần biểu thức bảng")
+            throw DAXError(.arity, lt("CALCULATETABLE cần biểu thức bảng", "CALCULATETABLE needs a table expression"))
         }
         let ctx = try evaluator.calculatedContext(Array(frame.args.dropFirst()), frame.ctx)
         return try evaluator.table(expression, in: ctx)
@@ -44,7 +45,7 @@ public enum CalculateFunctions: FunctionFamily {
 
     private static func calculateEvaluator(_ frame: CallFrame) throws(DAXError) -> Evaluator {
         guard let evaluator = frame.eval as? Evaluator else {
-            throw DAXError(.runtime, "CALCULATE cần Evaluator của CORE")
+            throw DAXError(.runtime, lt("CALCULATE cần Evaluator của CORE", "CALCULATE needs the CORE evaluator"))
         }
         return evaluator
     }
@@ -121,7 +122,7 @@ extension Evaluator {
             switch spec.name {
             case "KEEPFILTERS":
                 guard args.count == 1, let inner = args[0] else {
-                    throw DAXError(.arity, "KEEPFILTERS cần đúng một đối số bộ lọc")
+                    throw DAXError(.arity, lt("KEEPFILTERS cần đúng một đối số bộ lọc", "KEEPFILTERS needs exactly one filter argument"))
                 }
                 try addArgument(inner, keep: true, ctx, &plan)
                 return
@@ -158,7 +159,7 @@ extension Evaluator {
             case .table(let value):
                 try addTable(value, keep: keep, &plan)
             case .scalar:
-                throw DAXError(.typeMismatch, "biến vô hướng không dùng được làm bộ lọc (cần vị ngữ hoặc bảng)")
+                throw DAXError(.typeMismatch, lt("biến vô hướng không dùng được làm bộ lọc (cần vị ngữ hoặc bảng)", "a scalar variable can't be used as a filter (a predicate or table is required)"))
             }
         case .varBlock(let slots, let values, let body):
             try withBlock(slots, values, ctx) { () throws(DAXError) in
@@ -167,11 +168,11 @@ extension Evaluator {
         case .binary, .unary, .literal:
             try addPredicate(expr, keep: keep, ctx, &plan)
         case .column:
-            throw DAXError(.typeMismatch, "đối số bộ lọc là cột: cần một vị ngữ, ví dụ T[c] = giá trị")
+            throw DAXError(.typeMismatch, lt("đối số bộ lọc là cột: cần một vị ngữ, ví dụ T[c] = giá trị", "the filter argument is a column: a predicate is required, for example T[c] = value"))
         case .measure:
-            throw DAXError(.typeMismatch, "đối số bộ lọc là measure: cần một vị ngữ theo cột")
+            throw DAXError(.typeMismatch, lt("đối số bộ lọc là measure: cần một vị ngữ theo cột", "the filter argument is a measure: a column predicate is required"))
         default:
-            throw DAXError(.typeMismatch, "đối số bộ lọc không hợp lệ")
+            throw DAXError(.typeMismatch, lt("đối số bộ lọc không hợp lệ", "invalid filter argument"))
         }
     }
 
@@ -182,10 +183,10 @@ extension Evaluator {
             return
         }
         guard value.columns.count == 1 else {
-            throw DAXError(.runtime, "bảng làm bộ lọc trong CALCULATE không có cột nào")
+            throw DAXError(.runtime, lt("bảng làm bộ lọc trong CALCULATE không có cột nào", "the table used as a filter in CALCULATE has no columns"))
         }
         guard let column = value.lineage[0] else {
-            throw DAXError(.typeMismatch, "bảng làm bộ lọc không có lineage cho cột")
+            throw DAXError(.typeMismatch, lt("bảng làm bộ lọc không có lineage cho cột", "the filter table has no lineage for the column"))
         }
         let values = value.rows.map { $0[0] }
         plan.filters.append(.item(FilterItem(column: column, values: values), keep: keep))
@@ -197,7 +198,7 @@ extension Evaluator {
         let targets = value.lineage.compactMap { $0 }
         guard targets.count == value.columns.count, let table = targets.first?.table,
               targets.allSatisfy({ $0.table == table }) else {
-            throw DAXError(.runtime, "bộ lọc nhiều cột trong CALCULATE cần mọi cột có lineage cùng một bảng")
+            throw DAXError(.runtime, lt("bộ lọc nhiều cột trong CALCULATE cần mọi cột có lineage cùng một bảng", "a multi-column filter in CALCULATE needs all columns to have lineage to the same table"))
         }
         let rows = try FilterFunctions.treatasRowFilter(tuples: value, targets: targets, store: store)
         plan.filters.append(.tuples(rows, columns: targets, keep: keep))
@@ -222,17 +223,17 @@ extension Evaluator {
     private func allExceptModifiers(_ args: [BoundExpr?], _ ctx: EvalContext) throws(DAXError) -> [ContextModifier] {
         let present = args.compactMap { $0 }
         guard let first = present.first else {
-            throw DAXError(.arity, "ALLEXCEPT cần ít nhất một bảng")
+            throw DAXError(.arity, lt("ALLEXCEPT cần ít nhất một bảng", "ALLEXCEPT needs at least one table"))
         }
         guard case .table(let table) = try reference(first, ctx) else {
-            throw DAXError(.typeMismatch, "đối số đầu của ALLEXCEPT phải là bảng")
+            throw DAXError(.typeMismatch, lt("đối số đầu của ALLEXCEPT phải là bảng", "the first argument of ALLEXCEPT must be a table"))
         }
         var kept: Set<ColumnID> = []
         for arg in present.dropFirst() {
             switch try reference(arg, ctx) {
             case .column(let column): kept.insert(column)
             case .columns(let columns): kept.formUnion(columns)
-            case .table: throw DAXError(.typeMismatch, "ALLEXCEPT chỉ nhận cột sau bảng đầu")
+            case .table: throw DAXError(.typeMismatch, lt("ALLEXCEPT chỉ nhận cột sau bảng đầu", "ALLEXCEPT only accepts columns after the first table"))
             }
         }
         let all = try schemaColumns(of: table).filter { !kept.contains($0) }
@@ -264,16 +265,16 @@ extension Evaluator {
             switch try lookupVariable(slot) {
             case .rows(let table, _): return .table(table)
             case .table(let value): return .columns(value.lineage.compactMap { $0 })
-            case .scalar: throw DAXError(.expectedColumnRef, "cần một cột hoặc bảng")
+            case .scalar: throw DAXError(.expectedColumnRef, lt("cần một cột hoặc bảng", "a column or table is required"))
             }
         default:
-            throw DAXError(.expectedColumnRef, "cần một tham chiếu cột hoặc bảng")
+            throw DAXError(.expectedColumnRef, lt("cần một tham chiếu cột hoặc bảng", "a column or table reference is required"))
         }
     }
 
     private func schemaColumns(of table: TableID) throws(DAXError) -> [ColumnID] {
         guard let schemaTable = store.schema.table(table) else {
-            throw DAXError(.runtime, "không có bảng \(table) trong model")
+            throw DAXError(.runtime, lt("không có bảng \(table) trong model", "there is no table \(table) in the model"))
         }
         return schemaTable.columns.map(\.id)
     }
@@ -313,15 +314,15 @@ extension Evaluator {
         collectColumns(expr, into: &columns)
         if columns.isEmpty {
             guard try scalar(expr, in: ctx).asLogical() else {
-                throw DAXError(.typeMismatch, "bộ lọc không tham chiếu cột và cho FALSE chưa được hỗ trợ")
+                throw DAXError(.typeMismatch, lt("bộ lọc không tham chiếu cột và cho FALSE chưa được hỗ trợ", "a filter that references no column and evaluates to FALSE isn't supported yet"))
             }
             return
         }
         guard columns.count == 1, let column = columns.first else {
-            throw DAXError(.runtime, "vị ngữ bộ lọc tham chiếu nhiều cột (tuple) chưa được hỗ trợ")
+            throw DAXError(.runtime, lt("vị ngữ bộ lọc tham chiếu nhiều cột (tuple) chưa được hỗ trợ", "a filter predicate referencing several columns (tuple) isn't supported yet"))
         }
         guard let name = store.schema.column(column)?.name else {
-            throw DAXError(.runtime, "không có cột \(column) trong model")
+            throw DAXError(.runtime, lt("không có cột \(column) trong model", "there is no column \(column) in the model"))
         }
         let inner = EvalContext(filter: ctx.filter,
                                 row: ctx.row ?? RowContext(table: Evaluator.virtualTable, row: 0))

@@ -299,7 +299,7 @@ struct LiveVisualView: View {
                     }
                 }
                 if target.point != nil, InteractionRules.canSelect(visualType: visual.type) {
-                    menuItem("Bỏ chọn") { interaction.select(page: page, visual: visual, spec: spec, point: nil, additive: false) }
+                    menuItem(biN("Bỏ chọn", "Deselect")) { interaction.select(page: page, visual: visual, spec: spec, point: nil, additive: false) }
                 }
                 if canExportCSV, let onExportCSV {
                     Divider().padding(.vertical, 2)

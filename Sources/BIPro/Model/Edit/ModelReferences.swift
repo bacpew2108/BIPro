@@ -40,7 +40,7 @@ enum ModelReferences {
         for column in model.columns where column.kind == .calculated {
             guard let expression = column.expression else { continue }
             if DAXEngine.references(in: expression).contains(where: { $0.name == name && ($0.table == nil || $0.table == table) }) {
-                found.append(ModelUsage(kind: .measure, detail: "cột \(column.tableName)[\(column.name)]"))
+                found.append(ModelUsage(kind: .measure, detail: biN("cột \(column.tableName)[\(column.name)]", "column \(column.tableName)[\(column.name)]")))
             }
         }
         found += documentUsages(entityKind: "Measure", table: table, name: name, documents: documents)
@@ -64,22 +64,22 @@ enum ModelReferences {
         }
         for column in model.columns where column.kind == .calculated && !(column.tableName == table && column.name == name) {
             if let expression = column.expression, mentions(expression, inTable: column.tableName) {
-                found.append(ModelUsage(kind: .measure, detail: "cột \(column.tableName)[\(column.name)]"))
+                found.append(ModelUsage(kind: .measure, detail: biN("cột \(column.tableName)[\(column.name)]", "column \(column.tableName)[\(column.name)]")))
             }
         }
         for relationship in model.relationships {
             if (relationship.fromTable == table && relationship.fromColumn == name) || (relationship.toTable == table && relationship.toColumn == name) {
                 found.append(ModelUsage(kind: .relationship,
-                                        detail: "quan hệ \(relationship.fromTable)[\(relationship.fromColumn)] → \(relationship.toTable)[\(relationship.toColumn)]"))
+                                        detail: biN("quan hệ \(relationship.fromTable)[\(relationship.fromColumn)] → \(relationship.toTable)[\(relationship.toColumn)]", "relationship \(relationship.fromTable)[\(relationship.fromColumn)] → \(relationship.toTable)[\(relationship.toColumn)]")))
             }
         }
         if let column = model.columns.first(where: { $0.tableName == table && $0.name == name }) {
             for sorted in model.columns where sorted.sortByColumnID == column.id {
-                found.append(ModelUsage(kind: .sortBy, detail: "cột \(sorted.tableName)[\(sorted.name)] sắp xếp theo cột này"))
+                found.append(ModelUsage(kind: .sortBy, detail: biN("cột \(sorted.tableName)[\(sorted.name)] sắp xếp theo cột này", "column \(sorted.tableName)[\(sorted.name)] is sorted by this column")))
             }
         }
         for hierarchy in model.hierarchies where hierarchy.tableName == table && hierarchy.levels.contains(where: { $0.columnName == name }) {
-            found.append(ModelUsage(kind: .hierarchy, detail: "phân cấp \(hierarchy.tableName)[\(hierarchy.name)]"))
+            found.append(ModelUsage(kind: .hierarchy, detail: biN("phân cấp \(hierarchy.tableName)[\(hierarchy.name)]", "hierarchy \(hierarchy.tableName)[\(hierarchy.name)]")))
         }
         found += documentUsages(entityKind: "Column", table: table, name: name, documents: documents)
         return found
@@ -108,8 +108,8 @@ enum ModelReferences {
     /// Lời giải thích khi bị chặn: tối đa 10 nơi, rồi "và N nơi nữa".
     static func message(_ usages: [ModelUsage], what: String) -> String {
         let shown = usages.prefix(10).map(\.detail).joined(separator: ", ")
-        let rest = usages.count > 10 ? ", và \(usages.count - 10) nơi nữa" : ""
-        return "\(what) còn được dùng ở: \(shown)\(rest)."
+        let rest = usages.count > 10 ? biN(", và \(usages.count - 10) nơi nữa", ", and \(usages.count - 10) more") : ""
+        return biN("\(what) còn được dùng ở: \(shown)\(rest).", "\(what) is still used in: \(shown)\(rest).")
     }
 
     private static func documentUsages(entityKind: String, table: String, name: String, documents: [ModelDocument]) -> [ModelUsage] {
@@ -151,7 +151,7 @@ extension ModelReferences {
             let path = entry.path
             let label: String
             if path.hasSuffix("/page.json"), path.hasPrefix("Report/definition/pages/") {
-                label = "bộ lọc của trang \(path.split(separator: "/").dropLast().last.map(String.init) ?? path)"
+                label = biN("bộ lọc của trang \(path.split(separator: "/").dropLast().last.map(String.init) ?? path)", "filters of page \(path.split(separator: "/").dropLast().last.map(String.init) ?? path)")
             } else if path == "Report/definition/report.json" {
                 label = biN("bộ lọc cấp báo cáo", "report-level filters")
             } else if path.hasPrefix("Report/definition/bookmarks/"), path.hasSuffix(".bookmark.json") {

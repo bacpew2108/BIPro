@@ -295,7 +295,7 @@ struct QueryCommandPopoverView: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     CheckboxMark(isOn: isChecked)
-                                    Text(bucket.label.isEmpty ? "(Trống)" : bucket.label)
+                                    Text(bucket.label.isEmpty ? biN("(Trống)", "(Blank)") : bucket.label)
                                         .font(DS.Typeface.bodySmall)
                                         .foregroundStyle(DS.Palette.label)
                                     Spacer()

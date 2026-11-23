@@ -155,12 +155,12 @@ public struct TableMetadataWriter {
     /// đoạn thì cột mới cắt theo `RecordsPerSegment` của bảng (T057). Trả các tệp cần thêm vào ABF (kể cả `systemFiles` mới).
     public mutating func addCalculatedColumn(table: String, columnID: Int, columnName: String, expression: String,
                                              values: VertiPaqWriter.Values) throws -> [VertiPaqWriter.EncodedFile] {
-        guard columnID == maxID + 1 else { throw WriteError.invalid("ID cột tính toán phải là MAXID + 1 (\(maxID + 1))") }
+        guard columnID == maxID + 1 else { throw WriteError.invalid(lt("ID cột tính toán phải là MAXID + 1 (\(maxID + 1))", "The calculated column ID must be MAXID + 1 (\(maxID + 1))")) }
         guard try database.int("""
             SELECT COUNT(*) FROM [Column] c JOIN [Table] t ON t.ID = c.TableID
             WHERE t.Name = ? COLLATE NOCASE AND COALESCE(c.ExplicitName, c.InferredName) = ? COLLATE NOCASE
             """, [.text(table), .text(columnName)]) == 0 else {
-            throw WriteError.invalid("bảng «\(table)» đã có cột «\(columnName)»")
+            throw WriteError.invalid(lt("bảng «\(table)» đã có cột «\(columnName)»", "table «\(table)» already has a column «\(columnName)»"))
         }
         return try writeCalculatedColumn(table: table, columnID: columnID, columnName: columnName, expression: expression,
                                          values: values, existing: nil)
@@ -174,10 +174,10 @@ public struct TableMetadataWriter {
         let db = database
         guard let name = try db.strings("SELECT COALESCE(ExplicitName, InferredName) FROM [Column] WHERE ID = ? AND Type = 2",
                                         [.int(Int64(columnID))]).first else {
-            throw WriteError.invalid("không có cột tính toán mã \(columnID) để ghi lại")
+            throw WriteError.invalid(lt("không có cột tính toán mã \(columnID) để ghi lại", "there is no calculated column with ID \(columnID) to write back"))
         }
         guard (try db.int("SELECT COUNT(*) FROM ColumnStorage WHERE ColumnID = ?", [.int(Int64(columnID))]) ?? 0) == 0 else {
-            throw WriteError.invalid("cột «\(name)» còn dữ liệu lưu trữ cũ")
+            throw WriteError.invalid(lt("cột «\(name)» còn dữ liệu lưu trữ cũ", "column «\(name)» still has old stored data"))
         }
         return try writeCalculatedColumn(table: table, columnID: columnID, columnName: name, expression: expression, values: values,
                                          existing: Int64(storagePosition))
@@ -188,7 +188,7 @@ public struct TableMetadataWriter {
                                                 values: VertiPaqWriter.Values, existing: Int64?) throws -> [VertiPaqWriter.EncodedFile] {
         let db = database
         guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
-            throw WriteError.invalid("không có bảng «\(table)» để ghi cột tính toán")
+            throw WriteError.invalid(lt("không có bảng «\(table)» để ghi cột tính toán", "there is no table «\(table)» to write the calculated column to"))
         }
         let partitions = try db.strings("SELECT ID FROM Partition WHERE TableID = ?", [.int(tableID)])
         guard partitions.count == 1, let partitionID = Int64(partitions[0]),
@@ -202,12 +202,12 @@ public struct TableMetadataWriter {
               let segmentMapID = try db.int("SELECT SegmentMapStorageID FROM PartitionStorage WHERE ID = ?", [.int(partitionStorageID)]),
               let segments = try db.int("SELECT SegmentCount FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]),
               let records = try db.int("SELECT RecordCount FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) else {
-            throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có nhiều phân vùng hoặc thiếu dữ liệu lưu trữ")
+            throw WriteError.invalid(lt("Chưa lưu được cột tính toán của bảng «\(table)»: bảng có nhiều phân vùng hoặc thiếu dữ liệu lưu trữ", "Can't save the calculated column of table «\(table)» yet: the table has several partitions or no stored data"))
         }
         // Bảng nhiều đoạn (T057, T068): cắt đúng số đoạn và `RecordsPerSegment` của bảng có sẵn (kể cả bảng do Desktop ghi).
         let perSegment = try segments > 1 ? (db.int("SELECT RecordsPerSegment FROM SegmentMapStorage WHERE ID = ?", [.int(segmentMapID)]) ?? records) : records
         guard Int64(values.count) == records else {
-            throw WriteError.invalid("cột tính toán «\(columnName)» có \(values.count) dòng, bảng «\(table)» có \(records)")
+            throw WriteError.invalid(lt("cột tính toán «\(columnName)» có \(values.count) dòng, bảng «\(table)» có \(records)", "calculated column «\(columnName)» has \(values.count) rows but table «\(table)» has \(records)"))
         }
         let targetSegments: [Int]
         if segments <= 1 {
@@ -230,7 +230,7 @@ public struct TableMetadataWriter {
                                                           rowNumberID: columnID + 1_000_000, columns: [.init(id: columnID, name: columnName, values: values)],
                                                           segmentSize: max(1, Int(perSegment)), segmentRecords: targetSegments)
         guard encodedTable.segmentCount == Int(segments) else {
-            throw WriteError.invalid("cột tính toán «\(columnName)» cắt ra \(encodedTable.segmentCount) đoạn, bảng «\(table)» có \(segments)")
+            throw WriteError.invalid(lt("cột tính toán «\(columnName)» cắt ra \(encodedTable.segmentCount) đoạn, bảng «\(table)» có \(segments)", "calculated column «\(columnName)» splits into \(encodedTable.segmentCount) segments but table «\(table)» has \(segments)"))
         }
         let raw = encodedTable.columns[1]
         func moved(_ file: VertiPaqWriter.EncodedFile, to folder: String) -> VertiPaqWriter.EncodedFile {
@@ -286,7 +286,7 @@ public struct TableMetadataWriter {
     public mutating func markCalculatedTable(_ table: String, expression: String, sources: [String: String] = [:]) throws {
         let db = database
         guard let tableID = try db.int("SELECT ID FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(table)]) else {
-            throw WriteError.invalid("không có bảng «\(table)»")
+            throw WriteError.invalid(lt("không có bảng «\(table)»", "there is no table «\(table)»"))
         }
         try db.exec("BEGIN IMMEDIATE")
         do {

@@ -1,3 +1,4 @@
+import PBIXKit
 // Parser (LANG, đợt 1a). Đệ quy đi xuống theo bảng ưu tiên của architecture.md §5.2, từ cao xuống thấp:
 //   ^  >  dấu một ngôi - +  >  * /  >  + -  >  &  >  so sánh và IN  >  NOT  >  &&  >  ||
 // Lũy thừa ^ kết hợp trái. Dấu một ngôi có thể đứng sau ^ (2^-1).
@@ -42,10 +43,10 @@ struct DAXParser {
 
     mutating func parseWholeExpression() throws(DAXError) -> Expr {
         if case .eof = current.kind {
-            throw DAXError(.syntax, "biểu thức trống", range: current.range)
+            throw DAXError(.syntax, lt("biểu thức trống", "empty expression"), range: current.range)
         }
         let expr = try parseExpr()
-        guard case .eof = current.kind else { throw unexpected("kết thúc biểu thức") }
+        guard case .eof = current.kind else { throw unexpected(lt("kết thúc biểu thức", "end of expression")) }
         return expr
     }
 
@@ -63,7 +64,7 @@ struct DAXParser {
                     query.defines.append(try parseMeasureOrColumnHeader(isColumn: true))
                 } else if keyword("VAR") {
                     _ = next()
-                    let name = try parseBareName("tên VAR")
+                    let name = try parseBareName(lt("tên VAR", "VAR name"))
                     try expectSymbol("=")
                     query.defines.append(.variable(name: name, try parseExpr()))
                 } else if keyword("TABLE") {
@@ -77,7 +78,7 @@ struct DAXParser {
                 count += 1
             }
             if count == 0 {
-                throw unexpected("MEASURE, VAR, TABLE hoặc COLUMN sau DEFINE")
+                throw unexpected(lt("MEASURE, VAR, TABLE hoặc COLUMN sau DEFINE", "MEASURE, VAR, TABLE or COLUMN after DEFINE"))
             }
         }
         while keyword("EVALUATE") {
@@ -87,7 +88,7 @@ struct DAXParser {
         if query.statements.isEmpty {
             throw unexpected("EVALUATE")
         }
-        guard case .eof = current.kind else { throw unexpected("kết thúc truy vấn") }
+        guard case .eof = current.kind else { throw unexpected(lt("kết thúc truy vấn", "end of query")) }
         return query
     }
 
@@ -101,7 +102,7 @@ struct DAXParser {
             table = try parseTableName()
         }
         guard case .bracket(let name) = current.kind else {
-            throw unexpected("[tên] sau tên bảng")
+            throw unexpected(lt("[tên] sau tên bảng", "[name] after a table name"))
         }
         _ = next()
         try expectSymbol("=")
@@ -119,7 +120,7 @@ struct DAXParser {
             _ = next()
             return name
         default:
-            throw unexpected("tên bảng")
+            throw unexpected(lt("tên bảng", "table name"))
         }
     }
 
@@ -344,7 +345,7 @@ struct DAXParser {
             let upper = name.uppercased()
             // Từ khoá của câu lệnh không thể bắt đầu một biểu thức (thường gặp khi thân measure rỗng).
             if ["DEFINE", "EVALUATE", "MEASURE", "RETURN"].contains(upper) && !isSymbol("(", at: 1) {
-                throw unexpected("biểu thức")
+                throw unexpected(lt("biểu thức", "expression"))
             }
             if upper == "VAR" && !isSymbol("(", at: 1) {
                 return try parseVarBlock()
@@ -370,7 +371,7 @@ struct DAXParser {
             return .identifier(name, start.range)
 
         case .symbol, .eof:
-            throw unexpected("biểu thức")
+            throw unexpected(lt("biểu thức", "expression"))
         }
     }
 
@@ -402,7 +403,7 @@ struct DAXParser {
         _ = next()
         var vars: [VarBinding] = []
         while true {
-            let name = try parseBareName("tên VAR")
+            let name = try parseBareName(lt("tên VAR", "VAR name"))
             try expectSymbol("=")
             let value = try parseExpr()
             vars.append(VarBinding(name: name, value: value))
@@ -414,7 +415,7 @@ struct DAXParser {
                 _ = next()
                 break
             }
-            throw unexpected("VAR hoặc RETURN")
+            throw unexpected(lt("VAR hoặc RETURN", "VAR or RETURN"))
         }
         let body = try parseExpr()
         return .varBlock(vars: vars, body: body, spanFrom(start))
@@ -518,20 +519,20 @@ struct DAXParser {
     /// Lỗi tại token hiện tại. Khi đã hết văn bản, thông báo nói "thiếu", trỏ về cuối token thật gần nhất.
     private func unexpected(_ expected: String) -> DAXError {
         if case .eof = current.kind {
-            return DAXError(.syntax, "thiếu \(expected) ở cuối văn bản", range: current.range)
+            return DAXError(.syntax, lt("thiếu \(expected) ở cuối văn bản", "missing \(expected) at the end of the text"), range: current.range)
         }
-        return DAXError(.syntax, "không mong đợi \(describe(current)), cần \(expected)", range: current.range)
+        return DAXError(.syntax, lt("không mong đợi \(describe(current)), cần \(expected)", "unexpected \(describe(current)), expected \(expected)"), range: current.range)
     }
 
     private func describe(_ token: DAXToken) -> String {
         switch token.kind {
-        case .number: return "số"
-        case .string: return "chuỗi"
+        case .number: return lt("số", "number")
+        case .string: return lt("chuỗi", "string")
         case .quoted(let name): return "'\(name)'"
         case .bracket(let name): return "[\(name)]"
         case .identifier(let name): return "'\(name)'"
         case .symbol(let s): return "'\(s)'"
-        case .eof: return "cuối văn bản"
+        case .eof: return lt("cuối văn bản", "end of text")
         }
     }
 

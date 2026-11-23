@@ -1,3 +1,4 @@
+import PBIXKit
 // Lexer (LANG, đợt 1a). Chuyển văn bản DAX thành dãy token có vị trí (architecture.md §5.1).
 //
 // Quy ước vị trí:
@@ -118,7 +119,7 @@ private struct DAXScanner {
                     advance()
                 }
                 if !closed {
-                    throw DAXError(.syntax, "chú thích /* chưa được đóng", range: start)
+                    throw DAXError(.syntax, lt("chú thích /* chưa được đóng", "unclosed /* comment"), range: start)
                 }
                 continue
             }
@@ -139,11 +140,11 @@ private struct DAXScanner {
 
         let kind: DAXToken.Kind
         if c == "\"" {
-            kind = .string(try scanDelimited(close: "\"", opening: begin, what: "chuỗi"))
+            kind = .string(try scanDelimited(close: "\"", opening: begin, what: lt("chuỗi", "string")))
         } else if c == "'" {
-            kind = .quoted(try scanDelimited(close: "'", opening: begin, what: "tên bảng trong nháy đơn"))
+            kind = .quoted(try scanDelimited(close: "'", opening: begin, what: lt("tên bảng trong nháy đơn", "table name in single quotes")))
         } else if c == "[" {
-            kind = .bracket(try scanDelimited(close: "]", opening: begin, what: "tên trong ngoặc vuông"))
+            kind = .bracket(try scanDelimited(close: "]", opening: begin, what: lt("tên trong ngoặc vuông", "name in square brackets")))
         } else if isDigit(c) || (c == "." && peek(1).map(isDigit) == true) {
             kind = scanNumber()
         } else if isIdentifierStart(c) {
@@ -151,7 +152,7 @@ private struct DAXScanner {
         } else if let symbol = scanSymbol() {
             kind = .symbol(symbol)
         } else {
-            throw DAXError(.syntax, "ký tự không hợp lệ '\(String(c))'", range: begin)
+            throw DAXError(.syntax, lt("ký tự không hợp lệ '\(String(c))'", "invalid character '\(String(c))'"), range: begin)
         }
 
         let range = SourceRange(start: start, end: offset, line: line0, column: column0)
@@ -171,7 +172,7 @@ private struct DAXScanner {
         var out = String.UnicodeScalarView()
         while true {
             guard let c = peek() else {
-                throw DAXError(.syntax, "\(what) chưa được đóng", range: opening)
+                throw DAXError(.syntax, lt("\(what) chưa được đóng", "\(what) isn't closed"), range: opening)
             }
             if c == close {
                 if peek(1) == close {

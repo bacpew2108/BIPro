@@ -41,8 +41,8 @@ public struct AppendDialogContent: View {
             SegmentedPill(
                 selection: $model.mode,
                 options: [
-                    .init(value: .twoTables, title: "Hai bảng"),
-                    .init(value: .threeOrMore, title: "Từ ba bảng")
+                    .init(value: .twoTables, title: biN("Hai bảng", "Two tables")),
+                    .init(value: .threeOrMore, title: biN("Từ ba bảng", "Three or more tables"))
                 ]
             )
 
@@ -169,7 +169,7 @@ public struct AppendDialogContent: View {
             Image(systemName: "tablecells")
                 .font(.system(size: 11))
                 .foregroundStyle(model.selectedQueries.first != nil ? DS.Palette.accent : DS.Palette.tertiaryLabel)
-            Text(model.selectedQueries.first ?? "Chọn một bảng...")
+            Text(model.selectedQueries.first ?? biN("Chọn một bảng...", "Select a table..."))
                 .font(DS.Typeface.body)
                 .foregroundStyle(model.selectedQueries.first != nil ? DS.Palette.label : DS.Palette.tertiaryLabel)
             Spacer()
@@ -406,7 +406,7 @@ public struct AppendDialog: View {
         // Append cho chọn cả truy vấn hiện tại (Desktop liệt kê nó đầu tiên): nối với bước liền trước của chính nó.
         let candidateNames = [state.selectedQuery?.name].compactMap { $0 } + state.mergeCandidates.map(\.name)
         self._model = State(initialValue: AppendDialogModel(
-            primaryQueryName: state.selectedQuery?.name ?? "Bảng chính",
+            primaryQueryName: state.selectedQuery?.name ?? biN("Bảng chính", "Primary table"),
             candidates: candidateNames
         ))
     }

@@ -31,19 +31,19 @@ extension ModelMetadata {
     /// Thêm cột tính toán (`Column.Type = 2`) vào bảng người dùng. Tên không trùng cột hay measure của bảng; biểu thức không trống.
     /// Cột chưa có dữ liệu lưu trữ (`storage`): engine của phiên tính giá trị.
     func addingCalculatedColumn(table: String, name rawName: String, expression: String, dataType: DataType) throws -> ModelMetadata {
-        guard let owner = tables.first(where: { $0.name == table && $0.isUserTable }) else { throw ModelEditError("Không có bảng \(table)") }
+        guard let owner = tables.first(where: { $0.name == table && $0.isUserTable }) else { throw ModelEditError(lt("Không có bảng \(table)", "There is no table \(table)")) }
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw ModelEditError("Tên cột không được để trống") }
-        guard !name.contains("\0"), !expression.contains("\0") else { throw ModelEditError("Tên hoặc biểu thức chứa ký tự NUL") }
+        guard !name.isEmpty else { throw ModelEditError(lt("Tên cột không được để trống", "The column name can't be empty")) }
+        guard !name.contains("\0"), !expression.contains("\0") else { throw ModelEditError(lt("Tên hoặc biểu thức chứa ký tự NUL", "The name or expression contains a NUL character")) }
         let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { throw ModelEditError("Biểu thức của cột \(name) không được để trống") }
+        guard !body.isEmpty else { throw ModelEditError(lt("Biểu thức của cột \(name) không được để trống", "The expression of column \(name) can't be empty")) }
         let key = name.lowercased()
         if columns.contains(where: { $0.tableID == owner.id && $0.kind != .rowNumber && $0.name.lowercased() == key }) {
-            throw ModelEditError("Bảng \(table) đã có cột \(name)")
+            throw ModelEditError(lt("Bảng \(table) đã có cột \(name)", "Table \(table) already has a column \(name)"))
         }
-        if measures.contains(where: { $0.name.lowercased() == key }) { throw ModelEditError("Tên cột \(name) trùng tên một measure") }
+        if measures.contains(where: { $0.name.lowercased() == key }) { throw ModelEditError(lt("Tên cột \(name) trùng tên một measure", "The column name \(name) matches a measure name")) }
         guard [.int64, .double, .decimal, .string, .dateTime, .boolean].contains(dataType) else {
-            throw ModelEditError("Cột tính toán \(name) không có kiểu dữ liệu xác định")
+            throw ModelEditError(lt("Cột tính toán \(name) không có kiểu dữ liệu xác định", "The calculated column \(name) has no determined data type"))
         }
         let id = (columns.map(\.id).max() ?? 0) + 1
         let added = Column(id: id, tableID: owner.id, tableName: owner.name, name: name, kind: .calculated, dataType: dataType,
@@ -58,7 +58,7 @@ extension ModelMetadata {
         let name = try validatedTableName(rawName, ignoring: nil)
         try validateNewColumns(list.map { NewTableColumn(name: $0.name, dataType: $0.dataType) }, table: name)
         let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty, !body.contains("\0") else { throw ModelEditError("Biểu thức của bảng \(name) trống hoặc chứa NUL") }
+        guard !body.isEmpty, !body.contains("\0") else { throw ModelEditError(lt("Biểu thức của bảng \(name) trống hoặc chứa NUL", "The expression of table \(name) is empty or contains NUL")) }
         let tableID = (tables.map(\.id).max() ?? 0) + 1
         let table = Table(id: tableID, name: name, isHidden: false, systemFlags: 2, description: nil, lineageTag: UUID().uuidString.lowercased(),
                           dataCategory: nil, isCalculatedUserTable: true)
@@ -84,15 +84,15 @@ extension ModelMetadata {
     /// khác vẫn sửa được (US4): bộ ghi dựng lại chỉ mục `R$`/`U$` theo dữ liệu mới như Desktop.
     func updatingCalculatedColumn(table: String, name: String, expression: String, dataType: DataType) throws -> ModelMetadata {
         guard let index = columns.firstIndex(where: { $0.tableName == table && $0.name == name }) else {
-            throw ModelEditError("Không có cột \(table)[\(name)]")
+            throw ModelEditError(lt("Không có cột \(table)[\(name)]", "There is no column \(table)[\(name)]"))
         }
         let old = columns[index]
-        guard old.kind == .calculated else { throw ModelEditError("Cột \(table)[\(name)] không phải cột tính toán") }
+        guard old.kind == .calculated else { throw ModelEditError(lt("Cột \(table)[\(name)] không phải cột tính toán", "Column \(table)[\(name)] isn't a calculated column")) }
         let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { throw ModelEditError("Biểu thức của cột \(name) không được để trống") }
-        guard !body.contains("\0") else { throw ModelEditError("Biểu thức chứa ký tự NUL") }
+        guard !body.isEmpty else { throw ModelEditError(lt("Biểu thức của cột \(name) không được để trống", "The expression of column \(name) can't be empty")) }
+        guard !body.contains("\0") else { throw ModelEditError(lt("Biểu thức chứa ký tự NUL", "The expression contains a NUL character")) }
         guard [.int64, .double, .decimal, .string, .dateTime, .boolean].contains(dataType) else {
-            throw ModelEditError("Cột tính toán \(name) không có kiểu dữ liệu xác định")
+            throw ModelEditError(lt("Cột tính toán \(name) không có kiểu dữ liệu xác định", "The calculated column \(name) has no determined data type"))
         }
         let sameType = old.dataType == dataType
         var all = columns
@@ -111,9 +111,9 @@ extension ModelMetadata {
     /// (US4, `[SUY ĐOÁN]` như Desktop, VM-F13 chưa quan sát); danh sách ở `indexCascade(of:)`.
     func deletingCalculatedColumn(table: String, name: String) throws -> ModelMetadata {
         guard let column = columns.first(where: { $0.tableName == table && $0.name == name }) else {
-            throw ModelEditError("Không có cột \(table)[\(name)]")
+            throw ModelEditError(lt("Không có cột \(table)[\(name)]", "There is no column \(table)[\(name)]"))
         }
-        guard column.kind == .calculated else { throw ModelEditError("Cột \(table)[\(name)] không phải cột tính toán, chưa xoá được") }
+        guard column.kind == .calculated else { throw ModelEditError(lt("Cột \(table)[\(name)] không phải cột tính toán, chưa xoá được", "Column \(table)[\(name)] isn't a calculated column and can't be deleted yet")) }
         var blockers: [String] = []
         let measureUses = measures.filter { Self.mentionsColumn($0.expression, table: table, column: name) }.map(\.name)
         if !measureUses.isEmpty { blockers.append("measure " + measureUses.joined(separator: ", ") + " dùng cột") }
@@ -121,7 +121,7 @@ extension ModelMetadata {
         if !calculated.isEmpty { blockers.append("cột tính toán " + calculated.joined(separator: ", ") + " dùng cột") }
         let tablesUsing = calculatedTableExpressions.filter { Self.mentionsColumn($0.value, table: table, column: name) }.keys.sorted()
         if !tablesUsing.isEmpty { blockers.append("bảng tính toán " + tablesUsing.joined(separator: ", ") + " dùng cột") }
-        if !blockers.isEmpty { throw ModelEditError("Không thể xoá cột \(table)[\(name)]: " + blockers.joined(separator: "; ")) }
+        if !blockers.isEmpty { throw ModelEditError(lt("Không thể xoá cột \(table)[\(name)]: ", "Couldn't delete column \(table)[\(name)]: ") + blockers.joined(separator: "; ")) }
         let uses = { (r: Relationship) in (r.fromTable == table && r.fromColumn == name) || (r.toTable == table && r.toColumn == name) }
         let kept = hierarchies.compactMap { h -> Hierarchy? in
             guard h.tableName == table, h.levels.contains(where: { $0.columnName == name }) else { return h }
@@ -139,13 +139,13 @@ extension ModelMetadata {
         guard let column = columns.first(where: { $0.tableName == table && $0.name == name }) else { return [] }
         var lines: [String] = []
         for r in relationships where (r.fromTable == table && r.fromColumn == name) || (r.toTable == table && r.toColumn == name) {
-            lines.append("quan hệ \(r.fromTable)[\(r.fromColumn)] → \(r.toTable)[\(r.toColumn)]")
+            lines.append(lt("quan hệ \(r.fromTable)[\(r.fromColumn)] → \(r.toTable)[\(r.toColumn)]", "relationship \(r.fromTable)[\(r.fromColumn)] → \(r.toTable)[\(r.toColumn)]"))
         }
         for h in hierarchies where h.tableName == table && h.levels.contains(where: { $0.columnName == name }) {
-            lines.append(h.levels.count == 1 ? "phân cấp \(h.name)" : "cấp \(name) của phân cấp \(h.name)")
+            lines.append(h.levels.count == 1 ? lt("phân cấp \(h.name)", "hierarchy \(h.name)") : lt("cấp \(name) của phân cấp \(h.name)", "level \(name) of hierarchy \(h.name)"))
         }
         for c in columns where c.sortByColumnID == column.id && c.id != column.id {
-            lines.append("cách sắp xếp của cột \(c.name) (về sắp theo chính nó)")
+            lines.append(lt("cách sắp xếp của cột \(c.name) (về sắp theo chính nó)", "the sort-by setting of column \(c.name) (reverts to sorting by itself)"))
         }
         return lines
     }
@@ -154,11 +154,11 @@ extension ModelMetadata {
     /// kiểu), cột mới cấp ID mới, cột mất thì chặn nếu còn được dùng. Cột tính toán thêm trên bảng giữ nguyên (ứng dụng tính lại).
     /// [SUY ĐOÁN] chưa quan sát Desktop sửa công thức bảng tính toán; làm như thay dữ liệu bảng (VM-F9, mục 5).
     func updatingCalculatedTable(name: String, expression: String, columns list: [ColumnSignature]) throws -> ModelMetadata {
-        guard let table = tables.first(where: { $0.name == name && $0.isUserTable }) else { throw ModelEditError("Không có bảng \(name)") }
-        guard table.isCalculatedUserTable else { throw ModelEditError("Bảng \(name) không phải bảng tính toán") }
+        guard let table = tables.first(where: { $0.name == name && $0.isUserTable }) else { throw ModelEditError(lt("Không có bảng \(name)", "There is no table \(name)")) }
+        guard table.isCalculatedUserTable else { throw ModelEditError(lt("Bảng \(name) không phải bảng tính toán", "Table \(name) isn't a calculated table")) }
         try validateNewColumns(list.map { NewTableColumn(name: $0.name, dataType: $0.dataType) }, table: name)
         let body = expression.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty, !body.contains("\0") else { throw ModelEditError("Biểu thức của bảng \(name) trống hoặc chứa NUL") }
+        guard !body.isEmpty, !body.contains("\0") else { throw ModelEditError(lt("Biểu thức của bảng \(name) trống hoặc chứa NUL", "The expression of table \(name) is empty or contains NUL")) }
         let own = columns.filter { $0.tableID == table.id }
         let results = own.filter { $0.kind == .calculatedTableColumn }
         let byName = Dictionary(results.map { ($0.name.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
@@ -166,12 +166,12 @@ extension ModelMetadata {
         let removed = results.filter { !kept.contains($0.name.lowercased()) }
         let survivors = Set(columns.map(\.id)).subtracting(removed.map(\.id))
         let blockers = usesOfRemovedColumns(removed, in: name, survivingIDs: survivors)
-        if !blockers.isEmpty { throw ModelEditError("Không thể sửa bảng \(name): " + blockers.joined(separator: "; ")) }
+        if !blockers.isEmpty { throw ModelEditError(lt("Không thể sửa bảng \(name): ", "Couldn't edit table \(name): ") + blockers.joined(separator: "; ")) }
         if let clash = list.first(where: { column in
             let key = column.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             return own.contains { $0.kind == .calculated && $0.name.lowercased() == key } || measures.contains { $0.name.lowercased() == key }
         }) {
-            throw ModelEditError("Cột kết quả \(clash.name) trùng tên một cột tính toán hoặc measure của bảng \(name)")
+            throw ModelEditError(lt("Cột kết quả \(clash.name) trùng tên một cột tính toán hoặc measure của bảng \(name)", "The result column \(clash.name) has the same name as a calculated column or measure of table \(name)"))
         }
         var nextID = (columns.map(\.id).max() ?? 0) + 1
         let rebuilt = list.map { signature -> Column in
@@ -215,7 +215,7 @@ extension ModelMetadata {
 
     func replacingTable(_ oldName: String, with new: NewTable) throws -> ModelMetadata {
         guard let tableIndex = tables.firstIndex(where: { $0.name == oldName && $0.isUserTable }) else {
-            throw ModelEditError("Không có bảng \(oldName)")
+            throw ModelEditError(lt("Không có bảng \(oldName)", "There is no table \(oldName)"))
         }
         let old = tables[tableIndex]
         let name = try validatedTableName(new.name, ignoring: oldName)
@@ -229,12 +229,12 @@ extension ModelMetadata {
 
         let blockers = usesOfRemovedColumns(removed, in: old.name, survivingIDs: Set(oldData.filter { keptNames.contains($0.name) }.map(\.id)))
         if !blockers.isEmpty {
-            throw ModelEditError("Không thể thay bảng \(oldName): " + blockers.joined(separator: "; "))
+            throw ModelEditError(lt("Không thể thay bảng \(oldName): ", "Couldn't replace table \(oldName): ") + blockers.joined(separator: "; "))
         }
         if let clash = new.columns.first(where: { column in
             measures.contains { $0.tableName == oldName && $0.name.lowercased() == column.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
         }) {
-            throw ModelEditError("Cột \(clash.name) trùng tên một measure của bảng \(oldName)")
+            throw ModelEditError(lt("Cột \(clash.name) trùng tên một measure của bảng \(oldName)", "Column \(clash.name) has the same name as a measure of table \(oldName)"))
         }
 
         var nextID = (columns.map(\.id).max() ?? 0) + 1
@@ -289,7 +289,7 @@ extension ModelMetadata {
     func droppingTable(_ name: String) throws -> ModelMetadata {
         // Bảng ngày tự động (SystemFlags 2, không phải bảng người dùng) cũng xoá được, sau khi đã bỏ variation và quan hệ của nó (T031).
         guard let table = tables.first(where: { $0.name == name && ($0.isUserTable || $0.systemFlags == 2) }) else {
-            throw ModelEditError("Không có bảng \(name)")
+            throw ModelEditError(lt("Không có bảng \(name)", "There is no table \(name)"))
         }
         var blockers: [String] = []
         let related = (relationships + dateTableRelationships).filter { $0.fromTable == name || $0.toTable == name }.map(\.name)
@@ -304,7 +304,7 @@ extension ModelMetadata {
         if !calculated.isEmpty { blockers.append("cột tính toán " + calculated.joined(separator: ", ") + " đang dùng bảng") }
         let calculatedTables = calculatedTableExpressions.filter { $0.key != name && Self.mentionsTable($0.value, name) }.keys.sorted()
         if !calculatedTables.isEmpty { blockers.append("bảng tính toán " + calculatedTables.joined(separator: ", ") + " đang dùng bảng") }
-        if !blockers.isEmpty { throw ModelEditError("Không thể xoá bảng \(name): " + blockers.joined(separator: "; ")) }
+        if !blockers.isEmpty { throw ModelEditError(lt("Không thể xoá bảng \(name): ", "Couldn't delete table \(name): ") + blockers.joined(separator: "; ")) }
         var queries = partitionQueries, expressions = calculatedTableExpressions
         queries[name] = nil
         expressions[name] = nil
@@ -320,27 +320,27 @@ extension ModelMetadata {
     /// Tên bảng đã cắt khoảng trắng: không rỗng, không NUL, không trùng bảng hay measure nào (không phân biệt hoa thường).
     private func validatedTableName(_ raw: String, ignoring old: String?) throws -> String {
         let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw ModelEditError("Tên bảng không được để trống") }
-        guard !name.contains("\0") else { throw ModelEditError("Tên bảng chứa ký tự NUL") }
+        guard !name.isEmpty else { throw ModelEditError(lt("Tên bảng không được để trống", "The table name can't be empty")) }
+        guard !name.contains("\0") else { throw ModelEditError(lt("Tên bảng chứa ký tự NUL", "The table name contains a NUL character")) }
         let key = name.lowercased()
         if tables.contains(where: { $0.name.lowercased() == key && $0.name != old }) {
-            throw ModelEditError("Tên bảng \(name) trùng một bảng đã có (không phân biệt hoa thường)")
+            throw ModelEditError(lt("Tên bảng \(name) trùng một bảng đã có (không phân biệt hoa thường)", "The table name \(name) matches an existing table (case-insensitive)"))
         }
         if measures.contains(where: { $0.name.lowercased() == key }) {
-            throw ModelEditError("Tên bảng \(name) trùng tên một measure")
+            throw ModelEditError(lt("Tên bảng \(name) trùng tên một measure", "The table name \(name) matches a measure name"))
         }
         return name
     }
 
     private func validateNewColumns(_ list: [NewTableColumn], table: String) throws {
-        guard !list.isEmpty else { throw ModelEditError("Bảng \(table) cần có ít nhất một cột") }
+        guard !list.isEmpty else { throw ModelEditError(lt("Bảng \(table) cần có ít nhất một cột", "Table \(table) needs at least one column")) }
         var seen: [String: String] = [:]
         for column in list {
             let name = column.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { throw ModelEditError("Tên cột không được để trống (bảng \(table))") }
-            guard !name.contains("\0") else { throw ModelEditError("Tên cột \(name) chứa ký tự NUL (bảng \(table))") }
+            guard !name.isEmpty else { throw ModelEditError(lt("Tên cột không được để trống (bảng \(table))", "A column name can't be empty (table \(table))")) }
+            guard !name.contains("\0") else { throw ModelEditError(lt("Tên cột \(name) chứa ký tự NUL (bảng \(table))", "The column name \(name) contains a NUL character (table \(table))")) }
             if let first = seen[name.lowercased()] {
-                throw ModelEditError("Bảng \(table) có hai cột tên \(first) (không phân biệt hoa thường)")
+                throw ModelEditError(lt("Bảng \(table) có hai cột tên \(first) (không phân biệt hoa thường)", "Table \(table) has two columns named \(first) (case-insensitive)"))
             }
             seen[name.lowercased()] = name
         }

@@ -37,7 +37,7 @@ public enum FileSettings {
         if let range = text.range(of: autodetectKey) {
             let rest = text[range.upperBound...]
             let old = rest.hasPrefix("true") ? "true" : rest.hasPrefix("false") ? "false" : nil
-            guard let old else { throw WriteError.invalid("Settings: giá trị IsRelationshipAutodetectionEnabled không phải true/false") }
+            guard let old else { throw WriteError.invalid(lt("Settings: giá trị IsRelationshipAutodetectionEnabled không phải true/false", "Settings: the value of IsRelationshipAutodetectionEnabled isn't true/false")) }
             let end = text.index(range.upperBound, offsetBy: old.count)
             if enabled {
                 var lower = range.lowerBound, upper = end
@@ -49,7 +49,7 @@ public enum FileSettings {
             }
         } else if !enabled {
             guard let report = text.range(of: "\"ReportSettings\":{") else {
-                throw WriteError.invalid("Settings không có ReportSettings")
+                throw WriteError.invalid(lt("Settings không có ReportSettings", "Settings has no ReportSettings"))
             }
             let empty = report.upperBound < text.endIndex && text[report.upperBound] == "}"
             text.insert(contentsOf: autodetectKey + "false" + (empty ? "" : ","), at: report.upperBound)

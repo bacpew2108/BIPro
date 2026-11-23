@@ -7,6 +7,7 @@
 // Unpivot bỏ ô null, `Table.Combine` hợp cột theo thứ tự thấy đầu tiên. Thứ tự dòng khớp của join do Desktop tự quyết (băm), BI Pro giữ thứ tự
 // dòng trái; dòng không khớp xếp cuối (phải trước trái) như Desktop. Cột lẫn kiểu của `Table.Combine` chuyển thành text (Desktop nạp `any` thành `string`).
 
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -40,7 +41,7 @@ public enum JoinGroupLibrary {
 
     private static func columnIndices(_ table: TableData, _ value: MValue, function: String) throws -> [Int] {
         try TableRowsHelper.extractColumnNames(value, functionName: function).map { name in
-            guard let index = table.index(ofColumn: name) else { throw MError.expression("\(function): không tìm thấy cột '\(name)'") }
+            guard let index = table.index(ofColumn: name) else { throw MError.expression(lt("\(function): không tìm thấy cột '\(name)'", "\(function): column '\(name)' not found")) }
             return index
         }
     }
@@ -49,7 +50,7 @@ public enum JoinGroupLibrary {
     private static func keys(_ table: TableData, columns: [Int], function: String) throws -> [[Key]] {
         for column in columns {
             if let (row, message) = table.errorMask[column]?.min(by: { $0.key < $1.key }) {
-                throw MError.expression("\(function): ô lỗi ở cột khoá '\(table.columns[column].name)' dòng \(row + 1): \(message)")
+                throw MError.expression(lt("\(function): ô lỗi ở cột khoá '\(table.columns[column].name)' dòng \(row + 1): \(message)", "\(function): error cell in key column '\(table.columns[column].name)' row \(row + 1): \(message)"))
             }
         }
         return (0..<table.rowCount).map { row in columns.map { Key(table.value(row: row, column: $0)) } }
@@ -65,7 +66,7 @@ public enum JoinGroupLibrary {
     private static func joinKind(_ value: MValue?, function: String, default fallback: Int) throws -> Int {
         guard let value else { return fallback }
         guard let n = MOperators.number(value), (0...5).contains(n), n == n.rounded() else {
-            throw MError.expression("\(function): kiểu join không hợp lệ")
+            throw MError.expression(lt("\(function): kiểu join không hợp lệ", "\(function): invalid join kind"))
         }
         return Int(n)
     }
@@ -89,7 +90,7 @@ public enum JoinGroupLibrary {
             case .table(let t): tables.append(t)
             case .error(let e): throw e
             case .null: continue
-            default: throw MError.expression("Table.Combine: phần tử phải là bảng, nhận \(item.kindName)")
+            default: throw MError.expression(lt("Table.Combine: phần tử phải là bảng, nhận \(item.kindName)", "Table.Combine: an item must be a table, got \(item.kindName)"))
             }
         }
         var names: [String] = []
@@ -137,7 +138,7 @@ public enum JoinGroupLibrary {
     private static func matches(left: TableData, leftKey: [Int], right: TableData, rightKey: [Int], kind: Int, function: String,
                                 leftInPlace: Bool = false) throws -> [(Int?, Int?)] {
         guard leftKey.count == rightKey.count, !leftKey.isEmpty else {
-            throw MError.expression("\(function): hai bên phải có cùng số cột khoá")
+            throw MError.expression(lt("\(function): hai bên phải có cùng số cột khoá", "\(function): both sides must have the same number of key columns"))
         }
         let leftKeys = try keys(left, columns: leftKey, function: function)
         let rightKeys = try keys(right, columns: rightKey, function: function)
@@ -185,7 +186,7 @@ public enum JoinGroupLibrary {
             names.append(column.name); types.append(mType(of: column)); columns.append(cells(left, column: index, rows: leftRows))
         }
         for (index, column) in right.columns.enumerated() {
-            if names.contains(column.name) { throw MError.expression("Table.Join: cột '\(column.name)' có ở cả hai bảng, hãy đổi tên trước") }
+            if names.contains(column.name) { throw MError.expression(lt("Table.Join: cột '\(column.name)' có ở cả hai bảng, hãy đổi tên trước", "Table.Join: column '\(column.name)' exists in both tables; rename it first")) }
             names.append(column.name); types.append(mType(of: column)); columns.append(cells(right, column: index, rows: rightRows))
         }
         return .table(try assemble(names: names, types: types, columns: columns))
@@ -203,7 +204,7 @@ public enum JoinGroupLibrary {
         let leftKey = try columnIndices(left, args[1], function: "Table.NestedJoin")
         let rightKey = try columnIndices(right, args[3], function: "Table.NestedJoin")
         let newName = try args.text(4, "Table.NestedJoin")
-        if left.index(ofColumn: newName) != nil { throw MError.expression("Table.NestedJoin: cột '\(newName)' đã có") }
+        if left.index(ofColumn: newName) != nil { throw MError.expression(lt("Table.NestedJoin: cột '\(newName)' đã có", "Table.NestedJoin: column '\(newName)' already exists")) }
         let kind = try joinKind(args.optional(5), function: "Table.NestedJoin", default: 1)
         let pairs = try matches(left: left, leftKey: leftKey, right: right, rightKey: rightKey, kind: kind, function: "Table.NestedJoin", leftInPlace: true)
 
@@ -236,7 +237,7 @@ public enum JoinGroupLibrary {
     ) { args in
         let table = try args.table(0, "Table.ExpandTableColumn")
         let name = try args.text(1, "Table.ExpandTableColumn")
-        guard let column = table.index(ofColumn: name) else { throw MError.expression("Table.ExpandTableColumn: không tìm thấy cột '\(name)'") }
+        guard let column = table.index(ofColumn: name) else { throw MError.expression(lt("Table.ExpandTableColumn: không tìm thấy cột '\(name)'", "Table.ExpandTableColumn: column '\(name)' not found")) }
         // Bảng lồng của NestedJoin, hoặc ô bảng có cấu trúc (giá trị `.table` trong cột `any`); ô null mở thành một dòng trống.
         let structuredTables: [TableData]? = table.structured[column].flatMap { _ in
             let empty = try? TableData(columns: [])
@@ -248,18 +249,18 @@ public enum JoinGroupLibrary {
             return tables.contains { $0 == nil } ? nil : tables.compactMap { $0 }
         }
         guard let nested = table.nested[column] ?? structuredTables else {
-            throw MError.expression("Table.ExpandTableColumn: cột '\(name)' không phải cột bảng lồng")
+            throw MError.expression(lt("Table.ExpandTableColumn: cột '\(name)' không phải cột bảng lồng", "Table.ExpandTableColumn: column '\(name)' isn't a nested table column"))
         }
         let wanted = try TableRowsHelper.extractColumnNames(args[2], functionName: "Table.ExpandTableColumn")
         let renamed = try args.optional(3).map { try TableRowsHelper.extractColumnNames($0, functionName: "Table.ExpandTableColumn") } ?? wanted
-        guard renamed.count == wanted.count else { throw MError.expression("Table.ExpandTableColumn: số tên mới khác số cột cần mở") }
+        guard renamed.count == wanted.count else { throw MError.expression(lt("Table.ExpandTableColumn: số tên mới khác số cột cần mở", "Table.ExpandTableColumn: the number of new names differs from the number of columns to expand")) }
 
         // Kiểu cột mở: lấy từ một bảng lồng bất kỳ (mọi bảng lồng cùng lược đồ).
         let schema = nested.first
         var sourceIndex: [Int] = []
         for wantedName in wanted {
             guard let schema, let i = schema.index(ofColumn: wantedName) else {
-                throw MError.expression("Table.ExpandTableColumn: bảng lồng không có cột '\(wantedName)'")
+                throw MError.expression(lt("Table.ExpandTableColumn: bảng lồng không có cột '\(wantedName)'", "Table.ExpandTableColumn: the nested table has no column '\(wantedName)'"))
             }
             sourceIndex.append(i)
         }
@@ -273,7 +274,7 @@ public enum JoinGroupLibrary {
             columns.append(rowSource.map { MTables.cell(table, row: $0.row, column: index) })
         }
         for (k, newName) in renamed.enumerated() {
-            if names.contains(newName) { throw MError.expression("Table.ExpandTableColumn: cột '\(newName)' đã có, hãy đặt tên khác") }
+            if names.contains(newName) { throw MError.expression(lt("Table.ExpandTableColumn: cột '\(newName)' đã có, hãy đặt tên khác", "Table.ExpandTableColumn: column '\(newName)' already exists; choose another name")) }
             names.append(newName)
             types.append(schema.map { mType(of: $0.columns[sourceIndex[k]]) })
             columns.append(rowSource.map { entry in
@@ -298,14 +299,14 @@ public enum JoinGroupLibrary {
         var aggregates: [(name: String, function: MFunction, type: MType?)] = []
         for item in try args.list(2, "Table.Group") {
             guard case .list(let parts) = item, parts.count >= 2, parts.count <= 3, case .text(let name) = parts[0], case .function(let f) = parts[1] else {
-                throw MError.expression("Table.Group: mỗi phép tổng hợp phải là {tên, hàm, kiểu?}")
+                throw MError.expression(lt("Table.Group: mỗi phép tổng hợp phải là {tên, hàm, kiểu?}", "Table.Group: each aggregation must be {name, function, type?}"))
             }
             var type: MType?
             if parts.count == 3, case .type(let t) = parts[2] { type = t }
             aggregates.append((name, f, type))
         }
         let kind = try joinKind(args.optional(3), function: "Table.Group", default: 1)
-        guard kind == 0 || kind == 1 else { throw MError.expression("Table.Group: kiểu nhóm không hợp lệ") }
+        guard kind == 0 || kind == 1 else { throw MError.expression(lt("Table.Group: kiểu nhóm không hợp lệ", "Table.Group: invalid group kind")) }
         let rowKeys = try keys(table, columns: keyColumns, function: "Table.Group")
 
         var groups: [[Int]] = []
@@ -346,16 +347,16 @@ public enum JoinGroupLibrary {
         let table = try args.table(0, "Table.Pivot")
         var pivotValues: [String] = []
         for item in try args.list(1, "Table.Pivot") {
-            guard case .text(let s) = item else { throw MError.expression("Table.Pivot: giá trị xoay phải là text, nhận \(item.kindName)") }
+            guard case .text(let s) = item else { throw MError.expression(lt("Table.Pivot: giá trị xoay phải là text, nhận \(item.kindName)", "Table.Pivot: pivot values must be text, got \(item.kindName)")) }
             if !pivotValues.contains(s) { pivotValues.append(s) }
         }
         let attributeName = try args.text(2, "Table.Pivot"), valueName = try args.text(3, "Table.Pivot")
-        guard let attribute = table.index(ofColumn: attributeName) else { throw MError.expression("Table.Pivot: không tìm thấy cột '\(attributeName)'") }
-        guard let value = table.index(ofColumn: valueName) else { throw MError.expression("Table.Pivot: không tìm thấy cột '\(valueName)'") }
+        guard let attribute = table.index(ofColumn: attributeName) else { throw MError.expression(lt("Table.Pivot: không tìm thấy cột '\(attributeName)'", "Table.Pivot: column '\(attributeName)' not found")) }
+        guard let value = table.index(ofColumn: valueName) else { throw MError.expression(lt("Table.Pivot: không tìm thấy cột '\(valueName)'", "Table.Pivot: column '\(valueName)' not found")) }
         let aggregator = try args.optional(4).map { _ in try args.function(4, "Table.Pivot") }
         let keyColumns = table.columns.indices.filter { $0 != attribute && $0 != value }
         if let clash = pivotValues.first(where: { name in keyColumns.contains { table.columns[$0].name == name } }) {
-            throw MError.expression("Table.Pivot: giá trị xoay '\(clash)' trùng tên một cột còn lại")
+            throw MError.expression(lt("Table.Pivot: giá trị xoay '\(clash)' trùng tên một cột còn lại", "Table.Pivot: the pivot value '\(clash)' has the same name as a remaining column"))
         }
         let rowKeys = try keys(table, columns: keyColumns, function: "Table.Pivot")
         var positions: [[Key]: Int] = [:]
@@ -408,7 +409,7 @@ public enum JoinGroupLibrary {
         let keepColumns = table.columns.indices.filter { !pivotColumns.contains($0) }
         var names: [String] = keepColumns.map { table.columns[$0].name }
         guard !names.contains(attributeName), !names.contains(valueName), attributeName != valueName else {
-            throw MError.expression("\(function): tên cột thuộc tính/giá trị trùng một cột còn lại")
+            throw MError.expression(lt("\(function): tên cột thuộc tính/giá trị trùng một cột còn lại", "\(function): the attribute/value column name matches a remaining column"))
         }
         var keep: [[MValue]] = keepColumns.map { _ in [] }
         var attributes: [MValue] = [], values: [MValue] = []

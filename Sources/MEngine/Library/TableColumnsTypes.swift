@@ -1,4 +1,5 @@
 // Phase F: Trợ giúp chuyển đổi kiểu cột cho Table.TransformColumnTypes.
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -276,7 +277,7 @@ enum TableColumnsTypesHelper {
             newColumnData = ColumnBuilder.booleans(vals)
 
         default:
-            throw MError.unsupported("kiểu cột \(targetType.kind.rawValue)")
+            throw MError.unsupported(lt("kiểu cột \(targetType.kind.rawValue)", "column type \(targetType.kind.rawValue)"))
         }
 
         if !colErrors.isEmpty {

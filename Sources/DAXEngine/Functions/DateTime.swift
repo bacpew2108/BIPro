@@ -5,6 +5,7 @@
 // [SUY ĐOÁN] DATEDIFF: SECOND, MINUTE, HOUR, DAY, WEEK đếm đơn vị đã đủ (cắt về 0). MONTH, QUARTER, YEAR đếm tháng đủ:
 // tháng chỉ tính khi ngày và giờ trong ngày đã vượt mốc (31/01 tới 29/02 là 0 tháng). Chờ oracle.
 
+import PBIXKit
 import Foundation
 
 public enum DateTimeFunctions: FunctionFamily {
@@ -47,10 +48,10 @@ public enum DateTimeFunctions: FunctionFamily {
     /// (golden: bảng `Ngày` của w8.3 do Desktop tính, Phase F T081). [DOC calendar-function-dax] đầu sau cuối là lỗi.
     static let calendarBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         let start = try frame.scalar(0), end = try frame.scalar(1)
-        if start == .blank || end == .blank { throw DAXError(.runtime, "CALENDAR: ngày đầu và ngày cuối không được để trống") }
+        if start == .blank || end == .blank { throw DAXError(.runtime, lt("CALENDAR: ngày đầu và ngày cuối không được để trống", "CALENDAR: the start and end dates can't be blank")) }
         let first = (try start.asDouble()).rounded(.down), last = (try end.asDouble()).rounded(.down)
-        guard first <= last else { throw DAXError(.runtime, "CALENDAR: ngày đầu sau ngày cuối") }
-        guard last - first < 10_000_000 else { throw DAXError(.runtime, "CALENDAR: khoảng ngày quá lớn") }
+        guard first <= last else { throw DAXError(.runtime, lt("CALENDAR: ngày đầu sau ngày cuối", "CALENDAR: the start date is after the end date")) }
+        guard last - first < 10_000_000 else { throw DAXError(.runtime, lt("CALENDAR: khoảng ngày quá lớn", "CALENDAR: the date range is too large")) }
         let rows = stride(from: first, through: last, by: 1).map { [Value.dateTime($0)] }
         return TableValue(columns: ["[Date]"], rows: rows)
     }
@@ -101,7 +102,7 @@ public enum DateTimeFunctions: FunctionFamily {
         let msDau = try milliGiay(try serialCua(try frame.scalar(0)))
         let msCuoi = try milliGiay(try serialCua(try frame.scalar(1)))
         guard let donVi = frame.keyword(2)?.uppercased() else {
-            throw DAXError(.typeMismatch, "DATEDIFF: đối số 3 phải là SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER hoặc YEAR")
+            throw DAXError(.typeMismatch, lt("DATEDIFF: đối số 3 phải là SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER hoặc YEAR", "DATEDIFF: argument 3 must be SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, QUARTER or YEAR"))
         }
         let chenh = msCuoi - msDau
         switch donVi {
@@ -114,7 +115,7 @@ public enum DateTimeFunctions: FunctionFamily {
         case "QUARTER": return .integer(Int64(soThangDu(msDau, msCuoi) / 3))
         case "YEAR": return .integer(Int64(soThangDu(msDau, msCuoi) / 12))
         default:
-            throw DAXError(.typeMismatch, "DATEDIFF: đơn vị \(donVi) không được hỗ trợ")
+            throw DAXError(.typeMismatch, lt("DATEDIFF: đơn vị \(donVi) không được hỗ trợ", "DATEDIFF: the unit \(donVi) isn't supported"))
         }
     }
 
@@ -144,7 +145,7 @@ public enum DateTimeFunctions: FunctionFamily {
         case 1: return .integer(Int64(dowSun0 + 1))
         case 2: return .integer(Int64(dowSun0 == 0 ? 7 : dowSun0))
         case 3: return .integer(Int64(dowSun0 == 0 ? 6 : dowSun0 - 1))
-        default: throw DAXError(.runtime, "WEEKDAY: return_type phải là 1, 2 hoặc 3")
+        default: throw DAXError(.runtime, lt("WEEKDAY: return_type phải là 1, 2 hoặc 3", "WEEKDAY: return_type must be 1, 2 or 3"))
         }
     }
 
@@ -170,7 +171,7 @@ public enum DateTimeFunctions: FunctionFamily {
         switch rtype {
         case 1: jan1Dow = duLam(jan1Unix + 4, 7)          // CN = 0
         case 2: jan1Dow = duLam(jan1Unix + 3, 7)          // T2 = 0
-        default: throw DAXError(.runtime, "WEEKNUM: return_type \(rtype) không được hỗ trợ")
+        default: throw DAXError(.runtime, lt("WEEKNUM: return_type \(rtype) không được hỗ trợ", "WEEKNUM: return_type \(rtype) isn't supported"))
         }
         return .integer(Int64((doy0 + jan1Dow) / 7 + 1))
     }
@@ -266,7 +267,7 @@ public enum DateTimeFunctions: FunctionFamily {
             let n30 = (cB.year - cA.year) * 360 + (cB.month - cA.month) * 30 + (d2 - d1)
             return .double(Double(n30) / 360.0)
         default:
-            throw DAXError(.runtime, "YEARFRAC: basis phải từ 0 đến 4")
+            throw DAXError(.runtime, lt("YEARFRAC: basis phải từ 0 đến 4", "YEARFRAC: basis must be from 0 to 4"))
         }
     }
 
@@ -274,7 +275,7 @@ public enum DateTimeFunctions: FunctionFamily {
     static let calendarAutoBody: FunctionSpec.TableBody = { (frame: CallFrame) throws(DAXError) -> TableValue in
         let fyEnd = frame.isBlankArgument(0) ? 12 : try soNguyenCua(try frame.scalar(0))
         guard (1...12).contains(fyEnd) else {
-            throw DAXError(.runtime, "CALENDARAUTO: tháng kết thúc năm tài chính phải từ 1 đến 12")
+            throw DAXError(.runtime, lt("CALENDARAUTO: tháng kết thúc năm tài chính phải từ 1 đến 12", "CALENDARAUTO: the fiscal year end month must be from 1 to 12"))
         }
         let evaluator = try fkEvaluator(frame)
         let store = evaluator.store
@@ -293,7 +294,7 @@ public enum DateTimeFunctions: FunctionFamily {
             }
         }
         guard let lo = minDay, let hi = maxDay else {
-            throw DAXError(.runtime, "CALENDARAUTO: không tìm thấy cột ngày có dữ liệu trong mô hình")
+            throw DAXError(.runtime, lt("CALENDARAUTO: không tìm thấy cột ngày có dữ liệu trong mô hình", "CALENDARAUTO: no date column with data found in the model"))
         }
         let cLo = lichTuNgay(lo - soNgayTuEpochOLE)
         let cHi = lichTuNgay(hi - soNgayTuEpochOLE)
@@ -303,7 +304,7 @@ public enum DateTimeFunctions: FunctionFamily {
         let firstSerial = ngayTuNam(startYear, startMonth, 1) + soNgayTuEpochOLE
         let lastSerial = ngayTuNam(endYear, fyEnd, soNgayTrongThang(endYear, fyEnd)) + soNgayTuEpochOLE
         guard firstSerial <= lastSerial, lastSerial - firstSerial < 10_000_000 else {
-            throw DAXError(.runtime, "CALENDARAUTO: khoảng ngày không hợp lệ")
+            throw DAXError(.runtime, lt("CALENDARAUTO: khoảng ngày không hợp lệ", "CALENDARAUTO: invalid date range"))
         }
         let rows = (firstSerial...lastSerial).map { [Value.dateTime(Double($0))] }
         return TableValue(columns: ["[Date]"], rows: rows)
@@ -343,7 +344,7 @@ private func duLam(_ a: Int, _ b: Int) -> Int {
 /// Mili giây kể từ 1899-12-30, đã làm tròn tới mili giây. Serial ngoài ±10⁹ ngày thì báo lỗi.
 private func milliGiay(_ serial: Double) throws(DAXError) -> Int {
     guard serial.isFinite, abs(serial) < 1.0e9 else {
-        throw DAXError(.runtime, "ngày ngoài phạm vi hỗ trợ")
+        throw DAXError(.runtime, lt("ngày ngoài phạm vi hỗ trợ", "the date is outside the supported range"))
     }
     return Int((serial * 86_400_000).rounded())
 }

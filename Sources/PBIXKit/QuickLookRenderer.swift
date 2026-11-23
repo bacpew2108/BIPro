@@ -72,7 +72,7 @@ public enum PBIXQuickLookRenderer {
         drawText(ctx, summary.fileName,
                  in: CGRect(x: badgeRect.maxX + 12, y: headerY + 24, width: CGFloat(w) - badgeRect.maxX - m - 12, height: 26),
                  fontSize: 19, bold: true, color: fg, alignment: .left)
-        let sub = "\(summary.formatLabel) · \(summary.visiblePageCount) trang hiển thị / \(summary.pages.count) trang"
+        let sub = lt("\(summary.formatLabel) · \(summary.visiblePageCount) trang hiển thị / \(summary.pages.count) trang", "\(summary.formatLabel) · \(summary.visiblePageCount) visible pages / \(summary.pages.count) pages")
         drawText(ctx, sub,
                  in: CGRect(x: badgeRect.maxX + 12, y: headerY + 4, width: CGFloat(w) - badgeRect.maxX - m - 12, height: 18),
                  fontSize: 12, bold: false, color: fg2, alignment: .left)
@@ -83,10 +83,10 @@ public enum PBIXQuickLookRenderer {
         let statGap: CGFloat = 12
         let statW = (CGFloat(w) - m * 2 - statGap * 3) / 4
         let stats: [(String, String)] = [
-            ("\(summary.tableCount)", "Bảng"),
-            ("\(summary.columnCount)", "Cột"),
+            ("\(summary.tableCount)", lt("Bảng", "Tables")),
+            ("\(summary.columnCount)", lt("Cột", "Columns")),
             ("\(summary.measureCount)", "Measure"),
-            ("\(summary.relationshipCount)", "Quan hệ"),
+            ("\(summary.relationshipCount)", lt("Quan hệ", "Relationships")),
         ]
         for (i, item) in stats.enumerated() {
             let r = CGRect(x: m + CGFloat(i) * (statW + statGap), y: statsY, width: statW, height: statsH)
@@ -122,7 +122,7 @@ public enum PBIXQuickLookRenderer {
         let canvasRect = CGRect(x: sidebarRect.maxX + 14, y: bodyY, width: CGFloat(w) - sidebarRect.maxX - 14 - m, height: bodyH)
         drawRoundedRect(ctx, rect: canvasRect, radius: 8, fill: cardBg, stroke: stroke)
         if let page = summary.previewPage {
-            drawText(ctx, "Bố cục trang: \(page.name) (\(Int(page.width))×\(Int(page.height)))",
+            drawText(ctx, lt("Bố cục trang: \(page.name) (\(Int(page.width))×\(Int(page.height)))", "Page layout: \(page.name) (\(Int(page.width))×\(Int(page.height)))"),
                      in: CGRect(x: canvasRect.minX + 14, y: canvasRect.maxY - 28, width: canvasRect.width - 28, height: 16),
                      fontSize: 11, bold: true, color: fg2, alignment: .left)
             let wireArea = CGRect(x: canvasRect.minX + 14, y: canvasRect.minY + 14, width: canvasRect.width - 28, height: canvasRect.height - 48)
@@ -139,7 +139,7 @@ public enum PBIXQuickLookRenderer {
             drawRoundedRect(ctx, rect: fitted, radius: 4, fill: rgb(1, 1, 1), stroke: rgb(0, 0, 0, 0.15))
             drawPageWireframe(ctx, page: page, in: fitted.insetBy(dx: 4, dy: 4), showTitles: true)
         } else {
-            drawText(ctx, summary.modelError ?? "Tệp chưa có trang báo cáo.",
+            drawText(ctx, summary.modelError ?? lt("Tệp chưa có trang báo cáo.", "The file has no report pages yet."),
                      in: canvasRect.insetBy(dx: 16, dy: 16), fontSize: 13, bold: false, color: fg2, alignment: .center)
         }
 
@@ -158,7 +158,7 @@ public enum PBIXQuickLookRenderer {
         drawRoundedRect(ctx, rect: card, radius: 10, fill: dark ? rgb(0.17, 0.17, 0.18) : rgb(1, 1, 1), stroke: rgb(1, 0.27, 0.23, 0.45))
         drawText(ctx, fileName, in: CGRect(x: card.minX + 16, y: card.midY + 10, width: card.width - 32, height: 26),
                  fontSize: 16, bold: true, color: dark ? rgb(0.96, 0.96, 0.97) : rgb(0.11, 0.11, 0.12), alignment: .center)
-        drawText(ctx, "Không thể xem trước tệp .pbix: \(message)",
+        drawText(ctx, lt("Không thể xem trước tệp .pbix: \(message)", "Couldn't preview the .pbix file: \(message)"),
                  in: CGRect(x: card.minX + 16, y: card.midY - 30, width: card.width - 32, height: 32),
                  fontSize: 12, bold: false, color: rgb(0.9, 0.25, 0.22), alignment: .center)
         return ctx.makeImage()

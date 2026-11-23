@@ -1,6 +1,7 @@
 // Phase F (T082): chuyển kết quả cột/bảng tính toán thành dữ liệu cột và suy kiểu dữ liệu từ giá trị.
 // [SUY ĐOÁN] Desktop suy kiểu từ biểu thức (tĩnh); ở đây suy từ giá trị đã tính: số nguyên lẫn số thực là số thực, tiền tệ lẫn số
 // nguyên là tiền tệ, mọi giá trị trống là chuỗi. Lẫn kiểu khác (chuỗi với số…) thì từ chối như Desktop từ chối biểu thức kiểu variant.
+import PBIXKit
 import ColumnStore
 
 public enum CalculatedData {
@@ -29,7 +30,7 @@ public enum CalculatedData {
 
     /// Dữ liệu cột kiểu `type` từ các giá trị. Giá trị không chuyển được sang kiểu đó thì lỗi.
     public static func columnData(_ values: [Value], type: DAXType) throws(DAXError) -> ColumnData {
-        func fail(_ v: Value) -> DAXError { DAXError(.typeMismatch, "giá trị \(v) không chuyển được sang kiểu \(type)") }
+        func fail(_ v: Value) -> DAXError { DAXError(.typeMismatch, lt("giá trị \(v) không chuyển được sang kiểu \(type)", "value \(v) can't be converted to type \(type)")) }
         switch type {
         case .integer:
             var out: [Int64?] = []; out.reserveCapacity(values.count)

@@ -127,11 +127,11 @@ enum SlicerTree {
         if selection.paths.count == 1, let singlePath = selection.paths.first {
             guard let lastVal = singlePath.last else { return "All" }
             if case .blank = lastVal {
-                return "(Trống)"
+                return biN("(Trống)", "(Blank)")
             }
             return NumberDisplay.plain(DataCell(lastVal))
         }
-        return "Nhiều lựa chọn"
+        return biN("Nhiều lựa chọn", "Multiple selections")
     }
 
     // MARK: - Trợ giúp thu gọn & phân rã nhánh

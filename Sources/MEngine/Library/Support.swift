@@ -1,31 +1,32 @@
 // Phase F (T049): hàm trợ giúp cho thư viện M (nhóm F-MFUN và lead): lấy đối số có kiểu, gọi hàm M, báo lỗi thống nhất.
 
+import PBIXKit
 import ColumnStore
 
 extension Array where Element == MValue {
     /// Đối số bảng thứ `index` của hàm `function`.
     public func table(_ index: Int, _ function: String) throws -> TableData {
-        guard case .table(let t) = self[index] else { throw MError.expression("\(function): đối số \(index + 1) phải là bảng, nhận \(self[index].kindName)") }
+        guard case .table(let t) = self[index] else { throw MError.expression(lt("\(function): đối số \(index + 1) phải là bảng, nhận \(self[index].kindName)", "\(function): argument \(index + 1) must be a table, got \(self[index].kindName)")) }
         return t
     }
 
     public func text(_ index: Int, _ function: String) throws -> String {
-        guard case .text(let s) = self[index] else { throw MError.expression("\(function): đối số \(index + 1) phải là text, nhận \(self[index].kindName)") }
+        guard case .text(let s) = self[index] else { throw MError.expression(lt("\(function): đối số \(index + 1) phải là text, nhận \(self[index].kindName)", "\(function): argument \(index + 1) must be text, got \(self[index].kindName)")) }
         return s
     }
 
     public func number(_ index: Int, _ function: String) throws -> Double {
-        guard let n = MOperators.number(self[index]) else { throw MError.expression("\(function): đối số \(index + 1) phải là số, nhận \(self[index].kindName)") }
+        guard let n = MOperators.number(self[index]) else { throw MError.expression(lt("\(function): đối số \(index + 1) phải là số, nhận \(self[index].kindName)", "\(function): argument \(index + 1) must be a number, got \(self[index].kindName)")) }
         return n
     }
 
     public func list(_ index: Int, _ function: String) throws -> [MValue] {
-        guard case .list(let l) = self[index] else { throw MError.expression("\(function): đối số \(index + 1) phải là danh sách, nhận \(self[index].kindName)") }
+        guard case .list(let l) = self[index] else { throw MError.expression(lt("\(function): đối số \(index + 1) phải là danh sách, nhận \(self[index].kindName)", "\(function): argument \(index + 1) must be a list, got \(self[index].kindName)")) }
         return l
     }
 
     public func function(_ index: Int, _ function: String) throws -> MFunction {
-        guard case .function(let f) = self[index] else { throw MError.expression("\(function): đối số \(index + 1) phải là hàm, nhận \(self[index].kindName)") }
+        guard case .function(let f) = self[index] else { throw MError.expression(lt("\(function): đối số \(index + 1) phải là hàm, nhận \(self[index].kindName)", "\(function): argument \(index + 1) must be a function, got \(self[index].kindName)")) }
         return f
     }
 
@@ -39,7 +40,7 @@ extension Array where Element == MValue {
 extension MFunction {
     /// Gọi hàm M từ thư viện (ví dụ vị từ của `Table.SelectRows`), đủ tham số tuỳ chọn là `null`.
     public func call(_ arguments: [MValue]) throws -> MValue {
-        guard arguments.count <= parameters.count else { throw MError.expression("\(name): quá nhiều đối số") }
+        guard arguments.count <= parameters.count else { throw MError.expression(lt("\(name): quá nhiều đối số", "\(name): too many arguments")) }
         let padded = arguments + Array(repeating: MValue.null, count: parameters.count - arguments.count)
         return try implementation(padded)
     }

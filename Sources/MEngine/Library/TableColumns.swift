@@ -1,4 +1,5 @@
 // Phase F: Thư viện hàm M nhóm cột (Table.PromoteHeaders, Table.TransformColumnTypes, ...).
+import PBIXKit
 import Foundation
 import ColumnStore
 
@@ -100,14 +101,14 @@ public enum TableColumnsLibrary {
             var transforms: [String: MType] = [:]
             for item in transList {
                 guard case .list(let pair) = item, pair.count >= 2, case .text(let name) = pair[0] else {
-                    throw MError.expression("Table.TransformColumnTypes: mỗi biến đổi phải có dạng {\"Tên cột\", Kiểu}")
+                    throw MError.expression(lt("Table.TransformColumnTypes: mỗi biến đổi phải có dạng {\"Tên cột\", Kiểu}", "Table.TransformColumnTypes: each transformation must have the form {\"Column name\", Type}"))
                 }
                 let type: MType
                 switch pair[1] {
                 case .type(let t):
                     type = t
                 default:
-                    throw MError.expression("Table.TransformColumnTypes: kiểu không hợp lệ cho cột '\(name)'")
+                    throw MError.expression(lt("Table.TransformColumnTypes: kiểu không hợp lệ cho cột '\(name)'", "Table.TransformColumnTypes: invalid type for column '\(name)'"))
                 }
                 transforms[name] = type
             }
@@ -123,7 +124,7 @@ public enum TableColumnsLibrary {
                     continue
                 }
                 if table.structured[colIdx] != nil || table.nested[colIdx] != nil {
-                    throw MError.expression("Table.TransformColumnTypes: cột '\(col.name)' chứa bản ghi, danh sách hoặc bảng; hãy mở rộng trước khi đổi kiểu")
+                    throw MError.expression(lt("Table.TransformColumnTypes: cột '\(col.name)' chứa bản ghi, danh sách hoặc bảng; hãy mở rộng trước khi đổi kiểu", "Table.TransformColumnTypes: column '\(col.name)' contains records, lists or tables; expand it before changing the type"))
                 }
                 sources.append(nil)
                 let newCol = try TableColumnsTypesHelper.transformColumn(
@@ -150,7 +151,7 @@ public enum TableColumnsLibrary {
             var renameMap: [String: String] = [:]
             for item in renameList {
                 guard case .list(let pair) = item, pair.count >= 2, case .text(let old) = pair[0], case .text(let new) = pair[1] else {
-                    throw MError.expression("Table.RenameColumns: mỗi cặp phải có dạng {\"Tên cũ\", \"Tên mới\"}")
+                    throw MError.expression(lt("Table.RenameColumns: mỗi cặp phải có dạng {\"Tên cũ\", \"Tên mới\"}", "Table.RenameColumns: each pair must have the form {\"Old name\", \"New name\"}"))
                 }
                 renameMap[old] = new
             }
@@ -167,7 +168,7 @@ public enum TableColumnsLibrary {
 
             if !renameMap.isEmpty {
                 let missing = renameMap.keys.sorted().joined(separator: ", ")
-                throw MError.expression("Table.RenameColumns: không tìm thấy cột '\(missing)'")
+                throw MError.expression(lt("Table.RenameColumns: không tìm thấy cột '\(missing)'", "Table.RenameColumns: column '\(missing)' not found"))
             }
 
             return .table(try table.keeping(columns: newColumns, sources: Array(table.columns.indices), errorMask: table.errorMask))
@@ -184,7 +185,7 @@ public enum TableColumnsLibrary {
             // Kiểm tra cột có tồn tại không
             for colName in toRemove {
                 if table.index(ofColumn: colName) == nil {
-                    throw MError.expression("Table.RemoveColumns: không tìm thấy cột '\(colName)'")
+                    throw MError.expression(lt("Table.RemoveColumns: không tìm thấy cột '\(colName)'", "Table.RemoveColumns: column '\(colName)' not found"))
                 }
             }
 
@@ -220,7 +221,7 @@ public enum TableColumnsLibrary {
 
             for name in selectedNames {
                 guard let oldIdx = table.index(ofColumn: name) else {
-                    throw MError.expression("Table.SelectColumns: không tìm thấy cột '\(name)'")
+                    throw MError.expression(lt("Table.SelectColumns: không tìm thấy cột '\(name)'", "Table.SelectColumns: column '\(name)' not found"))
                 }
                 let newIdx = newColumns.count
                 newColumns.append(table.columns[oldIdx])
@@ -249,7 +250,7 @@ public enum TableColumnsLibrary {
 
             for name in orderedNames {
                 guard let oldIdx = table.index(ofColumn: name) else {
-                    throw MError.expression("Table.ReorderColumns: không tìm thấy cột '\(name)'")
+                    throw MError.expression(lt("Table.ReorderColumns: không tìm thấy cột '\(name)'", "Table.ReorderColumns: column '\(name)' not found"))
                 }
                 let newIdx = newColumns.count
                 newColumns.append(table.columns[oldIdx])
@@ -284,7 +285,7 @@ public enum TableColumnsLibrary {
             let colName = try args.text(1, "Table.DuplicateColumn")
             let newName = try args.text(2, "Table.DuplicateColumn")
             guard let oldIdx = table.index(ofColumn: colName) else {
-                throw MError.expression("Table.DuplicateColumn: không tìm thấy cột '\(colName)'")
+                throw MError.expression(lt("Table.DuplicateColumn: không tìm thấy cột '\(colName)'", "Table.DuplicateColumn: column '\(colName)' not found"))
             }
 
             var newColumns = table.columns
@@ -357,7 +358,7 @@ public enum TableColumnsLibrary {
             let srcName = try args.text(1, "Table.SplitColumn")
             let splitter = try args.function(2, "Table.SplitColumn")
             guard let srcIdx = table.index(ofColumn: srcName) else {
-                throw MError.expression("Table.SplitColumn: không tìm thấy cột '\(srcName)'")
+                throw MError.expression(lt("Table.SplitColumn: không tìm thấy cột '\(srcName)'", "Table.SplitColumn: column '\(srcName)' not found"))
             }
 
             let targetNames: [String]
@@ -431,13 +432,13 @@ public enum TableColumnsLibrary {
 
             let srcIndices = try srcNames.map { name -> Int in
                 guard let idx = table.index(ofColumn: name) else {
-                    throw MError.expression("Table.CombineColumns: không tìm thấy cột '\(name)'")
+                    throw MError.expression(lt("Table.CombineColumns: không tìm thấy cột '\(name)'", "Table.CombineColumns: column '\(name)' not found"))
                 }
                 return idx
             }
             let srcSet = Set(srcNames)
             guard let insertIdx = table.columns.firstIndex(where: { srcSet.contains($0.name) }) else {
-                throw MError.expression("Table.CombineColumns: danh sách cột nguồn rỗng")
+                throw MError.expression(lt("Table.CombineColumns: danh sách cột nguồn rỗng", "Table.CombineColumns: the source column list is empty"))
             }
 
             var combinedVals: [String?] = []
@@ -451,7 +452,7 @@ public enum TableColumnsLibrary {
                 } else if case .null = res {
                     combinedVals.append(nil)
                 } else {
-                    throw MError.expression("Table.CombineColumns: combiner phải trả text hoặc null")
+                    throw MError.expression(lt("Table.CombineColumns: combiner phải trả text hoặc null", "Table.CombineColumns: the combiner must return text or null"))
                 }
             }
 
@@ -488,7 +489,7 @@ public enum TableColumnsLibrary {
 
             for item in opList {
                 guard case .list(let items) = item, items.count >= 2, case .text(let col) = items[0], case .function(let fn) = items[1] else {
-                    throw MError.expression("Table.TransformColumns: thao tác phải có dạng {\"Tên cột\", Hàm, Kiểu?}")
+                    throw MError.expression(lt("Table.TransformColumns: thao tác phải có dạng {\"Tên cột\", Hàm, Kiểu?}", "Table.TransformColumns: each operation must have the form {\"Column name\", Function, Type?}"))
                 }
                 let type: MType?
                 if items.count > 2, case .type(let t) = items[2] {

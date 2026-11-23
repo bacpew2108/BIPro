@@ -147,7 +147,7 @@ enum FieldEditor {
     static func setAggregation(role: String, index: Int, to function: AggregateFunction, kind: AggregateFunction.ColumnKind,
                                wells: [Well]) -> Result {
         guard let w = wells.firstIndex(where: { $0.role == role }), wells[w].elements.indices.contains(index) else {
-            return .refused("Không có trường để đổi phép gộp.")
+            return .refused(biN("Không có trường để đổi phép gộp.", "No field to change the aggregation of."))
         }
         let element = wells[w].elements[index]
         guard element.field.kind == .aggregation else { return .refused(biN("Trường này không có phép gộp.", "This field has no aggregation.")) }

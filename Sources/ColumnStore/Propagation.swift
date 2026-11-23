@@ -1,3 +1,4 @@
+import PBIXKit
 // Lan truyền bộ lọc qua quan hệ (architecture.md §3.3), đợt 1b (REL).
 //
 // R(T) là tập dòng của T còn thấy được. Tính bằng điểm bất động lớn nhất: bắt đầu từ local(T) của
@@ -270,7 +271,7 @@ public enum Propagation {
         for filter in localFilters where filter.column.table == table {
             let index = try store.index(filter.column)
             guard index.column.isEncoded else {
-                throw ColumnStoreError.notImplemented("Lọc theo mã trên cột dense \(filter.column)")
+                throw ColumnStoreError.notImplemented(lt("Lọc theo mã trên cột dense \(filter.column)", "Filter by code on the dense column \(filter.column)"))
             }
             let codes = filter.codes.count == 1 ? filter.codes : Array(Set(filter.codes)).sorted()
             var estimate = codes.contains(0) ? 1 : 0
@@ -325,7 +326,7 @@ public enum Propagation {
         if rows.universe == universe { return rows }
         let kept = rows.rows
         guard kept.allSatisfy({ Int($0) < universe }) else {
-            throw ColumnStoreError.notImplemented("TableFilter có dòng ngoài phạm vi bảng (universe \(rows.universe) > \(universe))")
+            throw ColumnStoreError.notImplemented(lt("TableFilter có dòng ngoài phạm vi bảng (universe \(rows.universe) > \(universe))", "TableFilter has rows outside the table range (universe \(rows.universe) > \(universe))"))
         }
         return RowSet(universe: universe, sortedRows: kept)
     }

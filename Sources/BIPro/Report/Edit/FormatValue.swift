@@ -59,7 +59,7 @@ enum FormatValue: Equatable {
         guard let value = raw["expr"]?["Literal"]?["Value"]?.string else { return unsupported(biN("không phải giá trị cố định", "not a fixed value")) }
         switch kind {
         case .bool:
-            guard value == "true" || value == "false" else { return unsupported("không phải đúng/sai") }
+            guard value == "true" || value == "false" else { return unsupported(biN("không phải đúng/sai", "not true/false")) }
             return .bool(value == "true")
         case .number(_, _, _, let defaultTail):
             guard let last = value.last, let n = Double(value.dropLast()), let tail = NumberTail(rawValue: String(last)) else {

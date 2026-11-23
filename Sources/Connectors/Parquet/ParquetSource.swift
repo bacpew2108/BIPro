@@ -6,6 +6,7 @@
 // DECIMAL (mọi kiểu vật lý) → số thực (Desktop không dùng Fixed decimal); DATE → ngày; TIMESTAMP (ms/µs/ns) và INT96 → ngày giờ;
 // BOOLEAN → logic; chuỗi UTF-8 → text. [SUY ĐOÁN] TIME → phần giờ của ngày giờ; BYTE_ARRAY không chú thích đọc như UTF-8.
 
+import PBIXKit
 import ColumnStore
 import Foundation
 
@@ -67,7 +68,7 @@ public struct ParquetFile: Sendable {
     public init(url: URL) throws {
         let data: Data
         do { data = try Data(contentsOf: url, options: .mappedIfSafe) } catch {
-            throw SourceError.unreadable("Không thể đọc file: \(url.lastPathComponent)")
+            throw SourceError.unreadable(lt("Không thể đọc file: \(url.lastPathComponent)", "Couldn't read the file: \(url.lastPathComponent)"))
         }
         try self.init(data: data, name: url.lastPathComponent)
     }
@@ -80,14 +81,14 @@ public struct ParquetFile: Sendable {
         let magic: [UInt8] = Array("PAR1".utf8)
         let n = data.count
         guard n >= 12, Self.copy(data, 0, 4) == magic, Self.copy(data, n - 4, n) == magic else {
-            throw SourceError.unreadable("\(name) không phải tệp Parquet")
+            throw SourceError.unreadable(lt("\(name) không phải tệp Parquet", "\(name) isn't a Parquet file"))
         }
         let tail = Self.copy(data, n - 8, n - 4)
         let length = Int(tail[0]) | Int(tail[1]) << 8 | Int(tail[2]) << 16 | Int(tail[3]) << 24
-        guard length > 0, length <= n - 12 else { throw ThriftCompactReader.failure("độ dài footer") }
+        guard length > 0, length <= n - 12 else { throw ThriftCompactReader.failure(lt("độ dài footer", "footer length")) }
         var reader = ThriftCompactReader(Self.copy(data, n - 8 - length, n - 8))
         let metadata = try ParquetFileMetaData(reader.structure())
-        guard let root = metadata.schema.first else { throw ThriftCompactReader.failure("thiếu lược đồ") }
+        guard let root = metadata.schema.first else { throw ThriftCompactReader.failure(lt("thiếu lược đồ", "missing schema")) }
         var leaves: [Leaf] = []
         var fields: [Field] = []
         var index = 1
@@ -101,12 +102,12 @@ public struct ParquetFile: Sendable {
             }
             if let reason = node.unsupportedReason() { throw SourceError.unsupported(reason) }
             guard node.nesting <= Self.maxNesting else {
-                throw SourceError.unsupported("Parquet cột \(node.element.name) lồng sâu \(node.nesting) tầng (tối đa \(Self.maxNesting))")
+                throw SourceError.unsupported(lt("Parquet cột \(node.element.name) lồng sâu \(node.nesting) tầng (tối đa \(Self.maxNesting))", "Parquet column \(node.element.name) is nested \(node.nesting) levels deep (max \(Self.maxNesting))"))
             }
             for leaf in node.leaves { _ = try Self.type(of: leaf.element) }
             fields.append(.nested(node))
         }
-        guard fields.count == root.children else { throw SourceError.unsupported("Parquet có lược đồ lạ") }
+        guard fields.count == root.children else { throw SourceError.unsupported(lt("Parquet có lược đồ lạ", "Parquet has an unexpected schema")) }
         self.data = data
         self.metadata = metadata
         self.leaves = leaves
@@ -143,7 +144,7 @@ public struct ParquetFile: Sendable {
                 switch field {
                 case .flat(let c):
                     let leaf = leaves[c]
-                    guard let chunk = group.columns.first(where: { $0.path == [leaf.name] }) else { throw ThriftCompactReader.failure("thiếu cột \(leaf.name)") }
+                    guard let chunk = group.columns.first(where: { $0.path == [leaf.name] }) else { throw ThriftCompactReader.failure(lt("thiếu cột \(leaf.name)", "missing column \(leaf.name)")) }
                     try readChunk(chunk, leaf: leaf, rows: take, into: &sinks[c])
                 case .nested(let node):
                     var entries: [[String]: ParquetLeafEntries] = [:]
@@ -176,7 +177,7 @@ public struct ParquetFile: Sendable {
         do {
             return try TableData(columns: columns, structured: structured)
         } catch TableDataError.duplicateColumn(let name) {
-            throw SourceError.unreadable("Parquet có hai cột cùng tên \(name)")
+            throw SourceError.unreadable(lt("Parquet có hai cột cùng tên \(name)", "Parquet has two columns named \(name)"))
         }
     }
 
@@ -235,14 +236,14 @@ public struct ParquetFile: Sendable {
                 switch header.encoding {
                 case 0: values = try plain(&cursor, count: present, leaf: leaf)
                 case 2, 8:
-                    guard let dictionary else { throw ThriftCompactReader.failure("thiếu trang từ điển của cột \(leaf.name)") }
+                    guard let dictionary else { throw ThriftCompactReader.failure(lt("thiếu trang từ điển của cột \(leaf.name)", "missing dictionary page for column \(leaf.name)")) }
                     if present == 0 { values = dictionary.gather([]); break }
                     let width = Int(cursor.bytes[cursor.index]); cursor.index += 1
                     let indices = try cursor.hybrid(bitWidth: width, count: present)
-                    guard indices.allSatisfy({ $0 >= 0 && Int($0) < dictionary.count }) else { throw ThriftCompactReader.failure("chỉ số từ điển") }
+                    guard indices.allSatisfy({ $0 >= 0 && Int($0) < dictionary.count }) else { throw ThriftCompactReader.failure(lt("chỉ số từ điển", "dictionary index")) }
                     values = dictionary.gather(indices)
                 default:
-                    throw SourceError.unsupported("Parquet mã hoá \(Self.encodingName(header.encoding)) (cột \(leaf.name))")
+                    throw SourceError.unsupported(lt("Parquet mã hoá \(Self.encodingName(header.encoding)) (cột \(leaf.name))", "Parquet encoding \(Self.encodingName(header.encoding)) (column \(leaf.name))"))
                 }
                 out.repetition += reps
                 out.definition += defs
@@ -331,20 +332,20 @@ public struct ParquetFile: Sendable {
                 case 0:
                     values = try plain(&cursor, count: present, leaf: leaf)
                 case 2, 8:
-                    guard let dictionary else { throw ThriftCompactReader.failure("thiếu trang từ điển của cột \(leaf.name)") }
+                    guard let dictionary else { throw ThriftCompactReader.failure(lt("thiếu trang từ điển của cột \(leaf.name)", "missing dictionary page for column \(leaf.name)")) }
                     guard cursor.index < cursor.end else {
                         guard present == 0 else { throw ParquetBytes.truncated }
                         values = dictionary.gather([]); break
                     }
                     let width = Int(cursor.bytes[cursor.index]); cursor.index += 1
                     let indices = try cursor.hybrid(bitWidth: width, count: present)
-                    guard indices.allSatisfy({ $0 >= 0 && Int($0) < dictionary.count }) else { throw ThriftCompactReader.failure("chỉ số từ điển") }
+                    guard indices.allSatisfy({ $0 >= 0 && Int($0) < dictionary.count }) else { throw ThriftCompactReader.failure(lt("chỉ số từ điển", "dictionary index")) }
                     values = dictionary.gather(indices)
                 case 3 where leaf.element.physical == 0:
                     _ = try cursor.u32()   // boolean RLE luôn có 4 byte độ dài (cả trang v2; chỉ mức lặp/định nghĩa v2 mới bỏ)
                     values = .bool(try cursor.hybrid(bitWidth: 1, count: present).map { $0 == 1 })
                 default:
-                    throw SourceError.unsupported("Parquet mã hoá \(Self.encodingName(header.encoding)) (cột \(leaf.name))")
+                    throw SourceError.unsupported(lt("Parquet mã hoá \(Self.encodingName(header.encoding)) (cột \(leaf.name))", "Parquet encoding \(Self.encodingName(header.encoding)) (column \(leaf.name))"))
                 }
                 let keep = min(count, rows - read)
                 sink.append(values, definitions: definitions, rows: keep)
@@ -353,12 +354,12 @@ public struct ParquetFile: Sendable {
                 continue   // trang chỉ mục: bỏ qua
             }
         }
-        guard sink.count - start == rows else { throw ThriftCompactReader.failure("số dòng cột \(leaf.name)") }
+        guard sink.count - start == rows else { throw ThriftCompactReader.failure(lt("số dòng cột \(leaf.name)", "row count of column \(leaf.name)")) }
     }
 
     static func encodingName(_ e: Int) -> String {
         [0: "PLAIN", 2: "PLAIN_DICTIONARY", 3: "RLE", 4: "BIT_PACKED", 5: "DELTA_BINARY_PACKED", 6: "DELTA_LENGTH_BYTE_ARRAY",
-         7: "DELTA_BYTE_ARRAY", 8: "RLE_DICTIONARY", 9: "BYTE_STREAM_SPLIT"][e] ?? "mã \(e)"
+         7: "DELTA_BYTE_ARRAY", 8: "RLE_DICTIONARY", 9: "BYTE_STREAM_SPLIT"][e] ?? lt("mã \(e)", "code \(e)")
     }
 
     // MARK: Giá trị PLAIN
@@ -420,10 +421,10 @@ public struct ParquetFile: Sendable {
             try need(n * count)
             let start = c.index
             c.index += n * count
-            guard e.isDecimal else { throw SourceError.unsupported("Parquet cột \(e.name) kiểu FIXED_LEN_BYTE_ARRAY") }
+            guard e.isDecimal else { throw SourceError.unsupported(lt("Parquet cột \(e.name) kiểu FIXED_LEN_BYTE_ARRAY", "Parquet column \(e.name) of type FIXED_LEN_BYTE_ARRAY")) }
             return .double((0..<count).map { Self.bigEndianDecimal(b[(start + n * $0)..<(start + n * ($0 + 1))], scale: e.scale) })
         default:
-            throw SourceError.unsupported("Parquet cột \(e.name) kiểu vật lý \(e.physical ?? -1)")
+            throw SourceError.unsupported(lt("Parquet cột \(e.name) kiểu vật lý \(e.physical ?? -1)", "Parquet column \(e.name) with physical type \(e.physical ?? -1)"))
         }
     }
 

@@ -3,6 +3,7 @@
 // [SUY ĐOÁN] ABS, INT, MOD, ROUND, FLOOR cho BLANK khi đối số là BLANK: kết quả BLANK, như phép số học (§5.5). Chờ oracle.
 // [SUY ĐOÁN] Làm tròn đưa số về 15 chữ số có nghĩa trước khi làm tròn, để 2,675 làm tròn ra 2,68 (kiểu Excel). Chờ O15.
 
+import PBIXKit
 import Foundation
 
 public enum MathFunctions: FunctionFamily {
@@ -61,7 +62,7 @@ public enum MathFunctions: FunctionFamily {
         guard let so = try numericOperand(of: try frame.scalar(0)),
               let chia = try numericOperand(of: try frame.scalar(1)) else { return .blank }
         if case .integer(let x) = so, case .integer(let y) = chia {
-            guard y != 0 else { throw DAXError(.runtime, "MOD: số chia bằng 0") }
+            guard y != 0 else { throw DAXError(.runtime, lt("MOD: số chia bằng 0", "MOD: the divisor is zero")) }
             if y == -1 { return .integer(0) }        // tránh Int64.min % -1 gây trap
             var du = x % y
             if du != 0 && (du < 0) != (y < 0) { du += y }
@@ -69,7 +70,7 @@ public enum MathFunctions: FunctionFamily {
         }
         let x = so.asDouble
         let y = chia.asDouble
-        guard y != 0 else { throw DAXError(.runtime, "MOD: số chia bằng 0") }
+        guard y != 0 else { throw DAXError(.runtime, lt("MOD: số chia bằng 0", "MOD: the divisor is zero")) }
         return .double(clean15Digits(x - y * (x / y).rounded(.down)))
     }
 
@@ -105,13 +106,13 @@ public enum MathFunctions: FunctionFamily {
         }
         if case .integer(let x) = n, case .integer(let s) = boi {
             if s == 0 { return .integer(0) }          // [SUY ĐOÁN] significance 0 cho 0
-            if s < 0 { throw DAXError(.runtime, "FLOOR: significance không được âm") }   // [SUY ĐOÁN]
+            if s < 0 { throw DAXError(.runtime, lt("FLOOR: significance không được âm", "FLOOR: significance can't be negative")) }   // [SUY ĐOÁN]
             return .integer((x / s) * s)              // chia cắt về 0 đúng nghĩa "về phía 0"
         }
         let x = n.asDouble
         let s = boi.asDouble
         if s == 0 { return .integer(0) }              // [SUY ĐOÁN]
-        if s < 0 { throw DAXError(.runtime, "FLOOR: significance không được âm") }   // [SUY ĐOÁN]
+        if s < 0 { throw DAXError(.runtime, lt("FLOOR: significance không được âm", "FLOOR: significance can't be negative")) }   // [SUY ĐOÁN]
         let thuong = clean15Digits(x / s)
         return .double(clean15Digits(thuong.rounded(.towardZero) * s))
     }
@@ -126,7 +127,7 @@ public enum MathFunctions: FunctionFamily {
         }
         if case .integer(let x) = n, case .integer(let s) = boi {
             if s == 0 { return .integer(0) }
-            if s < 0 { throw DAXError(.runtime, "CEILING: significance không được âm") }
+            if s < 0 { throw DAXError(.runtime, lt("CEILING: significance không được âm", "CEILING: significance can't be negative")) }
             if x == 0 { return .integer(0) }
             let d = Double(x) / Double(s)
             let rounded = x > 0 ? Int64(ceil(d)) * s : -Int64(floor(abs(d))) * s
@@ -135,7 +136,7 @@ public enum MathFunctions: FunctionFamily {
         let x = n.asDouble
         let s = boi.asDouble
         if s == 0 { return .integer(0) }
-        if s < 0 { throw DAXError(.runtime, "CEILING: significance không được âm") }
+        if s < 0 { throw DAXError(.runtime, lt("CEILING: significance không được âm", "CEILING: significance can't be negative")) }
         if x == 0 { return .double(0) }
         let thuong = clean15Digits(x / s)
         let rounded = x > 0 ? ceil(thuong) : -floor(abs(thuong))
@@ -147,7 +148,7 @@ public enum MathFunctions: FunctionFamily {
         guard let n = try numericOperand(of: try frame.scalar(0)) else { return .blank }
         let x = n.asDouble
         guard x >= 0 else {
-            throw DAXError(.runtime, "SQRT: không tính được căn bậc hai của số âm")
+            throw DAXError(.runtime, lt("SQRT: không tính được căn bậc hai của số âm", "SQRT: can't take the square root of a negative number"))
         }
         return .double(clean15Digits(sqrt(x)))
     }
@@ -186,7 +187,7 @@ func chiLamVeAm(_ a: Int64, _ b: Int64) -> Int64 {
 /// Số nguyên từ một giá trị (cắt phần thập phân về 0), kẹp vào ±gioiHan. BLANK là 0.
 func soNguyenCua(_ v: Value, gioiHan: Double = 1.0e9) throws(DAXError) -> Int {
     let d = try v.asDouble()
-    guard !d.isNaN else { throw DAXError(.runtime, "giá trị số không hợp lệ (NaN)") }
+    guard !d.isNaN else { throw DAXError(.runtime, lt("giá trị số không hợp lệ (NaN)", "invalid numeric value (NaN)")) }
     let kep = max(-gioiHan, min(gioiHan, d.rounded(.towardZero)))
     return Int(kep)
 }

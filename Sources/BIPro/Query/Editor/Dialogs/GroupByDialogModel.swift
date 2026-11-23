@@ -14,13 +14,13 @@ extension GroupOperation {
 
     public var title: String {
         switch self {
-        case .countRows: return "Đếm số dòng"
-        case .countDistinctRows: return "Đếm số dòng khác nhau"
-        case .sum: return "Tổng"
-        case .average: return "Trung bình"
-        case .median: return "Trung vị"
-        case .min: return "Nhỏ nhất"
-        case .max: return "Lớn nhất"
+        case .countRows: return biN("Đếm số dòng", "Count rows")
+        case .countDistinctRows: return biN("Đếm số dòng khác nhau", "Count distinct rows")
+        case .sum: return biN("Tổng", "Sum")
+        case .average: return biN("Trung bình", "Average")
+        case .median: return biN("Trung vị", "Median")
+        case .min: return biN("Nhỏ nhất", "Minimum")
+        case .max: return biN("Lớn nhất", "Maximum")
         }
     }
 }

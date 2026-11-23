@@ -1,11 +1,12 @@
 // Phase F (T049): toán tử của M. Ngữ nghĩa theo tài liệu ngôn ngữ; điểm chưa đối chiếu Desktop (VM-F3) ghi [SUY ĐOÁN].
 
+import PBIXKit
 import ColumnStore
 
 enum MOperators {
     static func invalid(_ op: String, _ a: MValue, _ b: MValue? = nil) -> MError {
-        if let b { return MError.expression("Không thể áp dụng toán tử \(op) cho kiểu \(a.kindName) và \(b.kindName)") }
-        return MError.expression("Không thể áp dụng toán tử \(op) cho kiểu \(a.kindName)")
+        if let b { return MError.expression(lt("Không thể áp dụng toán tử \(op) cho kiểu \(a.kindName) và \(b.kindName)", "Can't apply operator \(op) to types \(a.kindName) and \(b.kindName)")) }
+        return MError.expression(lt("Không thể áp dụng toán tử \(op) cho kiểu \(a.kindName)", "Can't apply operator \(op) to type \(a.kindName)"))
     }
 
     static func number(_ v: MValue) -> Double? {
@@ -52,7 +53,7 @@ enum MOperators {
             default: throw invalid("&", a, b)
             }
         case .and, .or, .meta:
-            throw MError.expression("Toán tử \(op.rawValue) được xử lý ở bộ đánh giá")
+            throw MError.expression(lt("Toán tử \(op.rawValue) được xử lý ở bộ đánh giá", "Operator \(op.rawValue) is handled by the evaluator"))
         }
     }
 

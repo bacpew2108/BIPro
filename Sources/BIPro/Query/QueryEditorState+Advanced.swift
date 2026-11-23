@@ -65,9 +65,9 @@ extension QueryEditorState {
     /// Kiểm cú pháp công thức của Custom Column (phần sau `each`). Trả lý do tiếng Việt kèm dòng/cột, `nil` khi hợp lệ.
     public func formulaError(_ formula: String) -> String? {
         let text = formula.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty { return "Công thức không được để trống." }
+        if text.isEmpty { return biN("Công thức không được để trống.", "The formula can't be empty.") }
         do { _ = try MParser.parse("each \(text)") } catch let error as MSyntaxError {
-            return "Dòng \(error.line), cột \(max(error.column - 5, 1)): \(error.message)"
+            return biN("Dòng \(error.line), cột \(max(error.column - 5, 1)): \(error.message)", "Line \(error.line), column \(max(error.column - 5, 1)): \(error.message)")
         } catch { return "\(error)" }
         return nil
     }

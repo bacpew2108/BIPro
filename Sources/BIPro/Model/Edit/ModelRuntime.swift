@@ -71,7 +71,7 @@ final class ModelRuntime: @unchecked Sendable {
         let metadata = try base.applying(edits)
         let plan = Self.plan(for: edits, metadata: metadata, base: base)
         if !plan.cyclic.isEmpty {
-            throw ModelEditError("Phụ thuộc vòng giữa " + plan.cyclic.map(\.description).joined(separator: ", "))
+            throw ModelEditError(biN("Phụ thuộc vòng giữa ", "Circular dependency between ") + plan.cyclic.map(\.description).joined(separator: ", "))
         }
         let inFile = plan.order.filter { node in
             switch node {
@@ -85,8 +85,8 @@ final class ModelRuntime: @unchecked Sendable {
         }
         let blockers = CalculationPlan.saveBlockers(inFile, metadata: metadata)
         if !blockers.isEmpty {
-            throw ModelEditError("Chưa tính lại và lưu được cột/bảng tính toán có sẵn: " + blockers.joined(separator: "; ")
-                                 + " (BI Pro chưa thay được dữ liệu bảng tính toán có quan hệ, phân cấp hay cột tính toán)")
+            throw ModelEditError(biN("Chưa tính lại và lưu được cột/bảng tính toán có sẵn: ", "Can't recalculate and save the existing calculated columns/tables yet: ") + blockers.joined(separator: "; ")
+                                 + biN(" (BI Pro chưa thay được dữ liệu bảng tính toán có quan hệ, phân cấp hay cột tính toán)", " (BI Pro can't replace the data of calculated tables that have relationships, hierarchies or calculated columns yet)"))
         }
     }
 

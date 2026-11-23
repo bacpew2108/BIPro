@@ -421,7 +421,7 @@ public enum DAXCompletion {
             let (matches, isPrefix) = matchString(t, query: trimmedPartial)
             if matches {
                 let insert = hasClosingQuote ? t : "\(t)'"
-                let item = CompletionItem(kind: .table, label: t, insertText: insert, detail: "Bảng")
+                let item = CompletionItem(kind: .table, label: t, insertText: insert, detail: biN("Bảng", "Table"))
                 candidates.append((item, isPrefix))
             }
         }
@@ -483,7 +483,7 @@ public enum DAXCompletion {
         for fn in model.functions {
             let (matches, isPrefix) = matchString(fn, query: trimmedPartial)
             if matches {
-                let item = CompletionItem(kind: .function, label: fn, insertText: "\(fn)(", detail: "Hàm")
+                let item = CompletionItem(kind: .function, label: fn, insertText: "\(fn)(", detail: biN("Hàm", "Function"))
                 candidates.append((item, isPrefix, 1))
             }
         }
@@ -493,7 +493,7 @@ public enum DAXCompletion {
             let (matches, isPrefix) = matchString(tbl, query: trimmedPartial)
             if matches {
                 let insert = tbl.contains(" ") ? "'\(tbl)'" : tbl
-                let item = CompletionItem(kind: .table, label: tbl, insertText: insert, detail: "Bảng")
+                let item = CompletionItem(kind: .table, label: tbl, insertText: insert, detail: biN("Bảng", "Table"))
                 candidates.append((item, isPrefix, 2))
             }
         }
@@ -502,7 +502,7 @@ public enum DAXCompletion {
         for kw in model.keywords {
             let (matches, isPrefix) = matchString(kw, query: trimmedPartial)
             if matches {
-                let item = CompletionItem(kind: .keyword, label: kw, insertText: kw, detail: "Từ khoá")
+                let item = CompletionItem(kind: .keyword, label: kw, insertText: kw, detail: biN("Từ khoá", "Keyword"))
                 candidates.append((item, isPrefix, 3))
             }
         }

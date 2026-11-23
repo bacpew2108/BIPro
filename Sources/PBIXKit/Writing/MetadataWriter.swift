@@ -153,7 +153,7 @@ public struct MetadataWriter {
         var columns: [(name: String, values: VertiPaqWriter.Values)] = []
         for column in table.columns {
             guard let values = column.values else {
-                throw WriteError.invalid("cột «\(column.name)» của bảng «\(table.name)» chưa có dữ liệu mã hoá để ghi")
+                throw WriteError.invalid(lt("cột «\(column.name)» của bảng «\(table.name)» chưa có dữ liệu mã hoá để ghi", "column «\(column.name)» of table «\(table.name)» has no encoded data to write"))
             }
             columns.append((column.name, values))
         }
@@ -205,13 +205,13 @@ public struct MetadataWriter {
         if levels.allSatisfy({ calculatedValues[key($0.column)] != nil && ($0.sortBy.map { calculatedValues[key($0)] != nil } ?? true) }) {
             return try levels.map { try HierarchyIndex.level(calculatedValues[key($0.column)]!, sortBy: $0.sortBy.map { calculatedValues[key($0)]! }) }
         }
-        guard let provider = hierarchyLevelsProvider else { throw WriteError.invalid("thiếu nguồn dữ liệu cấp cho phân cấp \(hierarchy.name)") }
+        guard let provider = hierarchyLevelsProvider else { throw WriteError.invalid(lt("thiếu nguồn dữ liệu cấp cho phân cấp \(hierarchy.name)", "missing level data source for hierarchy \(hierarchy.name)")) }
         return try provider(hierarchy.table, levels)
     }
 
     private func calculated(_ table: String, _ column: String) throws -> VertiPaqWriter.Values {
         guard let values = calculatedValues["\(table)[\(column)]"] else {
-            throw WriteError.invalid("chưa có giá trị đã tính của cột «\(table)[\(column)]» để ghi")
+            throw WriteError.invalid(lt("chưa có giá trị đã tính của cột «\(table)[\(column)]» để ghi", "there are no computed values of column «\(table)[\(column)]» to write"))
         }
         return values
     }
@@ -254,7 +254,7 @@ public struct MetadataWriter {
                 guard let stored = try db.int("""
                     SELECT cs.StoragePosition FROM ColumnStorage cs JOIN [Column] c ON c.ColumnStorageID = cs.ID WHERE c.ID = ?
                     """, [.int(Int64(columnID))]) else {
-                    throw WriteError.invalid("cột tính toán «\(table)[\(name)]» không có dữ liệu lưu trữ")
+                    throw WriteError.invalid(lt("cột tính toán «\(table)[\(name)]» không có dữ liệu lưu trữ", "calculated column «\(table)[\(name)]» has no stored data"))
                 }
                 position = Int(stored)
                 removed = try Self.removeColumnStorage(db, columnID: Int64(columnID))
@@ -281,7 +281,7 @@ public struct MetadataWriter {
         try transaction { db, now in
             let columnID = try Self.calculatedColumnID(db, table: table, name: name)
             // Quan hệ, cấp phân cấp và cột sắp xếp dùng cột này đã được `PBIXWriter` bỏ hoặc dựng lại trước (US4, T049).
-            try Self.requireNoIndexes(db, columnID: columnID, table: table, name: name, action: "xoá")
+            try Self.requireNoIndexes(db, columnID: columnID, table: table, name: name, action: lt("xoá", "deleting"))
             removed = try Self.removeColumnStorage(db, columnID: Int64(columnID))
             try Self.deleteDependents(db, objectID: columnID)
             try db.run("DELETE FROM [Column] WHERE ID = ?", [.int(Int64(columnID))])
@@ -338,7 +338,7 @@ public struct MetadataWriter {
     private static func calculatedColumnID(_ db: MetadataDatabase, table: String, name: String) throws -> Int {
         let id = try columnID(db, table: table, name: name)
         guard try db.int("SELECT Type FROM [Column] WHERE ID = ?", [.int(Int64(id))]) == 2 else {
-            throw WriteError.invalid("cột «\(table)[\(name)]» không phải cột tính toán")
+            throw WriteError.invalid(lt("cột «\(table)[\(name)]» không phải cột tính toán", "column «\(table)[\(name)]» isn't a calculated column"))
         }
         return id
     }
@@ -347,13 +347,13 @@ public struct MetadataWriter {
     private static func requireNoIndexes(_ db: MetadataDatabase, columnID: Int, table: String, name: String, action: String) throws {
         let id = MetadataDatabase.Value.int(Int64(columnID))
         if (try db.int("SELECT COUNT(*) FROM Relationship WHERE FromColumnID = ? OR ToColumnID = ?", [id, id]) ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) cột «\(table)[\(name)]»: cột nằm trong quan hệ (chỉ mục quan hệ chưa dựng lại được)")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) cột «\(table)[\(name)]»: cột nằm trong quan hệ (chỉ mục quan hệ chưa dựng lại được)", "Can't save \(action) of column «\(table)[\(name)]» yet: the column is in a relationship (relationship indexes can't be rebuilt yet)"))
         }
         if db.tableExists("Level"), (try db.int("SELECT COUNT(*) FROM Level WHERE ColumnID = ?", [id]) ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) cột «\(table)[\(name)]»: cột là cấp của một phân cấp")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) cột «\(table)[\(name)]»: cột là cấp của một phân cấp", "Can't save \(action) of column «\(table)[\(name)]» yet: the column is a level of a hierarchy"))
         }
         if (try db.int("SELECT COUNT(*) FROM [Column] WHERE SortByColumnID = ? AND ID <> ?", [id, id]) ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) cột «\(table)[\(name)]»: cột khác sắp xếp theo cột này")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) cột «\(table)[\(name)]»: cột khác sắp xếp theo cột này", "Can't save \(action) of column «\(table)[\(name)]» yet: another column is sorted by this column"))
         }
     }
 
@@ -368,9 +368,9 @@ public struct MetadataWriter {
             var removed: [String] = []
             try transaction { db, now in
                 let id = try db.userTableID(named: name)
-                try Self.requireReplaceable(db, tableID: id, name: name, action: "xoá", allowedTypes: nil)
+                try Self.requireReplaceable(db, tableID: id, name: name, action: lt("xoá", "deleting"), allowedTypes: nil)
                 if (try db.int("SELECT COUNT(*) FROM Measure WHERE TableID = ?", [.int(Int64(id))]) ?? 0) > 0 {
-                    throw WriteError.invalid("Không thể xoá bảng «\(name)»: còn chứa measure")
+                    throw WriteError.invalid(lt("Không thể xoá bảng «\(name)»: còn chứa measure", "Couldn't delete table «\(name)»: it still contains measures"))
                 }
                 try Self.deleteAnnotations(db, tableID: id, keeping: [])
                 removed = try Self.removeUserTable(db, tableID: Int64(id))
@@ -404,11 +404,11 @@ public struct MetadataWriter {
             var tableProperties: (hidden: Int64, description: String?, category: String?, lineage: String?) = (0, nil, nil, nil)
             try transaction { db, now in
                 let id = try db.userTableID(named: name)
-                try Self.requireReplaceable(db, tableID: id, name: name, action: calculated ? "sửa công thức" : "thay dữ liệu",
+                try Self.requireReplaceable(db, tableID: id, name: name, action: calculated ? lt("sửa công thức", "editing the formula") : lt("thay dữ liệu", "replacing data"),
                                             allowedTypes: calculated ? [1, 3, 4] : [1, 3])
                 let partitions = try db.strings("SELECT ID FROM Partition WHERE TableID = ?", [.int(Int64(id))])
                 guard partitions.count == 1, let partitionID = Int(partitions[0]) else {
-                    throw WriteError.invalid("Chưa lưu được việc thay dữ liệu của bảng «\(name)»: bảng có nhiều phân vùng")
+                    throw WriteError.invalid(lt("Chưa lưu được việc thay dữ liệu của bảng «\(name)»: bảng có nhiều phân vùng", "Can't save replacing the data of table «\(name)» yet: the table has several partitions"))
                 }
                 reused = ReusedIDs(tableID: id, partitionID: partitionID,
                                    rowNumberID: try db.strings("SELECT ID FROM [Column] WHERE TableID = ? AND Type = 3", [.int(Int64(id))]).first.flatMap(Int.init),
@@ -462,16 +462,16 @@ public struct MetadataWriter {
     /// và `PBI_ResultType` (ObjectType 41) và tên truy vấn ở cuối `PBI_QueryOrder`. Tên không được trùng bảng đang nạp.
     public mutating func setQuery(name: String, expression: String) throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw WriteError.invalid("tên truy vấn trống") }
+        guard !name.isEmpty else { throw WriteError.invalid(lt("tên truy vấn trống", "the query name is empty")) }
         guard !expression.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !expression.contains("\0") else {
-            throw WriteError.invalid("biểu thức M của truy vấn «\(name)» trống hoặc chứa NUL")
+            throw WriteError.invalid(lt("biểu thức M của truy vấn «\(name)» trống hoặc chứa NUL", "the M expression of query «\(name)» is empty or contains NUL"))
         }
         try transaction { db, now in
             guard db.tableExists("Expression"), db.tableExists("Annotation") else {
-                throw WriteError.invalid("file không có bảng Expression, chưa lưu được truy vấn tắt Enable load")
+                throw WriteError.invalid(lt("file không có bảng Expression, chưa lưu được truy vấn tắt Enable load", "the file has no Expression table, so a query with Enable load turned off can't be saved yet"))
             }
             if (try db.int("SELECT COUNT(*) FROM [Table] WHERE Name = ? COLLATE NOCASE", [.text(name)]) ?? 0) > 0 {
-                throw WriteError.invalid("không thể lưu truy vấn «\(name)» không nạp: trùng tên một bảng trong mô hình")
+                throw WriteError.invalid(lt("không thể lưu truy vấn «\(name)» không nạp: trùng tên một bảng trong mô hình", "can't save the non-loaded query «\(name)»: it has the same name as a table in the model"))
             }
             if let existing = try db.int("SELECT ID FROM Expression WHERE Name = ? COLLATE NOCASE", [.text(name)]) {
                 try db.run("UPDATE Expression SET Expression = ?, ModifiedTime = ? WHERE ID = ?", [.text(expression), .int(now), .int(existing)])
@@ -548,7 +548,7 @@ public struct MetadataWriter {
         let db = database
         guard let tableID = try? db.userTableID(named: name) else { return [] }
         let ids = try db.strings("SELECT ID FROM Relationship WHERE FromTableID = ? OR ToTableID = ? ORDER BY ID", [.int(Int64(tableID)), .int(Int64(tableID))])
-        return try rebuildable(ids.compactMap(Int64.init), owner: "việc thay dữ liệu của bảng «\(name)»")
+        return try rebuildable(ids.compactMap(Int64.init), owner: lt("việc thay dữ liệu của bảng «\(name)»", "replacing the data of table «\(name)»"))
     }
 
     private func rebuildable(_ ids: [Int64], owner: String) throws -> [NewRelationship] {
@@ -560,7 +560,7 @@ public struct MetadataWriter {
             let fromCardinality = try number("FromCardinality")
             guard try number("Type") == 1, fromCardinality == 2 || fromCardinality == 1, try number("ToCardinality") == 1, try number("JoinOnDateBehavior") == 1,
                   try number("RelyOnReferentialIntegrity") == 0, try number("SecurityFilteringBehavior") == 1, try number("State") == 1 else {
-                throw WriteError.invalid("Chưa lưu được \(owner): quan hệ \(relName) có thuộc tính khác mặc định, chỉ mục quan hệ chưa dựng lại được")
+                throw WriteError.invalid(lt("Chưa lưu được \(owner): quan hệ \(relName) có thuộc tính khác mặc định, chỉ mục quan hệ chưa dựng lại được", "Can't save \(owner) yet: relationship \(relName) has non-default properties, so its relationship index can't be rebuilt"))
             }
             func column(_ side: String) throws -> (table: String, column: String) {
                 (try text("SELECT t.Name FROM Relationship r JOIN [Table] t ON t.ID = r.\(side)TableID WHERE r.ID = ?"),
@@ -581,7 +581,7 @@ public struct MetadataWriter {
         guard (try? db.userTableID(named: table)) != nil else { return [] }
         let id = MetadataDatabase.Value.int(Int64(try Self.columnID(db, table: table, name: column)))
         let ids = try db.strings("SELECT ID FROM Relationship WHERE FromColumnID = ? OR ToColumnID = ? ORDER BY ID", [id, id]).compactMap(Int64.init)
-        return try rebuildable(ids, owner: "việc sửa cột «\(table)[\(column)]»")
+        return try rebuildable(ids, owner: lt("việc sửa cột «\(table)[\(column)]»", "editing column «\(table)[\(column)]»"))
     }
 
     /// Tên các quan hệ dùng cột `table[column]` (xoá cột chỉ cần bỏ, không dựng lại, nên không xét thuộc tính).
@@ -633,17 +633,17 @@ public struct MetadataWriter {
                                            allowedTypes: [Int]? = [1, 3]) throws {
         let columns = "SELECT ID FROM [Column] WHERE TableID = \(tableID)"
         if (try db.int("SELECT COUNT(*) FROM Relationship WHERE FromColumnID IN (\(columns)) OR ToColumnID IN (\(columns))") ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng đang tham gia quan hệ (chỉ mục quan hệ chưa dựng lại được)")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng đang tham gia quan hệ (chỉ mục quan hệ chưa dựng lại được)", "Can't save \(action) of table «\(name)» that's already in the file: the table takes part in a relationship (relationship indexes can't be rebuilt yet)"))
         }
         if db.tableExists("Hierarchy"), (try db.int("SELECT COUNT(*) FROM Hierarchy WHERE TableID = ?", [.int(Int64(tableID))]) ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có phân cấp")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có phân cấp", "Can't save \(action) of table «\(name)» that's already in the file: the table has hierarchies"))
         }
         if let allowedTypes, (try db.int("SELECT COUNT(*) FROM [Column] WHERE TableID = ? AND Type NOT IN (\(allowedTypes.map(String.init).joined(separator: ", ")))",
                                          [.int(Int64(tableID))]) ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có cột tính toán")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: bảng có cột tính toán", "Can't save \(action) of table «\(name)» that's already in the file: the table has calculated columns"))
         }
         if (try db.int("SELECT COUNT(*) FROM [Column] WHERE TableID <> ? AND SortByColumnID IN (\(columns))", [.int(Int64(tableID))]) ?? 0) > 0 {
-            throw WriteError.invalid("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: cột của bảng khác sắp xếp theo cột của bảng này")
+            throw WriteError.invalid(lt("Chưa lưu được việc \(action) của bảng «\(name)» đã có trong file: cột của bảng khác sắp xếp theo cột của bảng này", "Can't save \(action) of table «\(name)» that's already in the file: a column of another table is sorted by a column of this table"))
         }
     }
 
@@ -753,10 +753,10 @@ extension MetadataWriter {
             try transaction { db, now in
                 let id = try db.userTableID(named: name)
                 if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
-                    guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid("tên bảng không hợp lệ") }
+                    guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid(lt("tên bảng không hợp lệ", "invalid table name")) }
                     let clash = try db.int("SELECT COUNT(*) FROM [Table] WHERE Name = ? COLLATE NOCASE AND ID <> ?",
                                            [.text(renamed), .int(Int64(id))]) ?? 0
-                    guard clash == 0 else { throw WriteError.invalid("mô hình đã có bảng tên '\(renamed)'") }
+                    guard clash == 0 else { throw WriteError.invalid(lt("mô hình đã có bảng tên '\(renamed)'", "the model already has a table named '\(renamed)'")) }
                     try db.run("UPDATE [Table] SET Name = ?, ModifiedTime = ? WHERE ID = ?", [.text(renamed), .int(now), .int(Int64(id))])
                 }
                 if let hidden = patch.isHidden {
@@ -772,7 +772,7 @@ extension MetadataWriter {
                 try Self.bumpProperties(db, now)
             }
         case .addRelationship(let relationship):
-            guard let provider = relationshipIndexProvider else { throw WriteError.invalid("thiếu nguồn chỉ mục cho quan hệ mới") }
+            guard let provider = relationshipIndexProvider else { throw WriteError.invalid(lt("thiếu nguồn chỉ mục cho quan hệ mới", "missing index source for the new relationship")) }
             // Một–một: thêm chỉ mục ngược (phía "đến" → dòng phía "từ").
             var directions = [relationship]
             if !relationship.fromMany && !relationship.toMany {
@@ -877,7 +877,7 @@ extension MetadataWriter {
             SELECT m.ID FROM Measure m JOIN [Table] t ON t.ID = m.TableID
             WHERE t.Name = ? COLLATE NOCASE AND t.SystemFlags IN (0, 2) AND m.Name = ?
             """, [.text(table), .text(name)])
-        guard ids.count == 1, let id = Int(ids[0]) else { throw WriteError.invalid("không có measure \(table)[\(name)]") }
+        guard ids.count == 1, let id = Int(ids[0]) else { throw WriteError.invalid(lt("không có measure \(table)[\(name)]", "there is no measure \(table)[\(name)]")) }
         return id
     }
 
@@ -887,16 +887,16 @@ extension MetadataWriter {
         var sets: [String] = []
         var values: [MetadataDatabase.Value] = []
         if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
-            guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid("tên measure không hợp lệ") }
+            guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid(lt("tên measure không hợp lệ", "invalid measure name")) }
             let clash = try db.int("SELECT COUNT(*) FROM Measure WHERE TableID = ? AND Name = ? COLLATE NOCASE AND ID <> ?",
                                    [.int(Int64(tableID)), .text(renamed), .int(Int64(id))]) ?? 0
             guard clash == 0, try !db.columnNameExists(renamed, tableID: tableID) else {
-                throw WriteError.invalid("bảng '\(table)' đã có mục tên '\(renamed)'")
+                throw WriteError.invalid(lt("bảng '\(table)' đã có mục tên '\(renamed)'", "table '\(table)' already has an item named '\(renamed)'"))
             }
             sets.append("Name = ?"); values.append(.text(renamed))
         }
         if let expression = patch.expression?.trimmingCharacters(in: .whitespacesAndNewlines) {
-            guard !expression.isEmpty, !expression.contains("\0") else { throw WriteError.invalid("biểu thức không hợp lệ") }
+            guard !expression.isEmpty, !expression.contains("\0") else { throw WriteError.invalid(lt("biểu thức không hợp lệ", "invalid expression")) }
             sets.append("Expression = ?"); values.append(.text(expression))
         }
         for (column, value) in [("FormatString", assignment(patch.formatString)), ("DisplayFolder", assignment(patch.displayFolder)),
@@ -905,7 +905,7 @@ extension MetadataWriter {
         }
         if let hidden = patch.isHidden { sets.append("IsHidden = ?"); values.append(.int(hidden ? 1 : 0)) }
         if let type = patch.dataType {
-            guard type != .automatic, type != .unknown else { throw WriteError.invalid("kiểu dữ liệu measure không hợp lệ") }
+            guard type != .automatic, type != .unknown else { throw WriteError.invalid(lt("kiểu dữ liệu measure không hợp lệ", "invalid measure data type")) }
             sets.append("DataType = ?"); values.append(.int(Int64(type.rawValue)))
         }
         guard !sets.isEmpty else { return }
@@ -919,10 +919,10 @@ extension MetadataWriter {
     private static func deleteMeasure(_ db: MetadataDatabase, table: String, name: String, now: Int64) throws {
         let id = try measureID(db, table: table, name: name)
         if (try db.int("SELECT KPIID FROM Measure WHERE ID = ?", [.int(Int64(id))]) ?? 0) != 0 {
-            throw WriteError.invalid("measure '\(name)' có KPI, chưa hỗ trợ xoá")
+            throw WriteError.invalid(lt("measure '\(name)' có KPI, chưa hỗ trợ xoá", "measure '\(name)' has a KPI; deleting it isn't supported yet"))
         }
         if db.tableExists("Model"), (try db.int("SELECT COUNT(*) FROM Model WHERE DefaultMeasureID = ?", [.int(Int64(id))]) ?? 0) > 0 {
-            throw WriteError.invalid("measure '\(name)' là measure mặc định của mô hình")
+            throw WriteError.invalid(lt("measure '\(name)' là measure mặc định của mô hình", "measure '\(name)' is the model's default measure"))
         }
         for dependent in ["Annotation", "ExtendedProperty", "FormatStringDefinition", "DetailRowsDefinition", "ChangedProperty",
                           "ObjectTranslation", "PackageObjectReference", "ExcludedArtifact"] where db.tableExists(dependent) {
@@ -937,13 +937,13 @@ extension MetadataWriter {
 
     private static func updateRelationship(_ db: MetadataDatabase, name: String, patch: RelationshipPatch, now: Int64) throws {
         guard (try db.int("SELECT COUNT(*) FROM Relationship WHERE Name = ?", [.text(name)]) ?? 0) == 1 else {
-            throw WriteError.invalid("không có quan hệ \(name)")
+            throw WriteError.invalid(lt("không có quan hệ \(name)", "there is no relationship \(name)"))
         }
         var sets: [String] = []
         var values: [MetadataDatabase.Value] = []
         if let active = patch.isActive { sets.append("IsActive = ?"); values.append(.int(active ? 1 : 0)) }
         if let behavior = patch.crossFilteringBehavior {
-            guard behavior == 1 || behavior == 2 else { throw WriteError.invalid("hướng lọc chéo phải là 1 hoặc 2") }
+            guard behavior == 1 || behavior == 2 else { throw WriteError.invalid(lt("hướng lọc chéo phải là 1 hoặc 2", "the cross-filter direction must be 1 or 2")) }
             sets.append("CrossFilteringBehavior = ?"); values.append(.int(Int64(behavior)))
         }
         guard !sets.isEmpty else { return }
@@ -966,25 +966,25 @@ extension MetadataWriter {
     private static func addRelationship(_ db: MetadataDatabase, _ new: NewRelationship, indexes: [RelationshipIndexFiles],
                                         now: Int64) throws -> [ABFPayload] {
         let oneToOne = !new.fromMany && !new.toMany
-        guard (new.fromMany && !new.toMany) || oneToOne else { throw WriteError.invalid("chỉ ghi được quan hệ nhiều-một hoặc một-một") }
-        guard indexes.count == (oneToOne ? 2 : 1) else { throw WriteError.invalid("số chỉ mục quan hệ không đúng") }
+        guard (new.fromMany && !new.toMany) || oneToOne else { throw WriteError.invalid(lt("chỉ ghi được quan hệ nhiều-một hoặc một-một", "only many-to-one or one-to-one relationships can be written")) }
+        guard indexes.count == (oneToOne ? 2 : 1) else { throw WriteError.invalid(lt("số chỉ mục quan hệ không đúng", "the number of relationship indexes is wrong")) }
         let fromTable = try db.userTableID(named: new.fromTable), toTable = try db.userTableID(named: new.toTable)
         let fromColumn = try columnID(db, table: new.fromTable, name: new.fromColumn)
         let toColumn = try columnID(db, table: new.toTable, name: new.toColumn)
         guard (try db.int("SELECT COUNT(*) FROM Relationship WHERE Name = ?", [.text(new.name)]) ?? 0) == 0 else {
-            throw WriteError.invalid("đã có quan hệ \(new.name)")
+            throw WriteError.invalid(lt("đã có quan hệ \(new.name)", "relationship \(new.name) already exists"))
         }
         let stored = try db.storedMaxID(), actual = try db.actualMaxID()
-        guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+        guard stored >= actual else { throw WriteError.verificationFailed(lt("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)", "DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")) }
         func storageName(_ table: Int, _ name: String) throws -> String {
             guard let value = try db.strings("SELECT Name FROM TableStorage WHERE TableID = ?", [.int(Int64(table))]).first else {
-                throw WriteError.invalid("bảng \(name) không có TableStorage")
+                throw WriteError.invalid(lt("bảng \(name) không có TableStorage", "table \(name) has no TableStorage"))
             }
             return value
         }
         let indexedTables = [(fromTable, new.fromTable)] + (oneToOne ? [(toTable, new.toTable)] : [])
         let storageNames = try indexedTables.map { try storageName($0.0, $0.1) }
-        guard let modelID = try db.int("SELECT MIN(ID) FROM Model") else { throw WriteError.invalid("không có dòng Model") }
+        guard let modelID = try db.int("SELECT MIN(ID) FROM Model") else { throw WriteError.invalid(lt("không có dòng Model", "there is no Model row")) }
 
         // Thứ tự cấp ID: quan hệ, từng cặp lưu trữ quan hệ + lưu trữ chỉ mục, rồi mỗi bảng R$ với các dòng lưu trữ của nó.
         var next = stored + 1
@@ -1097,9 +1097,9 @@ extension MetadataWriter {
     /// Xoá quan hệ cùng bảng `R$` của nó (mọi dòng lưu trữ). Trả đường dẫn các tệp ABF cần xoá.
     private static func deleteRelationship(_ db: MetadataDatabase, name: String, now: Int64) throws -> [String] {
         let ids = try db.strings("SELECT ID FROM Relationship WHERE Name = ?", [.text(name)])
-        guard ids.count == 1, let id = Int64(ids[0]) else { throw WriteError.invalid("không có quan hệ \(name)") }
+        guard ids.count == 1, let id = Int64(ids[0]) else { throw WriteError.invalid(lt("không có quan hệ \(name)", "there is no relationship \(name)")) }
         if db.tableExists("Variation"), (try db.int("SELECT COUNT(*) FROM Variation WHERE RelationshipID = ?", [.int(id)]) ?? 0) > 0 {
-            throw WriteError.invalid("quan hệ \(name) đang được một variation dùng; bỏ variation trước")
+            throw WriteError.invalid(lt("quan hệ \(name) đang được một variation dùng; bỏ variation trước", "relationship \(name) is used by a variation; remove the variation first"))
         }
         var files: [String] = []
         for storage in try db.strings("SELECT ID FROM RelationshipStorage WHERE RelationshipID = ?", [.int(id)]) {
@@ -1121,24 +1121,24 @@ extension MetadataWriter {
     /// Thêm phân cấp người dùng như Desktop 2.159 ghi (T030; `vm-f11/f11-desktop.pbix`, Nhom6): dòng `Hierarchy`, các `Level`,
     /// `HierarchyStorage` (LevelDefinition, StructureType), chú thích (ObjectType 9), bảng hệ thống ẩn `U$…` với bốn cột và tệp của chúng.
     private static func addHierarchy(_ db: MetadataDatabase, _ new: NewHierarchy, nodes: HierarchyIndex.Nodes, now: Int64) throws -> [ABFPayload] {
-        guard !new.levels.isEmpty, nodes.levelStarts.count == new.levels.count else { throw WriteError.invalid("phân cấp \(new.name) không có cấp") }
-        guard !new.name.trimmingCharacters(in: .whitespaces).isEmpty else { throw WriteError.invalid("tên phân cấp trống") }
+        guard !new.levels.isEmpty, nodes.levelStarts.count == new.levels.count else { throw WriteError.invalid(lt("phân cấp \(new.name) không có cấp", "hierarchy \(new.name) has no levels")) }
+        guard !new.name.trimmingCharacters(in: .whitespaces).isEmpty else { throw WriteError.invalid(lt("tên phân cấp trống", "the hierarchy name is empty")) }
         let tableID = Int64(try db.userTableID(named: new.table))
         guard (try db.int("SELECT COUNT(*) FROM Hierarchy WHERE TableID = ? AND Name = ? COLLATE NOCASE", [.int(tableID), .text(new.name)]) ?? 0) == 0 else {
-            throw WriteError.invalid("bảng \(new.table) đã có phân cấp \(new.name)")
+            throw WriteError.invalid(lt("bảng \(new.table) đã có phân cấp \(new.name)", "table \(new.table) already has a hierarchy \(new.name)"))
         }
         let levelColumns = try new.levels.map { Int64(try columnID(db, table: new.table, name: $0.column)) }
         let storageNames = try levelColumns.map { id in
             guard let name = try db.strings("SELECT Name FROM ColumnStorage WHERE ColumnID = ?", [.int(id)]).first else {
-                throw WriteError.invalid("cột cấp \(id) của \(new.table) không có ColumnStorage")
+                throw WriteError.invalid(lt("cột cấp \(id) của \(new.table) không có ColumnStorage", "level column \(id) of \(new.table) has no ColumnStorage"))
             }
             return name
         }
         guard let tableStorageName = try db.strings("SELECT Name FROM TableStorage WHERE TableID = ?", [.int(tableID)]).first else {
-            throw WriteError.invalid("bảng \(new.table) không có TableStorage")
+            throw WriteError.invalid(lt("bảng \(new.table) không có TableStorage", "table \(new.table) has no TableStorage"))
         }
         let stored = try db.storedMaxID(), actual = try db.actualMaxID()
-        guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+        guard stored >= actual else { throw WriteError.verificationFailed(lt("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)", "DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")) }
 
         var next = stored + 1
         func take() -> Int64 { defer { next += 1 }; return Int64(next) }
@@ -1257,9 +1257,9 @@ extension MetadataWriter {
     private static func dropHierarchy(_ db: MetadataDatabase, table: String, name: String, now: Int64) throws -> [String] {
         let tableID = Int64(try db.userTableID(named: table))
         let ids = try db.strings("SELECT ID FROM Hierarchy WHERE TableID = ? AND Name = ? COLLATE NOCASE", [.int(tableID), .text(name)])
-        guard ids.count == 1, let id = Int64(ids[0]) else { throw WriteError.invalid("bảng \(table) không có phân cấp \(name)") }
+        guard ids.count == 1, let id = Int64(ids[0]) else { throw WriteError.invalid(lt("bảng \(table) không có phân cấp \(name)", "table \(table) has no hierarchy \(name)")) }
         if db.tableExists("Variation"), (try db.int("SELECT COUNT(*) FROM Variation WHERE DefaultHierarchyID = ?", [.int(id)]) ?? 0) > 0 {
-            throw WriteError.invalid("phân cấp \(table)/\(name) đang được variation dùng, bỏ variation trước")
+            throw WriteError.invalid(lt("phân cấp \(table)/\(name) đang được variation dùng, bỏ variation trước", "hierarchy \(table)/\(name) is used by a variation; remove the variation first"))
         }
         var files: [String] = []
         for storage in try db.strings("SELECT ID FROM HierarchyStorage WHERE HierarchyID = ?", [.int(id)]).compactMap(Int64.init) {
@@ -1357,7 +1357,7 @@ extension MetadataWriter {
             SELECT c.ID FROM [Column] c JOIN [Table] t ON t.ID = c.TableID
             WHERE t.Name = ? COLLATE NOCASE AND t.SystemFlags IN (0, 2) AND COALESCE(c.ExplicitName, c.InferredName) = ?
             """, [.text(table), .text(name)])
-        guard ids.count == 1, let id = Int(ids[0]) else { throw WriteError.invalid("không có cột \(table)[\(name)]") }
+        guard ids.count == 1, let id = Int(ids[0]) else { throw WriteError.invalid(lt("không có cột \(table)[\(name)]", "there is no column \(table)[\(name)]")) }
         return id
     }
 
@@ -1369,12 +1369,12 @@ extension MetadataWriter {
         var sets: [String] = []
         var values: [MetadataDatabase.Value] = []
         if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
-            guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid("tên cột không hợp lệ") }
+            guard !renamed.isEmpty, !renamed.contains("\0") else { throw WriteError.invalid(lt("tên cột không hợp lệ", "invalid column name")) }
             let clash = try db.int("""
                 SELECT COUNT(*) FROM [Column] WHERE TableID = ? AND COALESCE(ExplicitName, InferredName) = ? COLLATE NOCASE AND ID <> ?
                 """, [.int(Int64(tableID)), .text(renamed), .int(Int64(id))]) ?? 0
             guard clash == 0, try !db.measureNameExists(renamed, tableID: tableID) else {
-                throw WriteError.invalid("bảng '\(table)' đã có mục tên '\(renamed)'")
+                throw WriteError.invalid(lt("bảng '\(table)' đã có mục tên '\(renamed)'", "table '\(table)' already has an item named '\(renamed)'"))
             }
             sets.append("ExplicitName = ?"); values.append(.text(renamed))
         }
@@ -1384,7 +1384,7 @@ extension MetadataWriter {
             sets.append("IsUnique = ?"); values.append(.int(isKey ? 1 : 0))
         }
         if let summarize = patch.summarizeBy {
-            guard (1...8).contains(summarize) else { throw WriteError.invalid("kiểu tổng hợp không hợp lệ") }
+            guard (1...8).contains(summarize) else { throw WriteError.invalid(lt("kiểu tổng hợp không hợp lệ", "invalid summarization type")) }
             sets.append("SummarizeBy = ?"); values.append(.int(Int64(summarize)))
         }
         for (column, value) in [("FormatString", assignment(patch.formatString)), ("DataCategory", assignment(patch.dataCategory)),
@@ -1397,7 +1397,7 @@ extension MetadataWriter {
         case .some(.clear): sets.append("SortByColumnID = 0")
         case .some(.set(let target)):
             let sortID = try columnID(db, table: table, name: target)
-            guard sortID != id else { throw WriteError.invalid("cột không thể sắp xếp theo chính nó") }
+            guard sortID != id else { throw WriteError.invalid(lt("cột không thể sắp xếp theo chính nó", "a column can't be sorted by itself")) }
             sets.append("SortByColumnID = ?"); values.append(.int(Int64(sortID)))
         }
         try setAnnotations(db, objectID: Int64(id), objectType: 4, patch.annotations, now: now)
@@ -1411,7 +1411,7 @@ extension MetadataWriter {
     /// Ghi hoặc cập nhật vai trò RLS (`[Role]` + `[TablePermission]`, khớp Desktop 2.159: `ModelPermission = 2`, `State = 1`, `MetadataPermission = 0`).
     private static func upsertRole(_ db: MetadataDatabase, previousName: String?, role: ModelMetadata.RoleDefinition, now: Int64) throws {
         let trimmed = role.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !trimmed.contains("\0") else { throw WriteError.invalid("tên vai trò không hợp lệ") }
+        guard !trimmed.isEmpty, !trimmed.contains("\0") else { throw WriteError.invalid(lt("tên vai trò không hợp lệ", "invalid role name")) }
         let modelID = try db.int("SELECT ID FROM Model ORDER BY ID LIMIT 1") ?? 1
         let lookupName = previousName ?? trimmed
         let existingID = try db.int("SELECT ID FROM [Role] WHERE Name = ? COLLATE NOCASE LIMIT 1", [.text(lookupName)])
@@ -1419,7 +1419,7 @@ extension MetadataWriter {
         if let existingID {
             let clash = try db.int("SELECT COUNT(*) FROM [Role] WHERE Name = ? COLLATE NOCASE AND ID <> ?",
                                    [.text(trimmed), .int(existingID)]) ?? 0
-            guard clash == 0 else { throw WriteError.invalid("mô hình đã có vai trò tên '\(trimmed)'") }
+            guard clash == 0 else { throw WriteError.invalid(lt("mô hình đã có vai trò tên '\(trimmed)'", "the model already has a role named '\(trimmed)'")) }
             try db.run("UPDATE [Role] SET Name = ?, Description = ?, ModelPermission = ?, ModifiedTime = ? WHERE ID = ?",
                        [.text(trimmed), role.description.map(MetadataDatabase.Value.text) ?? .null,
                         .int(Int64(role.modelPermission)), .int(now), .int(existingID)])
@@ -1427,9 +1427,9 @@ extension MetadataWriter {
             roleID = existingID
         } else {
             let clash = try db.int("SELECT COUNT(*) FROM [Role] WHERE Name = ? COLLATE NOCASE", [.text(trimmed)]) ?? 0
-            guard clash == 0 else { throw WriteError.invalid("mô hình đã có vai trò tên '\(trimmed)'") }
+            guard clash == 0 else { throw WriteError.invalid(lt("mô hình đã có vai trò tên '\(trimmed)'", "the model already has a role named '\(trimmed)'")) }
             let stored = try db.storedMaxID(), actual = try db.actualMaxID()
-            guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+            guard stored >= actual else { throw WriteError.verificationFailed(lt("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)", "DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")) }
             roleID = Int64(stored + 1)
             try db.run("INSERT INTO [Role] (ID, ModelID, Name, Description, ModelPermission, ModifiedTime) VALUES (?, ?, ?, ?, ?, ?)",
                        [.int(roleID), .int(modelID), .text(trimmed),
@@ -1443,7 +1443,7 @@ extension MetadataWriter {
             guard !expr.isEmpty else { continue }
             let tableID = try db.userTableID(named: tp.tableName)
             let stored = try db.storedMaxID(), actual = try db.actualMaxID()
-            guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+            guard stored >= actual else { throw WriteError.verificationFailed(lt("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)", "DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")) }
             let permID = Int64(stored + 1)
             try db.run("""
                 INSERT INTO [TablePermission] (ID, RoleID, TableID, FilterExpression, ModifiedTime, State, ErrorMessage, MetadataPermission)
@@ -1457,7 +1457,7 @@ extension MetadataWriter {
     /// Xoá vai trò RLS cùng mọi `[TablePermission]` của nó.
     private static func deleteRole(_ db: MetadataDatabase, name: String, now: Int64) throws {
         guard let roleID = try db.int("SELECT ID FROM [Role] WHERE Name = ? COLLATE NOCASE LIMIT 1", [.text(name)]) else {
-            throw WriteError.invalid("không có vai trò '\(name)'")
+            throw WriteError.invalid(lt("không có vai trò '\(name)'", "there is no role '\(name)'"))
         }
         try db.run("DELETE FROM [TablePermission] WHERE RoleID = ?", [.int(roleID)])
         try db.run("DELETE FROM [Role] WHERE ID = ?", [.int(roleID)])
@@ -1479,7 +1479,7 @@ extension MetadataWriter {
                     try db.run("UPDATE Annotation SET Value = ?, ModifiedTime = ? WHERE ID = ?", [.text(value), .int(now), .int(existing)])
                 } else {
                     let stored = try db.storedMaxID(), actual = try db.actualMaxID()
-                    guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+                    guard stored >= actual else { throw WriteError.verificationFailed(lt("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)", "DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")) }
                     let id = Int64(stored + 1)
                     try db.run("INSERT INTO Annotation (ID, ObjectID, ObjectType, Name, Value, ModifiedTime) VALUES (?, ?, ?, ?, ?, ?)",
                                [.int(id), .int(objectID), .int(objectType), .text(name), .text(value), .int(now)])
@@ -1511,27 +1511,27 @@ extension MetadataWriter {
 
     /// Thêm dòng `Variation` "Variation" như Desktop (f11): cột ngày trỏ quan hệ tới bảng ngày cục bộ và phân cấp mặc định của bảng đó.
     fileprivate static func addVariation(_ db: MetadataDatabase, table: String, column: String, relationship: String, hierarchy: HierarchyRef, now: Int64) throws {
-        guard db.tableExists("Variation") else { throw WriteError.invalid("metadata.sqlitedb không có bảng Variation") }
+        guard db.tableExists("Variation") else { throw WriteError.invalid(lt("metadata.sqlitedb không có bảng Variation", "metadata.sqlitedb has no Variation table")) }
         let columnID = try columnID(db, table: table, name: column)
         guard (try db.int("SELECT COUNT(*) FROM Variation WHERE ColumnID = ?", [.int(Int64(columnID))]) ?? 0) == 0 else {
-            throw WriteError.invalid("cột \(table)[\(column)] đã có variation")
+            throw WriteError.invalid(lt("cột \(table)[\(column)] đã có variation", "column \(table)[\(column)] already has a variation"))
         }
         guard let relID = try db.int("SELECT ID FROM Relationship WHERE Name = ?", [.text(relationship)]) else {
-            throw WriteError.invalid("không có quan hệ \(relationship)")
+            throw WriteError.invalid(lt("không có quan hệ \(relationship)", "there is no relationship \(relationship)"))
         }
         guard try db.int("SELECT FromColumnID FROM Relationship WHERE ID = ?", [.int(relID)]) == Int64(columnID) else {
-            throw WriteError.invalid("quan hệ \(relationship) không đi từ cột \(table)[\(column)]")
+            throw WriteError.invalid(lt("quan hệ \(relationship) không đi từ cột \(table)[\(column)]", "relationship \(relationship) doesn't start at column \(table)[\(column)]"))
         }
         let hierarchyTable = try db.userTableID(named: hierarchy.table)
         guard let hierarchyID = try db.int("SELECT ID FROM Hierarchy WHERE TableID = ? AND Name = ? COLLATE NOCASE",
                                            [.int(Int64(hierarchyTable)), .text(hierarchy.name)]) else {
-            throw WriteError.invalid("bảng \(hierarchy.table) không có phân cấp \(hierarchy.name)")
+            throw WriteError.invalid(lt("bảng \(hierarchy.table) không có phân cấp \(hierarchy.name)", "table \(hierarchy.table) has no hierarchy \(hierarchy.name)"))
         }
         guard try db.int("SELECT ToTableID FROM Relationship WHERE ID = ?", [.int(relID)]) == Int64(hierarchyTable) else {
-            throw WriteError.invalid("quan hệ \(relationship) không tới bảng \(hierarchy.table)")
+            throw WriteError.invalid(lt("quan hệ \(relationship) không tới bảng \(hierarchy.table)", "relationship \(relationship) doesn't lead to table \(hierarchy.table)"))
         }
         let stored = try db.storedMaxID(), actual = try db.actualMaxID()
-        guard stored >= actual else { throw WriteError.verificationFailed("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)") }
+        guard stored >= actual else { throw WriteError.verificationFailed(lt("DBPROPERTIES.MAXID là \(stored) nhưng ID lớn nhất là \(actual)", "DBPROPERTIES.MAXID is \(stored) but the largest ID is \(actual)")) }
         let id = Int64(stored + 1)
         try db.run("""
             INSERT INTO Variation (ID, ColumnID, Name, Description, RelationshipID, DefaultHierarchyID, DefaultColumnID, IsDefault)
@@ -1547,7 +1547,7 @@ extension MetadataWriter {
         let columnID = try columnID(db, table: table, name: column)
         guard db.tableExists("Variation"),
               (try db.int("SELECT COUNT(*) FROM Variation WHERE ColumnID = ?", [.int(Int64(columnID))]) ?? 0) > 0 else {
-            throw WriteError.invalid("cột \(table)[\(column)] không có variation")
+            throw WriteError.invalid(lt("cột \(table)[\(column)] không có variation", "column \(table)[\(column)] has no variation"))
         }
         for id in try db.strings("SELECT ID FROM Variation WHERE ColumnID = ?", [.int(Int64(columnID))]).compactMap(Int64.init) {
             for dependent in ["Annotation", "ExtendedProperty"] where db.tableExists(dependent) {

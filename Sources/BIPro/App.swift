@@ -9,6 +9,12 @@ extension UTType {
 @main
 struct BIProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    init() {
+        // Thông báo của engine (DAX, M, kết nối, ghi file) theo ngôn ngữ giao diện; mặc định engine là tiếng Việt cho test và CLI.
+        EngineLanguage.isEnglish = { appPrefersEnglish() }
+    }
+
     var body: some Scene {
         DocumentGroup(viewing: PBIXDocument.self) { file in
             ShellView(state: DocumentState(workspace: file.document.workspace,
