@@ -152,7 +152,7 @@ enum FieldEditor {
         let element = wells[w].elements[index]
         guard element.field.kind == .aggregation else { return .refused(biN("Trường này không có phép gộp.", "This field has no aggregation.")) }
         guard AggregateFunction.menu(for: kind).contains(function) else {
-            return .refused(biN("Cột kiểu này không gộp bằng \(function.label(column: element.field.property, kind: kind)).", "A column of this type can't be aggregated with \(function.label(column: element.field.property, kind: kind))."))
+            return .refused(biN("Cột kiểu này không gộp bằng \(function.label(column: element.field.property, kind: kind, language: appResolvedLanguage())).", "A column of this type can't be aggregated with \(function.label(column: element.field.property, kind: kind, language: appResolvedLanguage()))."))
         }
         guard element.field.aggregationFunction != function.rawValue else { return .unchanged }
         var result = wells

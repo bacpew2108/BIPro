@@ -71,6 +71,9 @@ enum UITranslator {
 /// Như `bi` nhưng gọi được từ ngữ cảnh không thuộc main actor (thông báo trong mô hình, trình lưu…). Đọc thẳng cài đặt ngôn ngữ.
 func biN(_ vi: String, _ en: String) -> String { appPrefersEnglish() ? en : vi }
 
+/// Ngôn ngữ đã chốt của ứng dụng, dùng ở chỗ không ở MainActor.
+func appResolvedLanguage() -> ResolvedLanguage { appPrefersEnglish() ? .en : .vi }
+
 /// `true` khi cài đặt ngôn ngữ của ứng dụng (hoặc ngôn ngữ hệ thống nếu để "Theo hệ thống") là tiếng Anh.
 func appPrefersEnglish() -> Bool {
     switch UserDefaults.standard.string(forKey: "bipro.language") {

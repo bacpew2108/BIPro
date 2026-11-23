@@ -41,9 +41,11 @@ enum StatusLine {
         case .model:
             let tableCount = state.workspace.userTables.count
             let relCount = state.workspace.metadata?.relationships.count ?? 0
+            let tableWord = tableCount == 1 ? "table" : "tables"
+            let relWord = relCount == 1 ? "relationship" : "relationships"
             return isEN
-                ? "\(tableCount) tables · \(relCount) relationships"
-                : biN("\(tableCount) bảng · \(relCount) quan hệ", "\(tableCount) tables · \(relCount) relationships")
+                ? "\(tableCount) \(tableWord) · \(relCount) \(relWord)"
+                : biN("\(tableCount) bảng · \(relCount) quan hệ", "\(tableCount) \(tableWord) · \(relCount) \(relWord)")
 
         case .daxQuery:
             let total = max(1, state.daxQueries.count)

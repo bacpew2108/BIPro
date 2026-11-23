@@ -510,7 +510,7 @@ struct DAXQueryTab: Identifiable, Hashable {
     EVALUATE
     SUMMARIZECOLUMNS(
         'Dim_Date'[year],
-        biN("Số giao dịch", "Transaction count"), [Trans Count]
+        "\(bi("Số giao dịch", "Transaction count"))", [Trans Count]
     )
     ORDER BY 'Dim_Date'[year]
     """ }

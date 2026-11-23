@@ -114,7 +114,7 @@ struct TopNRule: Hashable, Sendable {
         return "\(column.dax) IN TOPN(\(count), FILTER(ALL(\(column.dax)), NOT(ISBLANK(\(measureRef)))), \(measureRef), \(top ? "DESC" : "ASC"))"
     }
 
-    var summary: String { "\(top ? "Top" : "Bottom") \(count) theo \(measureName)" }
+    var summary: String { "\(top ? "Top" : "Bottom") \(count) \(biN("theo", "by")) \(measureName)" }
 }
 
 enum FilterRule: Hashable, Sendable {

@@ -263,7 +263,7 @@ struct VisualQuerySpecReader {
         let kind = Self.kind(of: meta?.dataType)
         let keepsFormat: Set<AggregateFunction> = [.sum, .average, .min, .max, .median]
         let field = FieldInfo(queryRef: projection["queryRef"]?.string ?? "\(function.resultPrefix)(\(table).\(name))",
-                              displayName: projection["displayName"]?.string ?? function.label(column: name, kind: kind), role: role,
+                              displayName: projection["displayName"]?.string ?? function.label(column: name, kind: kind, language: appResolvedLanguage()), role: role,
                               formatString: keepsFormat.contains(function) ? meta?.formatString : nil, isMeasure: true)
         return QueryMeasure(field: field, table: table, measure: name, resultName: resultName(function.resultPrefix + name, used: &used),
                             ignore: ignore, purpose: role == "Tooltips" ? .tooltip : .value, aggregation: function)

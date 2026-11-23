@@ -271,7 +271,7 @@ struct VisualContainerView: View {
             categories.removeAll { $0.role == role && $0.active != true }
         }
         let v = values.joined(separator: biN(" và ", " and "))
-        return categories.isEmpty ? v : "\(v) theo \(categories.map(\.label).joined(separator: biN(" và ", " and ")))"
+        return categories.isEmpty ? v : "\(v)\(biN(" theo ", " by "))\(categories.map(\.label).joined(separator: biN(" và ", " and ")))"
     }
 }
 

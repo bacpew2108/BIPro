@@ -971,7 +971,7 @@ final class LayoutEditor {
     func label(of field: ReportField) -> String {
         if field.kind == .aggregation, field.displayName?.isEmpty ?? true, let code = field.aggregationFunction,
            let function = AggregateFunction(rawValue: code) {
-            return function.label(column: field.property, kind: aggregationKind(entity: field.entity, property: field.property))
+            return function.label(column: field.property, kind: aggregationKind(entity: field.entity, property: field.property), language: appResolvedLanguage())
         }
         return field.label
     }
