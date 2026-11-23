@@ -105,7 +105,7 @@ struct SlicerDropdownListView: View {
                     Image(systemName: context.slicerSelection.isEmpty ? "checkmark.square.fill" : "square")
                         .font(.system(size: 13))
                         .foregroundStyle(context.slicerSelection.isEmpty ? Color.accentColor : Color.gray)
-                    Text("Chọn tất cả")
+                    Text(bi("Chọn tất cả", "Select all"))
                         .font(.system(size: 12))
                         .foregroundStyle(Color.black)
                     Spacer()

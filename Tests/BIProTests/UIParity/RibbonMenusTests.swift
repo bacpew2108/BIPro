@@ -68,6 +68,17 @@ struct RibbonMenusTests {
         #expect(RibbonMenus.themesPowerBITiles[0].isDefaultClear == true)
     }
 
+    /// "Fit to width" trước đây chỉ là bản sao của "Actual size" (đặt zoom 1.0): phải là chế độ vừa chiều rộng riêng.
+    @Test @MainActor func pageViewMenuFitModesAreDistinct() throws {
+        let state = DocumentState(workspace: try Workspace(data: try NewDocument.blank()), fileName: "fit.pbix")
+        RibbonMenus.performPageView("fitToWidth", state: state)
+        #expect(state.zoom == nil && state.fitsWidth)
+        RibbonMenus.performPageView("actualSize", state: state)
+        #expect(state.zoom == 1.0 && !state.fitsWidth)
+        RibbonMenus.performPageView("fitToPage", state: state)
+        #expect(state.zoom == nil && !state.fitsWidth)
+    }
+
     @Test @MainActor func reportRibbonActionsExecuteWithoutRegression() async throws {
         let blank = try NewDocument.blank()
         let workspace = try Workspace(data: blank)

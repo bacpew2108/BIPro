@@ -118,7 +118,7 @@ struct WaterfallChartView: View {
     var body: some View {
         let bars = bars
         if bars.isEmpty {
-            ZStack { Color.clear; Text("Không có dữ liệu").font(.system(size: 11)).foregroundColor(.secondary) }
+            ZStack { Color.clear; Text(bi("Không có dữ liệu", "No data")).font(.system(size: 11)).foregroundColor(.secondary) }
         } else {
             VStack(spacing: 4) {
                 GeometryReader { geo in plot(bars, size: geo.size) }

@@ -116,7 +116,7 @@ struct FunnelChartView: View {
             let labelWidth = Swift.min(geo.size.width * 0.3, CGFloat(widest) * fontSize * 0.62 + 10)
             let layout = rows(in: geo.size, labelWidth: labelWidth)
             if layout.rows.isEmpty {
-                ZStack { Color.clear; Text("Không có dữ liệu").font(.system(size: 11)).foregroundColor(.secondary) }
+                ZStack { Color.clear; Text(bi("Không có dữ liệu", "No data")).font(.system(size: 11)).foregroundColor(.secondary) }
             } else {
                 canvas(layout.rows, plot: layout.plot, fontSize: fontSize, labelWidth: labelWidth, size: geo.size)
             }

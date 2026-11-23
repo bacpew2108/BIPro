@@ -1936,11 +1936,13 @@ final class LayoutEditor {
         func near(_ v: Double) -> Double { v < 0 && v > -1e-6 ? 0 : v }
         let x = near(visual.x - ox), y = near(visual.y - oy)
         var out = json
-        if differs(current.x, x) || differs(current.y, y) || differs(current.width, visual.width) || differs(current.height, visual.height) {
+        let zChanged = differs(current.z, visual.z)
+        if differs(current.x, x) || differs(current.y, y) || differs(current.width, visual.width) || differs(current.height, visual.height) || zChanged {
             out = try PBIRLayoutPatch.setPosition(
                 in: out, x: differs(current.x, x) ? x : nil, y: differs(current.y, y) ? y : nil,
                 width: differs(current.width, visual.width) ? visual.width : nil,
-                height: differs(current.height, visual.height) ? visual.height : nil)
+                height: differs(current.height, visual.height) ? visual.height : nil,
+                z: zChanged ? visual.z : nil)
         }
         out = try PBIRGroupPatch.settingParentGroup(group?.id, in: out)
         return out == json ? nil : out

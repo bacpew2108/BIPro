@@ -11,6 +11,8 @@ struct ReportPageView: View {
     @Binding var selectedVisual: String?
     /// nil = fit page.
     var zoom: Double?
+    /// Với `zoom == nil`: vừa chiều rộng thay vì vừa cả trang.
+    var fitsWidth = false
     var onScale: (Double) -> Void = { _ in }
     /// Vùng trang đang nhìn thấy (toạ độ trang), báo mỗi khi cuộn hoặc đổi cỡ; nil = cả trang.
     var onViewport: (CGRect?) -> Void = { _ in }
@@ -32,7 +34,8 @@ struct ReportPageView: View {
             let margin = DS.Space.lg
             let fit = max(0.05, min((geo.size.width - margin * 2) / page.width,
                                     (geo.size.height - margin * 2) / page.height))
-            let scale = zoom ?? fit
+            let fitW = max(0.05, (geo.size.width - margin * 2) / page.width)
+            let scale = zoom ?? (fitsWidth ? fitW : fit)
             ScrollView([.horizontal, .vertical]) {
                 canvas(scale: scale)
                     .padding(margin)
@@ -41,7 +44,7 @@ struct ReportPageView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { deselect() }
             }
-            .scrollDisabled(zoom == nil)
+            .scrollDisabled(zoom == nil && !fitsWidth)
             .onScrollGeometryChange(for: CGRect.self) { scroll in
                 CGRect(origin: scroll.contentOffset, size: scroll.containerSize)
             } action: { _, visible in

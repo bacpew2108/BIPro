@@ -81,6 +81,7 @@ struct StartScreen: View {
     @Environment(\.openSettings) private var openSettings
     @State private var showOptions = false
     @State private var showAbout = false
+    @State private var cardsExpanded = true
 
     private var entries: [RecentFileEntry] {
         recentEntries ?? RecentFileEntry.load()
@@ -162,14 +163,31 @@ struct StartScreen: View {
     private var mainContent: some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 14) {
-                Text(bi("Chọn nguồn dữ liệu hoặc bắt đầu với báo cáo trống",
-                        "Select a data source or start with a blank report"))
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(DS.Palette.label)
+                // Tiêu đề có mũi tên thu gọn như Desktop (đã quan sát 2026-11-23).
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { cardsExpanded.toggle() }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .rotationEffect(.degrees(cardsExpanded ? 0 : -90))
+                            .foregroundStyle(DS.Palette.secondaryLabel)
+                        Text(bi("Chọn nguồn dữ liệu hoặc bắt đầu với báo cáo trống",
+                                "Select a data source or start with a blank report"))
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(DS.Palette.label)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(bi("Chọn nguồn dữ liệu", "Select a data source"))
+                .accessibilityValue(cardsExpanded ? bi("đang mở", "expanded") : bi("đã thu gọn", "collapsed"))
 
-                HStack(spacing: 12) {
-                    ForEach(StartEntry.all) { entry in
-                        startCard(entry)
+                if cardsExpanded {
+                    HStack(spacing: 12) {
+                        ForEach(StartEntry.all) { entry in
+                            startCard(entry)
+                        }
                     }
                 }
             }

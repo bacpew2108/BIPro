@@ -99,7 +99,7 @@ struct RibbonChartView: View {
             infos.map { chartNumber(data.cell(measure: $0.measure, series: $0.series, category: c)) }
         })
         if infos.isEmpty || RibbonLayout.maxTotal(columns: columns) <= 0 {
-            ZStack { Color.clear; Text("Không có dữ liệu").font(.system(size: 11)).foregroundColor(.secondary) }
+            ZStack { Color.clear; Text(bi("Không có dữ liệu", "No data")).font(.system(size: 11)).foregroundColor(.secondary) }
         } else {
             VStack(spacing: 4) {
                 GeometryReader { geo in plot(columns, infos: infos, size: geo.size) }

@@ -58,12 +58,12 @@ struct WindowStatusBar: View {
         case .report:
             zoomSlider(
                 scale: Binding(
-                    get: { StatusBarZoom.clamped(state.zoom ?? 1.0) },
-                    set: { state.zoom = StatusBarZoom.clamped($0) }
+                    get: { StatusBarZoom.clamped(state.zoom ?? state.renderedScale) },
+                    set: { state.fitsWidth = false; state.zoom = StatusBarZoom.clamped($0) }
                 ),
-                onZoomOut: { state.zoom = StatusBarZoom.stepOut(from: state.zoom ?? 1.0) },
-                onZoomIn: { state.zoom = StatusBarZoom.stepIn(from: state.zoom ?? 1.0) },
-                onFit: { state.zoom = nil },
+                onZoomOut: { state.fitsWidth = false; state.zoom = StatusBarZoom.stepOut(from: state.zoom ?? state.renderedScale) },
+                onZoomIn: { state.fitsWidth = false; state.zoom = StatusBarZoom.stepIn(from: state.zoom ?? state.renderedScale) },
+                onFit: { state.fitsWidth = false; state.zoom = nil },
                 fitHelp: tr(.zoomFit)
             )
         case .model:

@@ -73,7 +73,7 @@ struct LiveVisualView: View {
         if needsFields {
             ZStack {
                 Rectangle().fill(Color.white)
-                Text("Thêm trường để vẽ").font(.system(size: 12)).foregroundStyle(DS.Palette.paperTertiaryLabel)
+                Text(bi("Thêm trường để vẽ", "Add fields to draw")).font(.system(size: 12)).foregroundStyle(DS.Palette.paperTertiaryLabel)
             }
         } else {
             typedPlaceholder

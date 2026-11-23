@@ -147,7 +147,11 @@ final class DocumentState {
             }
         }
     }
-    var zoom: Double? // nil = fit page
+    var zoom: Double? // nil = fit page (hoặc fit width khi `fitsWidth`)
+    /// Với `zoom == nil`: `true` = vừa chiều rộng (trang cuộn dọc), `false` = vừa cả trang. Mọi nơi đặt `zoom` đều đặt lại về vừa trang.
+    var fitsWidth = false
+    /// Tỉ lệ đang vẽ thật của trang (để thanh trạng thái ghi đúng % khi `zoom == nil`).
+    var renderedScale: Double = 1
     var showFilters = true
     var showVisualizations = true
     var showData = true

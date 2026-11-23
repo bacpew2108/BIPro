@@ -22,6 +22,16 @@ extension DocumentState {
         arrangeBlocker ?? (canEditLayout ? layout.mergeBlocker() : "Nhóm visual chưa làm cho báo cáo định dạng cũ (Report/Layout).")
     }
 
+    func zOrderBlocker(_ command: ZOrderCommand) -> String? {
+        arrangeBlocker ?? (canEditLayout ? layout.zOrderBlocker(command) : "Đổi thứ tự lớp chưa làm cho báo cáo định dạng cũ (Report/Layout).")
+    }
+
+    func reorder(_ command: ZOrderCommand) {
+        guard zOrderBlocker(command) == nil else { return }
+        layout.reorder(command)
+        visualID = layout.primary
+    }
+
     func align(_ command: AlignCommand) {
         guard alignBlocker(command) == nil else { return }
         layout.align(command)

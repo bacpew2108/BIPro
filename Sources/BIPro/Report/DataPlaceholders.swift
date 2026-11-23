@@ -21,7 +21,7 @@ private func ghostSeries(_ seed: String, count: Int) -> [Double] {
 
 struct PendingValueBadge: View {
     var body: some View {
-        Label("Chờ engine DAX", systemImage: "hourglass")
+        Label(bi("Chờ engine DAX", "Waiting for the DAX engine"), systemImage: "hourglass")
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Capsule().fill(.background.opacity(0.85)))
@@ -80,7 +80,7 @@ struct SlicerPlaceholder: View {
             }
             if mode == "Dropdown" {
                 HStack {
-                    Text("Tất cả").foregroundStyle(.secondary)
+                    Text(bi("Tất cả", "All")).foregroundStyle(.secondary)
                     Spacer()
                     Image(systemName: "chevron.down").foregroundStyle(.secondary)
                 }

@@ -208,6 +208,20 @@ struct RibbonItemView: View {
             } label: {
                 largeLabel(item: item, isOn: false, enabled: true)
             }
+        } else if (item.id == .bringForward || item.id == .sendBackward) && enabled {
+            let commands = ZOrderCommand.allCases.filter { $0.isForward == (item.id == .bringForward) }
+            RibbonMenuButton(disabled: false, help: tip, accessibilityLabel: item.title.localized) {
+                ForEach(commands, id: \.self) { command in
+                    Button {
+                        state.reorder(command)
+                    } label: {
+                        Label(command.title, systemImage: command.systemImage)
+                    }
+                    .disabled(state.zOrderBlocker(command) != nil)
+                }
+            } label: {
+                largeLabel(item: item, isOn: false, enabled: true)
+            }
         } else if item.id == .align && enabled {
             RibbonMenuButton(disabled: false, help: tip, accessibilityLabel: item.title.localized) {
                 ForEach(AlignCommand.allCases, id: \.self) { command in

@@ -49,7 +49,7 @@ struct ReportWorkspace: View {
                 }
                 if let page = state.page {
                     ReportPageView(workspace: state.workspace, page: page, interaction: state.interaction, selectedVisual: $state.visualID,
-                                   zoom: state.zoom, onScale: { currentScale = $0 }, onViewport: { state.visibleRect = $0 },
+                                   zoom: state.zoom, fitsWidth: state.fitsWidth, onScale: { currentScale = $0; state.renderedScale = $0 }, onViewport: { state.visibleRect = $0 },
                                    navigate: { target in
                                        // Nút điều hướng trỏ tới trang đã xoá (Desktop để nút treo, VM-D8): bấm không làm gì.
                                        guard state.pages.contains(where: { $0.id == target }) else { return }
@@ -240,22 +240,22 @@ struct PageTabs: View {
         .background(DS.Palette.chrome)
         .hairline(.top)
         .alert("Đổi tên trang", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
-            TextField("Tên trang", text: Binding(get: { renaming?.text ?? "" }, set: { renaming?.text = $0 }))
-            Button("Đổi tên") {
+            TextField(bi("Tên trang", "Page name"), text: Binding(get: { renaming?.text ?? "" }, set: { renaming?.text = $0 }))
+            Button(bi("Đổi tên", "Rename")) {
                 if let r = renaming { state.renamePage(r.id, to: r.text) }
                 renaming = nil
             }
-            Button("Huỷ", role: .cancel) { renaming = nil }
+            Button(bi("Huỷ", "Cancel"), role: .cancel) { renaming = nil }
         }
         .confirmationDialog("Xoá trang \"\(deleting?.displayName ?? "")\"?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
                             titleVisibility: .visible) {
-            Button("Xoá", role: .destructive) {
+            Button(bi("Xoá", "Delete"), role: .destructive) {
                 if let page = deleting { state.removePage(page.id) }
                 deleting = nil
             }
-            Button("Huỷ", role: .cancel) { deleting = nil }
+            Button(bi("Huỷ", "Cancel"), role: .cancel) { deleting = nil }
         } message: {
-            Text("Trang và mọi visual của nó sẽ bị bỏ khi lưu. Có thể hoàn tác bằng ⌘Z.")
+            Text(bi("Trang và mọi visual của nó sẽ bị bỏ khi lưu. Có thể hoàn tác bằng ⌘Z.", "The page and all its visuals are removed when you save. You can undo with ⌘Z."))
         }
     }
 
@@ -346,13 +346,13 @@ struct PageTabs: View {
             .accessibilityValue(page.isHidden ? tr(.a11yHidden) : (state.pageID == page.id ? tr(.a11ySelected) : ""))
             .accessibilityAddTraits(state.pageID == page.id ? [.isButton, .isSelected] : .isButton)
             .contextMenu {
-                Button("Đổi tên…") { startRename(page) }.disabled(blocker != nil)
-                Button("Nhân bản") { state.duplicatePage(page.id) }.disabled(blocker != nil)
+                Button(bi("Đổi tên…", "Rename…")) { startRename(page) }.disabled(blocker != nil)
+                Button(bi("Nhân bản", "Duplicate")) { state.duplicatePage(page.id) }.disabled(blocker != nil)
                 Divider()
-                Button("Sang trái") { state.movePage(page.id, to: index - 1) }.disabled(blocker != nil || index == 0)
-                Button("Sang phải") { state.movePage(page.id, to: index + 1) }.disabled(blocker != nil || index == count - 1)
+                Button(bi("Sang trái", "Move left")) { state.movePage(page.id, to: index - 1) }.disabled(blocker != nil || index == 0)
+                Button(bi("Sang phải", "Move right")) { state.movePage(page.id, to: index + 1) }.disabled(blocker != nil || index == count - 1)
                 Divider()
-                Button("Xoá…", role: .destructive) { deleting = page }.disabled(blocker != nil || count <= 1)
+                Button(bi("Xoá…", "Delete…"), role: .destructive) { deleting = page }.disabled(blocker != nil || count <= 1)
             }
             .onDrag { NSItemProvider(object: PageTabDrag.payload(page: page.id, document: dragToken) as NSString) }
             .snapshotSafePageDrop(isSnapshot: isSnapshotRender, isTargeted: isTargeted(page.id)) { providers in drop(providers, onto: page.id) }
@@ -375,7 +375,7 @@ struct EditModeSwitch: View {
     @Bindable var state: DocumentState
 
     var body: some View {
-        Picker("Chế độ", selection: $state.editMode) {
+        Picker(bi("Chế độ", "Mode"), selection: $state.editMode) {
             Text(tr(.editModeSwitchView)).tag(false)
             Text(tr(.editModeSwitchEdit)).tag(true)
         }

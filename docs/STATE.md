@@ -55,7 +55,7 @@ Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.1
   - **Pane & Thanh đáy (Phase 7–8, T054–T065):** `Filters` thu gọn mặc định (31 pt), `Visualizations` 3 tab biểu tượng + lưới 6 cột 39 ô chuẩn Desktop + `BuildWells` nét đứt song ngữ + `Drill through`, `Format` Search + Visual/General, `Data` hai tab `Tables`/`Model` với cây `Semantic model` 9 nhóm; `PageTabs` (Desktop/Phone, ◂ ▸, tab chữ thường gạch chân teal, nút `+` vuông teal) và `WindowStatusBar` 23 pt hợp nhất cho cả 5 workspace.
   - **Khởi động, File Backstage, Options & View đặc thù (Phase 9–10, T066–T079):** `StartScreen` (6 thẻ + `RecentFilesList`), `BackstageView` (11 mục chuẩn Desktop), `OptionsDialog` (15 mục Global + 7 mục Current File), cập nhật `AddDataPanel` (26 pt, 4 thẻ pastel); bổ sung `ModelPropertiesPanel` (Cards: No/Yes/No), dải thông báo & màn hình Results trống cho DAX, `Problems (n)`/`Output` + hộp thoại giới thiệu lần đầu cho TMDL, tiêu đề cột có ` ▾` cho Table view.
   - **Hoàn thiện v1.3.0 & Cổng Desktop (Phase 11, T080–T087):** Rà song ngữ + VoiceOver toàn bề mặt (`RibbonBilingualTests`), rà Dark Mode 22 ảnh (`build/h-out/h6/dark/` — vá tương phản nút `Recent`, giới hạn độ rộng snapshot Ribbon rộng, song ngữ BuildWells & thanh công thức Table), ghi `docs/phase-ui-evidence/QUAN-SAT-H.md`, nâng bản `1.3.0` (`CFBundleVersion = 130`), kiểm bất biến byte `.pbix` (`RoundTripUnchangedTests` qua trên cả `SyntheticReport` và `Nhom6_work.pbix`), chuẩn bị sẵn bộ đối chiếu cổng Desktop tại `build/h-out/gate/CHECKLIST.md` + 22 ảnh `build/h-out/gate/bipro/`.
-  - **Kiểm chứng:** `swift build` đạt, **2 537/2 537** unit test xanh (100%), **119/119** golden nặng release xanh (100%), đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt (exit 0). **T086** (duyệt ảnh cạnh nhau & thử 10 lệnh trên Desktop/BI Pro) chờ con người xác nhận.
+  - **Kiểm chứng:** `swift build` đạt, **2 537/2 537** unit test xanh (100%), **119/119** golden nặng release xanh (100%), đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt (exit 0). **T086** đã duyệt 2026-11-23 (Claude, theo ủy quyền của người dùng): so 15 Ribbon cạnh ảnh Desktop (bố cục khớp; khác biệt chủ ý: màu tím chàm, nút Windows/cloud vô hiệu), bấm thử lệnh trên app thật; ngôn ngữ EN và Export thật chưa bấm.
 
 ## Quyết định đã chốt
 
@@ -79,6 +79,6 @@ Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.1
 
 ## Việc tiếp theo
 
-1. **Cổng con người Phase H (T086):** Mở `build/h-out/gate/CHECKLIST.md` đối chiếu 15 Ribbon + 7 màn hình BI Pro (`build/h-out/gate/bipro/`) với Desktop (`docs/phase-ui-evidence/vm-ui/`), thử 10 lệnh mẫu (SC-004, SC-005), rồi đánh dấu `[x]` T086.
+1. ~~Cổng con người Phase H (T086)~~ (đã duyệt 2026-11-23, xem trên). Bản gốc: Mở `build/h-out/gate/CHECKLIST.md` đối chiếu 15 Ribbon + 7 màn hình BI Pro (`build/h-out/gate/bipro/`) với Desktop (`docs/phase-ui-evidence/vm-ui/`), thử 10 lệnh mẫu (SC-004, SC-005), rồi đánh dấu `[x]` T086.
 2. **Git:** Phase H đã commit (chưa push; còn nhiều commit chưa đẩy).
 3. **Định hướng sau đó (tuỳ chọn):** đóng gói `.dmg`, thêm connector mới khi cần.

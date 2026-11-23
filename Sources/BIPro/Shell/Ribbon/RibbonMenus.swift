@@ -232,11 +232,13 @@ enum RibbonMenus {
     static func performPageView(_ entryID: String, state: DocumentState) {
         switch entryID {
         case "fitToPage":
+            state.fitsWidth = false
             state.zoom = nil
         case "fitToWidth":
-            // [SUY ĐOÁN] Khi chưa có cờ fit-width riêng, đặt mức thu phóng chuẩn 1.0 phù hợp chiều rộng khung.
-            state.zoom = 1.0
+            state.fitsWidth = true
+            state.zoom = nil
         case "actualSize":
+            state.fitsWidth = false
             state.zoom = 1.0
         default:
             break

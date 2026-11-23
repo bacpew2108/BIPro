@@ -1110,7 +1110,7 @@ struct CartesianChartView: View {
         if layout.isEmpty {
             ZStack {
                 Color.clear
-                Text("Không có dữ liệu")
+                Text(bi("Không có dữ liệu", "No data"))
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }

@@ -52,10 +52,13 @@ extension RibbonCatalog {
                         tint: .warning,
                         kind: .large,
                         hasMenu: true,
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ đổi thứ tự lớp z trực tiếp từ Ribbon",
-                            en: "Changing z-order from the Ribbon is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.canEditCanvasNow && $0.visualSelected },
+                            disabledReason: Bilingual(
+                                vi: "Chọn một visual ở chế độ Sửa (⌘E) để đổi thứ tự lớp",
+                                en: "Select a visual in Edit mode (⌘E) to change its layer order"
+                            )
+                        )
                     ),
                     RibbonItemSpec(
                         id: .sendBackward,
@@ -64,10 +67,13 @@ extension RibbonCatalog {
                         tint: .warning,
                         kind: .large,
                         hasMenu: true,
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ đổi thứ tự lớp z trực tiếp từ Ribbon",
-                            en: "Changing z-order from the Ribbon is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.canEditCanvasNow && $0.visualSelected },
+                            disabledReason: Bilingual(
+                                vi: "Chọn một visual ở chế độ Sửa (⌘E) để đổi thứ tự lớp",
+                                en: "Select a visual in Edit mode (⌘E) to change its layer order"
+                            )
+                        )
                     ),
                     RibbonItemSpec(
                         id: .selectionPane,

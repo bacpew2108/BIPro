@@ -336,8 +336,8 @@ enum RibbonReference {
                 RefItem("applyDrillFiltersTo", en: "Apply drill down filters to", kind: .field, avail: .pending),
             ]),
             RefGroup(en: "Arrange", items: [
-                RefItem("bringForward", en: "Bring forward", kind: .large, hasMenu: true, avail: .pending),
-                RefItem("sendBackward", en: "Send backward", kind: .large, hasMenu: true, avail: .pending),
+                RefItem("bringForward", en: "Bring forward", kind: .large, hasMenu: true, avail: .contextual),
+                RefItem("sendBackward", en: "Send backward", kind: .large, hasMenu: true, avail: .contextual),
                 RefItem("selectionPane", en: "Selection", kind: .toggle, avail: .always),
                 RefItem("align", en: "Align", kind: .large, hasMenu: true, avail: .contextual),
                 RefItem("group", en: "Group", kind: .large, hasMenu: true, avail: .contextual),

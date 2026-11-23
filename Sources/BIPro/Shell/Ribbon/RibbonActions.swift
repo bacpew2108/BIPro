@@ -29,7 +29,7 @@ enum RibbonActions {
              .pageView, .snapToGrid, .showFilters, .showBookmarks, .showSelection,
              .refreshVisuals,
              .about, .guidedLearning,
-             .editInteractions, .selectionPane, .align, .group,
+             .editInteractions, .selectionPane, .align, .group, .bringForward, .sendBackward,
              .visualTable, .expandNextLevel, .drillUp, .drillDown,
              .tableName, .columnName, .format, .currencyFormat, .percentFormat, .thousandsFormat, .decimalFormat,
              .summarization, .dataCategory, .sortByColumn,
@@ -49,7 +49,7 @@ enum RibbonActions {
              .trainingVideos, .documentation, .support,
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
              .examples, .consultingServices,
-             .applyDrillFiltersTo, .bringForward, .sendBackward,
+             .applyDrillFiltersTo,
              .dataPointTable, .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
              .dataType, .decimalPlaces, .dataGroups,
              .tmdlFormat, .find, .replace, .commandPalette:
@@ -193,6 +193,7 @@ enum RibbonActions {
 
         // MARK: View & Optimize
         case .pageView:
+            state.fitsWidth = false
             state.zoom = nil
             return .performed
 
@@ -232,6 +233,14 @@ enum RibbonActions {
 
         case .align:
             // Mở qua menu AlignCommand.
+            return .performed
+
+        case .bringForward:
+            state.reorder(.forward)
+            return .performed
+
+        case .sendBackward:
+            state.reorder(.backward)
             return .performed
 
         case .group:
@@ -309,7 +318,7 @@ enum RibbonActions {
              .trainingVideos, .documentation, .support,
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
              .examples, .consultingServices,
-             .applyDrillFiltersTo, .bringForward, .sendBackward,
+             .applyDrillFiltersTo,
              .dataPointTable, .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
              .dataType, .decimalPlaces, .dataGroups,
              .tmdlFormat, .find, .replace, .commandPalette:

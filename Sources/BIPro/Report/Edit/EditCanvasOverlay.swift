@@ -123,17 +123,17 @@ struct EditCanvasOverlay: View {
 
     /// Căn lề, phân bố, nhóm cho vùng chọn hiện tại (D7); mục không dùng được thì mờ, `Text` nêu lý do ở menu chính.
     @ViewBuilder private var arrangeMenu: some View {
-        Menu("Căn lề") {
+        Menu(bi("Căn lề", "Align")) {
             ForEach(AlignCommand.allCases, id: \.self) { command in
                 Button(command.title) { align(command) }
                     .disabled(editor.alignBlocker(command) != nil)
             }
         }
-        Button("Nhóm visual") { editor.group(); onSelectionChange() }
+        Button(bi("Nhóm visual", "Group")) { editor.group(); onSelectionChange() }
             .disabled(editor.groupBlocker() != nil)
-        Button("Bỏ nhóm") { editor.ungroup(); onSelectionChange() }
+        Button(bi("Bỏ nhóm", "Ungroup")) { editor.ungroup(); onSelectionChange() }
             .disabled(editor.ungroupBlocker() != nil)
-        Button("Gộp vào nhóm") { editor.mergeIntoGroup(); onSelectionChange() }
+        Button(bi("Gộp vào nhóm", "Merge into group")) { editor.mergeIntoGroup(); onSelectionChange() }
             .disabled(editor.mergeBlocker() != nil)
     }
 
