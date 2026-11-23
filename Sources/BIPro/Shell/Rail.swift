@@ -37,13 +37,13 @@ struct Rail: View {
                                 .padding(.horizontal, 3)
                                 .padding(.vertical, 2)
                             Rectangle()
-                                .fill(DS.Palette.accentTeal)
+                                .fill(DS.Palette.accentBrand)
                                 .frame(width: 3, height: 22)
                                 .clipShape(RoundedRectangle(cornerRadius: 1.5))
                         }
                         Image(systemName: mode.symbol)
                             .font(.system(size: 16, weight: selected ? .semibold : .regular))
-                            .foregroundStyle(selected ? DS.Palette.accentTeal : DS.Palette.secondaryLabel)
+                            .foregroundStyle(selected ? DS.Palette.accentBrand : DS.Palette.secondaryLabel)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .frame(width: UIMetrics.rail, height: UIMetrics.railIconHit)

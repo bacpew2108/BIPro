@@ -68,7 +68,7 @@ enum RibbonTabID: String, CaseIterable, Identifiable, Hashable, Sendable {
 /// Bảng màu hai tông cho biểu tượng SF Symbols (`.symbolRenderingMode(.palette)`).
 enum RibbonTint: Hashable, Sendable {
     case neutral
-    case teal
+    case brand
     case excel
     case sql
     case data
@@ -83,14 +83,14 @@ enum RibbonTint: Hashable, Sendable {
     var primary: Color {
         switch self {
         case .neutral: DS.Palette.label
-        case .teal: DS.Palette.accentTeal
+        case .brand: DS.Palette.accentBrand
         case .excel: Color.dynamic(light: 0x107C41, dark: 0x33A864)
         case .sql: Color.dynamic(light: 0xC86400, dark: 0xF5A623)
-        case .data: Color.dynamic(light: 0x117865, dark: 0x3FB59B)
+        case .data: Color.dynamic(light: 0x5B4BDB, dark: 0x9A8EFF)
         case .calculation: DS.Palette.measure
-        case .security: DS.Palette.accentTeal
+        case .security: DS.Palette.accentBrand
         case .copilot: DS.Palette.indigo
-        case .info: Color.dynamic(light: 0x0078D4, dark: 0x4EA8DE)
+        case .info: Color.dynamic(light: 0x5B4BDB, dark: 0x9A8EFF)
         case .warning: DS.Palette.warning
         case .indigo: DS.Palette.indigo
         case .danger: DS.Palette.danger
@@ -100,13 +100,13 @@ enum RibbonTint: Hashable, Sendable {
     var secondary: Color {
         switch self {
         case .neutral: DS.Palette.secondaryLabel
-        case .teal: DS.Palette.secondaryLabel
+        case .brand: DS.Palette.secondaryLabel
         case .excel: DS.Palette.secondaryLabel
         case .sql: DS.Palette.secondaryLabel
-        case .data: Color.dynamic(light: 0x2B7CD3, dark: 0x5AA7F5)
+        case .data: Color.dynamic(light: 0x6B7A99, dark: 0xA3AEC8)
         case .calculation: DS.Palette.secondaryLabel
-        case .security: Color.dynamic(light: 0x2B7CD3, dark: 0x5AA7F5)
-        case .copilot: DS.Palette.accentTeal
+        case .security: Color.dynamic(light: 0x6B7A99, dark: 0xA3AEC8)
+        case .copilot: DS.Palette.accentBrand
         case .info: DS.Palette.secondaryLabel
         case .warning: DS.Palette.secondaryLabel
         case .indigo: DS.Palette.secondaryLabel

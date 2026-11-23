@@ -16,7 +16,7 @@ extension RibbonCatalog {
                         id: .manageRelationships,
                         title: Bilingual(vi: "Quản lý quan hệ", en: "Manage relationships"),
                         symbol: "point.3.connected.trianglepath.dotted",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         availability: .when(
                             { $0.hasModel },
@@ -114,7 +114,7 @@ extension RibbonCatalog {
                         id: .markAsDateTable,
                         title: Bilingual(vi: "Đánh dấu bảng ngày", en: "Mark as date table"),
                         symbol: "calendar",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         availability: .when(
                             { $0.canEditModel && $0.tableSelected },

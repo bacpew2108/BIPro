@@ -9,7 +9,7 @@ extension UIParity {
 @Suite("UIParity — ShellLayout (US4)")
 @MainActor
 struct ShellLayoutTests {
-    @Test func shellMetricsAndAccentTealMatchContract() {
+    @Test func shellMetricsAndAccentBrandMatchContract() {
         // Kiểm số đo khung chuẩn ±2 pt
         #expect(abs(DS.Metrics.titleBar - UIMetrics.titleBar) <= 2)
         #expect(abs(DS.Metrics.rail - UIMetrics.rail) <= 2)
@@ -18,16 +18,16 @@ struct ShellLayoutTests {
         #expect(abs(DS.Metrics.statusBar - UIMetrics.statusBar) <= 2)
         #expect(abs(DS.Metrics.pageTabs - UIMetrics.pageTabs) <= 2)
 
-        // Kiểm màu nhấn `DS.Palette.accent` đã chuyển sang teal (#117865 sáng / #3FB59B tối)
+        // Kiểm màu nhấn `DS.Palette.accent` là tím chàm (#5B4BDB sáng / #9A8EFF tối)
         let lightApp = NSAppearance(named: .aqua)!
         var lightRGB: (CGFloat, CGFloat, CGFloat) = (0, 0, 0)
         lightApp.performAsCurrentDrawingAppearance {
             let ns = NSColor(DS.Palette.accent).usingColorSpace(.sRGB)!
             lightRGB = (ns.redComponent, ns.greenComponent, ns.blueComponent)
         }
-        #expect(abs(lightRGB.0 - (0x11 / 255.0)) <= 0.03)
-        #expect(abs(lightRGB.1 - (0x78 / 255.0)) <= 0.03)
-        #expect(abs(lightRGB.2 - (0x65 / 255.0)) <= 0.03)
+        #expect(abs(lightRGB.0 - (0x5B / 255.0)) <= 0.03)
+        #expect(abs(lightRGB.1 - (0x4B / 255.0)) <= 0.03)
+        #expect(abs(lightRGB.2 - (0xDB / 255.0)) <= 0.03)
     }
 
     @Test func railAlwaysHasFiveIconsAndShowsEmptyStateWithoutModel() throws {

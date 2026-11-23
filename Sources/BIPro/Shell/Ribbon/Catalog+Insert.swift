@@ -16,7 +16,7 @@ extension RibbonCatalog {
                         id: .newPage,
                         title: Bilingual(vi: "Trang mới", en: "New page"),
                         symbol: "doc.badge.plus",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         hasMenu: true,
                         availability: .when(

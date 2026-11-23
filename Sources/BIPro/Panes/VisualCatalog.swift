@@ -131,7 +131,7 @@ enum VisualCatalog {
 
 /// Display names for formatting objects and properties.
 enum FormatNames {
-    static func object(_ key: String) -> String {
+    @MainActor static func object(_ key: String) -> String {
         let names = [
             "categoryAxis": "Trục X", "valueAxis": "Trục Y", "legend": "Chú giải", "dataPoint": "Màu dữ liệu",
             "labels": "Nhãn dữ liệu", "categoryLabels": "Nhãn danh mục", "title": "Tiêu đề", "subTitle": "Tiêu đề phụ",
@@ -144,10 +144,25 @@ enum FormatNames {
             "selection": "Lựa chọn", "slider": "Thanh trượt", "date": "Ngày", "numericInputStyle": "Ô nhập số",
             "zoom": "Thanh thu phóng", "ySecondaryAxis": "Trục Y phụ", "lineStyle": "Kiểu đường", "markers": "Điểm đánh dấu",
         ]
+        if AppPreferences.shared.effectiveLanguage == .en {
+            let en = [
+                "categoryAxis": "X axis", "valueAxis": "Y axis", "legend": "Legend", "dataPoint": "Data colors",
+                "labels": "Data labels", "categoryLabels": "Category labels", "title": "Title", "subTitle": "Subtitle",
+                "background": "Background", "border": "Border", "padding": "Padding", "dropShadow": "Shadow",
+                "visualHeader": "Visual header", "visualLink": "Action", "general": "General", "data": "Data",
+                "header": "Slicer header", "items": "Items", "fill": "Fill", "outline": "Outline", "text": "Text",
+                "icon": "Icon", "shape": "Shape", "imageScaling": "Image scaling", "lineStyles": "Line styles",
+                "plotArea": "Plot area", "gridlines": "Gridlines", "columnHeaders": "Column headers", "values": "Values",
+                "total": "Totals", "grid": "Grid", "stylePreset": "Style presets", "visualTooltip": "Tooltips",
+                "selection": "Selection", "slider": "Slider", "date": "Date", "numericInputStyle": "Numeric input",
+                "zoom": "Zoom slider", "ySecondaryAxis": "Secondary Y axis", "lineStyle": "Line style", "markers": "Markers",
+            ]
+            return en[key] ?? humanize(key)
+        }
         return names[key] ?? humanize(key)
     }
 
-    static func property(_ key: String) -> String {
+    @MainActor static func property(_ key: String) -> String {
         let names = [
             "fontSize": "Cỡ chữ", "fontFamily": "Phông chữ", "fontColor": "Màu chữ", "color": "Màu", "bold": "Đậm",
             "italic": "Nghiêng", "transparency": "Độ trong suốt", "text": "Nội dung", "alignment": "Căn lề",
@@ -158,6 +173,19 @@ enum FormatNames {
             "verticalAlignment": "Căn dọc", "horizontalAlignment": "Căn ngang", "textSize": "Cỡ chữ",
             "showAxisTitle": "Tiêu đề trục", "labelColor": "Màu nhãn", "titleText": "Tiêu đề", "start": "Bắt đầu", "end": "Kết thúc",
         ]
+        if AppPreferences.shared.effectiveLanguage == .en {
+            let en = [
+                "fontSize": "Text size", "fontFamily": "Font", "fontColor": "Font color", "color": "Color", "bold": "Bold",
+                "italic": "Italic", "transparency": "Transparency", "text": "Text", "alignment": "Alignment",
+                "labelDisplayUnits": "Display units", "labelPrecision": "Value decimal places", "position": "Position",
+                "radius": "Rounded corners", "width": "Width", "top": "Top", "bottom": "Bottom", "left": "Left", "right": "Right",
+                "fill": "Fill color", "fillColor": "Fill color", "lineColor": "Line color", "weight": "Weight", "mode": "Style",
+                "type": "Type", "imageUrl": "Image", "imageScalingType": "Scaling",
+                "verticalAlignment": "Vertical alignment", "horizontalAlignment": "Horizontal alignment", "textSize": "Text size",
+                "showAxisTitle": "Axis title", "labelColor": "Label color", "titleText": "Title text", "start": "Start", "end": "End",
+            ]
+            if let v = en[key] { return v }
+        }
         return names[key] ?? humanize(key)
     }
 

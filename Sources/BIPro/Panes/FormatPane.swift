@@ -123,7 +123,7 @@ struct FormatPane: View {
                 .padding(.vertical, 5)
                 .overlay(alignment: .bottom) {
                     if active {
-                        Rectangle().fill(DS.Palette.accentTeal).frame(height: 2)
+                        Rectangle().fill(DS.Palette.accentBrand).frame(height: 2)
                     }
                 }
         }

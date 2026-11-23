@@ -16,7 +16,7 @@ extension RibbonCatalog {
                         id: .themeGallery6,
                         title: Bilingual(vi: "Chủ đề", en: "Themes"),
                         symbol: "paintpalette",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .gallery(.themes6),
                         hasMenu: true,
                         availability: .always,
@@ -44,7 +44,7 @@ extension RibbonCatalog {
                                 id: .customizeTheme,
                                 title: Bilingual(vi: "Tuỳ chỉnh chủ đề", en: "Customize theme"),
                                 symbol: "slider.horizontal.3",
-                                tint: .teal,
+                                tint: .brand,
                                 kind: .large,
                                 availability: .pending(Bilingual(
                                     vi: "BI Pro chưa hỗ trợ hộp thoại tuỳ chỉnh chủ đề trực quan",
@@ -66,7 +66,7 @@ extension RibbonCatalog {
                                 id: .importTheme,
                                 title: Bilingual(vi: "Nhập chủ đề", en: "Import theme"),
                                 symbol: "square.and.arrow.up",
-                                tint: .teal,
+                                tint: .brand,
                                 kind: .large,
                                 availability: .always
                             ),

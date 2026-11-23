@@ -4,14 +4,14 @@ import SwiftUI
 /// Design tokens from `UIdesign/lumen_analytics_design_system/DESIGN.md` (macOS 15 Sequoia dynamic Light/Dark palette).
 enum DS {
     enum Palette {
-        static let accent = Color.dynamic(light: 0x117865, dark: 0x3FB59B)
-        static let accentHover = Color.dynamic(light: 0x0E6655, dark: 0x4EC7AD)
-        static let accentPressed = Color.dynamic(light: 0x0B5647, dark: 0x35A088)
-        /// Token màu nhấn xanh lục teal Power BI Desktop (Phase H).
-        static let accentTeal = Color.dynamic(light: 0x117865, dark: 0x3FB59B)
-        static let accentTealPressed = Color.dynamic(light: 0x0E6655, dark: 0x35A088)
+        static let accent = Color.dynamic(light: 0x5B4BDB, dark: 0x9A8EFF)
+        static let accentHover = Color.dynamic(light: 0x4F40C4, dark: 0xB0A6FF)
+        static let accentPressed = Color.dynamic(light: 0x4435A8, dark: 0x8478F0)
+        /// Token màu nhấn tím chàm riêng của BI Pro (Phase H).
+        static let accentBrand = Color.dynamic(light: 0x5B4BDB, dark: 0x9A8EFF)
+        static let accentBrandPressed = Color.dynamic(light: 0x4F40C4, dark: 0x8478F0)
         static let canvasWell = Color.dynamic(light: 0xE6E6E6, dark: 0x1C1C1E)
-        static let tabUnderline = Color.dynamic(light: 0x117865, dark: 0x3FB59B)
+        static let tabUnderline = Color.dynamic(light: 0x5B4BDB, dark: 0x9A8EFF)
         static let indigo = Color(hex: "#5E5CE6")!
 
         /// Vùng nền dưới trang báo cáo (`backdrop` = `canvasWell`).
@@ -37,7 +37,7 @@ enum DS {
         static let tertiaryLabel = Color.dynamic(light: 0x8E8E93, dark: 0x9A9AA0)
         static let controlFill = Color.dynamic(light: 0x767680, lightAlpha: 0.12, dark: 0x767680, darkAlpha: 0.26)
         static let searchFill = Color.dynamic(light: 0x767680, lightAlpha: 0.08, dark: 0x8E8E93, darkAlpha: 0.22)
-        static let selectionSoft = Color.dynamic(light: 0x117865, lightAlpha: 0.12, dark: 0x3FB59B, darkAlpha: 0.22)
+        static let selectionSoft = Color.dynamic(light: 0x5B4BDB, lightAlpha: 0.12, dark: 0x9A8EFF, darkAlpha: 0.22)
         static let success = Color(hex: "#34C759")!
         static let warning = Color(hex: "#FF9F0A")!
         static let danger = Color(hex: "#FF453A")!

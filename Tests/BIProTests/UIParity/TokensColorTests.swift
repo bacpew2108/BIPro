@@ -37,15 +37,15 @@ struct TokensColorTests {
         #expect(abs(luminance(actual) - luminance(target)) <= 0.03)
     }
 
-    @Test func newTealAndCanvasWellTokensMatchContractLightAndDark() {
-        assertMatchesHex(DS.Palette.accentTeal, dark: false, hex: 0x117865)
-        assertMatchesHex(DS.Palette.accentTeal, dark: true, hex: 0x3FB59B)
-        assertMatchesHex(DS.Palette.accentTealPressed, dark: false, hex: 0x0E6655)
-        assertMatchesHex(DS.Palette.accentTealPressed, dark: true, hex: 0x35A088)
+    @Test func newAccentAndCanvasWellTokensMatchContractLightAndDark() {
+        assertMatchesHex(DS.Palette.accentBrand, dark: false, hex: 0x5B4BDB)
+        assertMatchesHex(DS.Palette.accentBrand, dark: true, hex: 0x9A8EFF)
+        assertMatchesHex(DS.Palette.accentBrandPressed, dark: false, hex: 0x4F40C4)
+        assertMatchesHex(DS.Palette.accentBrandPressed, dark: true, hex: 0x8478F0)
         assertMatchesHex(DS.Palette.canvasWell, dark: false, hex: 0xE6E6E6)
         assertMatchesHex(DS.Palette.canvasWell, dark: true, hex: 0x1C1C1E)
-        assertMatchesHex(DS.Palette.tabUnderline, dark: false, hex: 0x117865)
-        assertMatchesHex(DS.Palette.tabUnderline, dark: true, hex: 0x3FB59B)
+        assertMatchesHex(DS.Palette.tabUnderline, dark: false, hex: 0x5B4BDB)
+        assertMatchesHex(DS.Palette.tabUnderline, dark: true, hex: 0x9A8EFF)
     }
 
     @Test func chartSeriesColorsUnchangedFromV12() {

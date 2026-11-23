@@ -20,6 +20,8 @@ struct RibbonMenuButton<Label: View, MenuContent: View>: View {
     let disabled: Bool
     let help: String
     let accessibilityLabel: String
+    /// `true`: nút giãn hết bề ngang (ô thả trường ở pane Filters) thay vì co theo nội dung.
+    var expands: Bool = false
     @ViewBuilder let menuContent: () -> MenuContent
     @ViewBuilder let label: () -> Label
 
@@ -38,7 +40,8 @@ struct RibbonMenuButton<Label: View, MenuContent: View>: View {
             .menuStyle(.button)
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
-            .fixedSize()
+            .fixedSize(horizontal: !expands, vertical: true)
+            .frame(maxWidth: expands ? .infinity : nil)
             .help(help)
             .accessibilityLabel(accessibilityLabel)
         }
@@ -358,11 +361,11 @@ struct RibbonItemView: View {
         .frame(minWidth: 44, minHeight: 68, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 4)
-                .fill(isOn ? DS.Palette.accentTeal.opacity(0.14) : .clear)
+                .fill(isOn ? DS.Palette.accentBrand.opacity(0.14) : .clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(isOn ? DS.Palette.accentTeal.opacity(0.4) : .clear, lineWidth: 0.75)
+                .strokeBorder(isOn ? DS.Palette.accentBrand.opacity(0.4) : .clear, lineWidth: 0.75)
         )
         .contentShape(Rectangle())
     }
@@ -434,7 +437,7 @@ struct RibbonItemView: View {
             .frame(height: 20, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 3.5)
-                    .fill(isOn ? DS.Palette.accentTeal.opacity(0.14) : .clear)
+                    .fill(isOn ? DS.Palette.accentBrand.opacity(0.14) : .clear)
             )
             .contentShape(Rectangle())
         }
@@ -459,7 +462,7 @@ struct RibbonItemView: View {
         } label: {
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(checked ? DS.Palette.accentTeal : DS.Palette.canvas)
+                    .fill(checked ? DS.Palette.accentBrand : DS.Palette.canvas)
                     .overlay(
                         RoundedRectangle(cornerRadius: 3)
                             .strokeBorder(checked ? Color.clear : DS.Palette.checkboxBorder, lineWidth: 1)
@@ -541,7 +544,7 @@ struct MoreVisualsPopoverView: View {
                             VStack(spacing: 4) {
                                 Image(systemName: entry.symbol)
                                     .symbolRenderingMode(.palette)
-                                    .foregroundStyle(DS.Palette.accentTeal, DS.Palette.secondaryLabel)
+                                    .foregroundStyle(DS.Palette.accentBrand, DS.Palette.secondaryLabel)
                                     .font(.system(size: 16))
                                     .frame(height: 20)
                                 Text(entry.name)

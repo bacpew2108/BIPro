@@ -44,7 +44,7 @@ struct ThemeSwatchCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(
             RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(active ? DS.Palette.accentTeal : DS.Palette.separator, lineWidth: active ? 2 : 0.8)
+                .strokeBorder(active ? DS.Palette.accentBrand : DS.Palette.separator, lineWidth: active ? 2 : 0.8)
         )
     }
 }
@@ -152,7 +152,7 @@ struct ThemePickerPopover: View {
 
             // Power BI (9 ô lưới 4 cột)
             VStack(alignment: .leading, spacing: 6) {
-                Text("Power BI")
+                Text(bi("Có sẵn", "Built-in"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(DS.Palette.label)
                 LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 8) {

@@ -690,10 +690,10 @@ struct RibbonColumnQuickFormatRow: View {
                     Image(systemName: "chevron.down").font(.system(size: 7))
                 }
             }
-            .foregroundStyle(active ? DS.Palette.accentTeal : DS.Palette.label)
+            .foregroundStyle(active ? DS.Palette.accentBrand : DS.Palette.label)
             .padding(.horizontal, 6)
             .frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: 4).fill(active ? DS.Palette.accentTeal.opacity(0.14) : DS.Palette.chrome))
+            .background(RoundedRectangle(cornerRadius: 4).fill(active ? DS.Palette.accentBrand.opacity(0.14) : DS.Palette.chrome))
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

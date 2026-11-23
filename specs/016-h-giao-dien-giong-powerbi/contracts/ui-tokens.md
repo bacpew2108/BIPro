@@ -25,7 +25,7 @@ Pane Visualizations/Data rộng 181 pt có thể chật cho cây bảng của BI
 
 | Token | Sáng | Tối | Dùng cho |
 |---|---|---|---|
-| `accent` | `#117865` | `#3FB59B` | gạch chân tab, vạch rail, nút Share, `+` thêm trang, công tắc On, liên kết, chọn |
+| `accent` | `#5B4BDB` (đổi 2026-11-23, trước là teal `#117865`) | `#9A8EFF` | gạch chân tab, vạch rail, nút Share, `+` thêm trang, công tắc On, liên kết, chọn |
 | `accentPressed` | `#0E6655` | `#35A088` | trạng thái nhấn |
 | `chrome` | `#F5F5F5` | giữ `#242426` | tiêu đề, hàng tab, rail, pane Data, thanh trạng thái |
 | `ribbonPanel` | `#FFFFFF` | giữ `#2C2C2E` | nền panel Ribbon (= `canvas`) |

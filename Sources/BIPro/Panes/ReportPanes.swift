@@ -126,7 +126,7 @@ struct AddFieldMenu: View {
 
     var body: some View {
         let tip = bi("Chọn hoặc kéo-thả cột từ pane Dữ liệu để thêm bộ lọc", "Pick or drag a column from the Data pane to add a filter")
-        RibbonMenuButton(disabled: false, help: tip, accessibilityLabel: bi("Thêm field dữ liệu vào đây", "Add data fields here")) {
+        RibbonMenuButton(disabled: false, help: tip, accessibilityLabel: bi("Thêm field dữ liệu vào đây", "Add data fields here"), expands: true) {
             ForEach(interaction.filterableColumns(), id: \.table) { entry in
                 Menu(entry.table) {
                     ForEach(entry.columns, id: \.self) { name in
@@ -365,11 +365,11 @@ struct VisualizationsPane: View {
         return Button { state.visualizationsTab = tab } label: {
             Image(systemName: symbol)
                 .font(.system(size: 13.5, weight: active ? .semibold : .regular))
-                .foregroundStyle(active ? DS.Palette.accentTeal : DS.Palette.secondaryLabel)
+                .foregroundStyle(active ? DS.Palette.accentBrand : DS.Palette.secondaryLabel)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
                     if active {
-                        Rectangle().fill(DS.Palette.accentTeal).frame(height: 2)
+                        Rectangle().fill(DS.Palette.accentBrand).frame(height: 2)
                     }
                 }
                 .contentShape(Rectangle())
@@ -420,7 +420,7 @@ struct VisualizationsPane: View {
                 .font(.system(size: 11.5))
                 .foregroundStyle(selected ? Color.white : (supported ? DS.Palette.label : DS.Palette.tertiaryLabel))
                 .frame(width: 24, height: 24)
-                .background(RoundedRectangle(cornerRadius: 4).fill(selected ? DS.Palette.accentTeal : DS.Palette.canvas))
+                .background(RoundedRectangle(cornerRadius: 4).fill(selected ? DS.Palette.accentBrand : DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Color.clear : DS.Palette.separator.opacity(0.8), lineWidth: 0.75))
                 .opacity(supported ? (enabled || selected ? 1 : 0.7) : 0.42)
                 .contentShape(Rectangle())

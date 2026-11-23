@@ -206,7 +206,7 @@ struct ModelWorkspace: View {
                         .background(selected ? DS.Palette.canvas : .clear)
                         .overlay(alignment: .bottom) {
                             if selected {
-                                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+                                Rectangle().fill(DS.Palette.accentBrand).frame(height: 2.5)
                             }
                         }
                         .contentShape(Rectangle())
@@ -224,7 +224,7 @@ struct ModelWorkspace: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(state.workspace.diagramLayout != nil ? DS.Palette.accentTeal : DS.Palette.tertiaryLabel.opacity(0.45)))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(state.workspace.diagramLayout != nil ? DS.Palette.accentBrand : DS.Palette.tertiaryLabel.opacity(0.45)))
             }
             .buttonStyle(.plain)
             .padding(.leading, 4)

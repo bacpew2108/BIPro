@@ -71,7 +71,7 @@ extension RibbonCatalog {
                         id: .comment,
                         title: Bilingual(vi: "Chú thích", en: "Comment"),
                         symbol: "text.quote",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         availability: .when(
                             { $0.hasActiveDAXQuery },
@@ -192,7 +192,7 @@ extension RibbonCatalog {
                                 id: .copy,
                                 title: Bilingual(vi: "Sao chép", en: "Copy"),
                                 symbol: "doc.on.doc",
-                                tint: .teal,
+                                tint: .brand,
                                 kind: .large,
                                 availability: .when(
                                     { $0.hasTMDLDocument },

@@ -79,7 +79,7 @@ struct BackstageView: View {
             Button { state.showBackstage = false } label: {
                 Image(systemName: "arrow.left.circle")
                     .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(DS.Palette.accentTeal)
+                    .foregroundStyle(DS.Palette.accentBrand)
                     .frame(width: 34, height: 34)
                     .contentShape(Rectangle())
             }
@@ -104,7 +104,7 @@ struct BackstageView: View {
             }
         }
         .padding(.bottom, 14)
-        .frame(width: 184)
+        .frame(width: 216)
         .frame(maxHeight: .infinity)
         .background(DS.Palette.chrome)
         .hairline(.trailing)
@@ -117,12 +117,12 @@ struct BackstageView: View {
                 if let symbol = item.symbol {
                     Image(systemName: symbol)
                         .font(.system(size: 13))
-                        .foregroundStyle(selected ? DS.Palette.accentTeal : DS.Palette.secondaryLabel)
+                        .foregroundStyle(selected ? DS.Palette.accentBrand : DS.Palette.secondaryLabel)
                         .frame(width: 18)
                 }
                 Text(item.title.localized)
                     .font(.system(size: 12.5, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(item.isSupported ? (selected ? DS.Palette.accentTeal : DS.Palette.label) : DS.Palette.tertiaryLabel)
+                    .foregroundStyle(item.isSupported ? (selected ? DS.Palette.accentBrand : DS.Palette.label) : DS.Palette.tertiaryLabel)
                     .lineLimit(1)
                 Spacer()
             }
@@ -132,7 +132,7 @@ struct BackstageView: View {
             .background(selected ? DS.Palette.selectionSoft : .clear)
             .overlay(alignment: .leading) {
                 if selected {
-                    Rectangle().fill(DS.Palette.accentTeal).frame(width: 3, height: 22)
+                    Rectangle().fill(DS.Palette.accentBrand).frame(width: 3, height: 22)
                 }
             }
             .contentShape(Rectangle())
@@ -283,7 +283,7 @@ struct BackstageView: View {
             if let exportNotice {
                 Text(exportNotice)
                     .font(DS.Typeface.bodySmall)
-                    .foregroundStyle(DS.Palette.accentTeal)
+                    .foregroundStyle(DS.Palette.accentBrand)
             }
         }
     }
@@ -293,7 +293,7 @@ struct BackstageView: View {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
                     .font(.system(size: 20))
-                    .foregroundStyle(disabled ? DS.Palette.tertiaryLabel : DS.Palette.accentTeal)
+                    .foregroundStyle(disabled ? DS.Palette.tertiaryLabel : DS.Palette.accentBrand)
                     .frame(width: 32)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)

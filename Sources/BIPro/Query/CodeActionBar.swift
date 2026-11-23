@@ -101,7 +101,7 @@ struct DAXEmptyResultsIllustration: View {
 }
 
 /// Hàng nút thao tác phía trên trình soạn thảo DAX (`v_dax_1.png`, T041):
-/// **Run** (nút màu nhấn teal, nối `runDAXQuery`/`cancelDAXQuery`) + **Update model with changes (n)** (nối `prepareDAXUpdateModel`).
+/// **Run** (nút màu nhấn tím chàm, nối `runDAXQuery`/`cancelDAXQuery`) + **Update model with changes (n)** (nối `prepareDAXUpdateModel`).
 struct DAXCodeActionBar: View {
     @Bindable var state: DocumentState
 
@@ -143,7 +143,7 @@ struct DAXCodeActionBar: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .frame(height: 26)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(DS.Palette.accentTeal))
+                    .background(RoundedRectangle(cornerRadius: 4).fill(DS.Palette.accentBrand))
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.return, modifiers: .command)
@@ -208,7 +208,7 @@ struct TMDLCodeActionBar: View {
                     .foregroundStyle(canApply ? .white : DS.Palette.secondaryLabel)
                     .padding(.horizontal, 10)
                     .frame(height: 26)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(canApply ? DS.Palette.accentTeal : DS.Palette.chrome))
+                    .background(RoundedRectangle(cornerRadius: 4).fill(canApply ? DS.Palette.accentBrand : DS.Palette.chrome))
                     .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(canApply ? Color.clear : DS.Palette.separator, lineWidth: 0.75))
             }
             .buttonStyle(.plain)

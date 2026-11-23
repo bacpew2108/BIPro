@@ -184,7 +184,7 @@ extension RibbonCatalog {
                                 id: .switchToNextLevel,
                                 title: Bilingual(vi: "Chuyển sang cấp kế tiếp", en: "Switch to next level"),
                                 symbol: "arrow.down.to.line.compact",
-                                tint: .teal,
+                                tint: .brand,
                                 kind: .large,
                                 availability: .pending(Bilingual(
                                     vi: "BI Pro chưa hỗ trợ chuyển cấp độc lập (dùng Mở rộng cấp)",
@@ -195,7 +195,7 @@ extension RibbonCatalog {
                                 id: .expandNextLevel,
                                 title: Bilingual(vi: "Mở rộng cấp kế tiếp", en: "Expand next level"),
                                 symbol: "arrow.down.right.and.arrow.up.left",
-                                tint: .teal,
+                                tint: .brand,
                                 kind: .large,
                                 availability: .when(
                                     { $0.canDrillDown },

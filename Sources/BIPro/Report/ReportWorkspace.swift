@@ -138,7 +138,7 @@ struct ReportWorkspace: View {
 }
 
 /// Thanh tab trang phía dưới canvas theo Power BI Desktop 2.159 (`UIMetrics.pageTabs` = 35 pt):
-/// Desktop / Phone (vô hiệu) · ◂ ▸ · các tab trang (chữ thường, nền trắng + gạch chân `accentTeal` khi chọn, mắt gạch khi ẩn) · nút `+` vuông `accentTeal`.
+/// Desktop / Phone (vô hiệu) · ◂ ▸ · các tab trang (chữ thường, nền trắng + gạch chân `accentBrand` khi chọn, mắt gạch khi ẩn) · nút `+` vuông `accentBrand`.
 struct PageTabs: View {
     @Bindable var state: DocumentState
     let scale: Double
@@ -165,10 +165,10 @@ struct PageTabs: View {
             HStack(spacing: 2) {
                 Image(systemName: "desktopcomputer")
                     .font(.system(size: 12.5))
-                    .foregroundStyle(DS.Palette.accentTeal)
+                    .foregroundStyle(DS.Palette.accentBrand)
                     .frame(width: 28, height: UIMetrics.pageTabs)
                     .overlay(alignment: .bottom) {
-                        Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+                        Rectangle().fill(DS.Palette.accentBrand).frame(height: 2.5)
                     }
                     .help(bi("Bố cục máy tính", "Desktop layout"))
                     .accessibilityLabel(bi("Bố cục máy tính", "Desktop layout"))
@@ -269,7 +269,7 @@ struct PageTabs: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(blocker == nil ? DS.Palette.accentTeal : DS.Palette.tertiaryLabel.opacity(0.45)))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(blocker == nil ? DS.Palette.accentBrand : DS.Palette.tertiaryLabel.opacity(0.45)))
             }
             .buttonStyle(.plain)
             .padding(.leading, 6)
@@ -300,7 +300,7 @@ struct PageTabs: View {
         .background(fill)
         .overlay(alignment: .bottom) {
             if selected {
-                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+                Rectangle().fill(DS.Palette.accentBrand).frame(height: 2.5)
             }
         }
         .overlay(alignment: .trailing) {

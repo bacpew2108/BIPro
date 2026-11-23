@@ -70,7 +70,7 @@ extension RibbonCatalog {
                         id: .snapToGrid,
                         title: Bilingual(vi: "Bám lưới", en: "Snap to grid"),
                         symbol: "square.grid.3x3",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .checkbox,
                         availability: .always
                     ),
@@ -132,7 +132,7 @@ extension RibbonCatalog {
                         id: .syncSlicers,
                         title: Bilingual(vi: "Đồng bộ slicer", en: "Sync slicers"),
                         symbol: "arrow.triangle.2.circlepath",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         availability: .pending(Bilingual(
                             vi: "BI Pro chưa hỗ trợ ngăn Sync slicers",
@@ -170,7 +170,7 @@ extension RibbonCatalog {
                         id: .refreshVisuals,
                         title: Bilingual(vi: "Làm mới visual", en: "Refresh visuals"),
                         symbol: "arrow.clockwise.circle",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         availability: .always
                     ),

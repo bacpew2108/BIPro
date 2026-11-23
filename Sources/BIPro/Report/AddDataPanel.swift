@@ -60,7 +60,7 @@ struct AddDataPanel: View {
             Button(bi("Lấy dữ liệu từ nguồn khác →", "Get data from another source →")) { Self.perform(.otherSource, on: state) }
                 .buttonStyle(.plain)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Palette.accentTeal)
+                .foregroundStyle(DS.Palette.accentBrand)
                 .padding(.top, 6)
         }
         .padding(28)

@@ -117,7 +117,7 @@ extension RibbonCatalog {
                         id: .oneLakeCatalog,
                         title: Bilingual(vi: "Danh mục OneLake", en: "OneLake catalog"),
                         symbol: "externaldrive.connected.to.line.below",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         hasMenu: true,
                         availability: .unsupported(Bilingual(
@@ -143,7 +143,7 @@ extension RibbonCatalog {
                         id: .enterData,
                         title: Bilingual(vi: "Nhập dữ liệu", en: "Enter data"),
                         symbol: "square.and.pencil",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         availability: .when(
                             { $0.hasModel },
@@ -203,7 +203,7 @@ extension RibbonCatalog {
                         id: .refresh,
                         title: Bilingual(vi: "Làm mới", en: "Refresh"),
                         symbol: "arrow.clockwise",
-                        tint: .teal,
+                        tint: .brand,
                         kind: .large,
                         hasMenu: true,
                         availability: .when(

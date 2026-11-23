@@ -62,7 +62,7 @@ an toàn.
 
 - Tên app là **BI Pro**. Định dạng tài liệu là **`.pbix`**: phải mở được và, theo tầng T1/T2/T3,
 lưu được.
-- Giao diện tiếng Việt (có bản tiếng Anh). Từ v1.3 (Phase H) màu nhấn là xanh lục teal `#117865` như Power BI Desktop, thay cho `#0A84FF`; các màu nền và chữ vẫn theo palette động của macOS.
+- Giao diện tiếng Việt (có bản tiếng Anh). Từ v1.3 (Phase H) màu nhấn là tím chàm riêng của BI Pro `#5B4BDB` (Dark `#9A8EFF`), thay cho `#0A84FF`; không dùng màu nhấn teal/vàng của Power BI để tránh nhầm nhận diện thương hiệu; các màu nền và chữ vẫn theo palette động của macOS.
 - Thứ tự: bản xem có số liệu trước (A → W → B → C), sau đó tới authoring (D, E), Power Query (F)
 và hoàn thiện (G).
 - Chưa làm AI hay Copilot. Từ v1.3 các nút này (và các nút Windows/cloud khác của Power BI Desktop) hiện đúng vị trí ở trạng thái vô hiệu kèm tooltip, không ẩn.
@@ -97,4 +97,4 @@ chi tiết. Nếu hai bên mâu thuẫn, `CLAUDE.md` thắng, và constitution p
 - `/speckit-plan` (Constitution Check), `/speckit-analyze` và review của lead PHẢI kiểm sự tuân
 thủ. Vi phạm phải được ghi rõ lý do trong plan, hoặc phải sửa.
 
-**Version**: 1.2.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-21 (1.2.0: màu nhấn teal và nút AI/cloud hiện vô hiệu cho Phase H, theo Q1/Q4 trong `docs/PHASE_H_UI_PARITY.md`; người dùng duyệt 2026-11-21. 1.1.0: cho phép agent lái VM khi người dùng cho phép theo phase/đợt; duyệt 2026-11-17)
+**Version**: 1.2.0 | **Ratified**: 2026-11-03 | **Last Amended**: 2026-11-21 (1.2.0 (cập nhật 2026-11-23: màu nhấn tím chàm `#5B4BDB` theo yêu cầu người dùng, tránh giống Power BI): màu nhấn và nút AI/cloud hiện vô hiệu cho Phase H, theo Q1/Q4 trong `docs/PHASE_H_UI_PARITY.md`; người dùng duyệt 2026-11-21. 1.1.0: cho phép agent lái VM khi người dùng cho phép theo phase/đợt; duyệt 2026-11-17)

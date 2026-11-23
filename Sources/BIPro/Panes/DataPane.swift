@@ -163,7 +163,7 @@ struct DataPane: View {
                     .font(DS.Typeface.bodySmall.weight(active ? .semibold : .regular))
                     .foregroundStyle(active ? DS.Palette.label : DS.Palette.secondaryLabel)
                 Rectangle()
-                    .fill(active ? DS.Palette.accentTeal : Color.clear)
+                    .fill(active ? DS.Palette.accentBrand : Color.clear)
                     .frame(height: 2)
             }
         }

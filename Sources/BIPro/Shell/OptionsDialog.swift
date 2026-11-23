@@ -78,7 +78,7 @@ struct OptionsDialog: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Footer: OK (accentTeal) + Cancel
+            // Footer: OK (accentBrand) + Cancel
             HStack(spacing: 10) {
                 if let message {
                     Text(message)
@@ -121,7 +121,7 @@ struct OptionsDialog: View {
                 }
             }
         }
-        .frame(width: 232)
+        .frame(width: 252)
         .background(DS.Palette.chrome)
         .hairline(.trailing)
     }
@@ -292,11 +292,11 @@ struct OptionsDialog: View {
     private func radioRow(_ title: String, selected: Bool) -> some View {
         HStack(spacing: 8) {
             Circle()
-                .strokeBorder(selected ? DS.Palette.accentTeal : DS.Palette.checkboxBorder, lineWidth: 1.5)
+                .strokeBorder(selected ? DS.Palette.accentBrand : DS.Palette.checkboxBorder, lineWidth: 1.5)
                 .frame(width: 14, height: 14)
                 .overlay {
                     if selected {
-                        Circle().fill(DS.Palette.accentTeal).frame(width: 7, height: 7)
+                        Circle().fill(DS.Palette.accentBrand).frame(width: 7, height: 7)
                     }
                 }
             Text(title)

@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Thanh Ribbon mới chuẩn Power BI Desktop 2.159 (T019):
-/// - Hàng tab chữ thường 13 pt, tab chọn đậm + gạch chân `UIMetrics.tabUnderline` màu `accentTeal`
-/// - Tab ngữ cảnh chữ `accentTeal`, không vạch phân cách
+/// - Hàng tab chữ thường 13 pt, tab chọn đậm + gạch chân `UIMetrics.tabUnderline` màu `accentBrand`
+/// - Tab ngữ cảnh chữ `accentBrand`, không vạch phân cách
 /// - Nút Share neo phải ở trạng thái vô hiệu kèm tooltip
 /// - Panel trắng/canvas nổi trên chrome, bo `UIMetrics.ribbonCorner`, cao `UIMetrics.ribbonPanel`, cuộn ngang khi hẹp, nút `^` thu gọn lưu `AppPreferences.ribbonCollapsed`
 struct RibbonView: View {
@@ -87,7 +87,7 @@ struct RibbonView: View {
 
     private func tabTextColor(tab: RibbonTab, selected: Bool) -> Color {
         if tab.isContextual {
-            return DS.Palette.accentTeal
+            return DS.Palette.accentBrand
         }
         return selected ? DS.Palette.label : DS.Palette.secondaryLabel
     }
@@ -105,7 +105,7 @@ struct RibbonView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: 4).fill(DS.Palette.accentTeal))
+            .background(RoundedRectangle(cornerRadius: 4).fill(DS.Palette.accentBrand))
         }
         .buttonStyle(.plain)
         .disabled(true)

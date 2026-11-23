@@ -23,7 +23,7 @@ struct StartEntry: Identifiable, Equatable {
             id: "oneLake",
             title: Bilingual(vi: "Danh mục OneLake", en: "OneLake catalog"),
             symbol: "externaldrive.connected.to.line.below",
-            tintHex: "#117865",
+            tintHex: "#5B4BDB",
             isSupported: false,
             disabledReason: Bilingual(
                 vi: "OneLake catalog yêu cầu đăng nhập Microsoft Fabric, chưa hỗ trợ trên BI Pro.",
@@ -61,7 +61,7 @@ struct StartEntry: Identifiable, Equatable {
             id: "otherSources",
             title: Bilingual(vi: "Lấy dữ liệu từ nguồn khác", en: "Get data from other sources"),
             symbol: "cylinder.split.1x2",
-            tintHex: "#117865",
+            tintHex: "#5B4BDB",
             isSupported: true,
             disabledReason: nil
         ),
@@ -136,11 +136,11 @@ struct StartScreen: View {
             HStack(spacing: 10) {
                 Image(systemName: symbol)
                     .font(.system(size: 13))
-                    .foregroundStyle(active ? DS.Palette.accentTeal : DS.Palette.secondaryLabel)
+                    .foregroundStyle(active ? DS.Palette.accentBrand : DS.Palette.secondaryLabel)
                     .frame(width: 18)
                 Text(title)
                     .font(.system(size: 12.5, weight: active ? .semibold : .regular))
-                    .foregroundStyle(active ? DS.Palette.accentTeal : DS.Palette.label)
+                    .foregroundStyle(active ? DS.Palette.accentBrand : DS.Palette.label)
                     .lineLimit(1)
                 Spacer()
             }
@@ -149,7 +149,7 @@ struct StartScreen: View {
             .background(active ? DS.Palette.selectionSoft : .clear)
             .overlay(alignment: .leading) {
                 if active {
-                    Rectangle().fill(DS.Palette.accentTeal).frame(width: 3, height: 22)
+                    Rectangle().fill(DS.Palette.accentBrand).frame(width: 3, height: 22)
                 }
             }
             .contentShape(Rectangle())
@@ -188,7 +188,7 @@ struct StartScreen: View {
     }
 
     private func startCard(_ entry: StartEntry) -> some View {
-        let tint = Color(hex: entry.tintHex) ?? DS.Palette.accentTeal
+        let tint = Color(hex: entry.tintHex) ?? DS.Palette.accentBrand
         return Button {
             guard entry.isSupported else { return }
             onOpenBlank()

@@ -156,7 +156,7 @@ struct DAXQueryWorkspace: View {
                         .background(selected ? DS.Palette.canvas : .clear)
                         .overlay(alignment: .bottom) {
                             if selected {
-                                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+                                Rectangle().fill(DS.Palette.accentBrand).frame(height: 2.5)
                             }
                         }
                         .contentShape(Rectangle())
@@ -172,7 +172,7 @@ struct DAXQueryWorkspace: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.accentTeal))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.accentBrand))
             }
             .buttonStyle(.plain)
             .padding(.leading, 6)
@@ -420,7 +420,7 @@ struct TMDLWorkspace: View {
                         .padding(.vertical, 6)
                         .overlay(alignment: .bottom) {
                             if bottomTab == .problems {
-                                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2)
+                                Rectangle().fill(DS.Palette.accentBrand).frame(height: 2)
                             }
                         }
                 }
@@ -433,7 +433,7 @@ struct TMDLWorkspace: View {
                         .padding(.vertical, 6)
                         .overlay(alignment: .bottom) {
                             if bottomTab == .output {
-                                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2)
+                                Rectangle().fill(DS.Palette.accentBrand).frame(height: 2)
                             }
                         }
                 }
@@ -489,14 +489,14 @@ struct TMDLWorkspace: View {
                 .frame(height: UIMetrics.pageTabs)
                 .background(DS.Palette.canvas)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+                    Rectangle().fill(DS.Palette.accentBrand).frame(height: 2.5)
                 }
             Button {} label: {
                 Image(systemName: "plus")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.accentTeal.opacity(0.45)))
+                    .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.accentBrand.opacity(0.45)))
             }
             .buttonStyle(.plain)
             .disabled(true)

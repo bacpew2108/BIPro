@@ -542,7 +542,7 @@ struct ParityRenderTests {
                     DAXCodeActionBar(state: state)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("1   // Welcome to DAX query view!")
-                            .foregroundStyle(DS.Palette.accentTeal)
+                            .foregroundStyle(DS.Palette.accentBrand)
                         Text("2   EVALUATE")
                             .foregroundStyle(DS.Palette.accent)
                         Text("3       TOPN(100, 'Sales')")
@@ -585,7 +585,7 @@ struct ParityRenderTests {
                     HStack(spacing: 16) {
                         Text("Problems (0)").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(DS.Palette.label)
                             .padding(.vertical, 6)
-                            .overlay(alignment: .bottom) { Rectangle().fill(DS.Palette.accentTeal).frame(height: 2) }
+                            .overlay(alignment: .bottom) { Rectangle().fill(DS.Palette.accentBrand).frame(height: 2) }
                         Text("Output").font(.system(size: 11.5)).foregroundStyle(DS.Palette.secondaryLabel)
                         Spacer()
                     }
@@ -653,7 +653,7 @@ struct ParityRenderTests {
                     FormulaBar(state: state)
                     HStack(spacing: 0) {
                         Text("Region ▾").font(.system(size: 12, weight: .semibold)).frame(width: 180, height: 28, alignment: .leading).padding(.horizontal, 10).hairline(.trailing)
-                        Text("Amount ▾").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).frame(width: 180, height: 28, alignment: .leading).padding(.horizontal, 10).background(DS.Palette.accentTeal)
+                        Text("Amount ▾").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).frame(width: 180, height: 28, alignment: .leading).padding(.horizontal, 10).background(DS.Palette.accentBrand)
                         Spacer()
                     }
                     .background(DS.Palette.chrome)
@@ -801,7 +801,7 @@ struct ParityRenderTests {
                     FormulaBar(state: state)
                     HStack(spacing: 0) {
                         Text("Region ▾").font(.system(size: 12, weight: .semibold)).frame(width: 180, height: 28, alignment: .leading).padding(.horizontal, 10).hairline(.trailing)
-                        Text("Amount ▾").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).frame(width: 180, height: 28, alignment: .leading).padding(.horizontal, 10).background(DS.Palette.accentTeal)
+                        Text("Amount ▾").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white).frame(width: 180, height: 28, alignment: .leading).padding(.horizontal, 10).background(DS.Palette.accentBrand)
                         Spacer()
                     }
                     .background(DS.Palette.chrome)
@@ -878,7 +878,7 @@ struct ParityRenderTests {
                         .background(DS.Palette.canvas).hairline(.bottom)
                     HStack {
                         Text("Problems (0)").font(.system(size: 11.5, weight: .semibold)).padding(.vertical, 6)
-                            .overlay(alignment: .bottom) { Rectangle().fill(DS.Palette.accentTeal).frame(height: 2) }
+                            .overlay(alignment: .bottom) { Rectangle().fill(DS.Palette.accentBrand).frame(height: 2) }
                         Text("Output").font(.system(size: 11.5)).foregroundStyle(DS.Palette.secondaryLabel)
                         Spacer()
                     }
