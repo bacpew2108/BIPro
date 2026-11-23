@@ -69,7 +69,7 @@ struct FormulaBar: View {
         .padding(.horizontal, 10)
         .frame(height: 36)
         .hairline(.bottom)
-        .help(column?.kind == .calculated ? "Cột tính toán: \(state.modelEditingBlocker ?? "chọn lại cột để sửa công thức")" : biN("Cột dữ liệu nạp từ nguồn", "Column loaded from the source"))
+        .help(column?.kind == .calculated ? biN("Cột tính toán: \(state.modelEditingBlocker ?? "chọn lại cột để sửa công thức")", "Calculated column: \(state.modelEditingBlocker ?? "select the column again to edit its formula")") : biN("Cột dữ liệu nạp từ nguồn", "Column loaded from the source"))
     }
 
     private func formula(_ column: ModelMetadata.Column?) -> String {
@@ -292,7 +292,7 @@ struct DataGrid: NSViewRepresentable {
             tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: String(index), ascending: true)
             let minimum: CGFloat = column.dataType == .dateTime ? 165 : 96
             tableColumn.width = max(minimum, min(260, CGFloat(column.name.count) * 8 + 32))
-            tableColumn.headerToolTip = "\(column.name) · \(dataTypeName(column.dataType))" + (info?.kind == .calculated ? biN(" · cột tính toán", " · calculated column") : "")
+            tableColumn.headerToolTip = "\(column.name) · \(dataTypeName(column.dataType, language: appResolvedLanguage()))" + (info?.kind == .calculated ? biN(" · cột tính toán", " · calculated column") : "")
             let numeric = [.int64, .double, .decimal].contains(column.dataType)
             let calculated = info?.kind == .calculated
             tableColumn.dataCell = Self.cell(alignment: numeric ? .right : .left,
@@ -423,8 +423,8 @@ struct ColumnMetadataPanel: View {
                 PropertyRow(label: bi("Lưu trữ", "Storage"), value: bi("VertiPaq trong bộ nhớ", "VertiPaq in-memory"))
                 PropertyRow(label: bi("Nén", "Encoding"), value: storage.map { $0.dictionaryFile != nil ? bi("Mã hoá từ điển", "Hash dictionary") : ($0.hashIndexFile != nil ? bi("Mã hoá giá trị", "Value encoding") : bi("Không có dữ liệu", "No data")) } ?? "—")
                 PropertyRow(label: bi("Giá trị phân biệt", "Distinct values"), value: storage.map { $0.cardinality.formatted() } ?? "—")
-                PropertyRow(label: bi("Kiểu", "Data type"), value: dataTypeName(column.dataType))
-                PropertyRow(label: bi("Tóm tắt", "Summarize"), value: summarizeName(column))
+                PropertyRow(label: bi("Kiểu", "Data type"), value: dataTypeName(column.dataType, language: appResolvedLanguage()))
+                PropertyRow(label: bi("Tóm tắt", "Summarize"), value: summarizeName(column, language: appResolvedLanguage()))
                 if let format = column.formatString { PropertyRow(label: bi("Định dạng", "Format"), value: format, mono: true) }
                 if column.isHidden { PropertyRow(label: bi("Hiển thị", "Visibility"), value: bi("Ẩn trong báo cáo", "Hidden in report")) }
                 Divider().padding(.vertical, 4)

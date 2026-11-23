@@ -103,7 +103,7 @@ public enum PBIXQuickLookRenderer {
         let sidebarW: CGFloat = min(210, CGFloat(w) * 0.25)
         let sidebarRect = CGRect(x: m, y: bodyY, width: sidebarW, height: bodyH)
         drawRoundedRect(ctx, rect: sidebarRect, radius: 8, fill: cardBg, stroke: stroke)
-        drawText(ctx, "TRANG BÁO CÁO", in: CGRect(x: sidebarRect.minX + 12, y: sidebarRect.maxY - 28, width: sidebarW - 24, height: 16),
+        drawText(ctx, lt("TRANG BÁO CÁO", "REPORT PAGES"), in: CGRect(x: sidebarRect.minX + 12, y: sidebarRect.maxY - 28, width: sidebarW - 24, height: 16),
                  fontSize: 10, bold: true, color: fg2, alignment: .left)
 
         var rowY = sidebarRect.maxY - 54

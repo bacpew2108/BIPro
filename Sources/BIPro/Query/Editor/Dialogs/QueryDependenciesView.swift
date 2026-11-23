@@ -174,7 +174,7 @@ public struct QueryDependenciesContent: View {
         let maxCol = layout.maxColumn
         return HStack(spacing: 0) {
             ForEach(0...max(1, maxCol), id: \.self) { col in
-                let title = col == 0 ? "NGUỒN DỮ LIỆU" : "TRUY VẤN"
+                let title = col == 0 ? bi("NGUỒN DỮ LIỆU", "DATA SOURCES") : bi("TRUY VẤN", "QUERIES")
                 HStack(spacing: 6) {
                     Circle()
                         .fill(col == 0 ? DS.Palette.series[4] : DS.Palette.accent)

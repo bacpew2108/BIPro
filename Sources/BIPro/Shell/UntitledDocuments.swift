@@ -129,7 +129,7 @@ enum UntitledDocuments {
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error {
                     pendingFirstAction = nil
-                    _ = Alerts.ask(biN("Không mở được tài liệu mới", "Couldn't open the new document"), error.localizedDescription, buttons: ["Đóng"], style: .critical)
+                    _ = Alerts.ask(biN("Không mở được tài liệu mới", "Couldn't open the new document"), error.localizedDescription, buttons: [biN("Đóng", "Close")], style: .critical)
                     return
                 }
                 NSApp.activate(ignoringOtherApps: true)
@@ -141,7 +141,7 @@ enum UntitledDocuments {
             }
         } catch {
             pendingFirstAction = nil
-            _ = Alerts.ask(biN("Không tạo được tài liệu mới", "Couldn't create the new document"), "\(error)", buttons: ["Đóng"], style: .critical)
+            _ = Alerts.ask(biN("Không tạo được tài liệu mới", "Couldn't create the new document"), "\(error)", buttons: [biN("Đóng", "Close")], style: .critical)
         }
     }
 

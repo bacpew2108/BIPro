@@ -104,7 +104,7 @@ extension DocumentState {
         if newName != name {
             let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                                 documents: ModelReferences.documents(layout: layout, workspace: workspace))
-            if !usages.isEmpty { return biN("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
+            if !usages.isEmpty { return biN("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: biN("cột \(table)[\(name)]", "column \(table)[\(name)]")) }
         }
         let workspace = self.workspace
         let built: Result<ModelEdit, Error> = await Task.detached {
@@ -153,7 +153,7 @@ extension DocumentState {
         let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                             documents: ModelReferences.documents(layout: layout, workspace: workspace))
             .filter { ![.relationship, .sortBy, .hierarchy].contains($0.kind) }
-        if !usages.isEmpty { return biN("Không xoá được: ", "Couldn't delete: ") + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
+        if !usages.isEmpty { return biN("Không xoá được: ", "Couldn't delete: ") + ModelReferences.message(usages, what: biN("cột \(table)[\(name)]", "column \(table)[\(name)]")) }
         if let reason = modelEditor.apply(.deleteCalculatedColumn(table: table, name: name)) { return reason }
         if self.table == table, column == name { column = nil; measureDraft = nil }
         return nil

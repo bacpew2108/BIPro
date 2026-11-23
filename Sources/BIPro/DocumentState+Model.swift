@@ -211,7 +211,7 @@ extension DocumentState {
                                                 documents: ModelReferences.documents(layout: layout, workspace: workspace))
             if !usages.isEmpty {
                 pendingCascadeRename = .column(table: table, old: name, new: renamed)
-                return bi("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: "cột \(table)[\(name)]")
+                return bi("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: bi("cột \(table)[\(name)]", "column \(table)[\(name)]"))
             }
         }
         if let reason = modelEditor.apply(.updateColumn(table: table, name: name, patch: patch), coalesceKey: coalesceKey) { return reason }

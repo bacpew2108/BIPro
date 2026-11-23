@@ -347,7 +347,7 @@ public enum TMDLParser {
         var issues: [TMDLIssue] = []
         let oldModel: TMDLModel
         do { oldModel = try parse(documents: old) } catch let error as TMDLParseError {
-            return TMDLApplyResult(edits: ModelEdits(), issues: [TMDLIssue(path: error.path, line: error.line, message: "văn bản gốc không đọc được: \(error.message)")])
+            return TMDLApplyResult(edits: ModelEdits(), issues: [TMDLIssue(path: error.path, line: error.line, message: lt("văn bản gốc không đọc được: \(error.message)", "the original text can't be read: \(error.message)"))])
         } catch { return TMDLApplyResult(edits: ModelEdits(), issues: [TMDLIssue(path: "", line: nil, message: "\(error)")]) }
         // Phân tích từng tài liệu mới riêng để báo lỗi đúng tệp.
         var newDocs: [(path: String, text: String)] = []

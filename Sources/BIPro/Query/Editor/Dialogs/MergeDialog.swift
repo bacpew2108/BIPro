@@ -122,7 +122,7 @@ public struct MergeDialogContent: View {
             // NGUỒN CHÍNH
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text("NGUỒN CHÍNH")
+                    Text(bi("NGUỒN CHÍNH", "PRIMARY SOURCE"))
                         .font(DS.Typeface.labelSmall)
                         .fontWeight(.semibold)
                         .foregroundStyle(DS.Palette.secondaryLabel)
@@ -163,7 +163,7 @@ public struct MergeDialogContent: View {
             // BẢNG THỨ HAI
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text("BẢNG THỨ HAI")
+                    Text(bi("BẢNG THỨ HAI", "SECOND TABLE"))
                         .font(DS.Typeface.labelSmall)
                         .fontWeight(.semibold)
                         .foregroundStyle(DS.Palette.secondaryLabel)
@@ -213,7 +213,7 @@ public struct MergeDialogContent: View {
 
             // KIỂU JOIN
             VStack(alignment: .leading, spacing: 6) {
-                Text("KIỂU JOIN")
+                Text(bi("KIỂU JOIN", "JOIN KIND"))
                     .font(DS.Typeface.labelSmall)
                     .fontWeight(.semibold)
                     .foregroundStyle(DS.Palette.secondaryLabel)
@@ -307,7 +307,7 @@ public struct MergeDialogContent: View {
                         Spacer(minLength: 0)
 
                         if let keyIndex {
-                            Text("KHOÁ \(keyIndex)")
+                            Text(bi("KHOÁ \(keyIndex)", "KEY \(keyIndex)"))
                                 .font(.system(size: 8, weight: .bold))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 4)

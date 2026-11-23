@@ -317,7 +317,7 @@ final class Interpreter: @unchecked Sendable {
     private func closure(_ parameters: [MParameter], returnType: MTypeExpr?, body: MExpression, scope: MScope) throws -> MFunction {
         let resolved = try parameters.map { p in try p.type.map { try resolveType($0, in: scope) } }
         let resultType = try returnType.map { try resolveType($0, in: scope) }
-        return MFunction(name: "(hàm)", parameters: parameters, observed: true) { [self] arguments in
+        return MFunction(name: lt("(hàm)", "(function)"), parameters: parameters, observed: true) { [self] arguments in
             let inner = MScope(parent: scope)
             for (index, parameter) in parameters.enumerated() {
                 let value = arguments[index]

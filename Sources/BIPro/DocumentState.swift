@@ -295,7 +295,7 @@ final class DocumentState {
             let documents = ModelReferences.documents(layout: layout, workspace: workspace)
             for name in newDrops.sorted() {
                 let usages = ModelReferences.documentUsages(ofTable: name, documents: documents)
-                if !usages.isEmpty { throw ModelEditError(biN("Không thể gỡ bảng \(name): ", "Couldn't remove table \(name): ") + ModelReferences.message(usages, what: "bảng \(name)")) }
+                if !usages.isEmpty { throw ModelEditError(biN("Không thể gỡ bảng \(name): ", "Couldn't remove table \(name): ") + ModelReferences.message(usages, what: biN("bảng \(name)", "table \(name)"))) }
             }
         } expand: { current, new in
             // Auto date/time (T032): bảng ngày cục bộ theo cột ngày thêm, đổi hay bỏ khi tuỳ chọn của file bật.

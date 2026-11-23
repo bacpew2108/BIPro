@@ -344,7 +344,7 @@ struct PageTabs: View {
                 state.pageID = page.id
                 state.visualID = nil
             }
-            .help(page.isHidden ? "Trang ẩn khi xem báo cáo" : page.displayName)
+            .help(page.isHidden ? bi("Trang ẩn khi xem báo cáo", "Page hidden in report view") : page.displayName)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(trf(.a11yPageTabFormat, page.displayName))
             .accessibilityValue(page.isHidden ? tr(.a11yHidden) : (state.pageID == page.id ? tr(.a11ySelected) : ""))
