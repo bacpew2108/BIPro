@@ -2,10 +2,14 @@ import PBIXKit
 import SwiftUI
 
 struct ModelWorkspace: View {
+    static let usesInnerStatusBar = false
+
     @Bindable var state: DocumentState
     /// Vị trí thẻ lúc bắt đầu kéo (để một lần kéo là một bước hoàn tác với đúng vị trí gốc).
     @State private var dragOrigin: [String: CGPoint] = [:]
-    @State private var sidebar: Sidebar = .model
+    @State private var cardsSettings = ModelCardsSettings()
+    @State private var propertiesCollapsed = false
+    @State private var dataCollapsed = false
     /// Tab bố cục đang đổi tên (ô sửa ngay trong thanh tab, như Desktop).
     @State private var renaming: String?
     @State private var renameText = ""
@@ -13,52 +17,62 @@ struct ModelWorkspace: View {
     @State private var deleting: String?
     @FocusState private var renameFocused: Bool
 
-    enum Sidebar: Hashable { case tables, model }
-
     var body: some View {
         let _ = state.modelVersion   // vẽ lại khi mô hình đổi (Phase E)
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    ZStack(alignment: .topTrailing) {
-                        diagram
-                        if state.diagramTables(state.currentDiagram) != nil, layout.isEmpty {
-                            emptyLayoutHint.frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                        if let r = selectedRelationship {
-                            RelationshipPanel(state: state, relationship: r) { state.relationship = nil }
-                                .frame(width: 280)
-                                .padding(12)
-                        } else if let draft = state.relationshipDraft {
-                            RelationshipDraftPanel(state: state, draft: draft)
-                                .frame(width: 320)
-                                .padding(12)
-                        } else if let table = state.table, let name = state.measure, let measure = state.workspace.measure(table: table, name: name),
-                                  let draft = state.measureDraft {
-                            MeasureInspector(state: state, measure: measure, draft: draft)
-                                .frame(width: 380)
-                                .padding(12)
-                        }
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                ZStack(alignment: .topTrailing) {
+                    diagram
+                    if state.diagramTables(state.currentDiagram) != nil, layout.isEmpty {
+                        emptyLayoutHint.frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    if let notice = state.relationshipNotice {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.red)
-                            Text(notice).font(DS.Typeface.bodySmall).foregroundStyle(Color.red).lineLimit(2)
-                            Spacer()
-                            Button { state.relationshipNotice = nil } label: { Image(systemName: "xmark") }.buttonStyle(GhostIconButtonStyle())
-                        }
-                        .padding(.horizontal, 12).padding(.vertical, 6)
-                        .background(DS.Palette.chrome).hairline(.top)
+                    if let r = selectedRelationship {
+                        RelationshipPanel(state: state, relationship: r) { state.relationship = nil }
+                            .frame(width: 280)
+                            .padding(12)
+                    } else if let draft = state.relationshipDraft {
+                        RelationshipDraftPanel(state: state, draft: draft)
+                            .frame(width: 320)
+                            .padding(12)
+                    } else if let table = state.table, let name = state.measure, let measure = state.workspace.measure(table: table, name: name),
+                              let draft = state.measureDraft {
+                        MeasureInspector(state: state, measure: measure, draft: draft)
+                            .frame(width: 380)
+                            .padding(12)
                     }
-                    bottomBar
                 }
-                sidebarPane
-                    .frame(width: 280)
+                if let notice = state.relationshipNotice {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.red)
+                        Text(notice).font(DS.Typeface.bodySmall).foregroundStyle(Color.red).lineLimit(2)
+                        Spacer()
+                        Button { state.relationshipNotice = nil } label: { Image(systemName: "xmark") }.buttonStyle(GhostIconButtonStyle())
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(DS.Palette.chrome).hairline(.top)
+                }
+                bottomBar
+            }
+            if propertiesCollapsed {
+                CollapsedPaneStrip(title: bi("Thuộc tính", "Properties"), symbol: "slider.horizontal.3") {
+                    propertiesCollapsed = false
+                }
+                .hairline(.leading)
+            } else {
+                ModelPropertiesPanel(settings: $cardsSettings) { propertiesCollapsed = true }
+                    .frame(width: UIMetrics.pane)
                     .hairline(.leading)
             }
-            StatusBar(workspace: state.workspace,
-                      detail: bi("\(layout.count) bảng · \(state.workspace.metadata?.relationships.count ?? 0) quan hệ" + (state.workspace.diagramLayout == nil ? " · bố cục tự động" : " · bố cục từ DiagramLayout"),
-                                 "\(layout.count) tables · \(state.workspace.metadata?.relationships.count ?? 0) relationships" + (state.workspace.diagramLayout == nil ? " · auto layout" : " · DiagramLayout")))
+            if dataCollapsed {
+                CollapsedPaneStrip(title: tr(.paneData), symbol: "cylinder.split.1x2") {
+                    dataCollapsed = false
+                }
+                .hairline(.leading)
+            } else {
+                DataPane(state: state, purpose: .query, collapse: { dataCollapsed = true }, initialTab: .tables)
+                    .frame(width: 220)
+                    .hairline(.leading)
+            }
         }
         .onChange(of: state.modelZoom) { _, _ in
             // thu phóng ghi vào DiagramLayout của tab đang xem khi người dùng đổi (không ghi khi vừa mở file)
@@ -187,9 +201,14 @@ struct ModelWorkspace: View {
                 } else {
                     Text(name == "All tables" ? bi("Tất cả bảng", "All tables") : name)
                         .font(.system(size: 12, weight: selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? DS.Palette.accent : DS.Palette.secondaryLabel)
-                        .padding(.horizontal, 10).frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(selected ? DS.Palette.canvas : .clear))
+                        .foregroundStyle(selected ? DS.Palette.label : DS.Palette.secondaryLabel)
+                        .padding(.horizontal, 12).frame(height: UIMetrics.pageTabs)
+                        .background(selected ? DS.Palette.canvas : .clear)
+                        .overlay(alignment: .bottom) {
+                            if selected {
+                                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+                            }
+                        }
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { if index > 0 { startRename(name) } else { state.selectDiagram(name) } }
                         .onTapGesture { state.selectDiagram(name) }
@@ -200,9 +219,17 @@ struct ModelWorkspace: View {
                         }
                 }
             }
-            Button { state.addDiagramTab() } label: { Image(systemName: "plus") }
-                .buttonStyle(GhostIconButtonStyle()).help(bi("Thêm bố cục mới", "Add new layout"))
-                .disabled(state.workspace.diagramLayout == nil)
+            Button { state.addDiagramTab() } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 26, height: 26)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(state.workspace.diagramLayout != nil ? DS.Palette.accentTeal : DS.Palette.tertiaryLabel.opacity(0.45)))
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 4)
+            .help(bi("Thêm bố cục mới", "Add new layout"))
+            .disabled(state.workspace.diagramLayout == nil)
             if state.diagramTables(state.currentDiagram) != nil {
                 Menu {
                     let shown = Set(layout.keys)
@@ -214,13 +241,9 @@ struct ModelWorkspace: View {
                     .disabled(layout.count >= state.workspace.userTables.count)
             }
             Spacer()
-            Button { state.resetDiagramPositions() } label: { Label(bi("Đặt lại bố cục", "Reset layout"), systemImage: "wand.and.stars") }
-                .buttonStyle(.plain).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
-            Slider(value: $state.modelZoom, in: 0.3...2).frame(width: 120).controlSize(.small)
-            Text("\(Int(state.modelZoom * 100))%").font(DS.Typeface.label.monospacedDigit()).frame(width: 40)
         }
         .padding(.horizontal, 10)
-        .frame(height: 34)
+        .frame(height: UIMetrics.pageTabs)
         .background(DS.Palette.chrome)
         .hairline(.top)
         .confirmationDialog(bi("Xoá bố cục “\(deleting ?? "")”?", "Delete layout “\(deleting ?? "")”?"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
@@ -253,19 +276,6 @@ struct ModelWorkspace: View {
             Button(bi("Tự xếp bố cục", "Auto layout")) { state.autoLayoutCurrentDiagram(frames: layout) }.buttonStyle(.borderedProminent)
         }
         .padding(24)
-    }
-
-    @ViewBuilder private var sidebarPane: some View {
-        VStack(spacing: 0) {
-            SegmentedPill(selection: $sidebar, options: [.init(value: .tables, title: bi("Bảng", "Tables")), .init(value: .model, title: bi("Mô hình", "Model"))], fill: true)
-                .padding(10)
-            if sidebar == .tables {
-                DataPane(state: state, purpose: .table)
-            } else {
-                SemanticModelTree(state: state)
-            }
-        }
-        .background(DS.Palette.chrome)
     }
 }
 

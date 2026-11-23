@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PBIXKit
+import SwiftUI
 
 /// "File → Mới" (Phase F, T077, FR-053). Tài liệu mới là file `.pbix` trống (`NewDocument.blank()`) ghi vào thư mục tạm riêng của
 /// BI Pro rồi mở như mọi file khác, nên mọi luồng sửa và lưu dùng chung. File ở thư mục này coi là "chưa có tên": lần lưu đầu luôn
@@ -46,8 +47,56 @@ enum UntitledDocuments {
         }
     }
 
+    /// Kiểm tra có mở cửa sổ màn hình Khởi động khi khởi động app trực tiếp không kèm tệp `.pbix` hay không (T067/T073).
+    static func shouldShowStartScreenOnLaunch(
+        isDefaultLaunch: Bool,
+        hasStartedOpening: Bool,
+        openDocumentsCount: Int,
+        hasVisibleWindow: Bool,
+        isRunningTests: Bool = AppLaunchPolicy.isRunningTests
+    ) -> Bool {
+        AppLaunchPolicy.shouldOpenUntitledOnLaunch(
+            isDefaultLaunch: isDefaultLaunch,
+            hasStartedOpening: hasStartedOpening,
+            openDocumentsCount: openDocumentsCount,
+            hasVisibleWindow: hasVisibleWindow,
+            isRunningTests: isRunningTests
+        )
+    }
+
+    @MainActor private static var startWindow: NSWindow?
+
+    /// Mở cửa sổ Màn hình Khởi động (`StartScreen`) khi chưa có tài liệu nào.
+    @MainActor static func showStartScreen() {
+        if let existing = startWindow, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1240, height: 780),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.minSize = NSSize(width: 960, height: 620)
+        window.isReleasedWhenClosed = false
+        window.center()
+        let root = StartScreen(onDismiss: { [weak window] in
+            window?.close()
+        })
+        .preferredColorScheme(AppPreferences.shared.preferredColorScheme)
+        window.contentViewController = NSHostingController(rootView: root)
+        startWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     /// Lệnh "Mới" (⌘N) hoặc mở cửa sổ mặc định lúc khởi động: tạo tài liệu trống và đưa cửa sổ lên trước.
     @MainActor static func openNew() {
+        startWindow?.close()
         DocumentOpenTracker.markOpened()
         do {
             let url = try create()

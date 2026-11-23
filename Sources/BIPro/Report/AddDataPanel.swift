@@ -46,20 +46,44 @@ struct AddDataPanel: View {
     let state: DocumentState
 
     var body: some View {
-        VStack(spacing: 14) {
-            Text(tr(.addDataTitle)).font(.system(size: 22, weight: .semibold)).foregroundStyle(DS.Palette.paperLabel)
-            Text(tr(.addDataSubtitle)).font(.system(size: 15)).foregroundStyle(DS.Palette.paperSecondaryLabel)
-            HStack(spacing: 14) {
+        VStack(spacing: 16) {
+            Text(tr(.addDataTitle))
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(DS.Palette.paperLabel)
+            subtitleText
+                .font(.system(size: 14.5))
+                .foregroundStyle(DS.Palette.paperSecondaryLabel)
+            HStack(spacing: 16) {
                 ForEach(Self.tiles, id: \.title) { tile in tileView(tile) }
             }
-            .padding(.top, 8)
+            .padding(.top, 10)
             Button(bi("Lấy dữ liệu từ nguồn khác →", "Get data from another source →")) { Self.perform(.otherSource, on: state) }
                 .buttonStyle(.plain)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(DS.Palette.paperLink)
-                .padding(.top, 4)
+                .foregroundStyle(DS.Palette.accentTeal)
+                .padding(.top, 6)
         }
         .padding(28)
+    }
+
+    private var subtitleText: Text {
+        if AppPreferences.shared.effectiveLanguage == .en {
+            return Text("Once loaded, your data will appear in the ")
+                + Text("Data").bold()
+                + Text(" pane.")
+        }
+        return Text("Sau khi nạp, dữ liệu của bạn sẽ hiện trong pane ")
+            + Text("Dữ liệu").bold()
+            + Text(".")
+    }
+
+    private func pastelHeaderColor(for action: Action) -> Color {
+        switch action {
+        case .excel: Color(hex: "#E6F4EA")!
+        case .sqlServer: Color(hex: "#E8F0FE")!
+        case .paste: Color(hex: "#FEF7E0")!
+        case .sample, .otherSource: Color(hex: "#F1F3F4")!
+        }
     }
 
     private func tileView(_ tile: Tile) -> some View {
@@ -79,18 +103,18 @@ struct AddDataPanel: View {
         return Button { Self.perform(tile.action, on: state) } label: {
             VStack(spacing: 0) {
                 Image(systemName: tile.symbol)
-                    .font(.system(size: 24))
+                    .font(.system(size: 28))
                     .foregroundStyle(enabled ? tile.tint : DS.Palette.paperTertiaryLabel)
-                    .frame(maxWidth: .infinity, minHeight: 74)
-                    .background(enabled ? tile.tint.opacity(0.14) : Color.black.opacity(0.04))
+                    .frame(maxWidth: .infinity, minHeight: 92)
+                    .background(pastelHeaderColor(for: tile.action))
                 Text(displayTitle)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(enabled ? DS.Palette.paperLabel : DS.Palette.paperTertiaryLabel)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
-                    .padding(.horizontal, 10)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 50, alignment: .center)
+                    .padding(.horizontal, 12)
             }
-            .frame(width: 160)
+            .frame(minWidth: 160, idealWidth: 252, maxWidth: 252)
             .background(enabled ? DS.Palette.paperCard : DS.Palette.paperCardDisabled)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(DS.Palette.paperBorder, lineWidth: 1))

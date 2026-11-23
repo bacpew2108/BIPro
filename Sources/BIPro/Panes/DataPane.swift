@@ -5,14 +5,23 @@ import SwiftUI
 /// tables A–Z; display folders first, then fields A–Z; hidden fields omitted in report view;
 /// Σ for numeric columns that summarize by default; geo icons from the data category.
 struct DataPane: View {
+    static let showsFooter = false
+
     enum Purpose { case report, table, query }
     enum DataTab { case tables, model }
+
+    static func showsModelTabs(mode: WorkspaceMode, purpose: Purpose) -> Bool {
+        purpose == .query || mode == .model || mode == .daxQuery || mode == .tmdl
+    }
 
     let state: DocumentState
     var purpose: Purpose = .report
     var collapse: (() -> Void)?
+    var initialTab: DataTab = .tables
 
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
     @State private var selectedTab: DataTab = .tables
+    @State private var didInitTab = false
     @State private var search = ""
     @State private var expanded: Set<String> = ["model:root"]
     /// Cột hoặc bảng tính toán chờ xác nhận xoá (T116; Desktop hỏi "Are you sure you want to delete '…'?" Yes/Cancel).
@@ -38,41 +47,32 @@ struct DataPane: View {
 
     var body: some View {
         let _ = state.modelVersion   // vẽ lại khi mô hình đổi (Phase E)
-        let measureCount = state.workspace.metadata?.measures.count ?? 0
+        let showTabs = Self.showsModelTabs(mode: state.mode, purpose: purpose)
+        let activeTab = didInitTab ? selectedTab : initialTab
         VStack(spacing: 0) {
             headerView
-            if purpose == .query {
-                tabBar
+            if showTabs {
+                tabBar(activeTab: activeTab)
             }
-            SearchField(text: $search, prompt: bi("Tìm field…", "Search fields…"))
-                .padding(.horizontal, 10)
+            SearchField(text: $search, prompt: bi("Tìm kiếm", "Search"))
+                .padding(.horizontal, 8)
                 .padding(.bottom, 6)
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if purpose == .query && selectedTab == .model {
-                        ModelTreeView(
-                            state: state,
-                            search: search,
-                            expanded: $expanded,
-                            openNewQueryTab: { title, text, run in
-                                openNewQueryTab(title: title, text: text, run: run)
-                            },
-                            collapseAll: { collapseAll() },
-                            expandAll: { expandAll() },
-                            renderTableNode: { table, level in
-                                AnyView(tableNode(table, baseLevel: level))
-                            }
-                        )
-                    } else {
-                        ForEach(tables, id: \.id) { table in
-                            tableNode(table, baseLevel: 0)
-                        }
-                    }
+            if isSnapshotRender {
+                VStack(alignment: .leading, spacing: 0) {
+                    treeBody(showTabs: showTabs, activeTab: activeTab)
                 }
                 .padding(.bottom, 8)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .clipped()
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        treeBody(showTabs: showTabs, activeTab: activeTab)
+                    }
+                    .padding(.bottom, 8)
+                }
             }
-            PaneFooter(text: bi("\(tables.count) bảng · \(measureCount) measure", "\(tables.count) tables · \(measureCount) measures"))
         }
         .background(DS.Palette.chrome)
         .alert(deleting?.title ?? "", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
@@ -94,8 +94,31 @@ struct DataPane: View {
             Text(refusal ?? "")
         }
         .onAppear {
+            if !didInitTab { selectedTab = initialTab; didInitTab = true }
             if let table = state.table, purpose != .report { expanded.insert(table) }
-            if purpose == .query { expanded.insert("model:root") }
+            if showTabs { expanded.insert("model:root") }
+        }
+    }
+
+    @ViewBuilder private func treeBody(showTabs: Bool, activeTab: DataTab) -> some View {
+        if showTabs && activeTab == .model {
+            ModelTreeView(
+                state: state,
+                search: search,
+                expanded: $expanded,
+                openNewQueryTab: { title, text, run in
+                    openNewQueryTab(title: title, text: text, run: run)
+                },
+                collapseAll: { collapseAll() },
+                expandAll: { expandAll() },
+                renderTableNode: { table, level in
+                    AnyView(tableNode(table, baseLevel: level))
+                }
+            )
+        } else {
+            ForEach(tables, id: \.id) { table in
+                tableNode(table, baseLevel: 0)
+            }
         }
     }
 
@@ -103,51 +126,49 @@ struct DataPane: View {
 
     @ViewBuilder
     private var headerView: some View {
-        if purpose == .query {
-            HStack(spacing: 6) {
-                Text(tr(.paneData))
-                    .font(DS.Typeface.headlineSmall)
-                    .fontWeight(.bold)
-                    .foregroundStyle(DS.Palette.label)
-                Spacer()
-                if let collapse {
-                    Button(action: collapse) {
-                        Image(systemName: "chevron.right.2")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .buttonStyle(GhostIconButtonStyle())
-                    .help(bi("Thu gọn", "Collapse"))
+        HStack(spacing: 6) {
+            Text(tr(.paneData))
+                .font(DS.Typeface.headlineSmall)
+                .fontWeight(.semibold)
+                .foregroundStyle(DS.Palette.label)
+            Spacer()
+            if let collapse {
+                Button(action: collapse) {
+                    Image(systemName: "chevron.right.2")
+                        .font(.system(size: 10.5, weight: .semibold))
                 }
+                .buttonStyle(GhostIconButtonStyle())
+                .help(trf(.a11yCollapsePaneFormat, tr(.paneData)))
+                .accessibilityLabel(trf(.a11yCollapsePaneFormat, tr(.paneData)))
             }
-            .padding(.horizontal, 10)
-            .frame(height: 38)
-        } else {
-            PaneHeader(title: tr(.paneData), symbol: "cylinder.split.1x2", collapse: collapse)
         }
+        .padding(.horizontal, 10)
+        .frame(height: 34)
     }
 
-    private var tabBar: some View {
+    private func tabBar(activeTab: DataTab) -> some View {
         HStack(spacing: 16) {
-            tabButton(title: bi("Bảng", "Tables"), tab: .tables)
-            tabButton(title: bi("Mô hình", "Model"), tab: .model)
+            tabButton(title: bi("Bảng", "Tables"), tab: .tables, active: activeTab == .tables)
+            tabButton(title: bi("Mô hình", "Model"), tab: .model, active: activeTab == .model)
             Spacer()
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
     }
 
-    private func tabButton(title: String, tab: DataTab) -> some View {
-        Button(action: { selectedTab = tab }) {
+    private func tabButton(title: String, tab: DataTab, active: Bool) -> some View {
+        Button(action: { selectedTab = tab; didInitTab = true }) {
             VStack(spacing: 4) {
                 Text(title)
-                    .font(DS.Typeface.bodySmall.weight(selectedTab == tab ? .semibold : .regular))
-                    .foregroundStyle(selectedTab == tab ? DS.Palette.label : DS.Palette.secondaryLabel)
+                    .font(DS.Typeface.bodySmall.weight(active ? .semibold : .regular))
+                    .foregroundStyle(active ? DS.Palette.label : DS.Palette.secondaryLabel)
                 Rectangle()
-                    .fill(selectedTab == tab ? DS.Palette.accent : Color.clear)
+                    .fill(active ? DS.Palette.accentTeal : Color.clear)
                     .frame(height: 2)
             }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 
     private var tables: [ModelMetadata.Table] {
@@ -233,7 +254,7 @@ struct DataPane: View {
                 toggle(table.name)
                 if purpose == .table { state.select(table: table.name) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.tableMenuItems(
                     tableName: table.name,
                     onTop100: {
@@ -289,7 +310,7 @@ struct DataPane: View {
                 }
                 if purpose == .table { state.selectMeasure(table: table, name: m.name) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.measureMenuItems(
                     onEvaluate: {
                         openNewQueryTab(title: m.name, text: QuickQueries.evaluate(measure: m), run: true)
@@ -362,7 +383,7 @@ struct DataPane: View {
                 if dateHierarchy != nil { toggle(dateKey) }
                 if purpose == .table { state.select(table: table, column: c.name) }
             }
-            let menu = row.leftContextMenu {
+            let menu = row.snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.columnMenuItems(
                     isCalculated: c.kind == .calculated,
                     hasExpression: !(c.expression?.isEmpty ?? true),
@@ -635,6 +656,18 @@ struct TreeRow: View {
                 .fill(isSelected ? DS.Palette.accent : (hovering ? DS.Palette.controlFill.opacity(0.6) : .clear))
                 .padding(.horizontal, 4))
             .contentShape(Rectangle())
+    }
+}
+
+extension View {
+    /// Chỉ gắn `leftContextMenu` (dùng `NSViewRepresentable`) khi chạy app thật; bỏ qua khi chụp `ImageRenderer`.
+    @ViewBuilder
+    func snapshotSafeLeftContextMenu(isSnapshot: Bool, items: @escaping () -> [LeftMenuItem]) -> some View {
+        if isSnapshot {
+            self
+        } else {
+            self.leftContextMenu(items)
+        }
     }
 }
 

@@ -4,15 +4,20 @@ import SwiftUI
 /// Design tokens from `UIdesign/lumen_analytics_design_system/DESIGN.md` (macOS 15 Sequoia dynamic Light/Dark palette).
 enum DS {
     enum Palette {
-        static let accent = Color(hex: "#0A84FF")!
-        static let accentHover = Color.dynamic(light: 0x0077ED, dark: 0x2E96FF)
-        static let accentPressed = Color.dynamic(light: 0x0068D6, dark: 0x006CE0)
+        static let accent = Color.dynamic(light: 0x117865, dark: 0x3FB59B)
+        static let accentHover = Color.dynamic(light: 0x0E6655, dark: 0x4EC7AD)
+        static let accentPressed = Color.dynamic(light: 0x0B5647, dark: 0x35A088)
+        /// Token màu nhấn xanh lục teal Power BI Desktop (Phase H).
+        static let accentTeal = Color.dynamic(light: 0x117865, dark: 0x3FB59B)
+        static let accentTealPressed = Color.dynamic(light: 0x0E6655, dark: 0x35A088)
+        static let canvasWell = Color.dynamic(light: 0xE6E6E6, dark: 0x1C1C1E)
+        static let tabUnderline = Color.dynamic(light: 0x117865, dark: 0x3FB59B)
         static let indigo = Color(hex: "#5E5CE6")!
 
-        /// Vùng nền dưới trang báo cáo (`backdrop`).
-        static let backdrop = Color.dynamic(light: 0xEBEBF0, dark: 0x1C1C1E)
+        /// Vùng nền dưới trang báo cáo (`backdrop` = `canvasWell`).
+        static let backdrop = canvasWell
         /// Thanh công cụ, Rail, tiêu đề ngăn (`chrome`).
-        static let chrome = Color.dynamic(light: 0xF5F5F7, dark: 0x242426)
+        static let chrome = Color.dynamic(light: 0xF5F5F5, dark: 0x242426)
         /// Bề mặt bảng điều khiển, thẻ UI, popover (thích ứng Dark Mode).
         static let canvas = Color.dynamic(light: 0xFFFFFF, dark: 0x2C2C2E)
         /// Nền giấy cố định của trang báo cáo `.pbix` (luôn sáng để giữ nguyên màu tác giả — FR-013).
@@ -32,7 +37,7 @@ enum DS {
         static let tertiaryLabel = Color.dynamic(light: 0x8E8E93, dark: 0x9A9AA0)
         static let controlFill = Color.dynamic(light: 0x767680, lightAlpha: 0.12, dark: 0x767680, darkAlpha: 0.26)
         static let searchFill = Color.dynamic(light: 0x767680, lightAlpha: 0.08, dark: 0x8E8E93, darkAlpha: 0.22)
-        static let selectionSoft = Color.dynamic(light: 0x0A84FF, lightAlpha: 0.12, dark: 0x0A84FF, darkAlpha: 0.24)
+        static let selectionSoft = Color.dynamic(light: 0x117865, lightAlpha: 0.12, dark: 0x3FB59B, darkAlpha: 0.22)
         static let success = Color(hex: "#34C759")!
         static let warning = Color(hex: "#FF9F0A")!
         static let danger = Color(hex: "#FF453A")!
@@ -80,15 +85,31 @@ enum DS {
     }
 
     enum Metrics {
-        static let titleBar: CGFloat = 52
-        static let rail: CGFloat = 56
-        static let pane: CGFloat = 260
-        static let collapsedPane: CGFloat = 30
-        static let statusBar: CGFloat = 28
-        static let pageTabs: CGFloat = 34
+        static let titleBar: CGFloat = UIMetrics.titleBar
+        static let rail: CGFloat = UIMetrics.rail
+        static let pane: CGFloat = UIMetrics.pane
+        static let collapsedPane: CGFloat = UIMetrics.collapsedPane
+        static let statusBar: CGFloat = UIMetrics.statusBar
+        static let pageTabs: CGFloat = UIMetrics.pageTabs
         static let treeRow: CGFloat = 24
         static let navRow: CGFloat = 28
     }
+}
+
+/// Số đo khung chuẩn Power BI Desktop 2.159 (`contracts/ui-tokens.md`).
+enum UIMetrics {
+    static let titleBar: CGFloat = 36
+    static let tabRow: CGFloat = 32
+    static let ribbonPanel: CGFloat = 98
+    static let rail: CGFloat = 42
+    static let railIconHit: CGFloat = 40
+    static let pageTabs: CGFloat = 35
+    static let statusBar: CGFloat = 23
+    static let pane: CGFloat = 181
+    static let collapsedPane: CGFloat = 31
+    static let ribbonIcon: CGFloat = 28
+    static let ribbonCorner: CGFloat = 6
+    static let tabUnderline: CGFloat = 2
 }
 
 extension Color {

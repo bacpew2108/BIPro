@@ -104,7 +104,9 @@ struct ColumnToolsRibbonTests {
             AppPreferences.shared.language = lang
             for tab in [RibbonTab.tableTools, .columnTools] {
                 state.ribbonTab = tab
-                let host = NSHostingView(rootView: RibbonView(state: state).frame(width: 1200, height: 124))
+                let spec = RibbonCatalog.spec(for: tab.tabID, mode: .table)
+                #expect(spec != nil)
+                let host = NSHostingView(rootView: RibbonView(state: state).frame(width: 1200, height: 140))
                 host.layoutSubtreeIfNeeded()
                 #expect(host.fittingSize.width > 0)
             }

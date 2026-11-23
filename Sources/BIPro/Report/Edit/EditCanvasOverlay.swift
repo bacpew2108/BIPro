@@ -2,6 +2,55 @@ import AppKit
 import PBIXKit
 import SwiftUI
 
+/// Phân loại cú nhấn trên visual trong chế độ Sửa (Spike R-02, T052):
+/// dịch chuyển < 4 pt (theo điểm màn hình) là cú bấm chọn + lọc chéo; ≥ 4 pt là cú kéo di chuyển visual (không lọc chéo).
+enum EditClickOutcome: Equatable, Sendable {
+    case click
+    case drag
+}
+
+enum EditClickPolicy {
+    static let dragThreshold: CGFloat = 4
+
+    static func classify(start: CGPoint, end: CGPoint, scale: Double) -> EditClickOutcome {
+        let distance = hypot(end.x - start.x, end.y - start.y) * CGFloat(max(scale, 0.01))
+        return distance >= dragThreshold ? .drag : .click
+    }
+
+    /// Thực thi cú nhấn hoặc cú kéo trên một visual trong chế độ Sửa (dùng cho Spike R-02 và kiểm thử đơn vị).
+    @MainActor
+    static func handleInteraction(
+        start: CGPoint,
+        end: CGPoint,
+        scale: Double,
+        visual: ReportVisual,
+        page: ReportPage,
+        editor: LayoutEditor,
+        interaction: ReportInteraction,
+        spec: VisualQuerySpec,
+        point: DataPointID,
+        additive: Bool = false
+    ) -> EditClickOutcome {
+        let outcome = classify(start: start, end: end, scale: scale)
+        switch outcome {
+        case .click:
+            editor.select(visual.id, extend: additive)
+            interaction.select(page: page, visual: visual, spec: spec, point: point, additive: additive)
+        case .drag:
+            if !editor.selection.contains(visual.id) {
+                editor.select(visual.id)
+            }
+            let dx = Int((end.x - start.x).rounded())
+            let dy = Int((end.y - start.y).rounded())
+            let moved = LayoutGeometry.move([Frame(visual)], dx: dx, dy: dy, page: PageBounds(page), snap: false, grid: 8)
+            if let frame = moved.first {
+                editor.apply(frames: [visual.id: frame])
+            }
+        }
+        return outcome
+    }
+}
+
 /// Lớp phủ chế độ Sửa trên một trang: chọn, kéo di chuyển, khung chọn, và tám tay nắm đổi cỡ.
 ///
 /// Mọi toạ độ là điểm của trang (chưa nhân tỷ lệ). Trong lúc kéo chỉ đổi `preview` (khung tạm); thả chuột thì
@@ -38,9 +87,11 @@ struct EditCanvasOverlay: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Color.clear
-                .contentShape(Rectangle())
-                .gesture(canvasGesture)
+            if editor.isFormatPainterActive {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .gesture(canvasGesture)
+            }
             chrome
             ForEach(Array(ghost.keys), id: \.self) { id in
                 if let f = ghost[id] {
@@ -66,6 +117,7 @@ struct EditCanvasOverlay: View {
         }
         .frame(width: page.width, height: page.height, alignment: .topLeading)
         .coordinateSpace(name: Self.space)
+        .simultaneousGesture(editor.isFormatPainterActive ? nil : dragOnlyGesture)
         .contextMenu { arrangeMenu }
     }
 
@@ -203,6 +255,20 @@ struct EditCanvasOverlay: View {
 
     // MARK: Cử chỉ
 
+    /// Cử chỉ kéo ≥ 4 pt màn hình (R-02): không nuốt cú bấm ngắn (< 4 pt) để visual bên dưới nhận lọc chéo.
+    private var dragOnlyGesture: some Gesture {
+        let minDist = EditClickPolicy.dragThreshold / CGFloat(max(scale, 0.1))
+        return DragGesture(minimumDistance: minDist, coordinateSpace: .named(Self.space))
+            .onChanged { value in
+                if drag == nil { begin(at: value.startLocation) }
+                update(to: value.location, from: value.startLocation)
+            }
+            .onEnded { value in
+                update(to: value.location, from: value.startLocation)
+                finish()
+            }
+    }
+
     private var canvasGesture: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.space))
             .onChanged { value in
@@ -274,8 +340,8 @@ struct EditCanvasOverlay: View {
         switch drag {
         case .move(let frames, _)?:
             let dx = Int((point.x - start.x).rounded()), dy = Int((point.y - start.y).rounded())
-            // Chưa kéo đủ xa (bấm chọn) thì chưa tạo khung tạm.
-            guard hypot(point.x - start.x, point.y - start.y) * scale >= 3 || !preview.isEmpty else { return }
+            // Chưa kéo đủ ngưỡng 4 pt màn hình (R-02) thì chưa tạo khung tạm.
+            guard EditClickPolicy.classify(start: start, end: point, scale: scale) == .drag || !preview.isEmpty else { return }
             let movable = frames.filter { !editor.isLockedByGroup($0.id) }
             guard !movable.isEmpty else { return }
             let moved = LayoutGeometry.move(movable.map(\.frame), dx: dx, dy: dy, page: bounds, snap: snapEnabled, grid: gridSize)

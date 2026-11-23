@@ -42,6 +42,9 @@ final class AppPreferences {
         static let gridSize = "bipro.edit.gridSize"
         static let onboardingSeen = "bipro.onboarding.seen"
         static let sqliteOdbcDriver = SQLiteODBC.defaultsKey
+        static let ribbonCollapsed = "bipro.ribbon.collapsed"
+        static let viewOnlyDefault = "bipro.edit.viewOnlyDefault"
+        static let tmdlIntroSeen = "bipro.tmdl.introSeen"
     }
 
     static let allowedGridSizes: [Int] = [8, 16]
@@ -85,6 +88,24 @@ final class AppPreferences {
         }
     }
 
+    var ribbonCollapsed: Bool {
+        didSet {
+            defaults.set(ribbonCollapsed, forKey: Keys.ribbonCollapsed)
+        }
+    }
+
+    var viewOnlyDefault: Bool {
+        didSet {
+            defaults.set(viewOnlyDefault, forKey: Keys.viewOnlyDefault)
+        }
+    }
+
+    var tmdlIntroSeen: Bool {
+        didSet {
+            defaults.set(tmdlIntroSeen, forKey: Keys.tmdlIntroSeen)
+        }
+    }
+
     var sqliteOdbcDriver: String {
         didSet {
             SQLiteODBC.save(driver: sqliteOdbcDriver, in: defaults)
@@ -123,6 +144,9 @@ final class AppPreferences {
         self.gridSize = Self.allowedGridSizes.contains(storedGrid) ? storedGrid : 8
 
         self.onboardingSeen = defaults.bool(forKey: Keys.onboardingSeen)
+        self.ribbonCollapsed = defaults.bool(forKey: Keys.ribbonCollapsed)
+        self.viewOnlyDefault = defaults.bool(forKey: Keys.viewOnlyDefault)
+        self.tmdlIntroSeen = defaults.bool(forKey: Keys.tmdlIntroSeen)
         self.sqliteOdbcDriver = SQLiteODBC.savedDriver(in: defaults)
     }
 

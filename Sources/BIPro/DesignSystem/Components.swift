@@ -181,14 +181,14 @@ struct PaneHeader<Trailing: View>: View {
             Spacer(minLength: 4)
             trailing
             if let collapse {
-                Button(action: collapse) { Image(systemName: "chevron.right") }
+                Button(action: collapse) { Image(systemName: "chevron.right.2").font(.system(size: 10.5, weight: .semibold)) }
                     .buttonStyle(GhostIconButtonStyle())
                     .help(trf(.a11yCollapsePaneFormat, title))
                     .accessibilityLabel(trf(.a11yCollapsePaneFormat, title))
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 38)
+        .frame(height: 34)
     }
 }
 
@@ -198,7 +198,7 @@ extension PaneHeader where Trailing == EmptyView {
     }
 }
 
-/// A collapsed side pane: a thin strip with a vertical title, like Power BI.
+/// A collapsed side pane: a thin 31 pt vertical strip with `«`, optional icon, and rotated title, matching Power BI Desktop.
 struct CollapsedPaneStrip: View {
     let title: String
     let symbol: String
@@ -206,18 +206,23 @@ struct CollapsedPaneStrip: View {
 
     var body: some View {
         Button(action: expand) {
-            VStack(spacing: 8) {
-                Image(systemName: symbol).font(.system(size: 12)).foregroundStyle(DS.Palette.accent)
-                Text(title.uppercased())
-                    .font(DS.Typeface.labelSmall).tracking(0.6)
+            VStack(spacing: 10) {
+                Image(systemName: "chevron.left.2")
+                    .font(.system(size: 10.5, weight: .semibold))
                     .foregroundStyle(DS.Palette.secondaryLabel)
+                Image(systemName: symbol)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(DS.Palette.label)
                     .fixedSize()
                     .rotationEffect(.degrees(90))
-                    .frame(width: 14, height: 120)
+                    .frame(width: 16, height: 110)
                 Spacer()
             }
-            .padding(.top, 12)
-            .frame(width: DS.Metrics.collapsedPane)
+            .padding(.top, 10)
+            .frame(width: UIMetrics.collapsedPane)
             .frame(maxHeight: .infinity)
             .background(DS.Palette.chrome)
             .contentShape(Rectangle())
@@ -259,14 +264,23 @@ struct SearchField: View {
     @Binding var text: String
     var prompt: String
     var shortcut: String?
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(DS.Palette.tertiaryLabel)
-            TextField(prompt, text: $text)
-                .textFieldStyle(.plain)
-                .font(DS.Typeface.body)
-            if !text.isEmpty {
+            if isSnapshotRender {
+                Text(text.isEmpty ? prompt : text)
+                    .font(DS.Typeface.bodySmall)
+                    .foregroundStyle(text.isEmpty ? DS.Palette.tertiaryLabel : DS.Palette.label)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            } else {
+                TextField(prompt, text: $text)
+                    .textFieldStyle(.plain)
+                    .font(DS.Typeface.body)
+            }
+            if !text.isEmpty && !isSnapshotRender {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain).foregroundStyle(DS.Palette.tertiaryLabel)
             } else if let shortcut {
@@ -276,8 +290,9 @@ struct SearchField: View {
             }
         }
         .padding(.horizontal, 8)
-        .frame(height: 28)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.searchFill))
+        .frame(height: 26)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(DS.Palette.canvas))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator.opacity(0.85), lineWidth: 0.75))
     }
 }
 

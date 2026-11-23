@@ -51,7 +51,7 @@ struct ReportPageView: View {
             .onChange(of: scale) { _, value in onScale(value) }
             .overlay(alignment: .top) { lockedBanner }
         }
-        .background(DS.Palette.backdrop)
+        .background(DS.Palette.canvasWell)
         .focusable(isEditing)
         .focused($canvasFocused)
         .focusEffectDisabled()
@@ -137,12 +137,23 @@ struct ReportPageView: View {
                 VisualContainerView(workspace: workspace, page: page, visual: visual, interaction: interaction,
                                     navigate: navigate, onExportCSV: onExportCSV.map { handler in { view in handler(visual, view) } })
                     .frame(width: frame.map { CGFloat($0.width) } ?? visual.width, height: frame.map { CGFloat($0.height) } ?? visual.height)
-                    .allowsHitTesting(!isEditing)
+                    .allowsHitTesting(!(isEditing && (editor?.isFormatPainterActive == true || !preview.isEmpty)))
                     .overlay {
                         if !isEditing, selectedVisual == visual.id { SelectionHandles(scale: scale) }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { if !isEditing { selectedVisual = visual.id } }
+                    .simultaneousGesture(
+                        TapGesture().onEnded {
+                            if isEditing, let editor {
+                                let extend = NSEvent.modifierFlags.contains(.shift)
+                                editor.select(visual.id, extend: extend)
+                                selectedVisual = editor.primary
+                                canvasFocused = true
+                            } else {
+                                selectedVisual = visual.id
+                            }
+                        }
+                    )
                     .accessibilityElement(children: .contain)
                     .accessibilityLabel(a11y.label)
                     .accessibilityValue(a11y.value)
@@ -166,9 +177,9 @@ struct ReportPageView: View {
 
     private var pageBackground: some View {
         let color = workspace.theme.color(page.objects.color("background", "color"))
-            ?? workspace.theme.background.flatMap(Color.init(hex:)) ?? .white
+            ?? workspace.theme.background.flatMap(Color.init(hex:)) ?? DS.Palette.documentPaper
         return Rectangle()
-            .fill(Color.white)
+            .fill(DS.Palette.documentPaper)
             .overlay(Rectangle().fill(color.opacity(page.objects.opacity("background"))))
     }
 }

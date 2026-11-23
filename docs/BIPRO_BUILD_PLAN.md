@@ -223,6 +223,14 @@ Auto date/time và tự phát hiện quan hệ, màn "Thêm dữ liệu vào bá
 - [x] **4B (Mô hình hoá & RLS):** **Quick Measures** (8 mẫu chuẩn Power BI), **Mark as Date Table** (kiểm cột ngày duy nhất/không trống), **Manage Roles** (lưu T2) & **View As** (dải vàng + tự tiêm lọc RLS vào DAX), **DataPane** Hide/Unhide bảng/cột & Unhide All.
 - [x] **4C (DAX / TMDL / SQL & v1.2.0):** DAX Formatter & DAX Update Model (`DEFINE MEASURE` theo lô), nút Áp dụng trên Ribbon TMDL View, menu kết nối nhanh SQL (PostgreSQL / SQLite), đóng gói `build/BI Pro.app` **v1.2.0**.
 
+### Phase H (v1.3): Đưa giao diện về giống Power BI Desktop 2.159 ✅ (tự động 86/87, chờ cổng con người T086) — 2026-11-22
+> **Spec Kit `specs/016-h-giao-dien-giong-powerbi/`**, tài liệu nguồn `docs/PHASE_H_UI_PARITY.md`, bằng chứng ảnh `build/h-out/`, báo cáo tổng kết `docs/tasks/h-final-report.md`, bảng đối chiếu cổng Desktop `build/h-out/gate/CHECKLIST.md`.
+- [x] **H0–H3 (15 thanh Ribbon & CodeActionBar, T001–T044):** Hợp đồng Ribbon khai báo theo dữ liệu (`Sources/BIPro/Shell/Ribbon/`), đầy đủ 15 Ribbon đặc trưng (19 khe view×tab) cho 5 workspace, giữ 100% lệnh v1.2, tách `CodeActionBar` cho DAX & TMDL.
+- [x] **H4 (Khung cửa sổ, Token Teal, R-02 Edit Mode, Panes & Thanh đáy, T045–T065):** `TitleBar` (36 pt), `Rail` (42 pt, 5 biểu tượng), `accentTeal` (`#117865` / `#3FB59B`), `canvasWell` (`#E6E6E6`), bật chế độ Sửa mặc định (`EditClickPolicy`), `Filters` thu gọn mặc định (31 pt), `Visualizations` 3 tab + lưới 6 cột 39 ô, `Data` hai tab `Tables`/`Model`, `PageTabs` & `WindowStatusBar` 23 pt hợp nhất.
+- [x] **H5 (Start Screen, File Backstage, Options & View đặc thù, T066–T079):** `StartScreen` (6 thẻ + `RecentFilesList`), `BackstageView` (11 mục), `OptionsDialog` (22 mục), `AddDataPanel` bản Desktop, `ModelPropertiesPanel` (Cards No/Yes/No), khung DAX (dải thông báo + Results trống), khung TMDL (`Problems`/`Output` + hộp thoại lần đầu), mũi tên ` ▾` tiêu đề cột Table view.
+- [x] **H6 (Song ngữ, VoiceOver, Dark Mode, Bất biến `.pbix` & v1.3.0, T080–T085, T087):** 2 537/2 537 unit test xanh, 119/119 golden nặng release xanh, `RoundTripUnchangedTests` bất biến byte trên `Nhom6_work.pbix`, đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt.
+- [ ] **T086 (Cổng Desktop — con người duyệt):** Bộ ảnh cạnh nhau BI Pro ↔ Desktop và bảng kiểm 10 lệnh đã sẵn sàng tại `build/h-out/gate/CHECKLIST.md`.
+
 ### Mốc thời gian
 | Mốc | Gồm | Tích luỹ |
 |---|---|---|

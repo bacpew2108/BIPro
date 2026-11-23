@@ -77,4 +77,21 @@ struct AppLaunchPolicyTests {
             isRunningTests: true
         ))
     }
+
+    @Test func emptyLaunchShowsStartScreenWindowWhenNoDocumentIsOpen() {
+        #expect(UntitledDocuments.shouldShowStartScreenOnLaunch(
+            isDefaultLaunch: true,
+            hasStartedOpening: false,
+            openDocumentsCount: 0,
+            hasVisibleWindow: false,
+            isRunningTests: false
+        ))
+        #expect(!UntitledDocuments.shouldShowStartScreenOnLaunch(
+            isDefaultLaunch: true,
+            hasStartedOpening: true,
+            openDocumentsCount: 0,
+            hasVisibleWindow: false,
+            isRunningTests: false
+        ))
+    }
 }

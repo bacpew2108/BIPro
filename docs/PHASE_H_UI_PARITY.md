@@ -1,6 +1,6 @@
 # Phase H — Đưa giao diện BI Pro về giống Power BI Desktop
 
-Ngày quan sát: 2026-11-21 · Chuẩn so sánh: Power BI Desktop 2.159 (Windows 11 VM) · Trạng thái: **đã duyệt (Q1–Q6 theo khuyến nghị, 2026-11-21)**; spec Kit `specs/016-…` đang soạn; chưa sửa code.
+Ngày quan sát: 2026-11-21 · Chuẩn so sánh: Power BI Desktop 2.159 (Windows 11 VM) · Trạng thái: **đã triển khai v1.3.0 (86/87 tác vụ tự động hoàn tất, 2026-11-22; 2 537/2 537 unit test + 119/119 golden nặng release xanh; đang chờ người dùng duyệt cổng Desktop T086 tại `build/h-out/gate/CHECKLIST.md`)**.
 
 Tài liệu này là cấp trên của `specs/016-…` (sẽ tạo bằng Spec Kit sau khi bạn duyệt). Nếu mâu thuẫn với `specs/`, sửa tài liệu này trước.
 

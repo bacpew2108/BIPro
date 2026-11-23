@@ -8,6 +8,7 @@ import SwiftUI
 struct BuildWells: View {
     @Bindable var state: DocumentState
     let visual: ReportVisual
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
 
     private struct Renaming: Identifiable {
         let role: String
@@ -55,13 +56,44 @@ struct BuildWells: View {
         }
     }
 
+    private func localizedWellLabel(_ rule: WellRule) -> String {
+        guard AppPreferences.shared.effectiveLanguage == .en else { return rule.label }
+        switch rule.label {
+        case "Trục X": return "X-axis"
+        case "Trục Y": return "Y-axis"
+        case "Trục Y phụ": return "Secondary y-axis"
+        case "Trục Y cột": return "Column y-axis"
+        case "Trục Y đường": return "Line y-axis"
+        case "Chú giải": return "Legend"
+        case "Chú thích công cụ": return "Tooltips"
+        case "Giá trị": return "Values"
+        case "Hàng": return "Rows"
+        case "Cột": return "Columns"
+        case "Trường": return "Field"
+        case "Trường hiển thị": return "Fields"
+        case "Kích thước": return "Size"
+        case "Chi tiết": return "Details"
+        case "Nhóm": return "Category"
+        case "Đích": return "Target"
+        case "Mục tiêu": return "Target"
+        case "Xu hướng": return "Trend axis"
+        case "Vị trí": return "Location"
+        case "Vĩ độ": return "Latitude"
+        case "Kinh độ": return "Longitude"
+        case "Tối thiểu": return "Minimum value"
+        case "Tối đa": return "Maximum value"
+        case "Tâm": return "Small multiples"
+        default: return rule.label
+        }
+    }
+
     // MARK: Một ô
 
     @ViewBuilder
     private func well(_ rule: WellRule, editable: Bool, rules: [WellRule]) -> some View {
         let fields = visual.fields.filter { $0.role == rule.role }
         let canAdd = editable && rule.status == .observed
-        SectionLabel(text: rule.label + (rule.status == .unverified ? bi(" (chưa kiểm)", " (unverified)") : ""))
+        SectionLabel(text: localizedWellLabel(rule) + (rule.status == .unverified ? bi(" (chưa kiểm)", " (unverified)") : ""))
         VStack(spacing: 4) {
             if fields.isEmpty {
                 emptySlot(rule, canAdd: canAdd)
@@ -74,72 +106,115 @@ struct BuildWells: View {
         .padding(.vertical, targeted == rule.role ? 2 : 0)
         .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(targeted == rule.role ? DS.Palette.accent.opacity(0.10) : .clear))
         .contentShape(Rectangle())
-        .onDrop(of: [.plainText], isTargeted: Binding(get: { targeted == rule.role }, set: { targeted = $0 ? rule.role : (targeted == rule.role ? nil : targeted) })) { providers, _ in
+        .snapshotSafeDrop(isSnapshot: isSnapshotRender, isTargeted: Binding(get: { targeted == rule.role }, set: { targeted = $0 ? rule.role : (targeted == rule.role ? nil : targeted) })) { providers in
             handle(providers, role: rule.role, index: nil, editable: editable)
         }
     }
 
     @ViewBuilder
     private func emptySlot(_ rule: WellRule, canAdd: Bool) -> some View {
-        let text = Text(bi("+ Thêm field", "+ Add field")).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
+        let text = Text(bi("Thêm trường dữ liệu vào đây", "Add data fields here"))
+            .font(.system(size: 11))
+            .foregroundStyle(DS.Palette.tertiaryLabel)
+            .lineLimit(1)
         Group {
             if canAdd { addMenu(rule) { text.frame(maxWidth: .infinity) } } else { text }
         }
         .frame(maxWidth: .infinity).frame(height: 28)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas.opacity(0.6)))
+        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         .contentShape(Rectangle())
     }
 
     private func row(_ field: ReportField, index: Int, count: Int, rule: WellRule, editable: Bool, rules: [WellRule]) -> some View {
-        ZStack(alignment: .trailing) {
-            FieldChip(symbol: fieldSymbol(field), tint: field.kind == .measure ? DS.Palette.measure : DS.Palette.secondaryLabel,
-                      title: title(field), subtitle: field.variationColumn.map { "\(field.entity)[\($0)]" }
-                          ?? (title(field) == field.property ? field.entity : "\(field.entity)[\(field.property)]"))
+        HStack(spacing: 4) {
+            Image(systemName: fieldSymbol(field))
+                .font(.system(size: 10))
+                .foregroundStyle(field.kind == .measure ? DS.Palette.measure : DS.Palette.secondaryLabel)
+                .frame(width: 12)
+            Text(title(field))
+                .font(.system(size: 11.5))
+                .foregroundStyle(DS.Palette.label)
+                .lineLimit(1)
+            Spacer(minLength: 2)
             if editable {
+                if isSnapshotRender {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                        .frame(width: 16, height: 18)
+                } else {
+                    Menu {
+                        fieldContextMenuItems(field: field, index: index, count: count, rule: rule, rules: rules)
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8.5, weight: .semibold))
+                            .foregroundStyle(DS.Palette.secondaryLabel)
+                            .frame(width: 16, height: 18)
+                            .contentShape(Rectangle())
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .buttonStyle(.plain)
+                    .help(bi("Tuỳ chọn trường", "Field options"))
+                }
+
                 Button { layout.removeField(role: rule.role, index: index, visual: visual.id) } label: {
-                    Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(DS.Palette.tertiaryLabel)
-                        .frame(width: 20, height: 20).contentShape(Rectangle())
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .foregroundStyle(DS.Palette.tertiaryLabel)
+                        .frame(width: 16, height: 18)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.trailing, 4)
                 .help(bi("Bỏ khỏi ô", "Remove from well"))
             }
         }
+        .padding(.horizontal, 6)
+        .frame(height: 24)
+        .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
+        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
+        .help(field.variationColumn.map { "\(field.entity)[\($0)]" } ?? "\(field.entity)[\(field.property)]")
         .contextMenu {
             if editable {
-                Button(bi("Đổi tên cho visual này…", "Rename for this visual…")) { renaming = Renaming(role: rule.role, index: index, text: field.displayName ?? "") }
-                if field.kind == .aggregation {
-                    // Danh sách phép gộp như menu của trường trong Desktop (VM-F10), dấu tích ở phép đang dùng.
-                    let kind = layout.aggregationKind(entity: field.entity, property: field.property)
-                    Divider()
-                    ForEach(AggregateFunction.menu(for: kind), id: \.self) { function in
-                        let name = function.name(kind: kind)
-                        Button {
-                            layout.setAggregation(role: rule.role, index: index, to: function, visual: visual.id)
-                        } label: {
-                            if field.aggregationFunction == function.rawValue { Label(name, systemImage: "checkmark") } else { Text(name) }
-                        }
-                    }
-                    Divider()
-                }
-                if index > 0 { Button(bi("Lên", "Move up")) { layout.reorderField(role: rule.role, from: index, to: index - 1, visual: visual.id) } }
-                if index < count - 1 { Button(bi("Xuống", "Move down")) { layout.reorderField(role: rule.role, from: index, to: index + 1, visual: visual.id) } }
-                let targets = rules.filter { $0.role != rule.role && $0.status == .observed && WellKind(field.kind).map($0.accepts.contains) == true }
-                if !targets.isEmpty {
-                    Menu(bi("Chuyển sang ô", "Move to well")) {
-                        ForEach(targets, id: \.role) { target in
-                            Button(target.label) { layout.moveField(role: rule.role, index: index, to: target.role, visual: visual.id) }
-                        }
-                    }
-                }
-                Divider()
-                Button(bi("Bỏ khỏi ô", "Remove from well"), role: .destructive) { layout.removeField(role: rule.role, index: index, visual: visual.id) }
+                fieldContextMenuItems(field: field, index: index, count: count, rule: rule, rules: rules)
             }
         }
         .onDrag { NSItemProvider(object: BuildDrop.wellString(role: rule.role, index: index) as NSString) }
-        .onDrop(of: [.plainText], isTargeted: nil) { providers, _ in
+        .snapshotSafeDrop(isSnapshot: isSnapshotRender, isTargeted: nil) { providers in
             handle(providers, role: rule.role, index: index, editable: editable)
         }
+    }
+
+    @ViewBuilder
+    private func fieldContextMenuItems(field: ReportField, index: Int, count: Int, rule: WellRule, rules: [WellRule]) -> some View {
+        Button(bi("Đổi tên cho visual này…", "Rename for this visual…")) { renaming = Renaming(role: rule.role, index: index, text: field.displayName ?? "") }
+        if field.kind == .aggregation {
+            // Danh sách phép gộp như menu của trường trong Desktop (VM-F10), dấu tích ở phép đang dùng.
+            let kind = layout.aggregationKind(entity: field.entity, property: field.property)
+            Divider()
+            ForEach(AggregateFunction.menu(for: kind), id: \.self) { function in
+                let name = function.name(kind: kind)
+                Button {
+                    layout.setAggregation(role: rule.role, index: index, to: function, visual: visual.id)
+                } label: {
+                    if field.aggregationFunction == function.rawValue { Label(name, systemImage: "checkmark") } else { Text(name) }
+                }
+            }
+            Divider()
+        }
+        if index > 0 { Button(bi("Lên", "Move up")) { layout.reorderField(role: rule.role, from: index, to: index - 1, visual: visual.id) } }
+        if index < count - 1 { Button(bi("Xuống", "Move down")) { layout.reorderField(role: rule.role, from: index, to: index + 1, visual: visual.id) } }
+        let targets = rules.filter { $0.role != rule.role && $0.status == .observed && WellKind(field.kind).map($0.accepts.contains) == true }
+        if !targets.isEmpty {
+            Menu(bi("Chuyển sang ô", "Move to well")) {
+                ForEach(targets, id: \.role) { target in
+                    Button(target.label) { layout.moveField(role: rule.role, index: index, to: target.role, visual: visual.id) }
+                }
+            }
+        }
+        Divider()
+        Button(bi("Bỏ khỏi ô", "Remove from well"), role: .destructive) { layout.removeField(role: rule.role, index: index, visual: visual.id) }
     }
 
     // MARK: Thả
@@ -167,31 +242,36 @@ struct BuildWells: View {
 
     // MARK: Menu "Thêm trường"
 
+    @ViewBuilder
     private func addMenu<Label: View>(_ rule: WellRule, @ViewBuilder label: () -> Label) -> some View {
-        let model = state.workspace.metadata
-        return Menu {
-            if let model {
-                ForEach(model.tables.filter { $0.isUserTable && !$0.isHidden }, id: \.name) { table in
-                    let columns = rule.accepts.contains(.column) ? model.columns.filter { $0.tableName == table.name && !$0.isHidden } : []
-                    let measures = rule.accepts.contains(.measure) ? model.measures.filter { $0.tableName == table.name && !$0.isHidden } : []
-                    if !columns.isEmpty || !measures.isEmpty {
-                        Menu(table.name) {
-                            ForEach(measures, id: \.name) { m in
-                                Button(m.name) { layout.addField(FieldRef(measure: m), to: rule.role, visual: visual.id) }
-                            }
-                            ForEach(columns, id: \.name) { c in
-                                Button(c.name) { layout.addField(FieldRef(column: c), to: rule.role, visual: visual.id) }
+        if isSnapshotRender {
+            label()
+        } else {
+            let model = state.workspace.metadata
+            Menu {
+                if let model {
+                    ForEach(model.tables.filter { $0.isUserTable && !$0.isHidden }, id: \.name) { table in
+                        let columns = rule.accepts.contains(.column) ? model.columns.filter { $0.tableName == table.name && !$0.isHidden } : []
+                        let measures = rule.accepts.contains(.measure) ? model.measures.filter { $0.tableName == table.name && !$0.isHidden } : []
+                        if !columns.isEmpty || !measures.isEmpty {
+                            Menu(table.name) {
+                                ForEach(measures, id: \.name) { m in
+                                    Button(m.name) { layout.addField(FieldRef(measure: m), to: rule.role, visual: visual.id) }
+                                }
+                                ForEach(columns, id: \.name) { c in
+                                    Button(c.name) { layout.addField(FieldRef(column: c), to: rule.role, visual: visual.id) }
+                                }
                             }
                         }
                     }
                 }
+            } label: {
+                label()
             }
-        } label: {
-            label()
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .buttonStyle(.plain)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .buttonStyle(.plain)
     }
 
     private func title(_ field: ReportField) -> String { layout.label(of: field) }
@@ -252,6 +332,17 @@ struct TextboxContentEditor: View {
     private func commit() {
         guard editable, text != current else { return }
         layout.setText(text, visual: visual.id)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func snapshotSafeDrop(isSnapshot: Bool, isTargeted: Binding<Bool>?, perform: @escaping ([NSItemProvider]) -> Bool) -> some View {
+        if isSnapshot {
+            self
+        } else {
+            self.onDrop(of: [.plainText], isTargeted: isTargeted) { providers, _ in perform(providers) }
+        }
     }
 }
 

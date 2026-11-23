@@ -27,6 +27,14 @@ struct BIProApp: App {
         Settings {
             SettingsView(preferences: AppPreferences.shared)
         }
+
+        Window("BI Pro", id: "start-screen") {
+            StartScreen()
+                .frame(minWidth: 960, minHeight: 620)
+                .preferredColorScheme(AppPreferences.shared.preferredColorScheme)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1240, height: 780)
     }
 }
 

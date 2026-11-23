@@ -4,6 +4,8 @@ import PBIXKit
 import SwiftUI
 
 struct TableWorkspace: View {
+    static let usesInnerStatusBar = false
+
     @Bindable var state: DocumentState
 
     var body: some View {
@@ -24,23 +26,11 @@ struct TableWorkspace: View {
                         ColumnMetadataPanel(state: state)
                     }
                 }
-                .frame(width: 270)
+                .frame(width: 240)
                 .hairline(.leading)
             }
-            StatusBar(workspace: state.workspace, detail: statusDetail)
         }
         .background(DS.Palette.canvas)
-    }
-
-    private var statusDetail: String {
-        guard let table = state.table else { return "" }
-        var text = bi("Bảng: \(table) (\(state.workspace.rowCount(table).formatted()) dòng)",
-                      "Table: \(table) (\(state.workspace.rowCount(table).formatted()) rows)")
-        if let column = state.column, let storage = state.workspace.metadata?.storage(table: table, column: column) {
-            text += bi(" · Cột: \(column) (\(storage.cardinality.formatted()) giá trị phân biệt)",
-                       " · Column: \(column) (\(storage.cardinality.formatted()) distinct values)")
-        }
-        return text
     }
 }
 
@@ -89,12 +79,12 @@ struct FormulaBar: View {
                state.workspace.userTables.contains(where: { $0.name == table && $0.isCalculatedUserTable }) {
                 return "\(table) = " + expression.replacingOccurrences(of: "\n", with: " ")
             }
-            return "Bảng \(table)"
+            return bi("Bảng \(table)", "Table \(table)")
         }
         if column.kind == .calculated, let expression = column.expression {
             return "\(column.name) = " + expression.replacingOccurrences(of: "\n", with: " ")
         }
-        return "\(column.name)  ·  cột dữ liệu" + (column.sourceColumn.map { " (nguồn: \($0))" } ?? "")
+        return "\(column.name)  ·  " + bi("cột dữ liệu", "data column") + (column.sourceColumn.map { bi(" (nguồn: \($0))", " (source: \($0))") } ?? "")
     }
 }
 
@@ -298,7 +288,7 @@ struct DataGrid: NSViewRepresentable {
         for (index, column) in columns.enumerated() {
             let info = metadata?.columns.first { $0.tableName == table && $0.name == titles[index] }
             let tableColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(String(index)))
-            tableColumn.title = titles[index]
+            tableColumn.title = "\(titles[index]) ▾"
             tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: String(index), ascending: true)
             let minimum: CGFloat = column.dataType == .dateTime ? 165 : 96
             tableColumn.width = max(minimum, min(260, CGFloat(column.name.count) * 8 + 32))

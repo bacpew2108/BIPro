@@ -14,6 +14,26 @@ import SwiftUI
 /// 8. Vai trò (n)
 /// 9. Bảng (n)
 struct ModelTreeView: View {
+    struct GroupSummary: Equatable {
+        let name: String
+        let count: Int
+    }
+
+    static func groupSummaries(metadata: ModelMetadata?, language: ResolvedLanguage) -> [GroupSummary] {
+        let isEN = language == .en
+        return [
+            GroupSummary(name: isEN ? "Calculation groups" : "Nhóm tính toán", count: metadata?.calculationGroups.count ?? 0),
+            GroupSummary(name: isEN ? "Cultures" : "Ngôn ngữ", count: metadata?.cultures.count ?? 0),
+            GroupSummary(name: isEN ? "Expressions" : "Biểu thức", count: metadata?.expressions.count ?? 0),
+            GroupSummary(name: isEN ? "Functions" : "Hàm", count: metadata?.functions.count ?? 0),
+            GroupSummary(name: isEN ? "Measures" : "Measure", count: metadata?.measures.count ?? 0),
+            GroupSummary(name: isEN ? "Perspectives" : "Phối cảnh", count: metadata?.perspectives.count ?? 0),
+            GroupSummary(name: isEN ? "Relationships" : "Quan hệ", count: metadata?.relationships.count ?? 0),
+            GroupSummary(name: isEN ? "Roles" : "Vai trò", count: metadata?.roles.count ?? 0),
+            GroupSummary(name: isEN ? "Tables" : "Bảng", count: metadata?.userTables.count ?? 0),
+        ]
+    }
+
     let state: DocumentState
     let search: String
     @Binding var expanded: Set<String>
@@ -21,6 +41,7 @@ struct ModelTreeView: View {
     let collapseAll: () -> Void
     let expandAll: () -> Void
     let renderTableNode: (ModelMetadata.Table, Int) -> AnyView
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
 
     private var metadata: ModelMetadata? {
         state.workspace.metadata
@@ -41,19 +62,19 @@ struct ModelTreeView: View {
     var body: some View {
         let isRootOpen = expanded.contains("model:root") || !search.isEmpty
         VStack(alignment: .leading, spacing: 0) {
-            // Cây gốc: "Mô hình ngữ nghĩa"
+            // Cây gốc: "Semantic model" / "Mô hình ngữ nghĩa"
             TreeRow(
                 level: 0,
                 isExpanded: isRootOpen,
                 hasChildren: true,
                 symbol: "cylinder.split.1x2",
                 tint: DS.Palette.accent,
-                title: "Mô hình ngữ nghĩa",
+                title: bi("Mô hình ngữ nghĩa", "Semantic model"),
                 isBold: true
             ) {
                 toggle("model:root")
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(
                     onCollapseAll: collapseAll,
                     onExpandAll: expandAll
@@ -80,7 +101,8 @@ struct ModelTreeView: View {
         let allItems = metadata?.calculationGroups ?? []
         let filtered = allItems.filter { match($0) }
         let count = allItems.count
-        if search.isEmpty || !filtered.isEmpty || match("Nhóm tính toán") {
+        let titleText = bi("Nhóm tính toán", "Calculation groups")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:calcGroups"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -89,12 +111,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "slider.horizontal.3",
                 tint: DS.Palette.secondaryLabel,
-                title: "Nhóm tính toán (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -117,7 +139,8 @@ struct ModelTreeView: View {
         let allItems = metadata?.cultures ?? []
         let filtered = allItems.filter { match($0) }
         let count = allItems.count
-        if search.isEmpty || !filtered.isEmpty || match("Ngôn ngữ") {
+        let titleText = bi("Ngôn ngữ", "Cultures")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:cultures"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -126,12 +149,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "globe",
                 tint: DS.Palette.secondaryLabel,
-                title: "Ngôn ngữ (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -154,7 +177,8 @@ struct ModelTreeView: View {
         let allItems = metadata?.expressions ?? []
         let filtered = allItems.filter { match($0) }
         let count = allItems.count
-        if search.isEmpty || !filtered.isEmpty || match("Biểu thức") {
+        let titleText = bi("Biểu thức", "Expressions")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:expressions"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -163,12 +187,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "curlybraces",
                 tint: DS.Palette.secondaryLabel,
-                title: "Biểu thức (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -191,7 +215,8 @@ struct ModelTreeView: View {
         let allItems = metadata?.functions ?? []
         let filtered = allItems.filter { match($0) }
         let count = allItems.count
-        if search.isEmpty || !filtered.isEmpty || match("Hàm") {
+        let titleText = bi("Hàm", "Functions")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:functions"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -200,12 +225,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "function",
                 tint: DS.Palette.secondaryLabel,
-                title: "Hàm (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -230,7 +255,8 @@ struct ModelTreeView: View {
         }
         let filtered = allMeasures.filter { match($0.name) }
         let count = allMeasures.count
-        if search.isEmpty || !filtered.isEmpty || match("Measure") {
+        let titleText = bi("Measure", "Measures")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:measures"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -239,12 +265,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "function",
                 tint: DS.Palette.measure,
-                title: "Measure (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -260,7 +286,7 @@ struct ModelTreeView: View {
                     ) {
                         state.daxQueries[state.daxSelection].text = DAXSnippets.defineAndEvaluate(m)
                     }
-                    .leftContextMenu {
+                    .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                         LeftMenuBuilder.measureMenuItems(
                             onEvaluate: {
                                 openNewQueryTab(m.name, QuickQueries.evaluate(measure: m), true)
@@ -315,7 +341,8 @@ struct ModelTreeView: View {
         let allItems = metadata?.perspectives ?? []
         let filtered = allItems.filter { match($0) }
         let count = allItems.count
-        if search.isEmpty || !filtered.isEmpty || match("Phối cảnh") {
+        let titleText = bi("Phối cảnh", "Perspectives")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:perspectives"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -324,12 +351,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "eye",
                 tint: DS.Palette.secondaryLabel,
-                title: "Phối cảnh (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -355,7 +382,8 @@ struct ModelTreeView: View {
             let line = "'\(r.fromTable)'[\(r.fromColumn)] → '\(r.toTable)'[\(r.toColumn)]"
             return match(line) || match(r.fromTable) || match(r.toTable)
         }
-        if search.isEmpty || !filtered.isEmpty || match("Quan hệ") {
+        let titleText = bi("Quan hệ", "Relationships")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:relationships"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -364,12 +392,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "arrow.triangle.swap",
                 tint: DS.Palette.secondaryLabel,
-                title: "Quan hệ (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -395,7 +423,8 @@ struct ModelTreeView: View {
         let allItems = metadata?.roles ?? []
         let filtered = allItems.filter { match($0) }
         let count = allItems.count
-        if search.isEmpty || !filtered.isEmpty || match("Vai trò") {
+        let titleText = bi("Vai trò", "Roles")
+        if search.isEmpty || !filtered.isEmpty || match(titleText) {
             let key = "model:roles"
             let isOpen = (expanded.contains(key) || !search.isEmpty) && count > 0
             TreeRow(
@@ -404,12 +433,12 @@ struct ModelTreeView: View {
                 hasChildren: count > 0,
                 symbol: "person.2",
                 tint: DS.Palette.secondaryLabel,
-                title: "Vai trò (\(count))",
+                title: "\(titleText) (\(count))",
                 isBold: true
             ) {
                 if count > 0 { toggle(key) }
             }
-            .leftContextMenu {
+            .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
                 LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
             }
 
@@ -441,12 +470,12 @@ struct ModelTreeView: View {
             hasChildren: count > 0,
             symbol: "tablecells",
             tint: DS.Palette.table,
-            title: "Bảng (\(count))",
+            title: "\(bi("Bảng", "Tables")) (\(count))",
             isBold: true
         ) {
             if count > 0 { toggle(key) }
         }
-        .leftContextMenu {
+        .snapshotSafeLeftContextMenu(isSnapshot: isSnapshotRender) {
             LeftMenuBuilder.modelGroupMenuItems(onCollapseAll: collapseAll, onExpandAll: expandAll)
         }
 

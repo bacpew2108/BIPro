@@ -43,42 +43,28 @@ enum WorkspaceMode: String, CaseIterable, Identifiable {
 }
 
 enum RibbonTab: String, Identifiable {
-    case home, insert, modeling, view, help, format, dataDrill, tableTools, columnTools
+    case file, home, insert, modeling, design, view, optimize, help, format, dataDrill, tableTools, columnTools
     var id: String { rawValue }
 
+    var tabID: RibbonTabID {
+        RibbonTabID(rawValue: rawValue) ?? .home
+    }
+
+    init(tabID: RibbonTabID) {
+        self = RibbonTab(rawValue: tabID.rawValue) ?? .home
+    }
+
     var title: String {
-        switch self {
-        case .home: "Trang chủ"
-        case .insert: "Chèn"
-        case .modeling: "Mô hình hóa"
-        case .view: "Xem"
-        case .help: "Trợ giúp"
-        case .format: "Định dạng"
-        case .dataDrill: "Dữ liệu / Truy sâu"
-        case .tableTools: "Công cụ bảng"
-        case .columnTools: "Công cụ cột"
-        }
+        tabID.title.vi
     }
 
     @MainActor
     var localizedTitle: String {
-        let lang = AppPreferences.shared.effectiveLanguage
-        guard lang == .en else { return title }
-        switch self {
-        case .home: return "Home"
-        case .insert: return "Insert"
-        case .modeling: return "Modeling"
-        case .view: return "View"
-        case .help: return "Help"
-        case .format: return "Format"
-        case .dataDrill: return "Data / Drill"
-        case .tableTools: return "Table tools"
-        case .columnTools: return "Column tools"
-        }
+        tabID.title.localized
     }
 
     /// Contextual tabs are tinted, as in the design.
-    var isContextual: Bool { [.format, .dataDrill, .tableTools, .columnTools].contains(self) }
+    var isContextual: Bool { tabID.isContextual }
 }
 
 /// Per-window UI state.
@@ -102,7 +88,8 @@ final class DocumentState {
     /// Chế độ Sửa (⌘E): kéo thả visual. Mặc định là Xem: lọc chéo, drill như trước.
     /// Vùng trang đang nhìn thấy trong canvas (toạ độ trang); nil = cả trang. Dùng khi thêm visual mới (D3).
     var visibleRect: CGRect?
-    var editMode = false {
+    /// Chế độ Sửa (⌘E): mặc định bật như Power BI Desktop (Phase H / R-02), trừ khi người dùng bật `viewOnlyDefault`.
+    var editMode = true {
         didSet {
             if !editMode { layout.clearSelection(); if visualID != nil { visualID = nil } }
             if editMode != oldValue {
@@ -121,11 +108,24 @@ final class DocumentState {
 
     var mode: WorkspaceMode = .report {
         didSet {
-            if !tabs.contains(ribbonTab) { ribbonTab = .home }
+            let resolved = RibbonCatalog.resolvedTab(ribbonTab.tabID, mode: mode, visualSelected: visual != nil)
+            ribbonTab = RibbonTab(tabID: resolved)
             UserDefaults.standard.set(mode.rawValue, forKey: "lastWorkspace")
         }
     }
     var ribbonTab: RibbonTab = .home
+    /// Mở màn hình File backstage (US7); tab `.file` bật cờ này thay vì hiện Ribbon.
+    var showBackstage = false
+
+    func selectRibbonTab(_ tab: RibbonTab) {
+        if tab == .file {
+            showBackstage = true
+            return
+        }
+        showBackstage = false
+        let resolved = RibbonCatalog.resolvedTab(tab.tabID, mode: mode, visualSelected: visual != nil)
+        ribbonTab = RibbonTab(tabID: resolved)
+    }
 
     // Report
     var pageID: String? {
@@ -153,6 +153,20 @@ final class DocumentState {
     var showData = true
     var showSelection = false
     var showBookmarks = false
+    /// Trạng thái thu gọn pane theo cửa sổ (Phase H / US5, không lưu). Filters thu gọn mặc định như Desktop.
+    var filtersCollapsed = true
+    var visualizationsCollapsed = false
+    var dataCollapsed = false
+    enum PaneKind: Hashable { case filters, visualizations, data }
+    private var paneWidths: [PaneKind: CGFloat] = [
+        .filters: UIMetrics.pane,
+        .visualizations: UIMetrics.pane,
+        .data: UIMetrics.pane,
+    ]
+    func paneWidth(for kind: PaneKind) -> CGFloat { paneWidths[kind] ?? UIMetrics.pane }
+    func setPaneWidth(_ width: CGFloat, for kind: PaneKind) {
+        paneWidths[kind] = min(320, max(160, width))
+    }
     var visualizationsTab: VisualizationsTab = .build
 
     /// Tên chủ đề đang áp dụng (Wave 3B: chủ đề mới chọn trong phiên hoặc chủ đề gốc của báo cáo).
@@ -224,13 +238,15 @@ final class DocumentState {
     // TMDL
     var tmdlPath: String?
 
-    enum VisualizationsTab: Hashable { case build, format }
+    enum VisualizationsTab: Hashable, CaseIterable { case build, format, analytics }
 
     init(workspace: Workspace, fileName: String, fileURL: URL? = nil) {
         self.workspace = workspace
         self.fileName = fileName
         self.fileURL = fileURL
         self.openedStamp = fileURL.flatMap { try? FileStamp.of($0) }
+        let canEdit = workspace.pbix.reportFormat == .pbir || workspace.pbix.reportFormat == .legacyLayout
+        self.editMode = canEdit && !AppPreferences.shared.viewOnlyDefault
         let archive = workspace.pbix.archive
         self.layout = workspace.pbix.reportFormat == .legacyLayout
             ? LayoutEditor.readingLegacy(archive: archive, report: workspace.report)
@@ -441,12 +457,7 @@ final class DocumentState {
     }
 
     var tabs: [RibbonTab] {
-        switch mode {
-        case .report: visual == nil ? [.home, .insert, .modeling, .view, .help] : [.home, .insert, .modeling, .view, .help, .format, .dataDrill]
-        case .table: [.home, .help, .tableTools, .columnTools]
-        case .model: [.home, .modeling, .view, .help]
-        case .daxQuery, .tmdl: [.home, .view, .help]
-        }
+        RibbonCatalog.tabs(mode: mode, visualSelected: visual != nil).map(RibbonTab.init(tabID:))
     }
 
     func select(table: String, column: String? = nil) {

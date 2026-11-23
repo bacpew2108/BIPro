@@ -1,6 +1,6 @@
 # BI Pro: trạng thái làm việc
 
-Cập nhật: 2026-11-21 (**Hoàn tất 100% toàn bộ `BIPRO_BUILD_PLAN.md` & v1.2** — đã mở khoá nốt Ribbon **Công cụ cột / Công cụ bảng**, dọn thông báo cũ, đồng bộ 694/694 mục `[x]` trên `BIPRO_BUILD_PLAN.md` & 15 `specs/`, qua **2 478/2 478** unit test, **124/124** golden nặng release + `ColumnEditorTests`, đóng gói `build/BI Pro.app` **v1.2.0** + `codesign` đạt).
+Cập nhật: 2026-11-22 (**Phase H — Giao diện giống Power BI Desktop 2.159 (v1.3.0) đã hoàn tất 86/87 tác vụ tự động**, còn cổng con người **T086** tại `build/h-out/gate/CHECKLIST.md`; qua **2 537/2 537** unit test, **119/119** golden nặng release, đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt; working tree chưa commit theo đúng quy tắc chờ người dùng duyệt).
 
 *(Nhật ký chi tiết Phase A–G trước ngày 2026-11-21 đã được lưu trữ nguyên văn tại `docs/HISTORY.md`.)*
 
@@ -49,6 +49,14 @@ Cập nhật: 2026-11-21 (**Hoàn tất 100% toàn bộ `BIPRO_BUILD_PLAN.md` & 
   - Dọn thông báo lỗi nhắc phase cũ trong `TMDLParser.swift`, `FieldEditor.swift`, `TypeChange.swift`; đồng bộ **694/694** mục `[x]` (0 mục `[ ]`) trên `docs/BIPRO_BUILD_PLAN.md`, `specs/003` (T034) và `specs/010` (T111).
   - Kiểm chứng: **2 481** unit test (2 478 toàn bộ + 3 `AppLaunchPolicyTests`), **124/124** golden nặng release + `ColumnEditorTests` qua, đóng gói `build/BI Pro.app` **v1.2.0** + `codesign --verify --deep --strict` đạt.
 
+- **Phase H — v1.3.0 Giao diện giống Power BI Desktop 2.159 (2026-11-22, `specs/016-h-giao-dien-giong-powerbi/`, working tree chưa commit):**
+  - **Nền tảng & 15 thanh Ribbon (Phase 1–5, T001–T044):** Tách sạch kiến trúc Ribbon khai báo theo dữ liệu (`Sources/BIPro/Shell/Ribbon/`), bỏ `Ribbon.swift` cũ (làm rỗng 0 biểu tượng, sẵn sàng `git rm`), giữ 100% hành vi lệnh qua `RibbonActions`. Đủ 15 Ribbon đặc trưng (19 khe view×tab gồm 4 tab Help dùng chung) cho cả 5 workspace (`Report`: Home, Insert, Modeling, Design, View, Optimize, Help, Format, Data/Drill; `Table`: Home, Table tools, Column tools; `Model`: Home; `DAX`: Home; `TMDL`: Home), tách `CodeActionBar` cho DAX (`Run`, `Update model with changes`) và TMDL (`Apply`, `Preview`).
+  - **Khung cửa sổ, Token Teal & R-02 Edit Mode mặc định (Phase 6, T045–T053):** Chuyển `accent` sang xanh lục teal (`#117865` Light / `#3FB59B` Dark), chrome `#F5F5F5`, `canvasWell #E6E6E6`; tách `TitleBar` (36 pt) + `Rail` (42 pt, luôn đủ 5 biểu tượng + `EmptyViewState`); xác nhận thành công spike **R-02** (`EditClickPolicy`: bấm < 4 pt chọn + lọc chéo, kéo ≥ 4 pt di chuyển visual; bật `editMode` mặc định trừ khi `viewOnlyDefault`).
+  - **Pane & Thanh đáy (Phase 7–8, T054–T065):** `Filters` thu gọn mặc định (31 pt), `Visualizations` 3 tab biểu tượng + lưới 6 cột 39 ô chuẩn Desktop + `BuildWells` nét đứt song ngữ + `Drill through`, `Format` Search + Visual/General, `Data` hai tab `Tables`/`Model` với cây `Semantic model` 9 nhóm; `PageTabs` (Desktop/Phone, ◂ ▸, tab chữ thường gạch chân teal, nút `+` vuông teal) và `WindowStatusBar` 23 pt hợp nhất cho cả 5 workspace.
+  - **Khởi động, File Backstage, Options & View đặc thù (Phase 9–10, T066–T079):** `StartScreen` (6 thẻ + `RecentFilesList`), `BackstageView` (11 mục chuẩn Desktop), `OptionsDialog` (15 mục Global + 7 mục Current File), cập nhật `AddDataPanel` (26 pt, 4 thẻ pastel); bổ sung `ModelPropertiesPanel` (Cards: No/Yes/No), dải thông báo & màn hình Results trống cho DAX, `Problems (n)`/`Output` + hộp thoại giới thiệu lần đầu cho TMDL, tiêu đề cột có ` ▾` cho Table view.
+  - **Hoàn thiện v1.3.0 & Cổng Desktop (Phase 11, T080–T087):** Rà song ngữ + VoiceOver toàn bề mặt (`RibbonBilingualTests`), rà Dark Mode 22 ảnh (`build/h-out/h6/dark/` — vá tương phản nút `Recent`, giới hạn độ rộng snapshot Ribbon rộng, song ngữ BuildWells & thanh công thức Table), ghi `docs/phase-ui-evidence/QUAN-SAT-H.md`, nâng bản `1.3.0` (`CFBundleVersion = 130`), kiểm bất biến byte `.pbix` (`RoundTripUnchangedTests` qua trên cả `SyntheticReport` và `Nhom6_work.pbix`), chuẩn bị sẵn bộ đối chiếu cổng Desktop tại `build/h-out/gate/CHECKLIST.md` + 22 ảnh `build/h-out/gate/bipro/`.
+  - **Kiểm chứng:** `swift build` đạt, **2 537/2 537** unit test xanh (100%), **119/119** golden nặng release xanh (100%), đóng gói `build/BI Pro.app` **v1.3.0** + `codesign --verify --deep --strict` đạt (exit 0). **T086** (duyệt ảnh cạnh nhau & thử 10 lệnh trên Desktop/BI Pro) chờ con người xác nhận.
+
 ## Quyết định đã chốt
 
 - **Định dạng tài liệu duy nhất:** `.pbix` (đọc & ghi phân tầng T1/T2/T3 nguyên tử, kiểm đọc lại, có bản sao lưu).
@@ -59,17 +67,18 @@ Cập nhật: 2026-11-21 (**Hoàn tất 100% toàn bộ `BIPRO_BUILD_PLAN.md` & 
 
 ## Lệnh build / test
 
-- Build & unit test: `swift build`; `swift test --no-parallel` (2 478 test).
+- Build & unit test: `swift build`; `swift test --no-parallel` (2 537 test).
 - Golden nặng (release, gồm 30 golden DAX + 72 truy vấn visual + Phase G + v1.1b DAX golden):
   ```
   BIPRO_HEAVY=1 swift test -c release -Xswiftc -enable-testing --scratch-path .build-1a-rel --no-parallel --filter "Nhom6|ORA|VIS|ExportCSVTests|ExportRenderTests|QuickLookSummaryTests|V11BDAXGoldenTests"
   ```
+- Xuất ảnh đối chiếu Phase H: `BIPRO_H_RENDER=1 swift test --no-parallel --filter ParityRenderTests` (xuất vào `build/h-out/`).
 - Đo hiệu năng truy vấn chậm: `zsh scripts/e3-loop.sh` (so byte với `build/e3-base/`).
-- Đóng gói ứng dụng: `zsh scripts/build-app.sh release` (tạo `build/BI Pro.app` v1.2.0 kèm `AppIcon.icns` và 2 extension Quick Look).
+- Đóng gói ứng dụng: `zsh scripts/build-app.sh release` (tạo `build/BI Pro.app` v1.3.0 kèm `AppIcon.icns` và 2 extension Quick Look).
 - Lỗi SIGBUS sau khi sửa struct dùng chung: xoá `.build` rồi build lại.
 
 ## Việc tiếp theo
 
-1. **Git:** working tree đã commit (`247ee09`, `b594ec6`, `68dc81c`); chưa push 94+ commit lên `origin/main` (chờ lệnh của bạn).
-2. **Phase H — Giao diện giống Power BI Desktop (doc xong, chờ giao agy):** `docs/PHASE_H_UI_PARITY.md` (đã duyệt Q1–Q6), `specs/016-h-giao-dien-giong-powerbi/` (spec, plan, research, data-model, contracts, quickstart, tasks 87 tác vụ; đã qua `/speckit-analyze`, đã sửa các điểm HIGH/MEDIUM), bảng sở hữu `docs/phase-h-ownership.tsv`, prompt tổng cho agy `docs/tasks/h-master.md` + allow-list `docs/tasks/h-master-allow.json`. Người dùng tự giao agy. Hiến pháp đã nâng v1.2.0 (teal; nút AI/cloud hiện vô hiệu). Chưa sửa mã giao diện. Việc còn lại của con người sau agy: duyệt ảnh, cổng Desktop (T086), commit.
+1. **Cổng con người Phase H (T086):** Mở `build/h-out/gate/CHECKLIST.md` đối chiếu 15 Ribbon + 7 màn hình BI Pro (`build/h-out/gate/bipro/`) với Desktop (`docs/phase-ui-evidence/vm-ui/`), thử 10 lệnh mẫu (SC-004, SC-005), rồi đánh dấu `[x]` T086.
+2. **Git:** working tree Phase H v1.3.0 sẵn sàng duyệt diff (tuỳ chọn `git rm Sources/BIPro/Shell/Ribbon.swift` vì đã làm rỗng), chưa commit/push (chờ lệnh của bạn).
 3. **Định hướng sau đó (tuỳ chọn):** đóng gói `.dmg`, thêm connector mới khi cần.

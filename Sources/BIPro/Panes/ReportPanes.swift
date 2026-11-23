@@ -5,33 +5,45 @@ import SwiftUI
 // MARK: - Filters
 
 struct FiltersPane: View {
+    static let showsFooter = false
+
     @Bindable var state: DocumentState
     var collapse: (() -> Void)?
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
     @State private var search = ""
 
     var body: some View {
         let w = state.workspace
         VStack(spacing: 0) {
             PaneHeader(title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", collapse: collapse)
-            SearchField(text: $search, prompt: bi("Tìm bộ lọc", "Search filters")).padding(.horizontal, 10).padding(.bottom, 6)
+            SearchField(text: $search, prompt: bi("Tìm bộ lọc", "Search")).padding(.horizontal, 8).padding(.bottom, 6)
             if let reason = state.reportEditingBlocker {
                 Text(reason).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.tertiaryLabel)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.bottom, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.bottom, 6)
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    if let visual = state.visual {
-                        section(bi("Bộ lọc trên visual này", "Filters on this visual"), filters: visualLevelFilters(visual), scope: visual.id, level: .visual, empty: bi("Visual chưa có field", "Visual has no fields"))
-                    }
-                    section(bi("Bộ lọc trên trang này", "Filters on this page"), filters: state.pageID.map { state.interaction.pageFilters(of: $0) } ?? [], scope: state.pageID ?? "",
-                            level: .page, empty: bi("Chưa có bộ lọc trang", "No page filters"))
-                    section(bi("Bộ lọc trên mọi trang", "Filters on all pages"), filters: w.reportFilters, scope: "", level: .report, empty: bi("Chưa có bộ lọc báo cáo", "No report filters"))
+            if isSnapshotRender {
+                filterSections(workspace: w)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .clipped()
+            } else {
+                ScrollView {
+                    filterSections(workspace: w)
                 }
-                .padding(.bottom, 10)
             }
-            PaneFooter(text: bi("\(activeCount) bộ lọc đang áp dụng", "\(activeCount) active filters"))
         }
         .background(DS.Palette.chrome)
+    }
+
+    @ViewBuilder private func filterSections(workspace w: Workspace) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let visual = state.visual {
+                section(bi("Bộ lọc trên visual này", "Filters on this visual"), filters: visualLevelFilters(visual), scope: visual.id, level: .visual, empty: bi("Visual chưa có field", "Visual has no fields"))
+            }
+            section(bi("Bộ lọc trên trang này", "Filters on this page"), filters: state.pageID.map { state.interaction.pageFilters(of: $0) } ?? [], scope: state.pageID ?? "",
+                    level: .page, empty: bi("Chưa có bộ lọc trang", "No page filters"))
+            section(bi("Bộ lọc trên mọi trang", "Filters on all pages"), filters: w.reportFilters, scope: "", level: .report, empty: bi("Chưa có bộ lọc báo cáo", "No report filters"))
+        }
+        .padding(.bottom, 10)
     }
 
     private var activeCount: Int {
@@ -113,7 +125,8 @@ struct AddFieldMenu: View {
     @State private var isDropTargeted = false
 
     var body: some View {
-        Menu {
+        let tip = bi("Chọn hoặc kéo-thả cột từ pane Dữ liệu để thêm bộ lọc", "Pick or drag a column from the Data pane to add a filter")
+        RibbonMenuButton(disabled: false, help: tip, accessibilityLabel: bi("Thêm field dữ liệu vào đây", "Add data fields here")) {
             ForEach(interaction.filterableColumns(), id: \.table) { entry in
                 Menu(entry.table) {
                     ForEach(entry.columns, id: \.self) { name in
@@ -123,14 +136,13 @@ struct AddFieldMenu: View {
             }
         } label: {
             Text(isDropTargeted ? bi("Thả trường để thêm bộ lọc", "Drop field to add filter") : bi("Thêm field dữ liệu vào đây", "Add data fields here"))
-                .font(.system(size: 12))
+                .font(.system(size: 11.5))
                 .foregroundStyle(isDropTargeted ? DS.Palette.accent : DS.Palette.secondaryLabel)
-                .frame(maxWidth: .infinity).frame(height: 40)
+                .frame(maxWidth: .infinity).frame(height: 36)
                 .background(RoundedRectangle(cornerRadius: 3).fill(isDropTargeted ? DS.Palette.accent.opacity(0.08) : DS.Palette.canvas))
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(isDropTargeted ? DS.Palette.accent : DS.Palette.separator,
-                                                                       style: isDropTargeted ? StrokeStyle(lineWidth: 1.5, dash: [4, 3]) : StrokeStyle(lineWidth: 1)))
+                                                                       style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         }
-        .menuStyle(.button).buttonStyle(.plain)
         .onDrop(of: [.utf8PlainText], isTargeted: $isDropTargeted) { providers in
             BuildDrop.load(from: providers) { drops in
                 for drop in drops {
@@ -141,7 +153,6 @@ struct AddFieldMenu: View {
             }
             return true
         }
-        .help(bi("Chọn hoặc kéo-thả cột từ pane Dữ liệu để thêm bộ lọc", "Pick or drag a column from the Data pane to add a filter"))
     }
 }
 
@@ -212,69 +223,236 @@ struct FilterCard: View {
     }
 }
 
-// MARK: - Visualizations (Build / Format)
+// MARK: - Visualizations (Build / Format / Analytics)
+
+struct VisualGallerySlot: Equatable, Identifiable {
+    let id: String
+    let type: String?
+    let title: Bilingual
+    let symbol: String
+
+    static let unsupportedTooltip = Bilingual(
+        vi: "BI Pro chưa hỗ trợ visual này",
+        en: "BI Pro doesn't support this visual yet"
+    )
+
+    var isSupported: Bool {
+        guard let type else { return false }
+        return VisualTypes.isSupported(type)
+    }
+
+    var disabledTooltip: Bilingual { Self.unsupportedTooltip }
+}
 
 struct VisualizationsPane: View {
+    static let showsFooter = false
+    static let galleryColumnCount = 6
+
+    /// Lưới 6 cột 39 ô chuẩn Power BI Desktop theo `contracts/visual-gallery.md` và `o_now.png`.
+    static let desktopGallery: [VisualGallerySlot] = [
+        // Hàng 1
+        VisualGallerySlot(id: "barChart", type: "barChart", title: Bilingual(vi: "Biểu đồ thanh chồng", en: "Stacked bar chart"), symbol: "chart.bar.xaxis"),
+        VisualGallerySlot(id: "columnChart", type: "columnChart", title: Bilingual(vi: "Biểu đồ cột chồng", en: "Stacked column chart"), symbol: "chart.bar.fill"),
+        VisualGallerySlot(id: "clusteredBarChart", type: "clusteredBarChart", title: Bilingual(vi: "Biểu đồ thanh nhóm", en: "Clustered bar chart"), symbol: "chart.bar.doc.horizontal"),
+        VisualGallerySlot(id: "clusteredColumnChart", type: "clusteredColumnChart", title: Bilingual(vi: "Biểu đồ cột nhóm", en: "Clustered column chart"), symbol: "chart.bar"),
+        VisualGallerySlot(id: "hundredPercentStackedBarChart", type: "hundredPercentStackedBarChart", title: Bilingual(vi: "Biểu đồ thanh chồng 100%", en: "100% stacked bar chart"), symbol: "align.horizontal.left.fill"),
+        VisualGallerySlot(id: "hundredPercentStackedColumnChart", type: "hundredPercentStackedColumnChart", title: Bilingual(vi: "Biểu đồ cột chồng 100%", en: "100% stacked column chart"), symbol: "align.vertical.bottom.fill"),
+        // Hàng 2
+        VisualGallerySlot(id: "lineChart", type: "lineChart", title: Bilingual(vi: "Biểu đồ đường", en: "Line chart"), symbol: "chart.xyaxis.line"),
+        VisualGallerySlot(id: "areaChart", type: "areaChart", title: Bilingual(vi: "Biểu đồ vùng", en: "Area chart"), symbol: "chart.line.uptrend.xyaxis"),
+        VisualGallerySlot(id: "stackedAreaChart", type: "stackedAreaChart", title: Bilingual(vi: "Biểu đồ vùng chồng", en: "Stacked area chart"), symbol: "mountain.2"),
+        VisualGallerySlot(id: "lineStackedColumnComboChart", type: "lineStackedColumnComboChart", title: Bilingual(vi: "Đường và cột chồng", en: "Line and stacked column chart"), symbol: "chart.bar.xaxis.ascending.badge.clock"),
+        VisualGallerySlot(id: "lineClusteredColumnComboChart", type: "lineClusteredColumnComboChart", title: Bilingual(vi: "Đường và cột nhóm", en: "Line and clustered column chart"), symbol: "chart.line.uptrend.xyaxis.circle"),
+        VisualGallerySlot(id: "ribbonChart", type: "ribbonChart", title: Bilingual(vi: "Biểu đồ dải", en: "Ribbon chart"), symbol: "waveform.path.ecg"),
+        // Hàng 3
+        VisualGallerySlot(id: "waterfallChart", type: "waterfallChart", title: Bilingual(vi: "Biểu đồ thác nước", en: "Waterfall chart"), symbol: "stairs"),
+        VisualGallerySlot(id: "funnel", type: "funnel", title: Bilingual(vi: "Biểu đồ phễu", en: "Funnel"), symbol: "line.3.horizontal.decrease"),
+        VisualGallerySlot(id: "scatterChart", type: "scatterChart", title: Bilingual(vi: "Biểu đồ phân tán", en: "Scatter chart"), symbol: "chart.dots.scatter"),
+        VisualGallerySlot(id: "pieChart", type: "pieChart", title: Bilingual(vi: "Biểu đồ tròn", en: "Pie chart"), symbol: "chart.pie.fill"),
+        VisualGallerySlot(id: "donutChart", type: "donutChart", title: Bilingual(vi: "Biểu đồ vành khuyên", en: "Donut chart"), symbol: "chart.pie"),
+        VisualGallerySlot(id: "treemap", type: "treemap", title: Bilingual(vi: "Biểu đồ cây", en: "Treemap"), symbol: "square.grid.2x2"),
+        // Hàng 4
+        VisualGallerySlot(id: "map", type: "map", title: Bilingual(vi: "Bản đồ", en: "Map"), symbol: "globe.americas"),
+        VisualGallerySlot(id: "filledMap", type: "filledMap", title: Bilingual(vi: "Bản đồ tô vùng", en: "Filled map"), symbol: "map.fill"),
+        VisualGallerySlot(id: "azureMap", type: nil, title: Bilingual(vi: "Bản đồ Azure", en: "Azure map"), symbol: "mappin.and.ellipse"),
+        VisualGallerySlot(id: "gauge", type: "gauge", title: Bilingual(vi: "Đồng hồ đo", en: "Gauge"), symbol: "gauge.with.needle"),
+        VisualGallerySlot(id: "cardVisual", type: "cardVisual", title: Bilingual(vi: "Thẻ số", en: "Card"), symbol: "123.rectangle"),
+        VisualGallerySlot(id: "multiRowCard", type: "multiRowCard", title: Bilingual(vi: "Thẻ nhiều dòng", en: "Multi-row card"), symbol: "rectangle.grid.1x2"),
+        // Hàng 5
+        VisualGallerySlot(id: "kpi", type: "kpi", title: Bilingual(vi: "KPI", en: "KPI"), symbol: "target"),
+        VisualGallerySlot(id: "slicer", type: "slicer", title: Bilingual(vi: "Bộ cắt", en: "Slicer"), symbol: "slider.horizontal.3"),
+        VisualGallerySlot(id: "tableEx", type: "tableEx", title: Bilingual(vi: "Bảng", en: "Table"), symbol: "tablecells"),
+        VisualGallerySlot(id: "pivotTable", type: "pivotTable", title: Bilingual(vi: "Ma trận", en: "Matrix"), symbol: "tablecells.fill"),
+        VisualGallerySlot(id: "rScript", type: nil, title: Bilingual(vi: "Visual kịch bản R", en: "R script visual"), symbol: "r.square"),
+        VisualGallerySlot(id: "pythonScript", type: nil, title: Bilingual(vi: "Visual kịch bản Python", en: "Python script visual"), symbol: "p.square"),
+        // Hàng 6
+        VisualGallerySlot(id: "keyInfluencers", type: nil, title: Bilingual(vi: "Nhân tố chính", en: "Key influencers"), symbol: "sparkles"),
+        VisualGallerySlot(id: "decompositionTree", type: nil, title: Bilingual(vi: "Cây phân rã", en: "Decomposition tree"), symbol: "point.3.connected.trianglepath.dotted"),
+        VisualGallerySlot(id: "qa", type: nil, title: Bilingual(vi: "Hỏi đáp Q&A", en: "Q&A"), symbol: "bubble.left.and.text.bubble.right"),
+        VisualGallerySlot(id: "smartNarrative", type: nil, title: Bilingual(vi: "Tường thuật thông minh", en: "Smart narrative"), symbol: "text.alignleft"),
+        VisualGallerySlot(id: "paginatedReport", type: nil, title: Bilingual(vi: "Báo cáo phân trang", en: "Paginated report"), symbol: "doc.plaintext"),
+        VisualGallerySlot(id: "powerApps", type: nil, title: Bilingual(vi: "Power Apps", en: "Power Apps for Power BI"), symbol: "app.badge"),
+        // Hàng 7
+        VisualGallerySlot(id: "powerAutomate", type: nil, title: Bilingual(vi: "Power Automate", en: "Power Automate for Power BI"), symbol: "bolt.horizontal"),
+        VisualGallerySlot(id: "arcGIS", type: nil, title: Bilingual(vi: "Bản đồ ArcGIS", en: "ArcGIS Maps for Power BI"), symbol: "globe"),
+        VisualGallerySlot(id: "moreVisuals", type: nil, title: Bilingual(vi: "Thêm visual", en: "Get more visuals"), symbol: "ellipsis"),
+    ]
+
+    @MainActor
+    static func handleGalleryTap(_ slot: VisualGallerySlot, state: DocumentState) {
+        guard let type = slot.type, VisualTypes.isSupported(type) else { return }
+        if let blocker = state.visualEditingBlocker {
+            state.layout.noteFieldRefusal(blocker)
+            return
+        }
+        if state.layout.selection.isEmpty {
+            _ = state.insertVisual(type)
+        } else {
+            _ = state.changeType(type)
+        }
+    }
+
     @Bindable var state: DocumentState
     var collapse: (() -> Void)?
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
+    @State private var crossReportDrillThrough = false
+    @State private var keepAllFilters = true
 
     var body: some View {
         VStack(spacing: 0) {
             PaneHeader(title: tr(.paneVisualizations), symbol: "chart.bar.xaxis", collapse: collapse)
-            SegmentedPill(selection: $state.visualizationsTab, options: [
-                .init(value: .build, title: tr(.paneBuild), symbol: "chart.bar"),
-                .init(value: .format, title: tr(.paneFormat), symbol: "paintbrush"),
-            ], fill: true)
-            .padding(.horizontal, 10)
-            .padding(.bottom, 8)
-            ScrollView {
-                if state.visualizationsTab == .build { build } else { format }
+            Text(subHeaderLabel)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DS.Palette.label)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 4)
+            tabIconBar
+                .hairline(.bottom)
+            if isSnapshotRender {
+                tabContent
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .clipped()
+            } else {
+                ScrollView {
+                    tabContent
+                }
             }
-            PaneFooter(text: state.visual.map { VisualCatalog.name($0.type) } ?? bi("Chưa chọn visual", "No visual selected"))
         }
         .background(DS.Palette.chrome)
     }
 
-    // MARK: Build
+    private var subHeaderLabel: String {
+        switch state.visualizationsTab {
+        case .build: bi("Xây dựng visual", "Build visual")
+        case .format: bi("Định dạng visual", "Format visual")
+        case .analytics: bi("Phân tích nâng cao", "Add further analyses")
+        }
+    }
 
-    /// Biểu tượng của thư viện: không chọn visual thì thêm visual mới, chọn một visual thì đổi loại (D3).
-    @ViewBuilder private func galleryButton(_ entry: VisualCatalog.Entry) -> some View {
-        let selected = state.visual.map { VisualCatalog.matches($0.type, entry.type) } ?? false
-        let supported = VisualTypes.isSupported(entry.type)
-        let blocker = state.visualEditingBlocker
-        let enabled = supported && blocker == nil
-        let help = blocker ?? (supported ? (state.layout.selection.isEmpty ? bi("Thêm \(entry.name)", "Add \(entry.name)") : (selected ? entry.name : bi("Đổi thành \(entry.name)", "Change to \(entry.name)")))
-                                         : VisualTypes.refusal(for: entry.type))
-        Button { galleryTap(entry.type) } label: {
-            Image(systemName: entry.symbol)
-                .font(.system(size: 13))
-                .foregroundStyle(selected ? Color.white : DS.Palette.secondaryLabel)
-                .frame(width: 32, height: 28)
-                .background(RoundedRectangle(cornerRadius: 5).fill(selected ? DS.Palette.accent : DS.Palette.canvas))
-                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(DS.Palette.separator, lineWidth: selected ? 0 : 1))
-                .opacity(enabled || selected ? 1 : 0.62)
+    private var tabIconBar: some View {
+        HStack(spacing: 0) {
+            tabIconButton(.build, symbol: "chart.bar.doc.horizontal", label: bi("Xây dựng visual", "Build visual"))
+            tabIconButton(.format, symbol: "paintbrush.pointed", label: bi("Định dạng visual", "Format your visual"))
+            tabIconButton(.analytics, symbol: "magnifyingglass", label: bi("Thêm phân tích cho visual", "Add further analyses to your visual"))
+        }
+        .frame(height: 30)
+        .padding(.horizontal, 6)
+    }
+
+    private func tabIconButton(_ tab: DocumentState.VisualizationsTab, symbol: String, label: String) -> some View {
+        let active = state.visualizationsTab == tab
+        return Button { state.visualizationsTab = tab } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 13.5, weight: active ? .semibold : .regular))
+                .foregroundStyle(active ? DS.Palette.accentTeal : DS.Palette.secondaryLabel)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottom) {
+                    if active {
+                        Rectangle().fill(DS.Palette.accentTeal).frame(height: 2)
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(entry.name)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .help(label)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 
-    private func galleryTap(_ type: String) {
-        if let blocker = state.visualEditingBlocker { state.layout.noteFieldRefusal(blocker); return }
-        guard VisualTypes.isSupported(type) else { state.layout.noteFieldRefusal(VisualTypes.refusal(for: type)); return }
-        if state.layout.selection.isEmpty { state.insertVisual(type) } else { state.changeType(type) }
+    @ViewBuilder private var tabContent: some View {
+        switch state.visualizationsTab {
+        case .build:
+            build
+        case .format:
+            FormatPane(state: state)
+                .padding(.top, 8)
+        case .analytics:
+            if let visual = state.visual, AnalyticsPane.supportsAnalytics(visual.type) {
+                AnalyticsPane(state: state, visual: visual, blocker: state.formatEditingBlocker)
+                    .padding(10)
+            } else {
+                Text(bi("Chọn biểu đồ hỗ trợ phân tích (đường, cột, thanh, vùng, phân tán) để thêm đường tham chiếu hoặc dự báo.",
+                        "Select a supported chart (line, column, bar, area, scatter) to add reference lines or forecasts."))
+                    .font(DS.Typeface.bodySmall)
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                    .padding(12)
+            }
+        }
+    }
+
+    // MARK: Build
+
+    @ViewBuilder private func galleryButton(_ slot: VisualGallerySlot) -> some View {
+        let selected = slot.type.flatMap { t in state.visual.map { VisualCatalog.matches($0.type, t) } } ?? false
+        let supported = slot.isSupported
+        let blocker = state.visualEditingBlocker
+        let enabled = supported && blocker == nil
+        let title = slot.title.localized
+        let help: String = {
+            if !supported { return "\(title) — \(slot.disabledTooltip.localized)" }
+            if let blocker { return blocker }
+            if state.layout.selection.isEmpty { return bi("Thêm \(title)", "Add \(title)") }
+            return selected ? title : bi("Đổi thành \(title)", "Change to \(title)")
+        }()
+        Button { Self.handleGalleryTap(slot, state: state) } label: {
+            Image(systemName: slot.symbol)
+                .font(.system(size: 11.5))
+                .foregroundStyle(selected ? Color.white : (supported ? DS.Palette.label : DS.Palette.tertiaryLabel))
+                .frame(width: 24, height: 24)
+                .background(RoundedRectangle(cornerRadius: 4).fill(selected ? DS.Palette.accentTeal : DS.Palette.canvas))
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(selected ? Color.clear : DS.Palette.separator.opacity(0.8), lineWidth: 0.75))
+                .opacity(supported ? (enabled || selected ? 1 : 0.7) : 0.42)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!supported)
+        .help(help)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var build: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(32), spacing: 4), count: 6), spacing: 4) {
-                ForEach(VisualCatalog.gallery, id: \.type) { entry in
-                    galleryButton(entry)
+            VStack(spacing: 3) {
+                ForEach(0..<((Self.desktopGallery.count + 5) / 6), id: \.self) { rowIndex in
+                    HStack(spacing: 3) {
+                        ForEach(0..<6, id: \.self) { colIndex in
+                            let idx = rowIndex * 6 + colIndex
+                            if idx < Self.desktopGallery.count {
+                                galleryButton(Self.desktopGallery[idx])
+                            } else {
+                                Color.clear.frame(width: 24, height: 24)
+                            }
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .hairline(.bottom)
+
             FieldMessages(layout: state.layout)
 
             if let visual = state.visual {
@@ -282,15 +460,50 @@ struct VisualizationsPane: View {
             } else {
                 Text(bi("Chọn một visual trên trang để xem các field của nó.", "Select a visual on the page to view its fields."))
                     .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
-                    .padding(12)
+                    .padding(10)
             }
+
+            drillThroughSection
         }
         .padding(.bottom, 12)
     }
 
-    // MARK: Format
-
-    private var format: some View { FormatPane(state: state) }
+    private var drillThroughSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider().padding(.top, 8)
+            Text(bi("Đi sâu (Drill through)", "Drill through"))
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(DS.Palette.label)
+            HStack {
+                Text(bi("Xuyên báo cáo", "Cross-report"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                Spacer()
+                SwitchMark(isOn: crossReportDrillThrough)
+                    .opacity(0.6)
+            }
+            .help(bi("Đi sâu xuyên báo cáo: chưa hỗ trợ trên BI Pro.", "Cross-report drill through: not supported in BI Pro yet."))
+            HStack {
+                Text(bi("Giữ mọi bộ lọc", "Keep all filters"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Palette.secondaryLabel)
+                Spacer()
+                Button { keepAllFilters.toggle() } label: {
+                    SwitchMark(isOn: keepAllFilters)
+                }
+                .buttonStyle(.plain)
+            }
+            Text(bi("Thêm trường đi sâu vào đây", "Add drill-through fields here"))
+                .font(.system(size: 11))
+                .foregroundStyle(DS.Palette.tertiaryLabel)
+                .frame(maxWidth: .infinity)
+                .frame(height: 28)
+                .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas.opacity(0.5)))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
+    }
 }
 
 /// Thông báo của các thao tác sửa visual: lý do từ chối (đỏ, bấm để ẩn) và thông báo sau thao tác (D2, D3).

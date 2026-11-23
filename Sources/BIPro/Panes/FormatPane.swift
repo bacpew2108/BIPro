@@ -4,76 +4,131 @@ import SwiftUI
 /// Format pane sửa được (D4): `specs/006-d4-format-pane/`. Thẻ và thuộc tính lấy từ `FormatCatalog`; mỗi lần sửa đi qua
 /// `DocumentState.setFormat/resetFormat` thành một bước hoàn tác.
 struct FormatPane: View {
-    enum Tab: Hashable { case objects, container, analytics }
+    enum Tab: Hashable, CaseIterable { case objects, container }
     @Bindable var state: DocumentState
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
     @State private var tab: Tab = .objects
+    @State private var search = ""
     @State private var showCF = false
 
     var body: some View {
         if let visual = state.visual, let format = state.formatState {
             let blocker = state.formatEditingBlocker
-            let hasAnalytics = AnalyticsPane.supportsAnalytics(visual.type)
             let isTableOrMatrix = visual.type == "tableEx" || visual.type == "pivotTable"
-            let options: [SegmentedPill<Tab>.Option] = hasAnalytics
-                ? [.init(value: .objects, title: "Visual"),
-                   .init(value: .container, title: bi("Chung", "General")),
-                   .init(value: .analytics, title: bi("Phân tích", "Analytics"))]
-                : [.init(value: .objects, title: "Visual"),
-                   .init(value: .container, title: bi("Chung", "General"))]
-            let effectiveTab: Tab = (!hasAnalytics && tab == .analytics) ? .objects : tab
             VStack(spacing: 8) {
-                SegmentedPill(selection: $tab, options: options, fill: true)
+                formatSearchField
+                formatTabBar
                 FieldMessages(layout: state.layout)
                 if let blocker {
                     Text(blocker).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if effectiveTab == .analytics {
-                    AnalyticsPane(state: state, visual: visual, blocker: blocker)
-                } else {
-                    if effectiveTab == .objects && isTableOrMatrix {
-                        Button { showCF = true } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "slider.horizontal.below.square.filled.and.square")
-                                    .font(.system(size: 12))
-                                Text(bi("Định dạng có điều kiện…", "Conditional formatting…"))
-                                    .font(.system(size: 12, weight: .medium))
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
-                            }
-                            .padding(.horizontal, 10).frame(height: 32)
-                            .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas))
-                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
+                if tab == .objects && isTableOrMatrix {
+                    Button { showCF = true } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "slider.horizontal.below.square.filled.and.square")
+                                .font(.system(size: 12))
+                            Text(bi("Định dạng có điều kiện…", "Conditional formatting…"))
+                                .font(.system(size: 12, weight: .medium))
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(DS.Palette.tertiaryLabel)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(blocker != nil)
-                        .sheet(isPresented: $showCF) {
-                            ConditionalFormattingSheet(state: state, visual: visual, isPresented: $showCF)
-                        }
+                        .padding(.horizontal, 10).frame(height: 32)
+                        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(DS.Palette.canvas))
+                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(DS.Palette.separator))
                     }
-                    let scope: FormatScope = effectiveTab == .container ? .container : .objects
-                    let cards = (scope == .objects ? format.objects : format.container)
-                    if scope == .objects, cards.isEmpty {
-                        Text(bi("Loại visual này chưa có thẻ định dạng đã quan sát.", "No observed formatting cards for this visual type yet."))
-                            .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
-                    } else if scope == .objects, needsFields(visual) {
-                        Text(bi("Thêm trường vào visual để bắt đầu định dạng.", "Add fields to this visual to begin formatting."))
-                            .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
-                    } else {
-                        ForEach(cards, id: \.card.objectKey) { cardState in
-                            FormatCardView(state: state, cardState: cardState, blocker: blocker)
-                        }
+                    .buttonStyle(.plain)
+                    .disabled(blocker != nil)
+                    .sheet(isPresented: $showCF) {
+                        ConditionalFormattingSheet(state: state, visual: visual, isPresented: $showCF)
                     }
-                    let readOnly = format.readOnly.filter { $0.scope == scope }
-                    if !readOnly.isEmpty { ReadOnlySection(items: readOnly) }
                 }
+                let scope: FormatScope = tab == .container ? .container : .objects
+                let allCards = (scope == .objects ? format.objects : format.container)
+                let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let cards = q.isEmpty ? allCards : allCards.filter { cardState in
+                    cardState.card.title.lowercased().contains(q)
+                        || cardState.card.properties.contains { $0.title.lowercased().contains(q) }
+                }
+                if scope == .objects, allCards.isEmpty {
+                    Text(bi("Loại visual này chưa có thẻ định dạng đã quan sát.", "No observed formatting cards for this visual type yet."))
+                        .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
+                } else if scope == .objects, needsFields(visual) {
+                    Text(bi("Thêm trường vào visual để bắt đầu định dạng.", "Add fields to this visual to begin formatting."))
+                        .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
+                } else if cards.isEmpty, !q.isEmpty {
+                    Text(bi("Không có thẻ khớp \"\(search)\".", "No cards match \"\(search)\"."))
+                        .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(.top, 4)
+                } else {
+                    ForEach(cards, id: \.card.objectKey) { cardState in
+                        FormatCardView(state: state, cardState: cardState, blocker: blocker)
+                    }
+                }
+                let readOnly = format.readOnly.filter { $0.scope == scope }
+                if !readOnly.isEmpty { ReadOnlySection(items: readOnly) }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.bottom, 12)
         } else {
             Text(bi("Chọn một visual để xem định dạng của nó.", "Select a visual to inspect its formatting."))
                 .font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel).padding(12)
         }
+    }
+
+    @ViewBuilder private var formatSearchField: some View {
+        if isSnapshotRender {
+            HStack(spacing: 5) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(DS.Palette.tertiaryLabel)
+                Text(bi("Tìm kiếm", "Search")).font(.system(size: 11.5)).foregroundStyle(DS.Palette.tertiaryLabel)
+                Spacer()
+            }
+            .padding(.horizontal, 7)
+            .frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
+        } else {
+            HStack(spacing: 5) {
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(DS.Palette.tertiaryLabel)
+                TextField(bi("Tìm kiếm", "Search"), text: $search)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11.5))
+                if !search.isEmpty {
+                    Button { search = "" } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 10)) }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(DS.Palette.tertiaryLabel)
+                }
+            }
+            .padding(.horizontal, 7)
+            .frame(height: 24)
+            .background(RoundedRectangle(cornerRadius: 3).fill(DS.Palette.canvas))
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(DS.Palette.separator))
+        }
+    }
+
+    private var formatTabBar: some View {
+        HStack(spacing: 14) {
+            formatTabButton(.objects, title: "Visual")
+            formatTabButton(.container, title: bi("Chung", "General"))
+            Spacer()
+        }
+        .hairline(.bottom)
+    }
+
+    private func formatTabButton(_ item: Tab, title: String) -> some View {
+        let active = tab == item
+        return Button { tab = item } label: {
+            Text(title)
+                .font(.system(size: 12, weight: active ? .semibold : .regular))
+                .foregroundStyle(active ? DS.Palette.label : DS.Palette.secondaryLabel)
+                .padding(.vertical, 5)
+                .overlay(alignment: .bottom) {
+                    if active {
+                        Rectangle().fill(DS.Palette.accentTeal).frame(height: 2)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(active ? .isSelected : [])
     }
 
     /// Visual loại có ô trường mà chưa có trường nào: Desktop không hiện thẻ nào (VM-D4 mục 5).

@@ -5,9 +5,6 @@ import SwiftUI
 struct ReportWorkspace: View {
     @Bindable var state: DocumentState
     @State private var currentScale: Double = 1
-    @State private var filtersCollapsed = false
-    @State private var visualsCollapsed = false
-    @State private var dataCollapsed = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -66,15 +63,25 @@ struct ReportWorkspace: View {
                             if AddDataPanel.isShown(for: state) { AddDataPanel(state: state) }
                             else if CanvasHint.isShown(for: state) { CanvasHint() }
                         }
-                        .overlay(alignment: .topTrailing) { EditModeSwitch(state: state) }
+                        .background {
+                            Button("") { if state.canEditCanvas { state.editMode.toggle() } }
+                                .keyboardShortcut("e", modifiers: .command)
+                                .opacity(0)
+                                .allowsHitTesting(false)
+                        }
                 } else {
                     ContentUnavailableView("Báo cáo không có trang", systemImage: "doc.richtext")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(DS.Palette.backdrop)
+                        .background(DS.Palette.canvasWell)
                 }
                 PageTabs(state: state, scale: currentScale)
             }
             panes
+        }
+        .onChange(of: state.visualID) { oldID, newID in
+            if oldID == nil && newID != nil && state.showFilters {
+                state.filtersCollapsed = false
+            }
         }
     }
 
@@ -88,40 +95,54 @@ struct ReportWorkspace: View {
                 .frame(width: 200).hairline(.leading)
         }
         if state.showFilters {
-            pane(collapsed: $filtersCollapsed, title: tr(.paneFilters), symbol: "line.3.horizontal.decrease", width: 230) {
-                FiltersPane(state: state) { filtersCollapsed = true }
+            pane(collapsed: $state.filtersCollapsed, kind: .filters, title: tr(.paneFilters), symbol: "line.3.horizontal.decrease") {
+                FiltersPane(state: state) { state.filtersCollapsed = true }
             }
         }
         if state.showVisualizations {
-            pane(collapsed: $visualsCollapsed, title: tr(.paneVisualizations), symbol: "chart.bar.xaxis", width: 250) {
-                VisualizationsPane(state: state) { visualsCollapsed = true }
+            pane(collapsed: $state.visualizationsCollapsed, kind: .visualizations, title: tr(.paneVisualizations), symbol: "chart.bar.xaxis") {
+                VisualizationsPane(state: state) { state.visualizationsCollapsed = true }
             }
         }
         if state.showData {
-            pane(collapsed: $dataCollapsed, title: tr(.paneData), symbol: "cylinder.split.1x2", width: 250) {
-                DataPane(state: state, purpose: .report) { dataCollapsed = true }
+            pane(collapsed: $state.dataCollapsed, kind: .data, title: tr(.paneData), symbol: "cylinder.split.1x2") {
+                DataPane(state: state, purpose: .report) { state.dataCollapsed = true }
             }
         }
     }
 
-    @ViewBuilder private func pane<Content: View>(collapsed: Binding<Bool>, title: String, symbol: String, width: CGFloat,
+    @ViewBuilder private func pane<Content: View>(collapsed: Binding<Bool>, kind: DocumentState.PaneKind, title: String, symbol: String,
                                                   @ViewBuilder content: () -> Content) -> some View {
         Group {
             if collapsed.wrappedValue {
                 CollapsedPaneStrip(title: title, symbol: symbol) { collapsed.wrappedValue = false }
             } else {
-                content().frame(width: width)
+                let width = state.paneWidth(for: kind)
+                content()
+                    .frame(width: width)
+                    .overlay(alignment: .leading) {
+                        Color.clear
+                            .frame(width: 5)
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 1)
+                                    .onChanged { value in
+                                        state.setPaneWidth(width - value.translation.width, for: kind)
+                                    }
+                            )
+                    }
             }
         }
         .hairline(.leading)
     }
 }
 
-/// Bottom bar: page tabs (hidden pages marked), page counter, zoom. D5: trong chế độ Sửa thêm, đổi tên, đổi thứ tự
-/// (kéo tab hoặc menu), `specs/005-d5-quan-ly-trang/contracts/page-operations.md`.
+/// Thanh tab trang phía dưới canvas theo Power BI Desktop 2.159 (`UIMetrics.pageTabs` = 35 pt):
+/// Desktop / Phone (vô hiệu) · ◂ ▸ · các tab trang (chữ thường, nền trắng + gạch chân `accentTeal` khi chọn, mắt gạch khi ẩn) · nút `+` vuông `accentTeal`.
 struct PageTabs: View {
     @Bindable var state: DocumentState
     let scale: Double
+    @Environment(\.isSnapshotRender) private var isSnapshotRender
 
     private struct Renaming: Identifiable {
         let id: String
@@ -138,33 +159,84 @@ struct PageTabs: View {
 
     var body: some View {
         let pages = state.pages
-        HStack(spacing: 2) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
-                    ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
-                        tab(page, index: index, count: pages.count)
+        let currentIndex = pages.firstIndex(where: { $0.id == state.pageID }) ?? 0
+        HStack(spacing: 0) {
+            // Chuyển bố cục Desktop / Phone (Phone vô hiệu theo FR-008)
+            HStack(spacing: 2) {
+                Image(systemName: "desktopcomputer")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(DS.Palette.accentTeal)
+                    .frame(width: 28, height: UIMetrics.pageTabs)
+                    .overlay(alignment: .bottom) {
+                        Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
                     }
-                    Button { state.addPage() } label: { Image(systemName: "plus") }
-                        .buttonStyle(GhostIconButtonStyle())
-                        .disabled(blocker != nil)
-                        .help(blocker ?? "Thêm trang")
+                    .help(bi("Bố cục máy tính", "Desktop layout"))
+                    .accessibilityLabel(bi("Bố cục máy tính", "Desktop layout"))
+
+                Button {} label: {
+                    Image(systemName: "iphone")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(DS.Palette.tertiaryLabel.opacity(0.65))
+                        .frame(width: 26, height: UIMetrics.pageTabs)
                 }
-                .padding(.horizontal, 10)
+                .buttonStyle(.plain)
+                .disabled(true)
+                .help(bi("Bố cục di động: chưa hỗ trợ trên BI Pro.", "Mobile layout: not supported in BI Pro yet."))
+                .accessibilityLabel(bi("Bố cục di động", "Mobile layout"))
             }
+            .padding(.leading, 6)
+
+            Rectangle().fill(DS.Palette.separator).frame(width: 1, height: 18).padding(.horizontal, 4)
+
+            // Mũi tên chuyển trang ◂ ▸
+            HStack(spacing: 0) {
+                Button {
+                    if currentIndex > 0 {
+                        state.pageID = pages[currentIndex - 1].id
+                        state.visualID = nil
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(currentIndex > 0 ? DS.Palette.secondaryLabel : DS.Palette.tertiaryLabel.opacity(0.5))
+                        .frame(width: 20, height: UIMetrics.pageTabs)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(currentIndex <= 0)
+                .help(bi("Trang trước", "Previous page"))
+                .accessibilityLabel(bi("Trang trước", "Previous page"))
+
+                Button {
+                    if currentIndex + 1 < pages.count {
+                        state.pageID = pages[currentIndex + 1].id
+                        state.visualID = nil
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(currentIndex + 1 < pages.count ? DS.Palette.secondaryLabel : DS.Palette.tertiaryLabel.opacity(0.5))
+                        .frame(width: 20, height: UIMetrics.pageTabs)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(currentIndex + 1 >= pages.count)
+                .help(bi("Trang sau", "Next page"))
+                .accessibilityLabel(bi("Trang sau", "Next page"))
+            }
+
+            if isSnapshotRender {
+                tabStrip(pages: pages)
+                    .clipped()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    tabStrip(pages: pages)
+                }
+            }
+
             Spacer(minLength: 8)
-            if let message = state.layout.fieldRefusal ?? state.layout.notice {
-                Text(message).font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel).lineLimit(1).help(message)
-            }
-            if let index = pages.firstIndex(where: { $0.id == state.pageID }) {
-                Text("Trang \(index + 1) / \(pages.count)").font(DS.Typeface.label).foregroundStyle(DS.Palette.secondaryLabel)
-            }
-            ZoomControl(percent: Int((scale * 100).rounded()),
-                        zoomOut: { state.zoom = max(0.25, (state.zoom ?? scale) - 0.1) },
-                        zoomIn: { state.zoom = min(4, (state.zoom ?? scale) + 0.1) },
-                        fit: { state.zoom = nil })
-                .padding(.trailing, 8)
         }
-        .frame(height: DS.Metrics.pageTabs)
+        .frame(height: UIMetrics.pageTabs)
         .background(DS.Palette.chrome)
         .hairline(.top)
         .alert("Đổi tên trang", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
@@ -187,18 +259,53 @@ struct PageTabs: View {
         }
     }
 
+    private func tabStrip(pages: [ReportPage]) -> some View {
+        HStack(spacing: 1) {
+            ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
+                tab(page, index: index, count: pages.count)
+            }
+            Button { state.addPage() } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 26, height: 26)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(blocker == nil ? DS.Palette.accentTeal : DS.Palette.tertiaryLabel.opacity(0.45)))
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 6)
+            .disabled(blocker != nil)
+            .help(blocker ?? bi("Thêm trang mới", "New page"))
+            .accessibilityLabel(bi("Thêm trang mới", "New page"))
+        }
+        .padding(.horizontal, 4)
+    }
+
     private func tabLabel(_ page: ReportPage, selected: Bool, targeted: Bool) -> some View {
-        let fill: Color = selected ? DS.Palette.canvas : (targeted ? DS.Palette.accent.opacity(0.12) : .clear)
+        let fill: Color = selected ? DS.Palette.canvas : (targeted ? DS.Palette.selectionSoft : .clear)
         let weight: Font.Weight = selected ? .semibold : .regular
-        let shadow = Color.black.opacity(selected ? 0.08 : 0)
-        return HStack(spacing: 4) {
-            if page.isHidden { Image(systemName: "eye.slash").font(.system(size: 10)) }
-            Text(page.displayName).font(.system(size: 12, weight: weight))
+        return HStack(spacing: 5) {
+            if page.isHidden {
+                Image(systemName: "eye.slash")
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS.Palette.tertiaryLabel)
+            }
+            Text(page.displayName)
+                .font(.system(size: 12, weight: weight))
+                .lineLimit(1)
+                .fixedSize()
         }
         .foregroundStyle(selected ? DS.Palette.label : DS.Palette.secondaryLabel)
         .padding(.horizontal, 12)
-        .frame(height: 26)
-        .background(RoundedRectangle(cornerRadius: DS.Radius.control).fill(fill).shadow(color: shadow, radius: 1, y: 0.5))
+        .frame(height: UIMetrics.pageTabs)
+        .background(fill)
+        .overlay(alignment: .bottom) {
+            if selected {
+                Rectangle().fill(DS.Palette.accentTeal).frame(height: 2.5)
+            }
+        }
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(DS.Palette.separator.opacity(0.6)).frame(width: 1, height: 16)
+        }
         .contentShape(Rectangle())
     }
 
@@ -248,7 +355,18 @@ struct PageTabs: View {
                 Button("Xoá…", role: .destructive) { deleting = page }.disabled(blocker != nil || count <= 1)
             }
             .onDrag { NSItemProvider(object: PageTabDrag.payload(page: page.id, document: dragToken) as NSString) }
-            .onDrop(of: [.plainText], isTargeted: isTargeted(page.id)) { providers, _ in drop(providers, onto: page.id) }
+            .snapshotSafePageDrop(isSnapshot: isSnapshotRender, isTargeted: isTargeted(page.id)) { providers in drop(providers, onto: page.id) }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func snapshotSafePageDrop(isSnapshot: Bool, isTargeted: Binding<Bool>, perform: @escaping ([NSItemProvider]) -> Bool) -> some View {
+        if isSnapshot {
+            self
+        } else {
+            self.onDrop(of: [.plainText], isTargeted: isTargeted) { providers, _ in perform(providers) }
+        }
     }
 }
 
