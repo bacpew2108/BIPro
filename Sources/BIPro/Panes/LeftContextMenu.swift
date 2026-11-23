@@ -294,7 +294,7 @@ struct LeftMenuListView: View {
                 }
             }) {
                 HStack(spacing: 8) {
-                    Text(title)
+                    Text(ui(title))
                         .font(.system(size: 13))
                         .foregroundStyle(isEnabled ? Color.primary : Color.gray.opacity(0.45))
                         .lineLimit(1)
@@ -318,7 +318,7 @@ struct LeftMenuListView: View {
 
         case .submenu(let title, let subItems):
             HStack(spacing: 8) {
-                Text(title)
+                Text(ui(title))
                     .font(.system(size: 13))
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
@@ -347,7 +347,7 @@ struct LeftMenuListView: View {
 
         case .sectionHeader(let title):
             HStack {
-                Text(title)
+                Text(ui(title))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.secondary)
                 Spacer()

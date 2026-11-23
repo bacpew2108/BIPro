@@ -67,7 +67,7 @@ extension LayoutEditor {
     @discardableResult
     func renamePage(_ id: String, to name: String) -> String? {
         resetMessages()
-        guard let current = page(id) else { return refuse("Không tìm thấy trang.") }
+        guard let current = page(id) else { return refuse(bi("Không tìm thấy trang.", "Page not found.")) }
         let wanted: String
         switch PageStructure.validatedName(name) {
         case .failure(let error): return refuse(error.description)
@@ -76,7 +76,7 @@ extension LayoutEditor {
         guard wanted != current.displayName else { return nil }
         if let created = structure.created[id] {
             guard let json = try? PBIRPagePatch.setPageDisplayName(wanted, in: created.pageJSON) else {
-                return refuse("Không ghi được tên trang.")
+                return refuse(bi("Không ghi được tên trang.", "Couldn't write the page name."))
             }
             commitStructure { structure, _ in
                 structure.created[id]?.displayName = wanted
@@ -96,9 +96,9 @@ extension LayoutEditor {
     @discardableResult
     func duplicatePage(_ id: String) -> String? {
         resetMessages()
-        guard let source = page(id) else { _ = refuse("Không tìm thấy trang."); return nil }
+        guard let source = page(id) else { _ = refuse(bi("Không tìm thấy trang.", "Page not found.")); return nil }
         guard let sourcePageJSON = structure.created[id]?.pageJSON ?? pageSource(id) else {
-            _ = refuse("Không đọc được page.json của trang (báo cáo định dạng cũ chưa nhân bản được).")
+            _ = refuse(bi("Không đọc được page.json của trang (báo cáo định dạng cũ chưa nhân bản được).", "Couldn't read the page's page.json (legacy-format reports can't be duplicated yet)."))
             return nil
         }
         // Container không phải visual (nhóm): của trang trong file, hoặc đã sao sang trang nhân bản trước đó.
@@ -175,7 +175,7 @@ extension LayoutEditor {
         guard changed else { return nil }
         registerCreatedVisuals(Set(data.keys), page: newID)
         openPage(newID)
-        if hadBinding { setNotice("Bản sao không mang cấu hình drillthrough.") }
+        if hadBinding { setNotice(bi("Bản sao không mang cấu hình drillthrough.", "The copy doesn't carry the drillthrough configuration.")) }
         return newID
     }
 
@@ -186,7 +186,7 @@ extension LayoutEditor {
     @discardableResult
     func removePage(_ id: String) -> String? {
         resetMessages()
-        guard let target = page(id), structure.order.contains(id) else { return refuse("Không tìm thấy trang.") }
+        guard let target = page(id), structure.order.contains(id) else { return refuse(bi("Không tìm thấy trang.", "Page not found.")) }
         if let reason = PageStructure.removalRefusal(pageCount: structure.order.count) { return refuse(reason) }
         let otherVisible = pages.filter { $0.id != id && !$0.isHidden }.count
         if let reason = PageStructure.removalRefusal(removingHidden: target.isHidden, otherVisiblePages: otherVisible) { return refuse(reason) }
@@ -240,8 +240,8 @@ extension LayoutEditor {
     @discardableResult
     func movePage(_ id: String, to index: Int) -> String? {
         resetMessages()
-        guard let from = structure.order.firstIndex(of: id) else { return refuse("Không tìm thấy trang.") }
-        guard structure.order.indices.contains(index) else { return refuse("Vị trí ngoài dãy trang.") }
+        guard let from = structure.order.firstIndex(of: id) else { return refuse(bi("Không tìm thấy trang.", "Page not found.")) }
+        guard structure.order.indices.contains(index) else { return refuse(bi("Vị trí ngoài dãy trang.", "Position is outside the page range.")) }
         guard from != index else { return nil }
         commitStructure { structure, _ in
             structure.order.remove(at: from)

@@ -7,9 +7,9 @@ import PBIXKit
 extension DocumentState {
     /// Lý do chưa sửa mô hình được, hoặc nil. Ở Table, Model, TMDL view sửa được khi file có mô hình; ở Báo cáo phải bật Sửa.
     var modelEditingBlocker: String? {
-        if workspace.runtime == nil { return workspace.modelError ?? "File không có mô hình dữ liệu để sửa." }
-        if mode == .report && !editMode { return "Bật chế độ Sửa (⌘E) để sửa mô hình." }
-        if workspace.pbix.reportFormat == .none { return "File này không có báo cáo đọc được; chưa lưu được thay đổi mô hình." }
+        if workspace.runtime == nil { return workspace.modelError ?? bi("File không có mô hình dữ liệu để sửa.", "The file has no data model to edit.") }
+        if mode == .report && !editMode { return bi("Bật chế độ Sửa (⌘E) để sửa mô hình.", "Turn on Edit mode (⌘E) to edit the model.") }
+        if workspace.pbix.reportFormat == .none { return bi("File này không có báo cáo đọc được; chưa lưu được thay đổi mô hình.", "This file has no readable report; model changes can't be saved yet.") }
         return nil
     }
 
@@ -63,7 +63,7 @@ extension DocumentState {
     /// Lý do nút "Cột mới" chưa dùng được (chưa chọn bảng, không sửa được mô hình), nil khi dùng được.
     var newColumnBlocker: String? {
         if let blocker = modelEditingBlocker { return blocker }
-        return table == nil ? "Chọn một bảng ở pane Dữ liệu trước" : nil
+        return table == nil ? bi("Chọn một bảng ở pane Dữ liệu trước", "Select a table in the Data pane first") : nil
     }
 
     /// "Cột mới" (T083): bản nháp `Cột = ` cho cột tính toán của `table` ở thanh công thức.
@@ -74,7 +74,7 @@ extension DocumentState {
         column = nil
         measure = nil
         let taken = Set(workspace.measures(of: table).map { $0.name.lowercased() } + workspace.columns(of: table).map { $0.name.lowercased() })
-        var name = "Cột", number = 2
+        var name = bi("Cột", "Column"), number = 2
         while taken.contains(name.lowercased()) { name = "Cột \(number)"; number += 1 }
         measureDraft = MeasureDraft(mode: .newColumn(table: table), text: "\(name) = ")
     }
@@ -84,7 +84,7 @@ extension DocumentState {
         if let blocker = modelEditingBlocker { layout.noteFieldRefusal(blocker); return }
         mode = .table
         let taken = Set((workspace.metadata?.tables ?? []).map { $0.name.lowercased() })
-        var name = "Bảng", number = 2
+        var name = bi("Bảng", "Table"), number = 2
         while taken.contains(name.lowercased()) { name = "Bảng \(number)"; number += 1 }
         measureDraft = MeasureDraft(mode: .newTable, text: "\(name) = ")
     }
@@ -124,15 +124,15 @@ extension DocumentState {
         if let blocker = modelEditingBlocker { draft.message = blocker; return }
         if draft.mode.isCalculated { return await applyCalculatedDraft(draft) }
         guard let parts = MeasureFormula.parse(draft.text), !parts.name.isEmpty else {
-            draft.message = "Nhập công thức theo dạng Tên = biểu thức."
+            draft.message = bi("Nhập công thức theo dạng Tên = biểu thức.", "Enter a formula in the form Name = expression.")
             return
         }
-        guard !parts.expression.isEmpty else { draft.message = "Biểu thức đang trống."; return }
+        guard !parts.expression.isEmpty else { draft.message = bi("Biểu thức đang trống.", "The expression is empty."); return }
         // Đổi tên chỉ khi không còn nơi dùng (FR-020); nếu còn nơi dùng mở hộp xác nhận Cascade Rename (Wave 3C / T020).
         if case .edit(let table, let old) = draft.mode, parts.name != old, let model = workspace.metadata {
             let usages = ModelReferences.usages(ofMeasure: table, name: old, in: model, documents: ModelReferences.documents(layout: layout, workspace: workspace))
             if !usages.isEmpty {
-                draft.message = "Không đổi tên được: " + ModelReferences.message(usages, what: "measure \(old)")
+                draft.message = bi("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: "measure \(old)")
                 pendingCascadeRename = .measure(table: table, old: old, new: parts.name)
                 return
             }
@@ -177,11 +177,11 @@ extension DocumentState {
     @discardableResult
     func deleteMeasure(table: String, name: String) -> String? {
         if let blocker = modelEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
-        guard let model = workspace.metadata else { return "File không có mô hình dữ liệu." }
+        guard let model = workspace.metadata else { return bi("File không có mô hình dữ liệu.", "The file has no data model.") }
         let usages = ModelReferences.usages(ofMeasure: table, name: name, in: model,
                                             documents: ModelReferences.documents(layout: layout, workspace: workspace))
         if !usages.isEmpty {
-            let reason = "Không xoá được: " + ModelReferences.message(usages, what: "measure \(name)")
+            let reason = bi("Không xoá được: ", "Couldn't delete: ") + ModelReferences.message(usages, what: "measure \(name)")
             layout.noteFieldRefusal(reason)
             return reason
         }
@@ -205,13 +205,13 @@ extension DocumentState {
     @discardableResult
     func updateColumn(table: String, name: String, patch: ColumnPatch, coalesceKey: String? = nil) -> String? {
         if let blocker = modelEditingBlocker { return blocker }
-        guard let model = workspace.metadata else { return "File không có mô hình dữ liệu." }
+        guard let model = workspace.metadata else { return bi("File không có mô hình dữ liệu.", "The file has no data model.") }
         if let renamed = patch.name?.trimmingCharacters(in: .whitespacesAndNewlines), renamed != name {
             let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                                 documents: ModelReferences.documents(layout: layout, workspace: workspace))
             if !usages.isEmpty {
                 pendingCascadeRename = .column(table: table, old: name, new: renamed)
-                return "Không đổi tên được: " + ModelReferences.message(usages, what: "cột \(table)[\(name)]")
+                return bi("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: "cột \(table)[\(name)]")
             }
         }
         if let reason = modelEditor.apply(.updateColumn(table: table, name: name, patch: patch), coalesceKey: coalesceKey) { return reason }
@@ -406,7 +406,7 @@ extension DocumentState {
     /// thay đổi là một bước hoàn tác chung. Trả rỗng khi thành công.
     func applyTMDL(drafts: [String: String]) -> [TMDLIssue] {
         if let blocker = modelEditingBlocker { return [TMDLIssue(path: "", line: nil, message: blocker)] }
-        guard let runtime = workspace.runtime else { return [TMDLIssue(path: "", line: nil, message: "File không có mô hình dữ liệu để sửa.")] }
+        guard let runtime = workspace.runtime else { return [TMDLIssue(path: "", line: nil, message: bi("File không có mô hình dữ liệu để sửa.", "The file has no data model to edit."))] }
         let current = workspace.tmdlDocuments
         let old = current.map { (path: $0.path, text: $0.text) }
         var new = old.map { (path: $0.path, text: drafts[$0.path] ?? $0.text) }
@@ -468,7 +468,7 @@ extension DocumentState {
     /// Thêm tab bố cục trống "Layout N" và chuyển sang nó (như nút "+" của Desktop).
     func addDiagramTab() {
         relationshipNotice = nil
-        guard workspace.diagramLayout != nil else { relationshipNotice = "File không có DiagramLayout nên chưa thêm được bố cục."; return }
+        guard workspace.diagramLayout != nil else { relationshipNotice = bi("File không có DiagramLayout nên chưa thêm được bố cục.", "The file has no DiagramLayout, so a layout can't be added yet."); return }
         var edits = layout.diagramEdits
         let name = edits.addTab(existing: fileDiagramNames)
         layout.commitDiagram(edits)
@@ -598,7 +598,7 @@ extension DocumentState {
     func proposeRelationship(drag: RelationshipDraft.ColumnRef, drop: RelationshipDraft.ColumnRef) {
         relationshipNotice = nil
         if let blocker = modelEditingBlocker { relationshipNotice = blocker; return }
-        guard let model = workspace.metadata, workspace.abf != nil else { relationshipNotice = "File không có mô hình dữ liệu để sửa."; return }
+        guard let model = workspace.metadata, workspace.abf != nil else { relationshipNotice = bi("File không có mô hình dữ liệu để sửa.", "The file has no data model to edit."); return }
         let workspace = self.workspace
         // Phía một là cột có giá trị duy nhất: số giá trị phân biệt bằng số dòng của bảng.
         let isUnique: (RelationshipDraft.ColumnRef) -> Bool = { ref in
@@ -651,7 +651,7 @@ extension DocumentState {
 
     private static func describe(_ value: Value) -> String {
         switch value {
-        case .blank: "(trống)"
+        case .blank: bi("(trống)", "(empty)")
         case .integer(let v): v.formatted()
         case .double(let v): v.formatted()
         case .currency(let v): (Double(v) / 10_000).formatted()

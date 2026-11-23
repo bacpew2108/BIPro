@@ -41,11 +41,11 @@ extension LayoutEditor {
 
     /// Lý do visual này chưa sửa định dạng được, hoặc nil nếu sửa được (chế độ Xem và chọn nhiều visual do `DocumentState` lo).
     func formatEditingBlocker(for id: String) -> String? {
-        guard let pageID = currentPageID, visual(id) != nil else { return "Chọn một visual để sửa định dạng." }
+        guard let pageID = currentPageID, visual(id) != nil else { return bi("Chọn một visual để sửa định dạng.", "Select a visual to edit its formatting.") }
         if isLegacy { return Self.legacyMessage }
-        if isLockedByGroup(id) { return "Visual nằm trong nhóm, chưa sửa định dạng được." }
+        if isLockedByGroup(id) { return bi("Visual nằm trong nhóm, chưa sửa định dạng được.", "The visual is inside a group; its formatting can't be edited yet.") }
         guard baseJSON(of: id, page: pageID) != nil else {
-            return "Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được)."
+            return bi("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).", "Couldn't read this visual's visual.json (legacy-format reports can't be edited yet).")
         }
         return nil
     }
@@ -87,7 +87,7 @@ extension LayoutEditor {
         return categories[0]
     }
 
-    private static let seriesBlocker = "Chuỗi này đang tô màu theo công thức hoặc theo điểm dữ liệu, chưa sửa được."
+    private static let seriesBlocker = bi("Chuỗi này đang tô màu theo công thức hoặc theo điểm dữ liệu, chưa sửa được.", "This series is colored by a formula or by data point and can't be edited yet.")
 
     /// Chuỗi `ref` có mục không phải mục riêng thuần (selector có thêm `data`): không ghi đè.
     private func seriesBlocker(_ ref: String, in entries: [JSONValue]) -> String? {
@@ -140,17 +140,17 @@ extension LayoutEditor {
     func setFormat(_ value: FormatValue, scope: FormatScope, object: String, property: String, visual id: String, series: String? = nil) -> String? {
         resetMessages()
         func refuse(_ message: String) -> String { noteFieldRefusal(message); return message }
-        guard let pageID = currentPageID else { return refuse("Chưa mở trang nào.") }
+        guard let pageID = currentPageID else { return refuse(bi("Chưa mở trang nào.", "No page is open.")) }
         if let blocker = formatEditingBlocker(for: id) { return refuse(blocker) }
-        guard let visual = visual(id) else { return refuse("Không tìm thấy visual.") }
+        guard let visual = visual(id) else { return refuse(bi("Không tìm thấy visual.", "Visual not found.")) }
         guard let card = FormatCatalog.cards(for: visual.type, scope: scope).first(where: { $0.objectKey == object }) else {
-            return refuse("Thuộc tính này chưa quan sát ở Power BI Desktop nên chưa sửa được.")
+            return refuse(bi("Thuộc tính này chưa quan sát ở Power BI Desktop nên chưa sửa được.", "This property hasn't been observed in Power BI Desktop, so it can't be edited yet."))
         }
         let entries = scopeJSON(of: visual, scope)?[object]?.array ?? []
         let spec: FormatProperty, target: JSONValue?
         if let series {
             guard let found = card.seriesProperties.first(where: { $0.key == property }) else {
-                return refuse("Thuộc tính này chưa quan sát theo từng chuỗi ở Power BI Desktop nên chưa sửa được.")
+                return refuse(bi("Thuộc tính này chưa quan sát theo từng chuỗi ở Power BI Desktop nên chưa sửa được.", "This property hasn't been observed per series in Power BI Desktop, so it can't be edited yet."))
             }
             if let reason = seriesRefusal(series, visual: visual, entries: entries) { return refuse(reason) }
             spec = found
@@ -158,17 +158,17 @@ extension LayoutEditor {
         } else {
             guard let found = card.properties.first(where: { $0.key == property }) else {
                 if card.seriesProperties.contains(where: { $0.key == property }) {
-                    return refuse("Chọn một chuỗi để đổi thuộc tính này (Power BI Desktop cũng khoá khi chọn Tất cả).")
+                    return refuse(bi("Chọn một chuỗi để đổi thuộc tính này (Power BI Desktop cũng khoá khi chọn Tất cả).", "Select a series to change this property (Power BI Desktop also locks it when All is selected)."))
                 }
-                return refuse("Thuộc tính này chưa quan sát ở Power BI Desktop nên chưa sửa được.")
+                return refuse(bi("Thuộc tính này chưa quan sát ở Power BI Desktop nên chưa sửa được.", "This property hasn't been observed in Power BI Desktop, so it can't be edited yet."))
             }
-            if !acceptsCommonEntry(card, entries) { return refuse("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa sửa được.") }
+            if !acceptsCommonEntry(card, entries) { return refuse(bi("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa sửa được.", "This card has per-field or per-data-point formatting and can't be edited yet.")) }
             spec = found
             target = entries.first(where: FormatCatalog.isEditable)
         }
         if let reason = value.validate(kind: spec.kind) { return refuse(reason) }
         let existing = target?["properties"]?[property]
-        if existing == nil, !spec.addable { return refuse("Thuộc tính này chỉ sửa được khi file đã có giá trị.") }
+        if existing == nil, !spec.addable { return refuse(bi("Thuộc tính này chỉ sửa được khi file đã có giá trị.", "This property can only be edited when the file already has a value.")) }
         var tail: NumberTail?
         if case .number(_, let existingTail)? = FormatValue.read(existing, kind: spec.kind) { tail = existingTail }
         let json: String
@@ -189,9 +189,9 @@ extension LayoutEditor {
         let list = formatSeries(of: visual, entries: entries)
         if !list.contains(where: { $0.queryRef == series }) {
             if colourColumn(of: visual) != nil {
-                return "Màu theo giá trị (Chú giải hoặc danh mục): giá trị này không có trong dữ liệu đang hiện."
+                return bi("Màu theo giá trị (Chú giải hoặc danh mục): giá trị này không có trong dữ liệu đang hiện.", "Color by value (Legend or category): this value isn't in the data currently shown.")
             }
-            return "Chuỗi này không có trong visual."
+            return bi("Chuỗi này không có trong visual.", "This series isn't in the visual.")
         }
         return seriesBlocker(series, in: entries)
     }
@@ -202,18 +202,18 @@ extension LayoutEditor {
     func resetFormat(scope: FormatScope, object: String, property: String? = nil, visual id: String, series: String? = nil) -> String? {
         resetMessages()
         func refuse(_ message: String) -> String { noteFieldRefusal(message); return message }
-        guard let pageID = currentPageID else { return refuse("Chưa mở trang nào.") }
+        guard let pageID = currentPageID else { return refuse(bi("Chưa mở trang nào.", "No page is open.")) }
         if let blocker = formatEditingBlocker(for: id) { return refuse(blocker) }
-        guard let visual = visual(id) else { return refuse("Không tìm thấy visual.") }
+        guard let visual = visual(id) else { return refuse(bi("Không tìm thấy visual.", "Visual not found.")) }
         guard let card = FormatCatalog.cards(for: visual.type, scope: scope).first(where: { $0.objectKey == object }) else {
-            return refuse("Thẻ này chưa quan sát ở Power BI Desktop nên chưa sửa được.")
+            return refuse(bi("Thẻ này chưa quan sát ở Power BI Desktop nên chưa sửa được.", "This card hasn't been observed in Power BI Desktop, so it can't be edited yet."))
         }
         let entries = scopeJSON(of: visual, scope)?[object]?.array ?? []
         guard !entries.isEmpty else { return nil }
         let editable = entries.first(where: FormatCatalog.isEditable)
         if let series {
             guard let property, card.seriesProperties.contains(where: { $0.key == property }) else {
-                return refuse("Thuộc tính này chưa quan sát theo từng chuỗi ở Power BI Desktop nên chưa sửa được.")
+                return refuse(bi("Thuộc tính này chưa quan sát theo từng chuỗi ở Power BI Desktop nên chưa sửa được.", "This property hasn't been observed per series in Power BI Desktop, so it can't be edited yet."))
             }
             guard entries.first(where: { FormatCatalog.seriesRef(of: $0) == series })?["properties"]?[property] != nil else { return nil }
             let edit = FormatEdit(scope: scope, object: object, action: .removeProperty(property), selectorMetadata: series)
@@ -227,14 +227,14 @@ extension LayoutEditor {
         if hasSeriesEntries {
             // Đặt lại cả thẻ ở "Tất cả" chỉ bỏ phần chung; màu riêng của từng chuỗi nằm lại (đặt lại ở từng chuỗi).
             if entries.contains(where: { !FormatCatalog.isEditable($0) && FormatCatalog.seriesRef(of: $0) == nil }) {
-                return refuse("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa đặt lại được.")
+                return refuse(bi("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa đặt lại được.", "This card has per-field or per-data-point formatting and can't be reset yet."))
             }
             let keys = editable?["properties"]?.object.keys.sorted() ?? []
             guard !keys.isEmpty else { return nil }
             return applyFormats(keys.map { FormatEdit(scope: scope, object: object, action: .removeProperty($0)) }, visual: id, page: pageID, coalesce: nil)
         }
         if entries.contains(where: { !FormatCatalog.isEditable($0) }) {
-            return refuse("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa đặt lại được.")
+            return refuse(bi("Thẻ này có định dạng riêng theo trường hoặc điểm dữ liệu, chưa đặt lại được.", "This card has per-field or per-data-point formatting and can't be reset yet."))
         }
         return applyFormat(FormatEdit(scope: scope, object: object, action: .removeObject), visual: id, page: pageID, coalesce: nil)
     }
@@ -253,11 +253,11 @@ extension LayoutEditor {
         let bytes: Data, raw: JSONValue
         do {
             if isNew {
-                guard let current = edited[pageID]?.added[id] else { return refuse("Không tìm thấy visual.") }
+                guard let current = edited[pageID]?.added[id] else { return refuse(bi("Không tìm thấy visual.", "Visual not found.")) }
                 bytes = try PBIRFormatPatch.apply(edits, to: current)
             } else {
                 for edit in edits { formats = FormatEdit.merging(formats, adding: edit) }
-                guard let source = jsonBeforeFormats(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này.") }
+                guard let source = jsonBeforeFormats(of: id, page: pageID) else { return refuse(bi("Không đọc được visual.json của visual này.", "Couldn't read this visual's visual.json.")) }
                 bytes = try PBIRFormatPatch.apply(formats, to: source)
             }
             raw = try JSONValue.parse(bytes)

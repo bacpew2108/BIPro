@@ -30,6 +30,14 @@ enum UITranslator {
         "Chưa quan sát ở Power BI Desktop": "Not yet observed in Power BI Desktop",
         "Theo chuỗi, chưa quan sát ở Power BI Desktop": "Per series, not yet observed in Power BI Desktop",
         "Định dạng riêng theo trường hoặc điểm dữ liệu, chưa sửa được": "Per-field or per-data-point formatting can't be edited yet",
+        // Menu chuột phải ở pane Dữ liệu
+        "Ẩn trong chế độ báo cáo": "Hide in report view", "Measure mới": "New measure", "Truy vấn nhanh": "Quick queries",
+        "Hiện 100 dòng đầu": "Show top 100 rows", "Định nghĩa measure mới": "Define new measure", "Đổi tên": "Rename",
+        "Xoá khỏi mô hình": "Delete from model", "Thu gọn tất cả": "Collapse all", "Mở rộng tất cả": "Expand all",
+        "Sửa công thức": "Edit formula", "Đánh giá": "Evaluate", "Định nghĩa và đánh giá": "Define and evaluate",
+        "Định nghĩa kèm tham chiếu và đánh giá": "Define with references and evaluate",
+        "Định nghĩa mọi measure trong mô hình": "Define all measures in model", "Hiện tất cả": "Unhide all",
+        "Sao chép công thức": "Copy formula", "Xem trước dữ liệu": "Preview data",
         // Tên loại visual
         "Biểu đồ thanh xếp chồng": "Stacked bar chart", "Biểu đồ cột xếp chồng": "Stacked column chart", "Biểu đồ thanh nhóm": "Clustered bar chart",
         "Biểu đồ cột nhóm": "Clustered column chart", "Thanh xếp chồng 100%": "100% stacked bar chart", "Cột xếp chồng 100%": "100% stacked column chart",

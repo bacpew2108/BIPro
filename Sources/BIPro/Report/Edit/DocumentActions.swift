@@ -30,9 +30,9 @@ extension DocumentState {
         guard layout.isDirty else { return true }
         guard let url = fileURL else { return saveAs() }
         if DocumentSaver.isReadOnlyOriginal(url, roots: DocumentSaver.defaultReadOnlyRoots()) {
-            let choice = Alerts.ask("File trong Downloads là bản gốc, chỉ đọc",
-                                    "BI Pro không ghi vào file gốc ở Downloads. Hãy lưu thành bản mới ở nơi khác (ví dụ Desktop hoặc Documents).",
-                                    buttons: ["Lưu thành…", "Huỷ"], style: .informational)
+            let choice = Alerts.ask(bi("File trong Downloads là bản gốc, chỉ đọc", "The file in Downloads is the original and read-only"),
+                                    bi("BI Pro không ghi vào file gốc ở Downloads. Hãy lưu thành bản mới ở nơi khác (ví dụ Desktop hoặc Documents).", "BI Pro doesn't write to the original file in Downloads. Save a new copy elsewhere (for example Desktop or Documents)."),
+                                    buttons: [bi("Lưu thành…", "Save as…"), bi("Huỷ", "Cancel")], style: .informational)
             return choice == 0 ? saveAs() : false
         }
         return write(to: url, expectedStamp: openedStamp)
@@ -42,7 +42,7 @@ extension DocumentState {
     @discardableResult
     func saveAs() -> Bool {
         guard let source = fileURL else {
-            _ = Alerts.ask("Không lưu được", "Báo cáo này không có file nguồn để lưu thành bản mới.", buttons: ["Đóng"], style: .critical)
+            _ = Alerts.ask(bi("Không lưu được", "Couldn't save"), bi("Báo cáo này không có file nguồn để lưu thành bản mới.", "This report has no source file to save a new copy from."), buttons: [bi("Đóng", "Close")], style: .critical)
             return false
         }
         let panel = NSSavePanel()
@@ -53,18 +53,18 @@ extension DocumentState {
         panel.directoryURL = readOnly || isUntitled
             ? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
             : source.deletingLastPathComponent()
-        panel.message = isUntitled ? "Lưu báo cáo mới" : "Lưu bản sao đã sửa của báo cáo"
+        panel.message = isUntitled ? bi("Lưu báo cáo mới", "Save new report") : bi("Lưu bản sao đã sửa của báo cáo", "Save the edited copy of the report")
         guard panel.runModal() == .OK, let destination = panel.url else { return false }
         if isUntitled {
             // Hộp thoại hệ thống đã hỏi khi trùng tên file có sẵn; không bao giờ ghi vào chính bản tạm.
             guard !UntitledDocuments.isUntitled(destination) else {
-                _ = Alerts.ask("Không lưu được", "Hãy chọn một thư mục khác thư mục tạm của tài liệu mới.", buttons: ["Đóng"], style: .critical)
+                _ = Alerts.ask(bi("Không lưu được", "Couldn't save"), bi("Hãy chọn một thư mục khác thư mục tạm của tài liệu mới.", "Choose a folder other than the temporary folder of new documents."), buttons: [bi("Đóng", "Close")], style: .critical)
                 return false
             }
             do {
                 try DocumentSaver.saveUntitled(editor: layout, source: source, to: destination)
             } catch {
-                _ = Alerts.ask("Không lưu được", "\(error)", buttons: ["Đóng"], style: .critical)
+                _ = Alerts.ask(bi("Không lưu được", "Couldn't save"), "\(error)", buttons: [bi("Đóng", "Close")], style: .critical)
                 return false
             }
             NSDocumentController.shared.openDocument(withContentsOf: destination, display: true) { _, _, _ in }
@@ -93,9 +93,9 @@ extension DocumentState {
             return true
         } catch SaveError.modifiedExternally {
             // File đã bị chương trình khác đổi: cho chọn.
-            switch Alerts.ask("File đã bị thay đổi bởi chương trình khác",
-                              "Nếu ghi, các thay đổi bố cục của bạn được áp lên file hiện tại trên đĩa (phần khác của file giữ nguyên như đang có).",
-                              buttons: ["Ghi", "Lưu thành…", "Huỷ"]) {
+            switch Alerts.ask(bi("File đã bị thay đổi bởi chương trình khác", "The file was changed by another program"),
+                              bi("Nếu ghi, các thay đổi bố cục của bạn được áp lên file hiện tại trên đĩa (phần khác của file giữ nguyên như đang có).", "If you save, your layout changes are applied to the file currently on disk (the rest of the file stays as it is)."),
+                              buttons: ["Ghi", bi("Lưu thành…", "Save as…"), bi("Huỷ", "Cancel")]) {
             case 0:
                 return write(to: destination, expectedStamp: nil)
             case 1:
@@ -105,18 +105,18 @@ extension DocumentState {
             }
         } catch let error as SaveError {
             if case .readOnlyOriginal = error {
-                let choice = Alerts.ask("File trong Downloads là bản gốc, chỉ đọc", "\(error)", buttons: ["Lưu thành…", "Huỷ"], style: .informational)
+                let choice = Alerts.ask(bi("File trong Downloads là bản gốc, chỉ đọc", "The file in Downloads is the original and read-only"), "\(error)", buttons: [bi("Lưu thành…", "Save as…"), bi("Huỷ", "Cancel")], style: .informational)
                 return choice == 0 ? saveAs() : false
             }
             if case .writeFailed = error {
                 // Không ghi được vào vị trí này (chỉ đọc, hết chỗ…): cho lưu thành bản mới ở nơi khác.
-                let choice = Alerts.ask("Không ghi được vào vị trí này", "\(error)", buttons: ["Lưu thành…", "Đóng"], style: .critical)
+                let choice = Alerts.ask(bi("Không ghi được vào vị trí này", "Can't write to this location"), "\(error)", buttons: [bi("Lưu thành…", "Save as…"), bi("Đóng", "Close")], style: .critical)
                 return choice == 0 ? saveAs() : false
             }
-            _ = Alerts.ask("Không lưu được", "\(error)", buttons: ["Đóng"], style: .critical)
+            _ = Alerts.ask(bi("Không lưu được", "Couldn't save"), "\(error)", buttons: [bi("Đóng", "Close")], style: .critical)
             return false
         } catch {
-            _ = Alerts.ask("Không lưu được", error.localizedDescription, buttons: ["Đóng"], style: .critical)
+            _ = Alerts.ask(bi("Không lưu được", "Couldn't save"), error.localizedDescription, buttons: [bi("Đóng", "Close")], style: .critical)
             return false
         }
     }
@@ -125,7 +125,7 @@ extension DocumentState {
     func confirmClose() -> Bool {
         guard layout.isDirty else { return true }
         switch Alerts.ask("Lưu thay đổi trong “\(fileName)”?",
-                          "Bố cục đã sửa sẽ mất nếu bạn không lưu.", buttons: ["Lưu", "Không lưu", "Huỷ"]) {
+                          bi("Bố cục đã sửa sẽ mất nếu bạn không lưu.", "Your layout edits will be lost if you don't save."), buttons: [bi("Lưu", "Save"), bi("Không lưu", "Don't save"), bi("Huỷ", "Cancel")]) {
         case 0: return save()
         case 1: return true
         default: return false

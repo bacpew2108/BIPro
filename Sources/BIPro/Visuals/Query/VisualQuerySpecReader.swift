@@ -149,9 +149,12 @@ struct VisualQuerySpecReader {
             if levels.count > 1 { spec.drillLevels = levels }
         }
 
-        // Drill: mọi cấp của hierarchy ở trục danh mục (chỉ chart và donut).
+        // Drill: mọi cấp của hierarchy ở trục danh mục (chart, donut và treemap; treemap dùng ô Group, VM 2026-11-23).
         if shape == .chart || shape == .donut {
             let levels = groupFields(queryState["Category"], role: "Category", activeOnly: false)
+            if levels.count > 1 { spec.drillLevels = levels }
+        } else if shape == .treemap {
+            let levels = groupFields(queryState["Group"], role: "Group", activeOnly: false)
             if levels.count > 1 { spec.drillLevels = levels }
         }
 
@@ -348,6 +351,9 @@ struct VisualQuerySpecReader {
     static func applyDrill(_ spec: inout VisualQuerySpec, depth: Int) {
         guard depth > 0, spec.drillLevels.count > depth else { return }
         if case .donut = spec.shape {
+            spec.primary = [spec.drillLevels[depth]]
+        } else if case .treemap = spec.shape {
+            // Desktop: treemap sau drill chỉ vẽ cấp con của điểm đã chọn (cấp trên thành bộ lọc drill).
             spec.primary = [spec.drillLevels[depth]]
         } else {
             spec.primary = Array(spec.drillLevels.prefix(depth + 1))

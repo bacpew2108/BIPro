@@ -360,6 +360,15 @@ final class ReportInteraction {
 
     func depth(of visual: ReportVisual) -> Int { drillDepth[visual.id] ?? 0 }
 
+    /// Buộc mọi visual nạp lại và chạy truy vấn thật: bỏ bộ nhớ đệm kết quả nhưng giữ engine (không dựng lại). Performance analyzer dùng.
+    func reloadVisualsBypassingCache() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if let services = try? await self.services() { await services.1.clearCache() }
+            self.modelVersion += 1
+        }
+    }
+
     /// Chế độ drill (nút ↓ trên Ribbon và trên đầu visual dùng chung): bật thì bấm một điểm sẽ drill xuống điểm đó thay vì chọn (VM 2026-11-23).
     var drillModeVisualIDs: Set<String> = []
     func isDrillMode(_ visual: ReportVisual) -> Bool { drillModeVisualIDs.contains(visual.id) }

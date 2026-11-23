@@ -180,7 +180,7 @@ final class LayoutEditor {
 
     /// Báo cáo định dạng cũ (`Report/Layout`, D7): chỉ sửa bố cục; `sourceJSON` trả byte của container, không phải `visual.json`.
     let isLegacy: Bool
-    static let legacyMessage = "Báo cáo định dạng cũ (Report/Layout) mới sửa được bố cục: di chuyển, đổi cỡ, căn, xoá, nhân bản, chép dán."
+    static let legacyMessage = bi("Báo cáo định dạng cũ (Report/Layout) mới sửa được bố cục: di chuyển, đổi cỡ, căn, xoá, nhân bản, chép dán.", "Legacy-format reports (Report/Layout) only support layout edits: move, resize, align, delete, duplicate, copy and paste.")
 
     init(report: ReportDefinition, sourceJSON: @escaping (String, String) -> Data? = { _, _ in nil },
          pageSource: @escaping (String) -> Data? = { _ in nil },
@@ -477,7 +477,7 @@ final class LayoutEditor {
         return false
     }
 
-    static let groupLockedMessage = "Nằm trong nhóm không đọc được, chưa sửa được."
+    static let groupLockedMessage = bi("Nằm trong nhóm không đọc được, chưa sửa được.", "It is inside a group that can't be read, so it can't be edited yet.")
 
     // MARK: Chọn
 
@@ -883,7 +883,7 @@ final class LayoutEditor {
             data[id] = patched
         }
         guard !copies.isEmpty || !groupCopies.isEmpty else {
-            lockedReason = "Không đọc được dữ liệu của visual nguồn để nhân bản."
+            lockedReason = bi("Không đọc được dữ liệu của visual nguồn để nhân bản.", "Couldn't read the source visual's data to duplicate it.")
             return []
         }
         commit(pageID: pageID) { edit in
@@ -916,14 +916,14 @@ final class LayoutEditor {
 
     /// Lý do visual này chưa sửa được trường, hoặc nil nếu sửa được.
     func fieldEditingBlocker(for id: String) -> String? {
-        guard let pageID = currentPageID, visual(id) != nil else { return "Chọn một visual để sửa trường." }
+        guard let pageID = currentPageID, visual(id) != nil else { return bi("Chọn một visual để sửa trường.", "Select a visual to edit its fields.") }
         if isLegacy { return Self.legacyMessage }
-        if isLockedByGroup(id) { return "Visual nằm trong nhóm, chưa sửa trường được." }
-        guard let base = baseJSON(of: id, page: pageID) else { return "Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được)." }
+        if isLockedByGroup(id) { return bi("Visual nằm trong nhóm, chưa sửa trường được.", "The visual is inside a group; its fields can't be edited yet.") }
+        guard let base = baseJSON(of: id, page: pageID) else { return bi("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).", "Couldn't read this visual's visual.json (legacy-format reports can't be edited yet).") }
         // Visual dữ liệu mới thêm trong phiên chưa có query: được tạo khi thả trường đầu tiên (D3).
         let isNewHere = createdIDs[pageID]?.contains(id) == true
         guard (try? PBIRQueryPatch.wells(in: base)) != nil, hasQueryState(base) || (isNewHere && !WellRules.rules(for: visual(id)!).isEmpty) else {
-            return "Visual này chưa có cấu hình trường, chưa tạo mới được."
+            return bi("Visual này chưa có cấu hình trường, chưa tạo mới được.", "This visual has no field configuration yet, so it can't be created.")
         }
         return nil
     }
@@ -981,7 +981,7 @@ final class LayoutEditor {
     func setAggregation(role: String, index: Int, to function: AggregateFunction, visual id: String) -> String? {
         editFields(id) { wells, _, _ in
             guard let elements = wells.first(where: { $0.role == role })?.elements, elements.indices.contains(index) else {
-                return .refused("Không có trường để đổi phép gộp.")
+                return .refused(bi("Không có trường để đổi phép gộp.", "No field to change the aggregation of."))
             }
             let field = elements[index].field
             return FieldEditor.setAggregation(role: role, index: index, to: function,
@@ -1048,9 +1048,9 @@ final class LayoutEditor {
         fieldRefusal = nil
         notice = nil
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
-        guard let pageID = currentPageID else { return refuse("Chưa mở trang nào.") }
+        guard let pageID = currentPageID else { return refuse(bi("Chưa mở trang nào.", "No page is open.")) }
         if let blocker = fieldEditingBlocker(for: id) { return refuse(blocker) }
-        guard let visual = visual(id), let base = baseJSON(of: id, page: pageID) else { return refuse("Không tìm thấy visual.") }
+        guard let visual = visual(id), let base = baseJSON(of: id, page: pageID) else { return refuse(bi("Không tìm thấy visual.", "Visual not found.")) }
         let wells = edited[pageID]?.queries[id] ?? ((try? PBIRQueryPatch.wells(in: base)) ?? [])
         switch body(wells, visual, base) {
         case .refused(let message):
@@ -1090,7 +1090,7 @@ final class LayoutEditor {
         notice = nil
         if isLegacy { fieldRefusal = Self.legacyMessage; return nil }
         guard let pageID = currentPageID, let bounds = pageBounds(pageID) else {
-            fieldRefusal = "Chưa mở trang nào."
+            fieldRefusal = bi("Chưa mở trang nào.", "No page is open.")
             return nil
         }
         guard let info = VisualTypes.info(for: type) else {
@@ -1119,7 +1119,7 @@ final class LayoutEditor {
                                                     z: Int(z), schema: PBIRNewVisual.schemaURL(from: Array(siblings)),
                                                     shapeKind: shapeKind ?? "rectangle", imageItemName: imageItemName, imageCaption: imageCaption),
               let raw = try? JSONValue.parse(json) else {
-            fieldRefusal = "Không dựng được visual mới."
+            fieldRefusal = bi("Không dựng được visual mới.", "Couldn't build the new visual.")
             return nil
         }
         usedIDs.insert(id)
@@ -1141,7 +1141,7 @@ final class LayoutEditor {
     /// Chèn visual `image` kèm dữ liệu ảnh nhúng vào `RegisteredResources` (US4), gộp trong đúng một bước hoàn tác.
     @discardableResult
     func insertImage(data: Data, filename: String, visibleRect: CGRect?) -> (id: String, itemName: String)? {
-        guard !data.isEmpty else { fieldRefusal = "Tệp ảnh rỗng."; return nil }
+        guard !data.isEmpty else { fieldRefusal = bi("Tệp ảnh rỗng.", "The image file is empty."); return nil }
         let baseName = URL(fileURLWithPath: filename).lastPathComponent
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "\\", with: "_")
@@ -1173,12 +1173,12 @@ final class LayoutEditor {
         notice = nil
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
         if isLegacy { return refuse(Self.legacyMessage) }
-        guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một visual để đổi loại.") }
+        guard let pageID = currentPageID, let visual = visual(id) else { return refuse(bi("Chọn một visual để đổi loại.", "Select a visual to change its type.")) }
         if type == "shapeMap", visual.type != "shapeMap", !hasShapeMapResource {
-            return refuse("Báo cáo chưa có bản đồ hình (usa.states.topo); Power BI Desktop tự thêm, BI Pro thì chưa.")
+            return refuse(bi("Báo cáo chưa có bản đồ hình (usa.states.topo); Power BI Desktop tự thêm, BI Pro thì chưa.", "The report has no shape map (usa.states.topo); Power BI Desktop adds it automatically, BI Pro doesn't yet."))
         }
-        if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa đổi loại được.") }
-        guard let base = baseJSON(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).") }
+        if isLockedByGroup(id) { return refuse(bi("Visual nằm trong nhóm, chưa đổi loại được.", "The visual is inside a group; its type can't be changed yet.")) }
+        guard let base = baseJSON(of: id, page: pageID) else { return refuse(bi("Không đọc được visual.json của visual này (báo cáo định dạng cũ chưa sửa được).", "Couldn't read this visual's visual.json (legacy-format reports can't be edited yet).")) }
         let isNew = edited[pageID]?.added[id] != nil
         let wells = edited[pageID]?.queries[id] ?? ((try? PBIRQueryPatch.wells(in: base)) ?? [])
         let currentKeys = Array((visual.raw["visual"]?["objects"]?.object.keys).map { Array($0) } ?? []).sorted()
@@ -1309,10 +1309,10 @@ final class LayoutEditor {
         notice = nil
         func refuse(_ message: String) -> String { fieldRefusal = message; return message }
         if isLegacy { return refuse(Self.legacyMessage) }
-        guard let pageID = currentPageID, let visual = visual(id) else { return refuse("Chọn một hộp văn bản để sửa.") }
-        guard visual.type == "textbox" else { return refuse("Chỉ hộp văn bản mới sửa được nội dung.") }
-        if isLockedByGroup(id) { return refuse("Visual nằm trong nhóm, chưa sửa được.") }
-        guard let base = baseJSON(of: id, page: pageID) else { return refuse("Không đọc được visual.json của visual này.") }
+        guard let pageID = currentPageID, let visual = visual(id) else { return refuse(bi("Chọn một hộp văn bản để sửa.", "Select a text box to edit.")) }
+        guard visual.type == "textbox" else { return refuse(bi("Chỉ hộp văn bản mới sửa được nội dung.", "Only text boxes have editable content.")) }
+        if isLockedByGroup(id) { return refuse(bi("Visual nằm trong nhóm, chưa sửa được.", "The visual is inside a group; it can't be edited yet.")) }
+        guard let base = baseJSON(of: id, page: pageID) else { return refuse(bi("Không đọc được visual.json của visual này.", "Couldn't read this visual's visual.json.")) }
         let lines = text.components(separatedBy: "\n")
         let bytes: Data, raw: JSONValue
         do {
@@ -1661,7 +1661,7 @@ final class LayoutEditor {
 
     func modelDelta() throws -> ModelEdits {
         if savedModelEdits.isEmpty { return try TableLoader.writable(modelEdits) }
-        guard let base = modelBase else { throw ModelEditError("Thiếu mô hình gốc để tính phần đổi của lần lưu này") }
+        guard let base = modelBase else { throw ModelEditError(bi("Thiếu mô hình gốc để tính phần đổi của lần lưu này", "The original model is missing, so this save's changes can't be computed")) }
         // Thứ tự: (1) phần so mô hình xoá measure/quan hệ: chỉ nhắm vào đối tượng đã có trong file, phải đi trước khi xoá bảng chứa
         // chúng (bộ ghi từ chối xoá bảng còn measure/quan hệ; lỗi T096); (2) thao tác bảng sau lần lưu trước, giữ thứ tự (xoá A rồi nạp
         // A mới vẫn đúng); (3) phần so mô hình còn lại (measure và quan hệ trên bảng mới đứng sau bảng).

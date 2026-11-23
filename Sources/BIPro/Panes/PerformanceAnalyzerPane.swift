@@ -43,10 +43,10 @@ final class PerformanceRecorder {
 
     var totalMs: Double { entries.reduce(0) { $0 + $1.totalMs } }
 
-    /// Buộc mọi visual tính lại từ đầu (bỏ bộ nhớ đệm kết quả) để đo thật; từng lần nạp tự ghi qua `onVisualLoaded`.
+    /// Buộc mọi visual chạy lại truy vấn (bỏ bộ nhớ đệm kết quả, giữ engine) để đo thật; từng lần nạp tự ghi qua `onVisualLoaded`.
     func refresh(interaction: ReportInteraction) {
         guard isRecording else { return }
-        interaction.modelDidChange()
+        interaction.reloadVisualsBypassingCache()
     }
 
     static func ms(_ d: Duration) -> Double {

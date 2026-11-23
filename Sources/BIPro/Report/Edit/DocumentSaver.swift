@@ -195,13 +195,13 @@ enum DocumentSaver {
         func measures(_ m: ModelMetadata) -> [String] {
             m.measures.map { "\($0.tableName)|\($0.name)|\($0.expression)|\($0.formatString ?? "-")|\($0.displayFolder ?? "-")|\($0.description ?? "-")|\($0.isHidden)|\($0.dataType.rawValue)" }.sorted()
         }
-        guard measures(written) == measures(expected) else { throw SaveError.verificationFailed("measure đọc lại khác mô hình đang sửa") }
+        guard measures(written) == measures(expected) else { throw SaveError.verificationFailed(bi("measure đọc lại khác mô hình đang sửa", "measures read back differ from the model being edited")) }
         guard written.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) == expected.tables.filter(\.isUserTable).map({ "\($0.name)|\($0.isHidden)" }) else {
-            throw SaveError.verificationFailed("bảng đọc lại khác mô hình đang sửa")
+            throw SaveError.verificationFailed(bi("bảng đọc lại khác mô hình đang sửa", "tables read back differ from the model being edited"))
         }
         // Thứ tự dòng Relationship theo ID trong file, còn mô hình đang sửa thêm vào cuối: so sánh theo tập.
         guard Set(written.relationships) == Set(expected.relationships), written.relationships.count == expected.relationships.count else {
-            throw SaveError.verificationFailed("quan hệ đọc lại khác mô hình đang sửa")
+            throw SaveError.verificationFailed(bi("quan hệ đọc lại khác mô hình đang sửa", "relationships read back differ from the model being edited"))
         }
         // Bảng mới (T3): ID do bộ ghi cấp, thêm cột RowNumber và bảng `H$`, nên so theo tên, kiểu, ẩn, cách tổng hợp; ô thì `verifyTables` so.
         // Bảng thay dữ liệu (T063b) cũng vậy: cột mới được cấp ID mới, cột cũ giữ ID và thuộc tính (so theo tên, kiểu, ẩn, tổng hợp).
@@ -386,7 +386,7 @@ enum DocumentSaver {
     private static func verifyPages(report: ReportDefinition, pbix: PBIXFile, editor: LayoutEditor) throws {
         let expected = editor.pages
         guard report.pages.map(\.id) == expected.map(\.id) else {
-            throw SaveError.verificationFailed("thứ tự trang trong file khác trạng thái đang sửa")
+            throw SaveError.verificationFailed(bi("thứ tự trang trong file khác trạng thái đang sửa", "page order in the file differs from the state being edited"))
         }
         for (written, wanted) in zip(report.pages, expected) where written.displayName != wanted.displayName {
             throw SaveError.verificationFailed("tên trang \(wanted.id) trong file khác trạng thái đang sửa")
@@ -413,7 +413,7 @@ enum DocumentSaver {
                 else if let name = item["name"]?.string { listed.insert(name) }
             }
             guard listed == bookmarkNames else {
-                throw SaveError.verificationFailed("bookmarks.json không khớp các file bookmark")
+                throw SaveError.verificationFailed(bi("bookmarks.json không khớp các file bookmark", "bookmarks.json doesn't match the bookmark files"))
             }
         }
         // Tham chiếu treo tới trang đã xoá, chỉ ở những chỗ là tham chiếu: thư mục trang, `activePageName` (bookmark đã kiểm
