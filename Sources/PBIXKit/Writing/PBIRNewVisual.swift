@@ -51,7 +51,7 @@ public enum PBIRNewVisual {
         var isInsertButton = false
         switch type {
         case "textbox":
-            body = #"{"visualType":"textbox","objects":{"general":[{"properties":{"paragraphs":[{"textRuns":[{"value":"Hộp văn bản"}]}]}}]}}"#
+            body = #"{"visualType":"textbox","objects":{"general":[{"properties":{"paragraphs":[{"textRuns":[{"value":"\#(lt("Hộp văn bản", "Text box"))"}]}]}}]}}"#
         case "shape":
             isInsertButton = true
             let literal = token("'\(shapeKind)'")

@@ -77,10 +77,10 @@ final class ParquetNode: @unchecked Sendable {
 
     /// Lý do không đọc được cột này, hay `nil`.
     func unsupportedReason() -> String? {
-        if isMap { return "Parquet cột \(path.joined(separator: ".")) kiểu MAP" }
-        if element.repetition == 2 && !isLeaf && !isList { return "Parquet cột \(path.joined(separator: ".")) lặp không chú thích LIST" }
+        if isMap { return lt("Parquet cột \(path.joined(separator: ".")) kiểu MAP", "Parquet column \(path.joined(separator: ".")) is of type MAP") }
+        if element.repetition == 2 && !isLeaf && !isList { return lt("Parquet cột \(path.joined(separator: ".")) lặp không chú thích LIST", "Parquet column \(path.joined(separator: ".")) repeats without a LIST annotation") }
         if isLeaf, element.repetition == 2, path.count == 1 { return lt("Parquet cột \(element.name) lặp không chú thích LIST", "Parquet column \(element.name) repeats without a LIST annotation") }
-        if isList, listElement == nil { return "Parquet cột \(path.joined(separator: ".")) dạng LIST lạ" }
+        if isList, listElement == nil { return lt("Parquet cột \(path.joined(separator: ".")) dạng LIST lạ", "Parquet column \(path.joined(separator: ".")) has an unusual LIST shape") }
         for child in children {
             // Nhóm lặp trong LIST là khung của danh sách, không xét như cột lặp riêng.
             if isList, child === listElement?.repeated {

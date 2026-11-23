@@ -309,8 +309,8 @@ struct ModelTreeView: View {
                             },
                             onDefineNewMeasure: {
                                 openNewQueryTab(
-                                    "Measure mới",
-                                    QuickQueries.defineNewMeasure(tableName: m.tableName),
+                                    bi("Measure mới", "New Measure"),
+                                    QuickQueries.defineNewMeasure(tableName: m.tableName, measureName: bi("Measure mới", "New measure")),
                                     false
                                 )
                             },

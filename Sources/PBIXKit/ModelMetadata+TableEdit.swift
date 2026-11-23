@@ -116,11 +116,11 @@ extension ModelMetadata {
         guard column.kind == .calculated else { throw ModelEditError(lt("Cột \(table)[\(name)] không phải cột tính toán, chưa xoá được", "Column \(table)[\(name)] isn't a calculated column and can't be deleted yet")) }
         var blockers: [String] = []
         let measureUses = measures.filter { Self.mentionsColumn($0.expression, table: table, column: name) }.map(\.name)
-        if !measureUses.isEmpty { blockers.append("measure " + measureUses.joined(separator: ", ") + " dùng cột") }
+        if !measureUses.isEmpty { blockers.append(lt("measure \(measureUses.joined(separator: ", ")) dùng cột", "measures \(measureUses.joined(separator: ", ")) use the column")) }
         let calculated = columns.filter { $0.id != column.id && ($0.expression.map { Self.mentionsColumn($0, table: table, column: name) } ?? false) }.map(\.name)
-        if !calculated.isEmpty { blockers.append("cột tính toán " + calculated.joined(separator: ", ") + " dùng cột") }
+        if !calculated.isEmpty { blockers.append(lt("cột tính toán \(calculated.joined(separator: ", ")) dùng cột", "calculated columns \(calculated.joined(separator: ", ")) use the column")) }
         let tablesUsing = calculatedTableExpressions.filter { Self.mentionsColumn($0.value, table: table, column: name) }.keys.sorted()
-        if !tablesUsing.isEmpty { blockers.append("bảng tính toán " + tablesUsing.joined(separator: ", ") + " dùng cột") }
+        if !tablesUsing.isEmpty { blockers.append(lt("bảng tính toán \(tablesUsing.joined(separator: ", ")) dùng cột", "calculated tables \(tablesUsing.joined(separator: ", ")) use the column")) }
         if !blockers.isEmpty { throw ModelEditError(lt("Không thể xoá cột \(table)[\(name)]: ", "Couldn't delete column \(table)[\(name)]: ") + blockers.joined(separator: "; ")) }
         let uses = { (r: Relationship) in (r.fromTable == table && r.fromColumn == name) || (r.toTable == table && r.toColumn == name) }
         let kept = hierarchies.compactMap { h -> Hierarchy? in
@@ -203,11 +203,11 @@ extension ModelMetadata {
         let rels = relationships.filter {
             ($0.fromTable == column.tableName && $0.fromColumn == column.name) || ($0.toTable == column.tableName && $0.toColumn == column.name)
         }.map(\.name)
-        if !rels.isEmpty { uses.append("cột nằm trong quan hệ " + rels.joined(separator: ", ")) }
+        if !rels.isEmpty { uses.append(lt("cột nằm trong quan hệ \(rels.joined(separator: ", "))", "column is in relationships \(rels.joined(separator: ", "))")) }
         let hier = hierarchies.filter { $0.tableName == column.tableName && $0.levels.contains { $0.columnName == column.name } }.map(\.name)
-        if !hier.isEmpty { uses.append("cột là cấp của phân cấp " + hier.joined(separator: ", ")) }
+        if !hier.isEmpty { uses.append(lt("cột là cấp của phân cấp \(hier.joined(separator: ", "))", "column is a level of hierarchies \(hier.joined(separator: ", "))")) }
         let sorted = columns.filter { $0.sortByColumnID == column.id && $0.id != column.id }.map(\.name)
-        if !sorted.isEmpty { uses.append("cột " + sorted.joined(separator: ", ") + " sắp xếp theo cột này") }
+        if !sorted.isEmpty { uses.append(lt("cột \(sorted.joined(separator: ", ")) sắp xếp theo cột này", "columns \(sorted.joined(separator: ", ")) sort by this column")) }
         return uses
     }
 
@@ -293,17 +293,17 @@ extension ModelMetadata {
         }
         var blockers: [String] = []
         let related = (relationships + dateTableRelationships).filter { $0.fromTable == name || $0.toTable == name }.map(\.name)
-        if !related.isEmpty { blockers.append("còn quan hệ " + related.joined(separator: ", ")) }
+        if !related.isEmpty { blockers.append(lt("còn quan hệ \(related.joined(separator: ", "))", "relationships remain: \(related.joined(separator: ", "))")) }
         let hosted = measures.filter { $0.tableName == name }.map(\.name)
-        if !hosted.isEmpty { blockers.append("còn chứa measure " + hosted.joined(separator: ", ")) }
+        if !hosted.isEmpty { blockers.append(lt("còn chứa measure \(hosted.joined(separator: ", "))", "still contains measures \(hosted.joined(separator: ", "))")) }
         let users = measures.filter { $0.tableName != name && Self.mentionsTable($0.expression, name) }.map(\.name)
-        if !users.isEmpty { blockers.append("measure " + users.joined(separator: ", ") + " đang dùng bảng") }
+        if !users.isEmpty { blockers.append(lt("measure \(users.joined(separator: ", ")) đang dùng bảng", "measures \(users.joined(separator: ", ")) use the table")) }
         // Cột tính toán và bảng tính toán ở bảng khác nhắc tới bảng này (T098, FR-004).
         let calculated = columns.filter { $0.tableName != name && $0.kind == .calculated && Self.mentionsTable($0.expression ?? "", name) }
             .map { "\($0.tableName)[\($0.name)]" }
-        if !calculated.isEmpty { blockers.append("cột tính toán " + calculated.joined(separator: ", ") + " đang dùng bảng") }
+        if !calculated.isEmpty { blockers.append(lt("cột tính toán \(calculated.joined(separator: ", ")) đang dùng bảng", "calculated columns \(calculated.joined(separator: ", ")) use the table")) }
         let calculatedTables = calculatedTableExpressions.filter { $0.key != name && Self.mentionsTable($0.value, name) }.keys.sorted()
-        if !calculatedTables.isEmpty { blockers.append("bảng tính toán " + calculatedTables.joined(separator: ", ") + " đang dùng bảng") }
+        if !calculatedTables.isEmpty { blockers.append(lt("bảng tính toán \(calculatedTables.joined(separator: ", ")) đang dùng bảng", "calculated tables \(calculatedTables.joined(separator: ", ")) use the table")) }
         if !blockers.isEmpty { throw ModelEditError(lt("Không thể xoá bảng \(name): ", "Couldn't delete table \(name): ") + blockers.joined(separator: "; ")) }
         var queries = partitionQueries, expressions = calculatedTableExpressions
         queries[name] = nil
@@ -354,16 +354,16 @@ extension ModelMetadata {
             let rels = relationships.filter {
                 ($0.fromTable == table && $0.fromColumn == column.name) || ($0.toTable == table && $0.toColumn == column.name)
             }.map(\.name)
-            if !rels.isEmpty { uses.append("quan hệ " + rels.joined(separator: ", ")) }
+            if !rels.isEmpty { uses.append(lt("quan hệ \(rels.joined(separator: ", "))", "relationships \(rels.joined(separator: ", "))")) }
             let hier = hierarchies.filter { $0.tableName == table && $0.levels.contains { $0.columnName == column.name } }.map(\.name)
-            if !hier.isEmpty { uses.append("phân cấp " + hier.joined(separator: ", ")) }
+            if !hier.isEmpty { uses.append(lt("phân cấp \(hier.joined(separator: ", "))", "hierarchies \(hier.joined(separator: ", "))")) }
             let sorted = columns.filter { $0.sortByColumnID == column.id && survivingIDs.contains($0.id) }.map(\.name)
-            if !sorted.isEmpty { uses.append("cột sắp xếp theo: " + sorted.joined(separator: ", ")) }
+            if !sorted.isEmpty { uses.append(lt("cột sắp xếp theo: \(sorted.joined(separator: ", "))", "columns sorted by: \(sorted.joined(separator: ", "))")) }
             let measureUses = measures.filter { Self.mentionsColumn($0.expression, table: table, column: column.name) }.map(\.name)
-            if !measureUses.isEmpty { uses.append("measure " + measureUses.joined(separator: ", ")) }
+            if !measureUses.isEmpty { uses.append(lt("measure \(measureUses.joined(separator: ", "))", "measures \(measureUses.joined(separator: ", "))")) }
             let calculated = columns.filter { $0.expression.map { Self.mentionsColumn($0, table: table, column: column.name) } ?? false }.map(\.name)
-            if !calculated.isEmpty { uses.append("cột tính toán " + calculated.joined(separator: ", ")) }
-            if !uses.isEmpty { lines.append("cột \(column.name) đang được dùng bởi " + uses.joined(separator: " và ")) }
+            if !calculated.isEmpty { uses.append(lt("cột tính toán \(calculated.joined(separator: ", "))", "calculated columns \(calculated.joined(separator: ", "))")) }
+            if !uses.isEmpty { lines.append(lt("cột \(column.name) đang được dùng bởi ", "column \(column.name) is used by ") + uses.joined(separator: lt(" và ", " and "))) }
         }
         return lines
     }

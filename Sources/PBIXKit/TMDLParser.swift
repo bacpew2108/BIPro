@@ -381,8 +381,8 @@ public enum TMDLParser {
         for r in oldModel.relationships where !newRelNames.contains(r.name) { edits.append(.deleteRelationship(name: r.name)) }
         for r in newModel.relationships {
             guard let before = oldRel[r.name] else {
-                if r.fromCardinality == "one" { issue(r.path, r.line, "quan hệ một-một chưa được hỗ trợ") }
-                else if r.toCardinality == "many" { issue(r.path, r.line, "quan hệ nhiều-nhiều chưa được hỗ trợ") }
+                if r.fromCardinality == "one" { issue(r.path, r.line, lt("quan hệ một-một chưa được hỗ trợ", "one-to-one relationships aren't supported yet")) }
+                else if r.toCardinality == "many" { issue(r.path, r.line, lt("quan hệ nhiều-nhiều chưa được hỗ trợ", "many-to-many relationships aren't supported yet")) }
                 else if r.fromTable.isEmpty || r.toTable.isEmpty { issue(r.path, r.line, lt("quan hệ \(r.name) thiếu fromColumn hoặc toColumn", "relationship \(r.name) is missing fromColumn or toColumn")) }
                 else {
                     edits.append(.addRelationship(NewRelationship(name: r.name, fromTable: r.fromTable, fromColumn: r.fromColumn, toTable: r.toTable,
@@ -426,7 +426,7 @@ public enum TMDLParser {
         for m in old.measures where !newMNames.contains(m.name) { edits.append(.deleteMeasure(table: new.name, name: m.name)) }
         for m in new.measures {
             guard let before = oldM[m.name] else {
-                if !m.other.isEmpty { issue(new.path, m.line, "measure mới \(m.name) có thuộc tính chưa hỗ trợ: \(m.other.keys.sorted().joined(separator: ", "))") }
+                if !m.other.isEmpty { issue(new.path, m.line, lt("measure mới \(m.name) có thuộc tính chưa hỗ trợ: \(m.other.keys.sorted().joined(separator: ", "))", "new measure \(m.name) has unsupported properties: \(m.other.keys.sorted().joined(separator: ", "))")) }
                 edits.append(.addMeasure(NewMeasure(table: new.name, name: m.name, expression: m.expression, formatString: m.formatString,
                                                     displayFolder: m.displayFolder, description: m.description, isHidden: m.isHidden)))
                 continue

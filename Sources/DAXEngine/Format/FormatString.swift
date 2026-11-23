@@ -339,7 +339,7 @@ private struct NumberBlock {
             integerPart.removeLast()
             scale += 1
         }
-        guard integerPart.first != "," else { throw unsupported(pattern, "dấu phẩy đứng đầu chỗ số") }
+        guard integerPart.first != "," else { throw unsupported(pattern, lt("dấu phẩy đứng đầu chỗ số", "leading comma in digit placeholder")) }
         guard !(integerPart.isEmpty && fraction.isEmpty) else { throw unsupported(pattern, lt("chỗ số rỗng", "empty digit placeholder")) }
         minInteger = integerPart.filter { $0 == "0" }.count
         grouping = integerPart.contains(",")

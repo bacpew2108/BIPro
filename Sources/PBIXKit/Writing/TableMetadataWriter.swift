@@ -215,7 +215,7 @@ public struct TableMetadataWriter {
         } else {
             let full = Int(segments - 1), last = Int(records) - full * Int(perSegment)
             guard perSegment > 0, last > 0, last <= Int(perSegment) else {
-                throw WriteError.invalid("Chưa lưu được cột tính toán của bảng «\(table)»: bố cục đoạn dữ liệu không đều (\(segments) đoạn, \(perSegment) dòng/đoạn, tổng \(records))")
+                throw WriteError.invalid(lt("Chưa lưu được cột tính toán của bảng «\(table)»: bố cục đoạn dữ liệu không đều (\(segments) đoạn, \(perSegment) dòng/đoạn, tổng \(records))", "Couldn't save the calculated column of table «\(table)»: uneven data segment layout (\(segments) segments, \(perSegment) rows/segment, \(records) total)"))
             }
             targetSegments = Array(repeating: Int(perSegment), count: full) + [last]
         }

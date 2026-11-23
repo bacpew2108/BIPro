@@ -127,7 +127,7 @@ public struct ParquetFile: Sendable {
         case 4, 5: return .double
         case 6: return .string
         default:
-            throw SourceError.unsupported("Parquet cột \(e.name) kiểu \(e.physical == 7 ? "FIXED_LEN_BYTE_ARRAY" : "vật lý \(e.physical ?? -1)")")
+            throw SourceError.unsupported(lt("Parquet cột \(e.name) kiểu \(e.physical == 7 ? "FIXED_LEN_BYTE_ARRAY" : "vật lý \(e.physical ?? -1)")", "Parquet column \(e.name) of type \(e.physical == 7 ? "FIXED_LEN_BYTE_ARRAY" : "physical \(e.physical ?? -1)")"))
         }
     }
 
@@ -150,7 +150,7 @@ public struct ParquetFile: Sendable {
                     var entries: [[String]: ParquetLeafEntries] = [:]
                     for leafNode in node.leaves {
                         guard let chunk = group.columns.first(where: { $0.path == leafNode.path }) else {
-                            throw ThriftCompactReader.failure("thiếu cột \(leafNode.path.joined(separator: "."))")
+                            throw ThriftCompactReader.failure(lt("thiếu cột \(leafNode.path.joined(separator: "."))", "missing column \(leafNode.path.joined(separator: "."))"))
                         }
                         entries[leafNode.path] = try readEntries(chunk, node: leafNode)
                     }

@@ -3,6 +3,7 @@
 // ở vị trí định danh (không phải tên trường sau `[`, và không bị tên bước cùng tên che).
 
 import Foundation
+import PBIXKit
 
 public enum QueryDependencies {
     /// Tên trong `names` mà `query` tham chiếu tới.
@@ -54,7 +55,7 @@ public enum QueryDependencies {
     /// Mọi truy vấn mà `name` phụ thuộc, trực tiếp hay gián tiếp, theo thứ tự nên tính (phụ thuộc trước). Không gồm `name`.
     /// Có vòng thì ném lỗi nêu đường vòng.
     public static func evaluationOrder(for name: String, in graph: [String: [String]]) throws -> [String] {
-        if let cycle = cycle(in: graph) { throw MError.expression("Truy vấn tham chiếu vòng: \(cycle.joined(separator: " → "))") }
+        if let cycle = cycle(in: graph) { throw MError.expression(lt("Truy vấn tham chiếu vòng: \(cycle.joined(separator: " → "))", "Queries reference each other in a cycle: \(cycle.joined(separator: " → "))")) }
         var order: [String] = [], seen = Set<String>()
         func visit(_ node: String) {
             for next in graph[node] ?? [] where seen.insert(next).inserted { visit(next); order.append(next) }

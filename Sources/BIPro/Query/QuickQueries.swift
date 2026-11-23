@@ -162,15 +162,15 @@ public enum QuickQueries {
 
     // MARK: - Mẫu 6: Bảng/Measure/Cột, "Định nghĩa measure mới"
     // [SUY ĐOÁN] Chưa có mẫu của Power BI: biểu thức measure còn trống sau dấu "=", không chạy truy vấn tự động
-    public static func defineNewMeasure(tableName: String) -> String {
+    public static func defineNewMeasure(tableName: String, measureName: String = "Measure mới") -> String {
         let escapedTable = tableName.replacingOccurrences(of: "'", with: "''")
         let lines = [
             "DEFINE",
-            "    MEASURE '\(escapedTable)'[Measure mới] = ",
+            "    MEASURE '\(escapedTable)'[\(measureName)] = ",
             "",
             "EVALUATE",
             "    SUMMARIZECOLUMNS(",
-            "        \"Measure mới\", [Measure mới]",
+            "        \"\(measureName)\", [\(measureName)]",
             "    )"
         ]
         return lines.joined(separator: "\n")

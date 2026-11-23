@@ -83,6 +83,7 @@ struct BuildWells: View {
         case "Tối thiểu": return "Minimum value"
         case "Tối đa": return "Maximum value"
         case "Tâm": return "Small multiples"
+        case "Danh mục": return "Category"
         default: return rule.label
         }
     }
@@ -221,7 +222,7 @@ struct BuildWells: View {
 
     /// Xử lý thứ được thả vào ô `role` (hoặc vào đúng chỗ `index` của một trường trong ô đó).
     private func handle(_ providers: [NSItemProvider], role: String, index: Int?, editable: Bool) -> Bool {
-        guard editable else { layout.noteFieldRefusal(blocker ?? "Chưa sửa được trường."); return false }
+        guard editable else { layout.noteFieldRefusal(blocker ?? bi("Chưa sửa được trường.", "Can't edit fields.")); return false }
         BuildDrop.load(from: providers) { drops in
             for drop in drops {
                 switch drop {

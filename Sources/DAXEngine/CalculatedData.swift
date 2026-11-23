@@ -25,7 +25,7 @@ public enum CalculatedData {
         if seen == [.integer, .double] { return .double }
         if seen == [.integer, .currency] { return .currency }
         if seen == [.double, .currency] { return .double }
-        throw DAXError(.typeMismatch, "biểu thức trả nhiều kiểu dữ liệu (\(seen.map { "\($0)" }.sorted().joined(separator: ", "))), không dùng làm cột tính toán được")
+        throw DAXError(.typeMismatch, lt("biểu thức trả nhiều kiểu dữ liệu (\(seen.map { "\($0)" }.sorted().joined(separator: ", "))), không dùng làm cột tính toán được", "the expression returns multiple data types (\(seen.map { "\($0)" }.sorted().joined(separator: ", "))) and can't be used as a calculated column"))
     }
 
     /// Dữ liệu cột kiểu `type` từ các giá trị. Giá trị không chuyển được sang kiểu đó thì lỗi.

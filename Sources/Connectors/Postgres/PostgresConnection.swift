@@ -159,7 +159,7 @@ final class PostgresConnection {
                     var mechanisms: [String] = []
                     while let name = reader.cString(), !name.isEmpty { mechanisms.append(name) }
                     guard mechanisms.contains("SCRAM-SHA-256") else {
-                        throw SourceError.unsupported("phương thức xác thực PostgreSQL \(mechanisms.joined(separator: ", "))")
+                        throw SourceError.unsupported(lt("phương thức xác thực PostgreSQL \(mechanisms.joined(separator: ", "))", "PostgreSQL authentication method \(mechanisms.joined(separator: ", "))"))
                     }
                     let client = SCRAMClient(password: credential.password)
                     scram = client

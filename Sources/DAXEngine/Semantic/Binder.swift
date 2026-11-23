@@ -353,7 +353,7 @@ struct BindScope {
             let boundArg: BoundExpr
             if case .keyword(let words) = param.kind {
                 guard case .identifier(let word, _) = arg, words.contains(word.uppercased()) else {
-                    throw DAXError(.typeMismatch, "đối số \(i + 1) của \(spec.name) phải là một trong: \(words.joined(separator: ", "))",
+                    throw DAXError(.typeMismatch, lt("đối số \(i + 1) của \(spec.name) phải là một trong: \(words.joined(separator: ", "))", "argument \(i + 1) of \(spec.name) must be one of: \(words.joined(separator: ", "))"),
                                    range: arg.range)
                 }
                 boundArg = .keyword(word.uppercased())

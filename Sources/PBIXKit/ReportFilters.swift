@@ -251,36 +251,36 @@ extension PBIXFile {
 
     static func describe(_ filter: JSONValue?, type: String?) -> String {
         if type == "TopN" { return "Top N" }
-        if type == "RelativeDate" || type == "RelativeTime" { return "khoảng thời gian tương đối" }
+        if type == "RelativeDate" || type == "RelativeTime" { return lt("khoảng thời gian tương đối", "relative time range") }
         guard let conditions = filter?["Where"]?.array, !conditions.isEmpty else { return ReportFilter.allLabel }
-        return conditions.compactMap { describe(condition: $0["Condition"]) }.joined(separator: " và ")
+        return conditions.compactMap { describe(condition: $0["Condition"]) }.joined(separator: lt(" và ", " and "))
     }
 
     private static func describe(condition: JSONValue?) -> String? {
         guard let c = condition else { return nil }
         if let inner = c["Not"]?["Expression"] {
-            if let values = inner["In"]?["Values"] { return "không phải " + list(values) }
-            return "không (" + (describe(condition: inner) ?? "?") + ")"
+            if let values = inner["In"]?["Values"] { return lt("không phải ", "is not ") + list(values) }
+            return lt("không (", "not (") + (describe(condition: inner) ?? "?") + ")"
         }
-        if let values = c["In"]?["Values"] { return "là " + list(values) }
+        if let values = c["In"]?["Values"] { return lt("là ", "is ") + list(values) }
         if let cmp = c["Comparison"] {
             let ops = [0: "=", 1: ">", 2: "≥", 3: "<", 4: "≤"]
             let value = cmp["Right"].flatMap { ReportLiteral(expression: $0) }.map(text) ?? "?"
             return "\(ops[Int(cmp["ComparisonKind"]?.number ?? 0)] ?? "=") \(value)"
         }
         if let and = c["And"] {
-            return [describe(condition: and["Left"]), describe(condition: and["Right"])].compactMap { $0 }.joined(separator: " và ")
+            return [describe(condition: and["Left"]), describe(condition: and["Right"])].compactMap { $0 }.joined(separator: lt(" và ", " and "))
         }
         if let or = c["Or"] {
-            return [describe(condition: or["Left"]), describe(condition: or["Right"])].compactMap { $0 }.joined(separator: " hoặc ")
+            return [describe(condition: or["Left"]), describe(condition: or["Right"])].compactMap { $0 }.joined(separator: lt(" hoặc ", " or "))
         }
         if let between = c["Between"] {
             let lo = between["LowerBound"].flatMap { ReportLiteral(expression: $0) }.map(text) ?? "?"
             let hi = between["UpperBound"].flatMap { ReportLiteral(expression: $0) }.map(text) ?? "?"
-            return "từ \(lo) đến \(hi)"
+            return lt("từ \(lo) đến \(hi)", "from \(lo) to \(hi)")
         }
         if let contains = c["Contains"] {
-            return "chứa " + (contains["Right"].flatMap { ReportLiteral(expression: $0) }.map(text) ?? "?")
+            return lt("chứa ", "contains ") + (contains["Right"].flatMap { ReportLiteral(expression: $0) }.map(text) ?? "?")
         }
         return lt("điều kiện nâng cao", "advanced condition")
     }
@@ -293,10 +293,10 @@ extension PBIXFile {
 
     private static func text(_ literal: ReportLiteral) -> String {
         switch literal {
-        case .string(let s): s.isEmpty ? "(Trống)" : s
+        case .string(let s): s.isEmpty ? lt("(Trống)", "(Blank)") : s
         case .number(let n): n == n.rounded() ? String(Int64(n)) : String(n)
         case .bool(let b): b ? "True" : "False"
-        case .null: "(Trống)"
+        case .null: lt("(Trống)", "(Blank)")
         case .themeColor, .resource: "?"
         }
     }

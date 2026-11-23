@@ -290,7 +290,7 @@ final class Interpreter: @unchecked Sendable {
             }
         }
         guard case .number(let d) = index, d == d.rounded(), d >= 0 else { throw MError.expression(lt("Chỉ mục phải là số nguyên không âm", "The index must be a non-negative integer")) }
-        let i = try MInt.from(d, "Chỉ mục")
+        let i = try MInt.from(d, lt("Chỉ mục", "Index"))
         switch target {
         case .list(let items):
             guard i < items.count else {

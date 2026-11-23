@@ -5,7 +5,7 @@ import Foundation
 /// việc dịch làm ở lớp hiển thị bằng `ui(_:)`. Chuỗi không có trong bảng giữ nguyên.
 enum UITranslator {
     static let table: [String: String] = [
-        "Tự động": "Auto", "Không": "None", "Hành động": "Action", "Bật hành động": "Action on", "Loại hành động": "Action type",
+        "Tự động": "Auto", "Ảnh": "Image", "Danh mục": "Category", "Không": "None", "Hành động": "Action", "Bật hành động": "Action on", "Loại hành động": "Action type",
         "Điều hướng trang": "Page navigation", "Dấu trang": "Bookmark", "Trang đích": "Destination page", "Mã dấu trang": "Bookmark ID",
         "Tiêu đề": "Title", "Hiện tiêu đề": "Show title", "Nội dung": "Content", "Cỡ chữ": "Text size", "Phông chữ": "Font",
         "Cấp tiêu đề": "Heading level", "Ngắt dòng": "Word wrap", "Đậm": "Bold", "Căn lề": "Alignment", "Trái": "Left", "Giữa": "Center",

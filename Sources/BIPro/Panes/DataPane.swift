@@ -262,7 +262,7 @@ struct DataPane: View {
                         openNewQueryTab(title: table.name, text: QuickQueries.top100Rows(table: table.name, columns: cols), run: true)
                     },
                     onDefineNewMeasure: {
-                        openNewQueryTab(title: bi("Measure mới", "New Measure"), text: QuickQueries.defineNewMeasure(tableName: table.name), run: false)
+                        openNewQueryTab(title: bi("Measure mới", "New Measure"), text: QuickQueries.defineNewMeasure(tableName: table.name, measureName: bi("Measure mới", "New measure")), run: false)
                     },
                     onCollapseAll: { collapseAll() },
                     onExpandAll: { expandAll() },
@@ -334,7 +334,7 @@ struct DataPane: View {
                     onDefineNewMeasure: {
                         openNewQueryTab(
                             title: bi("Measure mới", "New Measure"),
-                            text: QuickQueries.defineNewMeasure(tableName: m.tableName),
+                            text: QuickQueries.defineNewMeasure(tableName: m.tableName, measureName: bi("Measure mới", "New measure")),
                             run: false
                         )
                     },

@@ -144,7 +144,7 @@ enum FilterRule: Hashable, Sendable {
             return rule.summary
         case .advanced(let first, let second, let useOr, _, _):
             guard let second else { return first.summary }
-            return "\(first.summary) \(useOr ? "hoặc" : "và") \(second.summary)"
+            return "\(first.summary) \(useOr ? biN("hoặc", "or") : biN("và", "and")) \(second.summary)"
         }
     }
 }
