@@ -176,7 +176,7 @@ struct QuickMeasureSheet: View {
         let ws = state.workspace
         let check = await Task.detached(priority: .userInitiated) { () -> MeasureCheck in
             guard let engine = try? ws.daxEngine() else {
-                return .failed(MeasureProblem(message: ws.modelError ?? "Không có engine DAX"))
+                return .failed(MeasureProblem(message: ws.modelError ?? biN("Không có engine DAX", "No DAX engine")))
             }
             return await MeasureTyping.check(expr, using: engine)
         }.value

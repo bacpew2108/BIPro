@@ -262,7 +262,7 @@ extension LayoutEditor {
             }
             raw = try JSONValue.parse(bytes)
         } catch {
-            return refuse("Không ghi được định dạng: \(error)")
+            return refuse(biN("Không ghi được định dạng: \(error)", "Couldn't write the formatting: \(error)"))
         }
         commit(pageID: pageID, coalesceIDs: key.map { [$0] }) { page in
             guard let index = page.visuals.firstIndex(where: { $0.id == id }) else { return }

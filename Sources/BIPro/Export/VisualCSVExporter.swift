@@ -11,7 +11,7 @@ enum ExportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .noData(let reason): reason
-        case .noVisiblePages: "Báo cáo không có trang hiển thị nào để xuất."
+        case .noVisiblePages: biN("Báo cáo không có trang hiển thị nào để xuất.", "The report has no visible pages to export.")
         case .renderFailed(let message): message
         case .writeFailed(let message): message
         }
@@ -27,7 +27,7 @@ enum VisualCSVExporter {
     static func tabularRows(from view: DataView) throws -> (headers: [String], rows: [[String]]) {
         switch view {
         case .empty(let reason):
-            throw ExportError.noData(reason: reason.isEmpty ? "Visual không có dữ liệu để xuất." : reason)
+            throw ExportError.noData(reason: reason.isEmpty ? biN("Visual không có dữ liệu để xuất.", "The visual has no data to export.") : reason)
 
         case .single(let single):
             let header = single.measure.displayName

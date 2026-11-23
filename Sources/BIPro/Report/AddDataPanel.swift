@@ -18,12 +18,12 @@ struct AddDataPanel: View {
     }
 
     static let tiles: [Tile] = [
-        Tile(action: .excel, title: "Nhập dữ liệu từ Excel", symbol: "tablecells", tint: DS.Palette.success, disabledReason: nil),
-        Tile(action: .sqlServer, title: "Nhập dữ liệu từ SQL Server", symbol: "server.rack", tint: DS.Palette.accent,
-             disabledReason: "BI Pro chưa hỗ trợ SQL Server"),
-        Tile(action: .paste, title: "Dán dữ liệu vào bảng trống", symbol: "doc.on.clipboard", tint: DS.Palette.warning, disabledReason: nil),
-        Tile(action: .sample, title: "Dùng dữ liệu mẫu", symbol: "cylinder", tint: DS.Palette.paperSecondaryLabel,
-             disabledReason: "BI Pro chưa có dữ liệu mẫu"),
+        Tile(action: .excel, title: biN("Nhập dữ liệu từ Excel", "Import data from Excel"), symbol: "tablecells", tint: DS.Palette.success, disabledReason: nil),
+        Tile(action: .sqlServer, title: biN("Nhập dữ liệu từ SQL Server", "Import data from SQL Server"), symbol: "server.rack", tint: DS.Palette.accent,
+             disabledReason: biN("BI Pro chưa hỗ trợ SQL Server", "BI Pro doesn't support SQL Server yet")),
+        Tile(action: .paste, title: biN("Dán dữ liệu vào bảng trống", "Paste data into a blank table"), symbol: "doc.on.clipboard", tint: DS.Palette.warning, disabledReason: nil),
+        Tile(action: .sample, title: biN("Dùng dữ liệu mẫu", "Try a sample dataset"), symbol: "cylinder", tint: DS.Palette.paperSecondaryLabel,
+             disabledReason: biN("BI Pro chưa có dữ liệu mẫu", "BI Pro has no sample data yet")),
     ]
 
     /// Hiện khi mô hình nạp được bảng mà chưa có bảng người dùng nào.

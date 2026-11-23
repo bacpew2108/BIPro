@@ -45,14 +45,14 @@ struct DatabaseConnectView: View {
     private var addressStep: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(bi("Cơ sở dữ liệu PostgreSQL", "PostgreSQL database")).font(DS.Typeface.headlineMedium)
-            labeled("Máy chủ") {
+            labeled(biN("Máy chủ", "Server")) {
                 TextField(bi("máy:cổng (mặc định cổng 5432)", "host:port (default port 5432)"), text: binding(\.server)).textFieldStyle(.roundedBorder).frame(width: 300)
             }
-            labeled("Cơ sở dữ liệu") {
+            labeled(biN("Cơ sở dữ liệu", "Database")) {
                 TextField("", text: binding(\.database)).textFieldStyle(.roundedBorder).frame(width: 300)
             }
-            DisclosureGroup("Tuỳ chọn nâng cao", isExpanded: $showsAdvanced) {
-                labeled("Câu lệnh SQL (tuỳ chọn, cần cơ sở dữ liệu)") {
+            DisclosureGroup(biN("Tuỳ chọn nâng cao", "Advanced options"), isExpanded: $showsAdvanced) {
+                labeled(biN("Câu lệnh SQL (tuỳ chọn, cần cơ sở dữ liệu)", "SQL statement (optional, requires a database)")) {
                     TextEditor(text: binding(\.sql))
                         .font(DS.Typeface.mono)
                         .frame(height: 90)
@@ -74,10 +74,10 @@ struct DatabaseConnectView: View {
                 .font(DS.Typeface.body)
                 .foregroundStyle(DS.Palette.secondaryLabel)
             warningBanner
-            labeled("Tên người dùng") {
+            labeled(biN("Tên người dùng", "User name")) {
                 TextField("", text: binding(\.user)).textFieldStyle(.roundedBorder).frame(width: 300)
             }
-            labeled("Mật khẩu") {
+            labeled(biN("Mật khẩu", "Password")) {
                 SecureField("", text: binding(\.password)).textFieldStyle(.roundedBorder).frame(width: 300)
             }
             Toggle(bi("Lưu vào Keychain cho máy chủ \(form.address.server)", "Save to Keychain for server \(form.address.server)"), isOn: binding(\.savePassword))
@@ -138,7 +138,7 @@ struct DatabaseConnectView: View {
             }
             .buttonStyle(SecondaryButtonStyle())
             .keyboardShortcut(.cancelAction)
-            Button(form.step == .credentials ? "Kết nối" : "OK") {
+            Button(form.step == .credentials ? biN("Kết nối", "Connect") : "OK") {
                 Task {
                     switch form.step {
                     case .address: await state.submitDatabaseAddress()

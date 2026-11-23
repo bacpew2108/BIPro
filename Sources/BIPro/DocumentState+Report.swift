@@ -5,9 +5,9 @@ import PBIXKit
 extension DocumentState {
     /// Lý do chưa sửa bookmark hoặc bộ lọc được (chế độ Xem, báo cáo định dạng cũ), hoặc nil. Xem chỉ để xem: bấm bookmark để áp vẫn được.
     var reportEditingBlocker: String? {
-        if mode != .report { return "Chỉ sửa bookmark và bộ lọc được ở chế độ Báo cáo." }
-        if !canEditLayout { return "Báo cáo định dạng cũ (Report/Layout) chưa sửa được." }
-        if !editMode { return "Bật chế độ Sửa (⌘E) để sửa bookmark và bộ lọc." }
+        if mode != .report { return biN("Chỉ sửa bookmark và bộ lọc được ở chế độ Báo cáo.", "Bookmarks and filters can only be edited in Report view.") }
+        if !canEditLayout { return biN("Báo cáo định dạng cũ (Report/Layout) chưa sửa được.", "Legacy-format reports (Report/Layout) can't be edited yet.") }
+        if !editMode { return biN("Bật chế độ Sửa (⌘E) để sửa bookmark và bộ lọc.", "Turn on Edit mode (⌘E) to edit bookmarks and filters.") }
         return nil
     }
 
@@ -81,7 +81,7 @@ extension DocumentState {
         // Chỉ bookmark còn hiện và chưa nằm trong nhóm (mã cũ trong vùng chọn, bookmark đã xoá, bị bỏ).
         let chosen = ids.filter { id in rows.first { $0.id == id }.map { $0.groupID == nil } ?? false }
         guard chosen.count >= 2 else {
-            let reason = "Nhóm bookmark cần chọn từ 2 bookmark chưa nằm trong nhóm."
+            let reason = biN("Nhóm bookmark cần chọn từ 2 bookmark chưa nằm trong nhóm.", "Grouping bookmarks needs at least 2 bookmarks that aren't in a group yet.")
             layout.noteFieldRefusal(reason)
             return reason
         }
@@ -92,7 +92,7 @@ extension DocumentState {
         while used.contains("Group \(n)") { n += 1 }
         let id = PBIRLayoutPatch.makeVisualName(avoiding: Set(workspace.bookmarks.map(\.id)).union(rows.compactMap(\.groupID)))
         guard layout.groupBookmarks(ordered, id: id, name: "Group \(n)") else {
-            let reason = "Không nhóm được các bookmark này."
+            let reason = biN("Không nhóm được các bookmark này.", "Couldn't group these bookmarks.")
             layout.noteFieldRefusal(reason)
             return reason
         }

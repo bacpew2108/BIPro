@@ -4,10 +4,10 @@ import PBIXKit
 extension LayoutEditor {
     /// Lý do `command` không dùng được với vùng chọn hiện tại, hoặc nil khi dùng được.
     func alignBlocker(_ command: AlignCommand) -> String? {
-        guard let pageID = currentPageID else { return "Chưa mở trang." }
+        guard let pageID = currentPageID else { return biN("Chưa mở trang.", "No page is open.") }
         let ids = alignable(pageID)
         if selection.count < command.minimumCount {
-            return command.minimumCount == 3 ? "Phân bố cần chọn từ 3 visual." : "Căn lề cần chọn từ 2 visual."
+            return command.minimumCount == 3 ? biN("Phân bố cần chọn từ 3 visual.", "Distribute needs at least 3 visuals.") : biN("Căn lề cần chọn từ 2 visual.", "Align needs at least 2 visuals.")
         }
         if ids.count < selection.count { return mixedLevelsReason(pageID) }
         return nil
@@ -46,6 +46,6 @@ extension LayoutEditor {
     private func mixedLevelsReason(_ pageID: String) -> String {
         let chosen = items(of: pageID).filter { selection.contains($0.id) }
         if chosen.contains(where: { isLockedByGroup($0.id) }) { return Self.groupLockedMessage }
-        return "Chỉ căn được các visual cùng cấp (cùng trong một nhóm hoặc cùng ngoài nhóm)."
+        return biN("Chỉ căn được các visual cùng cấp (cùng trong một nhóm hoặc cùng ngoài nhóm).", "Only visuals at the same level (all in one group or all outside groups) can be aligned.")
     }
 }

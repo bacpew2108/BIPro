@@ -44,8 +44,8 @@ enum VisualTypes {
     /// Lý do (tiếng Việt) một loại chưa thêm được hoặc chưa đổi tới được.
     static func refusal(for type: String) -> String {
         if VisualCatalog.gallery.contains(where: { $0.type == type }) {
-            return "BI Pro chưa vẽ được loại này, nên chưa thêm hoặc đổi tới được."
+            return biN("BI Pro chưa vẽ được loại này, nên chưa thêm hoặc đổi tới được.", "BI Pro can't draw this type yet, so it can't be added or switched to.")
         }
-        return "Loại visual này chưa được hỗ trợ."
+        return biN("Loại visual này chưa được hỗ trợ.", "This visual type isn't supported yet.")
     }
 }

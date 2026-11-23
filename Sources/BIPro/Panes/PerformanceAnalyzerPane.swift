@@ -141,7 +141,7 @@ struct PerformanceAnalyzerPane: View {
                     }
                 }
                 .frame(height: 4)
-                Text(entry.error ?? bi("Truy vấn DAX · tổng nạp \(Int(entry.totalMs.rounded())) ms (gồm chờ engine và vẽ)", "DAX query · total load \(Int(entry.totalMs.rounded())) ms (incl. engine wait)"))
+                Text(entry.error ?? bi("Truy vấn DAX · tổng nạp \(Int(entry.totalMs.rounded())) ms (gồm chờ hàng đợi và giao diện bận vẽ)", "DAX query · total load \(Int(entry.totalMs.rounded())) ms (incl. queue and UI wait)"))
                     .font(DS.Typeface.labelSmall).foregroundStyle(entry.error == nil ? DS.Palette.tertiaryLabel : DS.Palette.danger).lineLimit(1)
             }
             .padding(.horizontal, 12).padding(.vertical, 6)

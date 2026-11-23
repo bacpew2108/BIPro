@@ -48,3 +48,30 @@ struct DrillScopeTests {
         #expect(expressions(slicer, state()).isEmpty)
     }
 }
+
+/// Treemap drill (VM 2026-11-23): sau khi xuống cấp chỉ vẽ cấp con (như donut); chart giữ các cấp lồng nhau.
+@Suite("Drill spec per shape")
+struct DrillSpecShapeTests {
+    private func level(_ ref: String, _ column: String) -> GroupField {
+        GroupField(field: FieldInfo(queryRef: ref, displayName: column, role: "Group", isMeasure: false),
+                   column: QueryColumn(table: "T", column: column), sortBy: nil)
+    }
+
+    @Test func treemapDrillShowsOnlyTheChildLevel() {
+        var spec = VisualQuerySpec(visualID: "t", visualType: "treemap")
+        spec.shape = .treemap
+        spec.drillLevels = [level("T.product", "product"), level("T.sub", "sub")]
+        spec.primary = [spec.drillLevels[0]]
+        VisualQuerySpecReader.applyDrill(&spec, depth: 1)
+        #expect(spec.primary.map(\.column.column) == ["sub"])
+    }
+
+    @Test func chartDrillKeepsNestedLevels() {
+        var spec = VisualQuerySpec(visualID: "c", visualType: "clusteredColumnChart")
+        spec.shape = .chart
+        spec.drillLevels = [level("T.year", "year"), level("T.quarter", "quarter")]
+        spec.primary = [spec.drillLevels[0]]
+        VisualQuerySpecReader.applyDrill(&spec, depth: 1)
+        #expect(spec.primary.map(\.column.column) == ["year", "quarter"])
+    }
+}

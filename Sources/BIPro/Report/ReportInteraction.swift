@@ -594,7 +594,7 @@ final class ReportInteraction {
         let workspace = workspace
         let task = Task.detached { () throws -> (VisualQuerySpecReader, VisualDataLoader) in
             guard let metadata = workspace.metadata else {
-                throw DAXError(.runtime, workspace.modelError ?? "File không có mô hình dữ liệu")
+                throw DAXError(.runtime, workspace.modelError ?? biN("File không có mô hình dữ liệu", "The file has no data model"))
             }
             return (VisualQuerySpecReader(metadata: metadata), VisualDataLoader(engine: try workspace.daxEngine()))
         }

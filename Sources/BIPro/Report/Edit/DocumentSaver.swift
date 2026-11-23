@@ -27,11 +27,11 @@ enum SaveError: Error, Equatable, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .readOnlyOriginal: "File trong Downloads là bản gốc, chỉ đọc. Hãy lưu thành bản mới."
-        case .modifiedExternally: "File đã bị thay đổi bởi chương trình khác."
-        case .verificationFailed(let why): "File mới không qua kiểm tra, file cũ được giữ nguyên. (\(why))"
-        case .backupFailed: "Không tạo được bản sao lưu, chưa ghi gì."
-        case .writeFailed(let why): "Không ghi được file. (\(why))"
+        case .readOnlyOriginal: biN("File trong Downloads là bản gốc, chỉ đọc. Hãy lưu thành bản mới.", "The file in Downloads is the original and read-only. Save it as a new copy.")
+        case .modifiedExternally: biN("File đã bị thay đổi bởi chương trình khác.", "The file was changed by another program.")
+        case .verificationFailed(let why): biN("File mới không qua kiểm tra, file cũ được giữ nguyên. (\(why))", "The new file failed verification; the old file was left unchanged. (\(why))")
+        case .backupFailed: biN("Không tạo được bản sao lưu, chưa ghi gì.", "Couldn't create a backup; nothing was written.")
+        case .writeFailed(let why): biN("Không ghi được file. (\(why))", "Couldn't write the file. (\(why))")
         }
     }
 }
@@ -149,17 +149,17 @@ enum DocumentSaver {
         do {
             abf = try model ?? PBIXFile(data: data).loadDataModel().0
             metadata = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
-        } catch { throw SaveError.verificationFailed("không đọc lại được mô hình: \(error)") }
+        } catch { throw SaveError.verificationFailed(biN("không đọc lại được mô hình: \(error)", "couldn't read the model back: \(error)")) }
         for table in tables {
             guard let source = table.attachment as? TableData else { continue }
             let decoded: [DecodedColumn]
             do { decoded = try VertiPaq.decodeTable(table.name, metadata: metadata, abf: abf) } catch {
-                throw SaveError.verificationFailed("không đọc lại được bảng «\(table.name)»: \(error)")
+                throw SaveError.verificationFailed(biN("không đọc lại được bảng «\(table.name)»: \(error)", "couldn't read table «\(table.name)» back: \(error)"))
             }
             let byName = Dictionary(decoded.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
             for (index, column) in source.columns.enumerated() {
                 guard let written = byName[column.name], written.count == source.rowCount else {
-                    throw SaveError.verificationFailed("bảng «\(table.name)» đọc lại thiếu cột «\(column.name)» hoặc sai số dòng")
+                    throw SaveError.verificationFailed(biN("bảng «\(table.name)» đọc lại thiếu cột «\(column.name)» hoặc sai số dòng", "table «\(table.name)» read back is missing column «\(column.name)» or has the wrong row count"))
                 }
                 for row in 0..<source.rowCount {
                     let expected: CellValue
@@ -173,7 +173,7 @@ enum DocumentSaver {
                     case .currency(let v): expected = .decimal(Double(v) / 10_000)
                     }
                     guard written[row] == expected else {
-                        throw SaveError.verificationFailed("bảng «\(table.name)», cột «\(column.name)», dòng \(row + 1) đọc lại khác dữ liệu trong bộ nhớ")
+                        throw SaveError.verificationFailed(biN("bảng «\(table.name)», cột «\(column.name)», dòng \(row + 1) đọc lại khác dữ liệu trong bộ nhớ", "table «\(table.name)», column «\(column.name)», row \(row + 1) read back differs from the data in memory"))
                     }
                 }
             }
@@ -190,7 +190,7 @@ enum DocumentSaver {
             written = try ModelMetadata(sqlite: try abf.contents(named: "metadata.sqlitedb"))
             expected = try base.applying(editor.modelEdits)
         } catch {
-            throw SaveError.verificationFailed("không đọc lại được mô hình: \(error)")
+            throw SaveError.verificationFailed(biN("không đọc lại được mô hình: \(error)", "couldn't read the model back: \(error)"))
         }
         func measures(_ m: ModelMetadata) -> [String] {
             m.measures.map { "\($0.tableName)|\($0.name)|\($0.expression)|\($0.formatString ?? "-")|\($0.displayFolder ?? "-")|\($0.description ?? "-")|\($0.isHidden)|\($0.dataType.rawValue)" }.sorted()
@@ -236,34 +236,34 @@ enum DocumentSaver {
             pbix = try PBIXFile(data: data)
             report = try pbix.loadReport()
         } catch {
-            throw SaveError.verificationFailed("không đọc lại được: \(error)")
+            throw SaveError.verificationFailed(biN("không đọc lại được: \(error)", "couldn't read back: \(error)"))
         }
         try verifyPages(report: report, pbix: pbix, editor: editor)
         try verifyReportEdits(pbix: pbix, editor: editor)
         for page in editor.pages {
             guard let written = report.pages.first(where: { $0.id == page.id }) else {
-                throw SaveError.verificationFailed("thiếu trang \(page.id)")
+                throw SaveError.verificationFailed(biN("thiếu trang \(page.id)", "missing page \(page.id)"))
             }
             let expected = editor.visuals(of: page.id)
             guard Set(expected.map(\.id)) == Set(written.visuals.map(\.id)) else {
-                throw SaveError.verificationFailed("tập visual của trang \(page.id) khác trạng thái đang sửa")
+                throw SaveError.verificationFailed(biN("tập visual của trang \(page.id) khác trạng thái đang sửa", "the visual set of page \(page.id) differs from the state being edited"))
             }
             for visual in expected {
                 guard let actual = written.visuals.first(where: { $0.id == visual.id }),
                       Frame(actual) == Frame(visual), Int(actual.z) == Int(visual.z) else {
-                    throw SaveError.verificationFailed("vị trí của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                    throw SaveError.verificationFailed(biN("vị trí của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa", "the position of \(visual.id) on page \(page.id) differs from the state being edited"))
                 }
                 guard actual.type == visual.type else {
-                    throw SaveError.verificationFailed("loại của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                    throw SaveError.verificationFailed(biN("loại của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa", "the type of \(visual.id) on page \(page.id) differs from the state being edited"))
                 }
                 if visual.type == "textbox", LayoutEditor.paragraphTexts(of: actual.raw) != LayoutEditor.paragraphTexts(of: visual.raw) {
-                    throw SaveError.verificationFailed("nội dung hộp văn bản \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                    throw SaveError.verificationFailed(biN("nội dung hộp văn bản \(visual.id) trong trang \(page.id) khác trạng thái đang sửa", "the text box content of \(visual.id) on page \(page.id) differs from the state being edited"))
                 }
                 guard actual.objects.json == visual.objects.json, actual.containerObjects.json == visual.containerObjects.json else {
-                    throw SaveError.verificationFailed("định dạng của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                    throw SaveError.verificationFailed(biN("định dạng của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa", "the formatting of \(visual.id) on page \(page.id) differs from the state being edited"))
                 }
                 guard actual.fields == visual.fields else {
-                    throw SaveError.verificationFailed("các ô và trường của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa")
+                    throw SaveError.verificationFailed(biN("các ô và trường của \(visual.id) trong trang \(page.id) khác trạng thái đang sửa", "the wells and fields of \(visual.id) on page \(page.id) differ from the state being edited"))
                 }
             }
             try verifyGroups(written: written, editor: editor, expected: expected)
@@ -275,20 +275,20 @@ enum DocumentSaver {
     private static func verifyGroups(written: ReportPage, editor: LayoutEditor, expected: [ReportVisual]) throws {
         let groups = editor.groups(of: written.id)
         guard Set(groups.map(\.id)) == Set(written.groups.map(\.id)) else {
-            throw SaveError.verificationFailed("tập nhóm của trang \(written.id) khác trạng thái đang sửa")
+            throw SaveError.verificationFailed(biN("tập nhóm của trang \(written.id) khác trạng thái đang sửa", "the group set of page \(written.id) differs from the state being edited"))
         }
         let preexisting = Set(editor.basePage(written.id)?.groups.map(\.id) ?? [])
         for group in groups {
             guard let actual = written.groups.first(where: { $0.id == group.id }), Frame(actual) == Frame(group), Int(actual.z) == Int(group.z) else {
-                throw SaveError.verificationFailed("khung của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa")
+                throw SaveError.verificationFailed(biN("khung của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa", "the frame of group \(group.id) on page \(written.id) differs from the state being edited"))
             }
             guard actual.parentGroup == group.parentGroup else {
-                throw SaveError.verificationFailed("nhóm cha của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa")
+                throw SaveError.verificationFailed(biN("nhóm cha của nhóm \(group.id) trong trang \(written.id) khác trạng thái đang sửa", "the parent group of group \(group.id) on page \(written.id) differs from the state being edited"))
             }
             // Thành viên: visual con và nhóm lồng bên trong (VM-D8).
             let kids = (written.visuals + written.groups).filter { $0.parentGroup == group.id }
             if kids.isEmpty, !preexisting.contains(group.id) {
-                throw SaveError.verificationFailed("nhóm \(group.id) trong trang \(written.id) không có visual con")
+                throw SaveError.verificationFailed(biN("nhóm \(group.id) trong trang \(written.id) không có visual con", "group \(group.id) on page \(written.id) has no child visuals"))
             }
             // Chỉ kiểm phần editor đã đổi hoặc tạo: nhóm của Desktop có thể sẵn có con nằm ngoài khung.
             let baseGroup = editor.basePage(written.id)?.groups.first { $0.id == group.id }
@@ -297,17 +297,17 @@ enum DocumentSaver {
             let groupChanged = baseGroup.map { Frame($0) != Frame(group) } ?? true
             for kid in kids where (groupChanged || baseKids[kid.id] != Frame(kid)) && (kid.x < actual.x - 1 || kid.y < actual.y - 1
                 || kid.x + kid.width > actual.x + actual.width + 1 || kid.y + kid.height > actual.y + actual.height + 1) {
-                throw SaveError.verificationFailed("visual \(kid.id) nằm ngoài khung nhóm \(group.id)")
+                throw SaveError.verificationFailed(biN("visual \(kid.id) nằm ngoài khung nhóm \(group.id)", "visual \(kid.id) lies outside the frame of group \(group.id)"))
             }
         }
         let known = Set(groups.map(\.id))
         for visual in expected {
             guard let actual = written.visuals.first(where: { $0.id == visual.id }) else { continue }
             if let parent = visual.parentGroup, known.contains(parent), actual.parentGroup != parent {
-                throw SaveError.verificationFailed("nhóm cha của \(visual.id) trong trang \(written.id) khác trạng thái đang sửa")
+                throw SaveError.verificationFailed(biN("nhóm cha của \(visual.id) trong trang \(written.id) khác trạng thái đang sửa", "the parent group of \(visual.id) on page \(written.id) differs from the state being edited"))
             }
             if visual.parentGroup == nil, actual.parentGroup != nil {
-                throw SaveError.verificationFailed("\(visual.id) trong trang \(written.id) còn nằm trong nhóm sau khi bỏ nhóm")
+                throw SaveError.verificationFailed(biN("\(visual.id) trong trang \(written.id) còn nằm trong nhóm sau khi bỏ nhóm", "\(visual.id) on page \(written.id) is still in a group after ungrouping"))
             }
         }
     }
@@ -326,20 +326,20 @@ enum DocumentSaver {
         for entry in pbix.archive.entries where entry.path.hasPrefix(LayoutEditor.bookmarksFolder) && entry.path.hasSuffix(".bookmark.json") {
             let data = try pbix.archive.read(entry)
             guard let value = try? JSONValue.parse(data), let name = value["name"]?.string else {
-                throw SaveError.verificationFailed("\(entry.path) không đọc lại được")
+                throw SaveError.verificationFailed(biN("\(entry.path) không đọc lại được", "\(entry.path) couldn't be read back"))
             }
-            if edits.bookmarks.deleted.contains(name) { throw SaveError.verificationFailed("bookmark \(name) đã xoá vẫn còn trong file") }
+            if edits.bookmarks.deleted.contains(name) { throw SaveError.verificationFailed(biN("bookmark \(name) đã xoá vẫn còn trong file", "deleted bookmark \(name) is still in the file")) }
             guard let display = wanted[name] else { continue }
             if let shown = value["displayName"]?.string, shown != display {
-                throw SaveError.verificationFailed("tên bookmark \(name) trong file khác trạng thái đang sửa")
+                throw SaveError.verificationFailed(biN("tên bookmark \(name) trong file khác trạng thái đang sửa", "the name of bookmark \(name) in the file differs from the state being edited"))
             }
             let isWritten = edits.bookmarks.added.contains { $0.id == name } || edits.bookmarks.updated[name] != nil
             guard isWritten else { continue }
             for (pageID, section) in value["explorationState"]?["sections"]?.object ?? [:] {
-                guard alive.contains(pageID) else { throw SaveError.verificationFailed("bookmark \(name) trỏ tới trang \(pageID) không còn") }
+                guard alive.contains(pageID) else { throw SaveError.verificationFailed(biN("bookmark \(name) trỏ tới trang \(pageID) không còn", "bookmark \(name) points to page \(pageID), which no longer exists")) }
                 let ids = Set(editor.visuals(of: pageID).map(\.id))
                 for visualID in (section["visualContainers"]?.object ?? [:]).keys where !ids.contains(visualID) {
-                    throw SaveError.verificationFailed("bookmark \(name) trỏ tới visual \(visualID) không có trong trang \(pageID)")
+                    throw SaveError.verificationFailed(biN("bookmark \(name) trỏ tới visual \(visualID) không có trong trang \(pageID)", "bookmark \(name) points to visual \(visualID), which isn't on page \(pageID)"))
                 }
             }
         }
@@ -363,18 +363,18 @@ enum DocumentSaver {
             switch change {
             case .remove(let name):
                 if let name, found.contains(where: { $0["name"]?.string == name }) {
-                    throw SaveError.verificationFailed("thẻ lọc \(name) đã bỏ vẫn còn trong \(path)")
+                    throw SaveError.verificationFailed(biN("thẻ lọc \(name) đã bỏ vẫn còn trong \(path)", "removed filter card \(name) is still in \(path)"))
                 }
             case .set(let filter):
                 guard case .writable(let spec) = FilterExport.card(for: filter, key: key, decimal: editor.decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]"), currency: editor.currencyColumns.contains("\(filter.column.table)[\(filter.column.column)]")) else { continue }
                 guard let card = found.first(where: { $0["name"]?.string == spec.name }) else {
-                    throw SaveError.verificationFailed("thiếu thẻ lọc \(spec.name) trong \(path)")
+                    throw SaveError.verificationFailed(biN("thiếu thẻ lọc \(spec.name) trong \(path)", "filter card \(spec.name) is missing from \(path)"))
                 }
-                guard card["type"]?.string == spec.type else { throw SaveError.verificationFailed("loại thẻ lọc \(spec.name) trong \(path) khác trạng thái đang sửa") }
+                guard card["type"]?.string == spec.type else { throw SaveError.verificationFailed(biN("loại thẻ lọc \(spec.name) trong \(path) khác trạng thái đang sửa", "the type of filter card \(spec.name) in \(path) differs from the state being edited")) }
                 if spec.type == "Categorical" {
                     let parsed = PBIXFile.filters(.array([card]), level: key.level).first.flatMap(UserFilter.from)
                     guard let parsed, Set(parsed.values) == Set(filter.values), parsed.exclude == filter.exclude || filter.values.isEmpty else {
-                        throw SaveError.verificationFailed("thẻ lọc \(spec.name) trong \(path) không khớp trạng thái đang sửa")
+                        throw SaveError.verificationFailed(biN("thẻ lọc \(spec.name) trong \(path) không khớp trạng thái đang sửa", "filter card \(spec.name) in \(path) doesn't match the state being edited"))
                     }
                 }
             }
@@ -389,7 +389,7 @@ enum DocumentSaver {
             throw SaveError.verificationFailed(bi("thứ tự trang trong file khác trạng thái đang sửa", "page order in the file differs from the state being edited"))
         }
         for (written, wanted) in zip(report.pages, expected) where written.displayName != wanted.displayName {
-            throw SaveError.verificationFailed("tên trang \(wanted.id) trong file khác trạng thái đang sửa")
+            throw SaveError.verificationFailed(biN("tên trang \(wanted.id) trong file khác trạng thái đang sửa", "the name of page \(wanted.id) in the file differs from the state being edited"))
         }
         let alive = Set(expected.map(\.id))
         var bookmarkNames = Set<String>()
@@ -397,10 +397,10 @@ enum DocumentSaver {
             guard let info = BookmarkInfo(json: try pbix.archive.read(entry)) else { continue }
             bookmarkNames.insert(info.name)
             if let active = info.activeSection, !alive.contains(active) {
-                throw SaveError.verificationFailed("bookmark \(info.name) trỏ tới trang \(active) không còn")
+                throw SaveError.verificationFailed(biN("bookmark \(info.name) trỏ tới trang \(active) không còn", "bookmark \(info.name) points to page \(active), which no longer exists"))
             }
             if !info.sections.isSubset(of: alive) {
-                throw SaveError.verificationFailed("bookmark \(info.name) còn phần của trang không còn")
+                throw SaveError.verificationFailed(biN("bookmark \(info.name) còn phần của trang không còn", "bookmark \(info.name) still has parts of a page that no longer exists"))
             }
         }
         if pbix.archive.entry(LayoutEditor.bookmarksJSONPath) != nil,
@@ -423,11 +423,11 @@ enum DocumentSaver {
         guard !gone.isEmpty else { return }
         if pbix.archive.entry(LayoutEditor.pagesJSONPath) != nil,
            let active = (try? JSONValue.parse(try pbix.archive.read(LayoutEditor.pagesJSONPath)))?["activePageName"]?.string, gone.contains(active) {
-            throw SaveError.verificationFailed("pages.json còn mở trang đã xoá \(active)")
+            throw SaveError.verificationFailed(biN("pages.json còn mở trang đã xoá \(active)", "pages.json still opens the deleted page \(active)"))
         }
         for entry in pbix.archive.entries where entry.path.hasPrefix(LayoutEditor.pagesFolder) {
             if let id = gone.first(where: { entry.path.hasPrefix("\(LayoutEditor.pagesFolder)\($0)/") }) {
-                throw SaveError.verificationFailed("\(entry.path) còn là phần của trang đã xoá \(id)")
+                throw SaveError.verificationFailed(biN("\(entry.path) còn là phần của trang đã xoá \(id)", "\(entry.path) is still part of the deleted page \(id)"))
             }
         }
     }

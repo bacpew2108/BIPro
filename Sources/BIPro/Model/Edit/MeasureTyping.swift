@@ -42,12 +42,12 @@ enum MeasureTyping {
 
     static func check(_ expression: String, definePrefix: String = "", using engine: DAXEngine) async -> MeasureCheck {
         let trimmed = expression.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return .failed(MeasureProblem(message: "Biểu thức đang trống")) }
+        guard !trimmed.isEmpty else { return .failed(MeasureProblem(message: biN("Biểu thức đang trống", "The expression is empty"))) }
         let query = definePrefix.isEmpty ? "\(prefix)\(trimmed))" : "\(definePrefix)\n\(prefix)\(trimmed))"
         do {
             let result = try await engine.execute(query)
             guard let value = result.tables.first?.rows.first?.first else {
-                return .failed(MeasureProblem(message: "Biểu thức không trả về giá trị"))
+                return .failed(MeasureProblem(message: biN("Biểu thức không trả về giá trị", "The expression doesn't return a value")))
             }
             let info = info(for: value)
             return .ok(MeasureTypeInfo(dataType: info.dataType, formatString: info.formatString, value: value))

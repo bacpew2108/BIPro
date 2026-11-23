@@ -70,7 +70,7 @@ struct ReportWorkspace: View {
                                 .allowsHitTesting(false)
                         }
                 } else {
-                    ContentUnavailableView("Báo cáo không có trang", systemImage: "doc.richtext")
+                    ContentUnavailableView(biN("Báo cáo không có trang", "The report has no pages"), systemImage: "doc.richtext")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(DS.Palette.canvasWell)
                 }
@@ -243,7 +243,7 @@ struct PageTabs: View {
         .frame(height: UIMetrics.pageTabs)
         .background(DS.Palette.chrome)
         .hairline(.top)
-        .alert("Đổi tên trang", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+        .alert(biN("Đổi tên trang", "Rename page"), isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField(bi("Tên trang", "Page name"), text: Binding(get: { renaming?.text ?? "" }, set: { renaming?.text = $0 }))
             Button(bi("Đổi tên", "Rename")) {
                 if let r = renaming { state.renamePage(r.id, to: r.text) }
@@ -389,8 +389,8 @@ struct EditModeSwitch: View {
         .padding(10)
         .disabled(!state.canEditCanvas)
         .accessibilityLabel(tr(.menuEditMode))
-        .help(state.canEditCanvas ? "Sửa bố cục: kéo, đổi cỡ visual (⌘E). Xem: lọc chéo và drill như trong Power BI."
-              : "Báo cáo này chưa sửa được bố cục.")
+        .help(state.canEditCanvas ? biN("Sửa bố cục: kéo, đổi cỡ visual (⌘E). Xem: lọc chéo và drill như trong Power BI.", "Edit layout: drag and resize visuals (⌘E). View: cross-filter and drill as in Power BI.")
+              : biN("Báo cáo này chưa sửa được bố cục.", "This report's layout can't be edited yet."))
         .background {
             Button("") { if state.canEditCanvas { state.editMode.toggle() } }
                 .keyboardShortcut("e", modifiers: .command)

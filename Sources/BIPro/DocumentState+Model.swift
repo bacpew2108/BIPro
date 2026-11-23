@@ -75,7 +75,7 @@ extension DocumentState {
         measure = nil
         let taken = Set(workspace.measures(of: table).map { $0.name.lowercased() } + workspace.columns(of: table).map { $0.name.lowercased() })
         var name = bi("Cột", "Column"), number = 2
-        while taken.contains(name.lowercased()) { name = "Cột \(number)"; number += 1 }
+        while taken.contains(name.lowercased()) { name = biN("Cột \(number)", "Column \(number)"); number += 1 }
         measureDraft = MeasureDraft(mode: .newColumn(table: table), text: "\(name) = ")
     }
 
@@ -85,7 +85,7 @@ extension DocumentState {
         mode = .table
         let taken = Set((workspace.metadata?.tables ?? []).map { $0.name.lowercased() })
         var name = bi("Bảng", "Table"), number = 2
-        while taken.contains(name.lowercased()) { name = "Bảng \(number)"; number += 1 }
+        while taken.contains(name.lowercased()) { name = biN("Bảng \(number)", "Table \(number)"); number += 1 }
         measureDraft = MeasureDraft(mode: .newTable, text: "\(name) = ")
     }
 
@@ -143,7 +143,7 @@ extension DocumentState {
         let workspace = self.workspace
         let check = await Task.detached(priority: .userInitiated) { () -> MeasureCheck in
             guard let engine = try? workspace.daxEngine() else {
-                return .failed(MeasureProblem(message: workspace.modelError ?? "Không có engine để kiểm biểu thức"))
+                return .failed(MeasureProblem(message: workspace.modelError ?? biN("Không có engine để kiểm biểu thức", "No engine available to check the expression")))
             }
             return await MeasureTyping.check(parts.expression, using: engine)
         }.value
@@ -379,7 +379,7 @@ extension DocumentState {
         for item in items {
             let check = await Task.detached(priority: .userInitiated) { () -> MeasureCheck in
                 guard let engine = try? ws.daxEngine() else {
-                    return .failed(MeasureProblem(message: ws.modelError ?? "Không có engine DAX"))
+                    return .failed(MeasureProblem(message: ws.modelError ?? biN("Không có engine DAX", "No DAX engine")))
                 }
                 return await MeasureTyping.check(item.expression, definePrefix: definePrefix, using: engine)
             }.value

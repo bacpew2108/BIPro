@@ -38,7 +38,7 @@ extension EnterDataTable {
     /// Bảng mà M Enter Data cho ra, tên cột bỏ U+FEFF đầu như tên cột Desktop ghi vào mô hình (VM-F11a; M vẫn giữ nguyên).
     static func evaluate(_ m: String) async throws -> TableData {
         guard case .table(let table) = try await MEvaluator(environment: MEnvironment()).evaluate(source: m, upTo: nil, rowLimit: nil) else {
-            throw MError.expression("M của bảng nhập tay không ra bảng")
+            throw MError.expression(biN("M của bảng nhập tay không ra bảng", "The M for the entered table didn't produce a table"))
         }
         return try TableData(columns: table.columns.map { column in
             let name = column.name.hasPrefix("\u{FEFF}") ? String(column.name.dropFirst()) : column.name

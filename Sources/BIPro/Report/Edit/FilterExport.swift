@@ -73,14 +73,14 @@ enum FilterExport {
             if filter.values.isEmpty { return .writable(spec(type: "Categorical")) }
             let literals = filter.values.sorted(by: FilterTranslator.valuePrecedes).compactMap(literal)
             guard literals.count == filter.values.count else {
-                return .sessionOnly("Bộ lọc có giá trị kiểu ngày hoặc tiền tệ chưa lưu được vào file.")
+                return .sessionOnly(biN("Bộ lọc có giá trị kiểu ngày hoặc tiền tệ chưa lưu được vào file.", "A filter with date or currency values can't be saved to the file yet."))
             }
             let json = PBIRFilterPatch.categoricalFilter(entity: column.table, property: column.column, values: literals, exclude: filter.exclude)
             return .writable(spec(type: "Categorical", filter: json))
         }
         switch rule {
         case .topN(let top):
-            if filter.isMeasure { return .sessionOnly("Top N trên measure chưa lưu được vào file.") }
+            if filter.isMeasure { return .sessionOnly(biN("Top N trên measure chưa lưu được vào file.", "Top N on a measure can't be saved to the file yet.")) }
             let json = PBIRFilterPatch.topNFilter(entity: column.table, property: column.column,
                                                   measureEntity: top.measureTable, measureProperty: top.measureName, count: top.count,
                                                   bottom: !top.top)
@@ -94,7 +94,7 @@ enum FilterExport {
             }
             guard let json = PBIRFilterPatch.advancedFilter(kind: kind, entity: column.table, property: column.column,
                                                             conditions: conditions, useOr: useOr) else {
-                return .sessionOnly("Bộ lọc Advanced này chưa lưu được vào file.")
+                return .sessionOnly(biN("Bộ lọc Advanced này chưa lưu được vào file.", "This Advanced filter can't be saved to the file yet."))
             }
             return .writable(spec(type: "Advanced", filter: json))
         }

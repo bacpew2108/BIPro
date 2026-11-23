@@ -9,8 +9,8 @@ import PBIXKit
 extension DocumentState {
     /// Lý do nút "Biến đổi dữ liệu" chưa dùng được, nil khi dùng được.
     var queryEditorBlocker: String? {
-        if getDataBlocker != nil { return "File không có mô hình dữ liệu để biến đổi" }
-        return queryEditorState == nil ? nil : "Query Editor đang mở"
+        if getDataBlocker != nil { return biN("File không có mô hình dữ liệu để biến đổi", "The file has no data model to transform") }
+        return queryEditorState == nil ? nil : biN("Query Editor đang mở", "Query Editor is open")
     }
 
     /// Mở Query Editor. `loaded` rỗng: liệt kê truy vấn của bảng trong file; có `loaded` (từ Get Data): chỉ các truy vấn mới đó.

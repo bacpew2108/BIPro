@@ -4,9 +4,9 @@ import PBIXKit
 /// Điều kiện sửa trang (D5): cùng điều kiện sửa bố cục của D1 (chế độ Sửa, báo cáo PBIR, tab Báo cáo).
 enum PageEditing {
     static func blocker(editMode: Bool, canEditLayout: Bool, mode: WorkspaceMode) -> String? {
-        if mode != .report { return "Chỉ sửa trang được ở chế độ Báo cáo." }
-        if !canEditLayout { return "Báo cáo định dạng cũ (Report/Layout) chưa sửa được trang." }
-        if !editMode { return "Bật chế độ Sửa (⌘E) để sửa trang." }
+        if mode != .report { return biN("Chỉ sửa trang được ở chế độ Báo cáo.", "Pages can only be edited in Report view.") }
+        if !canEditLayout { return biN("Báo cáo định dạng cũ (Report/Layout) chưa sửa được trang.", "Legacy-format reports (Report/Layout) can't have pages edited yet.") }
+        if !editMode { return biN("Bật chế độ Sửa (⌘E) để sửa trang.", "Turn on Edit mode (⌘E) to edit pages.") }
         return nil
     }
 }
@@ -117,7 +117,7 @@ extension LayoutEditor {
         do {
             for visual in source.visuals {
                 guard let json = currentVisualJSON(visual, page: id), let newID = idMap[visual.id] else {
-                    _ = refuse("Không đọc được visual.json của \(visual.id).")
+                    _ = refuse(biN("Không đọc được visual.json của \(visual.id).", "Couldn't read visual.json of \(visual.id)."))
                     return nil
                 }
                 let group = visual.parentGroup.flatMap { idMap[$0] }
@@ -132,7 +132,7 @@ extension LayoutEditor {
             }
             for group in source.groups {
                 guard let json = currentVisualJSON(group, page: id), let newID = idMap[group.id] else {
-                    _ = refuse("Không đọc được visual.json của nhóm \(group.id).")
+                    _ = refuse(biN("Không đọc được visual.json của nhóm \(group.id).", "Couldn't read visual.json of group \(group.id)."))
                     return nil
                 }
                 // Nhóm lồng nhau (VM-D8): nhóm con trỏ tới bản sao của nhóm cha.
@@ -149,7 +149,7 @@ extension LayoutEditor {
                 extras[newID] = try PBIRPagePatch.renamedVisualJSON(container.json, newName: newID, parentGroupName: parent)
             }
         } catch {
-            _ = refuse("Không nhân bản được visual: \(error)")
+            _ = refuse(biN("Không nhân bản được visual: \(error)", "Couldn't duplicate the visual: \(error)"))
             return nil
         }
 
@@ -160,7 +160,7 @@ extension LayoutEditor {
         do {
             pageJSON = try PBIRPagePatch.duplicatedPageJSON(sourcePageJSON, newName: newID, displayName: name, visualIDMap: idMap)
         } catch {
-            _ = refuse("Không nhân bản được page.json: \(error)")
+            _ = refuse(biN("Không nhân bản được page.json: \(error)", "Couldn't duplicate page.json: \(error)"))
             return nil
         }
         let hadBinding = (try? JSONValue.parse(sourcePageJSON))?["pageBinding"] != nil
@@ -220,7 +220,7 @@ extension LayoutEditor {
         func title(_ name: String) -> String {
             sources.first { $0.name == name }.flatMap { (try? JSONValue.parse($0.json))?["displayName"]?.string } ?? name
         }
-        var parts = ["Đã xoá trang \"\(target.displayName)\""]
+        var parts = [biN("Đã xoá trang \"\(target.displayName)\"", "Deleted page \"\(target.displayName)\"")]
         if !impact.removed.isEmpty {
             parts.append("gỡ \(impact.removed.count) bookmark trỏ tới trang: " + impact.removed.sorted().map(title).joined(separator: ", "))
         }

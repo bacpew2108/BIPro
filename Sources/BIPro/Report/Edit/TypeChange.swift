@@ -64,7 +64,7 @@ enum TypeChange {
         var plan = TypeChangePlan(wells: wells)
         if type == visual.type { plan.isNoOp = true; return plan }
         if type == "textbox" || visual.type == "textbox" {
-            plan.blocked = "Hộp văn bản không đổi loại được và các loại khác không đổi thành hộp văn bản; hãy thêm hộp văn bản mới."
+            plan.blocked = biN("Hộp văn bản không đổi loại được và các loại khác không đổi thành hộp văn bản; hãy thêm hộp văn bản mới.", "A text box can't change type and other types can't become a text box; add a new text box instead.")
             return plan
         }
         guard VisualTypes.isSupported(type) else { plan.blocked = VisualTypes.refusal(for: type); return plan }

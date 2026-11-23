@@ -55,11 +55,11 @@ extension LayoutEditor {
 
     /// Lý do `command` chưa dùng được, hoặc nil.
     func zOrderBlocker(_ command: ZOrderCommand) -> String? {
-        guard let pageID = currentPageID else { return "Chưa mở trang." }
-        if selection.isEmpty { return "Chọn một visual để đổi thứ tự lớp." }
+        guard let pageID = currentPageID else { return biN("Chưa mở trang.", "No page is open.") }
+        if selection.isEmpty { return biN("Chọn một visual để đổi thứ tự lớp.", "Select a visual to change its layer order.") }
         let chosen = items(of: pageID).filter { selection.contains($0.id) }
         if chosen.contains(where: { isLockedByGroup($0.id) }) { return Self.groupLockedMessage }
-        if Set(chosen.map { $0.parentGroup ?? "" }).count > 1 { return "Chỉ đổi lớp được các visual cùng cấp (cùng nhóm hoặc cùng ngoài nhóm)." }
+        if Set(chosen.map { $0.parentGroup ?? "" }).count > 1 { return biN("Chỉ đổi lớp được các visual cùng cấp (cùng nhóm hoặc cùng ngoài nhóm).", "Only visuals at the same level (same group or all outside groups) can change layers.") }
         let level = items(of: pageID).filter { ($0.parentGroup ?? "") == (chosen.first?.parentGroup ?? "") }
         let order = Self.reordered(level.map(\.id), moving: selection, command)
         return order == level.map(\.id) ? "Visual đã ở \(command.isForward ? "trên cùng" : "dưới cùng")." : nil

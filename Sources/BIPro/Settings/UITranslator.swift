@@ -67,3 +67,12 @@ enum UITranslator {
 }
 
 @MainActor func ui(_ vi: String) -> String { UITranslator.ui(vi) }
+
+/// Như `bi` nhưng gọi được từ ngữ cảnh không thuộc main actor (thông báo trong mô hình, trình lưu…). Đọc thẳng cài đặt ngôn ngữ.
+func biN(_ vi: String, _ en: String) -> String {
+    switch UserDefaults.standard.string(forKey: "bipro.language") {
+    case "en": return en
+    case "vi": return vi
+    default: return (Locale.preferredLanguages.first?.lowercased().hasPrefix("en") ?? false) ? en : vi
+    }
+}

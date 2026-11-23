@@ -50,7 +50,7 @@ final class Workspace: @unchecked Sendable {
                 (abf, runtime, modelError) = (nil, nil, String(describing: error))
             }
         } else {
-            (abf, runtime, modelError) = (nil, nil, "File không có data model nhúng (có thể là báo cáo live connection).")
+            (abf, runtime, modelError) = (nil, nil, biN("File không có data model nhúng (có thể là báo cáo live connection).", "The file has no embedded data model (it may be a live-connection report)."))
         }
     }
 
@@ -143,7 +143,7 @@ final class Workspace: @unchecked Sendable {
     /// Chỉ đọc lược đồ và metadata; cột được nạp lười khi truy vấn cần. Gọi ngoài main thread.
     func daxEngine() throws -> DAXEngine {
         guard let runtime else {
-            throw DAXError(.runtime, modelError ?? "File không có mô hình dữ liệu để chạy truy vấn")
+            throw DAXError(.runtime, modelError ?? biN("File không có mô hình dữ liệu để chạy truy vấn", "The file has no data model to run queries on"))
         }
         return try runtime.engine()
     }

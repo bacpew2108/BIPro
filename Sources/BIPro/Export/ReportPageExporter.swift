@@ -95,11 +95,11 @@ enum ReportPageExporter {
         renderer.proposedSize = ProposedViewSize(width: page.width, height: page.height)
         renderer.scale = scale.rawValue
         guard let cgImage = renderer.cgImage else {
-            throw ExportError.renderFailed("Không thể kết xuất ảnh PNG cho trang \(page.displayName).")
+            throw ExportError.renderFailed(biN("Không thể kết xuất ảnh PNG cho trang \(page.displayName).", "Couldn't render a PNG image for page \(page.displayName)."))
         }
         let rep = NSBitmapImageRep(cgImage: cgImage)
         guard let pngData = rep.representation(using: .png, properties: [:]) else {
-            throw ExportError.renderFailed("Không thể mã hoá dữ liệu PNG cho trang \(page.displayName).")
+            throw ExportError.renderFailed(biN("Không thể mã hoá dữ liệu PNG cho trang \(page.displayName).", "Couldn't encode PNG data for page \(page.displayName)."))
         }
         return pngData
     }
@@ -115,11 +115,11 @@ enum ReportPageExporter {
         guard !pages.isEmpty else { throw ExportError.noVisiblePages }
         let pdfData = NSMutableData()
         guard let consumer = CGDataConsumer(data: pdfData as CFMutableData) else {
-            throw ExportError.renderFailed("Không thể khởi tạo bộ ghi PDF.")
+            throw ExportError.renderFailed(biN("Không thể khởi tạo bộ ghi PDF.", "Couldn't create the PDF writer."))
         }
         var initialBox = CGRect(x: 0, y: 0, width: pages[0].width, height: pages[0].height)
         guard let context = CGContext(consumer: consumer, mediaBox: &initialBox, nil) else {
-            throw ExportError.renderFailed("Không thể tạo ngữ cảnh vẽ PDF.")
+            throw ExportError.renderFailed(biN("Không thể tạo ngữ cảnh vẽ PDF.", "Couldn't create the PDF drawing context."))
         }
 
         for (index, page) in pages.enumerated() {
@@ -144,7 +144,7 @@ enum ReportPageExporter {
 
         let result = pdfData as Data
         guard PDFDocument(data: result)?.pageCount == pages.count else {
-            throw ExportError.renderFailed("Tệp PDF xuất ra không hợp lệ.")
+            throw ExportError.renderFailed(biN("Tệp PDF xuất ra không hợp lệ.", "The exported PDF file is not valid."))
         }
         return result
     }

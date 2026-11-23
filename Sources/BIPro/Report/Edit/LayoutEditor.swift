@@ -1064,7 +1064,7 @@ final class LayoutEditor {
                 raw = try JSONValue.parse(bytes)
                 fields = try PBIRQueryPatch.fields(in: bytes)
             } catch {
-                return refuse("Không ghi được cấu hình trường: \(error)")
+                return refuse(biN("Không ghi được cấu hình trường: \(error)", "Couldn't write the field configuration: \(error)"))
             }
             commit(pageID: pageID) { edit in
                 guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }
@@ -1207,7 +1207,7 @@ final class LayoutEditor {
             raw = try JSONValue.parse(bytes)
             fields = try PBIRQueryPatch.fields(in: bytes)
         } catch {
-            return refuse("Không đổi loại được: \(error)")
+            return refuse(biN("Không đổi loại được: \(error)", "Couldn't change the type: \(error)"))
         }
         commit(pageID: pageID) { edit in
             guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }
@@ -1319,7 +1319,7 @@ final class LayoutEditor {
             bytes = try withFormats(try PBIRVisualPatch.setText(in: base, lines: lines), page: pageID, id: id)
             raw = try JSONValue.parse(bytes)
         } catch {
-            return refuse("Không ghi được nội dung: \(error)")
+            return refuse(biN("Không ghi được nội dung: \(error)", "Couldn't write the content: \(error)"))
         }
         commit(pageID: pageID) { edit in
             guard let index = edit.visuals.firstIndex(where: { $0.id == id }) else { return }

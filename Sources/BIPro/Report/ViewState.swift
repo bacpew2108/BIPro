@@ -102,7 +102,7 @@ struct UserFilter: Hashable, Sendable {
 
     static func display(_ value: Value) -> String {
         switch value {
-        case .blank: "(Trống)"
+        case .blank: biN("(Trống)", "(Blank)")
         case .integer(let n): String(n)
         case .double(let d): d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : String(d)
         case .currency(let n): String(Double(n) / 10000)

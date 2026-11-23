@@ -268,9 +268,9 @@ struct LiveVisualView: View {
             .buttonStyle(.plain).disabled(!enabled).opacity(enabled ? 1 : 0.35).help(help)
         }
         return HStack(spacing: 3) {
-            button("arrow.up.left", "Lên một cấp", enabled: depth > 0) { interaction.drillUp(page: page, visual: visual) }
-            button("arrow.down", "Chế độ drill: bấm điểm để xuống cấp", on: drillMode, enabled: depth + 1 < spec.drillLevels.count) { interaction.toggleDrillMode(visual) }
-            button("arrow.down.to.line", "Xuống một cấp cho cả trục", enabled: depth + 1 < spec.drillLevels.count) { interaction.nextLevel(visual: visual, spec: spec) }
+            button("arrow.up.left", biN("Lên một cấp", "Drill up one level"), enabled: depth > 0) { interaction.drillUp(page: page, visual: visual) }
+            button("arrow.down", biN("Chế độ drill: bấm điểm để xuống cấp", "Drill mode: click a point to drill down"), on: drillMode, enabled: depth + 1 < spec.drillLevels.count) { interaction.toggleDrillMode(visual) }
+            button("arrow.down.to.line", biN("Xuống một cấp cho cả trục", "Expand all down one level"), enabled: depth + 1 < spec.drillLevels.count) { interaction.nextLevel(visual: visual, spec: spec) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         .padding(2)

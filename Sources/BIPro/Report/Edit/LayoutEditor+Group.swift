@@ -5,12 +5,12 @@ extension LayoutEditor {
     /// Lý do không nhóm được vùng chọn, hoặc nil khi nhóm được: từ 2 phần tử cùng trang, đều ở ngoài nhóm. Phần tử có thể
     /// là nhóm: Desktop cho nhóm lồng nhau (VM-D8 mục 1).
     func groupBlocker() -> String? {
-        guard let pageID = currentPageID else { return "Chưa mở trang." }
+        guard let pageID = currentPageID else { return biN("Chưa mở trang.", "No page is open.") }
         let chosen = items(of: pageID).filter { selection.contains($0.id) }
-        if chosen.count < 2 { return "Nhóm cần chọn từ 2 visual." }
+        if chosen.count < 2 { return biN("Nhóm cần chọn từ 2 visual.", "Grouping needs at least 2 visuals.") }
         if chosen.contains(where: { isLockedByGroup($0.id) }) { return Self.groupLockedMessage }
         if chosen.contains(where: { $0.parentGroup != nil }) {
-            return "Chỉ nhóm được các phần tử cùng cấp ở ngoài nhóm; chọn cả nhóm, hoặc bỏ nhóm trước."
+            return biN("Chỉ nhóm được các phần tử cùng cấp ở ngoài nhóm; chọn cả nhóm, hoặc bỏ nhóm trước.", "Only top-level items outside groups can be grouped; select the whole group, or ungroup first.")
         }
         return nil
     }
@@ -36,7 +36,7 @@ extension LayoutEditor {
         guard let json = try? PBIRGroupPatch.groupJSON(name: id, displayName: name, x: minX, y: minY,
                                                        width: maxRight - minX, height: maxBottom - minY, z: z),
               let raw = try? JSONValue.parse(json) else {
-            lockedReason = "Không dựng được nhóm."
+            lockedReason = biN("Không dựng được nhóm.", "Couldn't build the group.")
             return nil
         }
         let group = ReportVisual(id: id, type: ReportVisual.groupType, x: minX, y: minY, z: z, width: maxRight - minX,
@@ -67,9 +67,9 @@ extension LayoutEditor {
 
     /// Lý do không gộp được vùng chọn vào nhóm, hoặc nil.
     func mergeBlocker() -> String? {
-        guard let pageID = currentPageID else { return "Chưa mở trang." }
+        guard let pageID = currentPageID else { return biN("Chưa mở trang.", "No page is open.") }
         if selection.contains(where: isLockedByGroup) { return Self.groupLockedMessage }
-        return mergePlan(pageID) == nil ? "Gộp vào nhóm cần chọn đúng một nhóm và ít nhất một visual ở ngoài nhóm." : nil
+        return mergePlan(pageID) == nil ? biN("Gộp vào nhóm cần chọn đúng một nhóm và ít nhất một visual ở ngoài nhóm.", "Merging into a group needs exactly one group and at least one visual outside groups.") : nil
     }
 
     /// Gộp các visual đang chọn vào nhóm đang chọn (lệnh Merge của Desktop): nhóm giữ mã và tên, khung nhóm thành hợp của
@@ -99,8 +99,8 @@ extension LayoutEditor {
 
     /// Lý do không bỏ nhóm được, hoặc nil: vùng chọn có nhóm, hoặc có visual con của một nhóm.
     func ungroupBlocker() -> String? {
-        guard let pageID = currentPageID else { return "Chưa mở trang." }
-        return groupsToUngroup(pageID).isEmpty ? "Chưa chọn nhóm." : nil
+        guard let pageID = currentPageID else { return biN("Chưa mở trang.", "No page is open.") }
+        return groupsToUngroup(pageID).isEmpty ? biN("Chưa chọn nhóm.", "No group selected.") : nil
     }
 
     private func groupsToUngroup(_ pageID: String) -> Set<String> {
@@ -120,7 +120,7 @@ extension LayoutEditor {
         resetMessages()
         guard let pageID = currentPageID, let base = basePage(pageID) else { return [] }
         let targets = groupsToUngroup(pageID).filter { !isLockedByGroup($0) }
-        guard !targets.isEmpty else { lockedReason = "Chưa chọn nhóm."; return [] }
+        guard !targets.isEmpty else { lockedReason = biN("Chưa chọn nhóm.", "No group selected."); return [] }
         let baselineGroups = Set(base.groups.map(\.id))
         let freed = items(of: pageID).filter { ($0.parentGroup.map(targets.contains) ?? false) && !targets.contains($0.id) }.map(\.id)
         let changed = commit(pageID: pageID) { edit in

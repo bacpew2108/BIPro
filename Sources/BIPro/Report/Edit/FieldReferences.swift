@@ -11,9 +11,9 @@ struct FieldReference: Equatable {
 
     var reason: String {
         switch kind {
-        case .sort: "đang dùng để sắp xếp visual"
-        case .filter: "đang có bộ lọc cấp visual"
-        case .format: "đang có định dạng riêng (\(detail))"
+        case .sort: biN("đang dùng để sắp xếp visual", "used to sort the visual")
+        case .filter: biN("đang có bộ lọc cấp visual", "has a visual-level filter")
+        case .format: biN("đang có định dạng riêng (\(detail))", "has its own formatting (\(detail))")
         }
     }
 }

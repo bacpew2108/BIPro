@@ -124,7 +124,7 @@ extension DocumentState {
     /// Hỏi lưu khi còn thay đổi chưa lưu. Trả `true` nếu được phép đóng (đã lưu hoặc người dùng chọn không lưu).
     func confirmClose() -> Bool {
         guard layout.isDirty else { return true }
-        switch Alerts.ask("Lưu thay đổi trong “\(fileName)”?",
+        switch Alerts.ask(biN("Lưu thay đổi trong “\(fileName)”?", "Save changes to “\(fileName)”?"),
                           bi("Bố cục đã sửa sẽ mất nếu bạn không lưu.", "Your layout edits will be lost if you don't save."), buttons: [bi("Lưu", "Save"), bi("Không lưu", "Don't save"), bi("Huỷ", "Cancel")]) {
         case 0: return save()
         case 1: return true

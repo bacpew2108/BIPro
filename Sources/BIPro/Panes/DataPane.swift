@@ -508,7 +508,7 @@ struct DataPane: View {
     private func toggleUsage(_ ref: FieldRef) {
         let layout = state.layout
         guard state.editMode, let visual = state.visual, layout.selection.count <= 1 else {
-            layout.noteFieldRefusal("Bật chế độ Sửa (⌘E) và chọn một visual để thêm hoặc bỏ trường.")
+            layout.noteFieldRefusal(biN("Bật chế độ Sửa (⌘E) và chọn một visual để thêm hoặc bỏ trường.", "Turn on Edit mode (⌘E) and select a visual to add or remove fields."))
             return
         }
         if ref.kind == .hierarchy {
@@ -517,7 +517,7 @@ struct DataPane: View {
             } else if let role = WellRules.defaultRole(for: ref, in: visual) {
                 layout.addField(ref, to: role, visual: visual.id)
             } else {
-                layout.noteFieldRefusal("Visual này chưa có ô nhận phân cấp \"\(ref.property)\".")
+                layout.noteFieldRefusal(biN("Visual này chưa có ô nhận phân cấp \"\(ref.property)\".", "This visual has no well that accepts the hierarchy \"\(ref.property)\"."))
             }
             return
         }
@@ -532,7 +532,7 @@ struct DataPane: View {
         } else if let role = WellRules.defaultRole(for: ref, in: visual, implicitMeasures: implicit) {
             layout.addField(ref, to: role, visual: visual.id)
         } else {
-            layout.noteFieldRefusal("Visual này chưa có ô nhận \"\(ref.property)\".")
+            layout.noteFieldRefusal(biN("Visual này chưa có ô nhận \"\(ref.property)\".", "This visual has no well that accepts \"\(ref.property)\"."))
         }
     }
 }

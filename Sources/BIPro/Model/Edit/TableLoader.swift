@@ -81,7 +81,7 @@ public enum SourceFactory {
         case .postgres:
             let parsed = PostgresLocation(location)
             guard let credential = credentials.credential(for: parsed.address.server) else {
-                throw SourceError.authentication("Cần thông tin đăng nhập để kết nối tới máy chủ PostgreSQL \(parsed.address.server).")
+                throw SourceError.authentication(biN("Cần thông tin đăng nhập để kết nối tới máy chủ PostgreSQL \(parsed.address.server).", "Credentials are required to connect to the PostgreSQL server \(parsed.address.server)."))
             }
             return PostgresSource(address: parsed.address, credential: credential, query: parsed.sql)
         }
@@ -113,13 +113,13 @@ public struct PostgresLocation: Equatable, Sendable {
 public enum SourceMessage {
     public static func text(for error: Error) -> String {
         guard let source = error as? SourceError else {
-            return "Không đọc được nguồn: \(error.localizedDescription)"
+            return biN("Không đọc được nguồn: \(error.localizedDescription)", "Couldn't read the source: \(error.localizedDescription)")
         }
         switch source {
         case .unreadable(let reason), .encoding(let reason): return reason
-        case .empty: return "Nguồn không có dữ liệu để nạp."
-        case .unsupported(let what): return "Chưa hỗ trợ: \(what)."
-        case .cancelled: return "Đã huỷ."
+        case .empty: return biN("Nguồn không có dữ liệu để nạp.", "The source has no data to load.")
+        case .unsupported(let what): return biN("Chưa hỗ trợ: \(what).", "Not supported yet: \(what).")
+        case .cancelled: return biN("Đã huỷ.", "Cancelled.")
         case .authentication(let reason), .insecureConnection(let reason): return reason
         }
     }

@@ -177,7 +177,7 @@ final class ModelRuntime: @unchecked Sendable {
             }
         }
         for node in plan.cyclic {
-            errors[key(node)] = "phụ thuộc vòng"
+            errors[key(node)] = biN("phụ thuộc vòng", "circular dependency")
             switch node {
             case .table(let name):
                 guard let table = schema.table(named: name) else { continue }
@@ -209,7 +209,7 @@ final class ModelRuntime: @unchecked Sendable {
                     rowCount = result.rows.count
                     for column in resultColumns {
                         guard let index = result.columns.firstIndex(where: { $0.caseInsensitiveCompare(column.name) == .orderedSame }) else {
-                            throw DAXError(.runtime, "kết quả không có cột \(column.name)")
+                            throw DAXError(.runtime, biN("kết quả không có cột \(column.name)", "the result has no column \(column.name)"))
                         }
                         columns[column.name] = try CalculatedData.columnData(result.rows.map { $0[index] }, type: column.type)
                     }

@@ -221,9 +221,9 @@ extension CalculationPlan {
                 if !stuck.isEmpty { lines.append("\(node): quan hệ \(stuck.map(\.name).joined(separator: ", ")) chưa dựng lại được chỉ mục") }
             case .table(let name):
                 var uses: [String] = []
-                if metadata.relationships.contains(where: { $0.fromTable == name || $0.toTable == name }) { uses.append("bảng có quan hệ") }
-                if metadata.hierarchies.contains(where: { $0.tableName == name }) { uses.append("bảng có phân cấp") }
-                if metadata.columns.contains(where: { $0.tableName == name && $0.kind == .calculated }) { uses.append("bảng có cột tính toán") }
+                if metadata.relationships.contains(where: { $0.fromTable == name || $0.toTable == name }) { uses.append(biN("bảng có quan hệ", "a table with relationships")) }
+                if metadata.hierarchies.contains(where: { $0.tableName == name }) { uses.append(biN("bảng có phân cấp", "a table with hierarchies")) }
+                if metadata.columns.contains(where: { $0.tableName == name && $0.kind == .calculated }) { uses.append(biN("bảng có cột tính toán", "a table with calculated columns")) }
                 if !uses.isEmpty { lines.append("\(node): " + uses.joined(separator: "; ")) }
             }
         }

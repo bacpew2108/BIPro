@@ -6,14 +6,14 @@ enum AlignCommand: CaseIterable, Hashable, Sendable {
 
     var title: String {
         switch self {
-        case .left: "Căn trái"
-        case .centerH: "Căn giữa ngang"
-        case .right: "Căn phải"
-        case .top: "Căn trên"
-        case .middleV: "Căn giữa dọc"
-        case .bottom: "Căn dưới"
-        case .distributeH: "Phân bố ngang"
-        case .distributeV: "Phân bố dọc"
+        case .left: biN("Căn trái", "Align left")
+        case .centerH: biN("Căn giữa ngang", "Align center")
+        case .right: biN("Căn phải", "Align right")
+        case .top: biN("Căn trên", "Align top")
+        case .middleV: biN("Căn giữa dọc", "Align middle")
+        case .bottom: biN("Căn dưới", "Align bottom")
+        case .distributeH: biN("Phân bố ngang", "Distribute horizontally")
+        case .distributeV: biN("Phân bố dọc", "Distribute vertically")
         }
     }
 

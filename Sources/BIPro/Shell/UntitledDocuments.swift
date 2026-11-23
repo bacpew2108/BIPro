@@ -7,7 +7,7 @@ import SwiftUI
 /// BI Pro rồi mở như mọi file khác, nên mọi luồng sửa và lưu dùng chung. File ở thư mục này coi là "chưa có tên": lần lưu đầu luôn
 /// hỏi nơi lưu (không bao giờ ghi vào bản tạm), xong thì mở bản đã lưu và bỏ bản tạm.
 enum UntitledDocuments {
-    static let fileName = "Không tên.pbix"
+    static let fileName = biN("Không tên.pbix", "Untitled.pbix")
 
     static var root: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("BIPro-TaiLieuMoi", isDirectory: true)
@@ -129,7 +129,7 @@ enum UntitledDocuments {
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error {
                     pendingFirstAction = nil
-                    _ = Alerts.ask("Không mở được tài liệu mới", error.localizedDescription, buttons: ["Đóng"], style: .critical)
+                    _ = Alerts.ask(biN("Không mở được tài liệu mới", "Couldn't open the new document"), error.localizedDescription, buttons: ["Đóng"], style: .critical)
                     return
                 }
                 NSApp.activate(ignoringOtherApps: true)
@@ -141,7 +141,7 @@ enum UntitledDocuments {
             }
         } catch {
             pendingFirstAction = nil
-            _ = Alerts.ask("Không tạo được tài liệu mới", "\(error)", buttons: ["Đóng"], style: .critical)
+            _ = Alerts.ask(biN("Không tạo được tài liệu mới", "Couldn't create the new document"), "\(error)", buttons: ["Đóng"], style: .critical)
         }
     }
 

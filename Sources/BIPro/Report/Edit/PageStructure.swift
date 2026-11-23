@@ -79,8 +79,8 @@ struct PageStructure: Equatable {
     /// Tên đã cắt khoảng trắng, hoặc lý do từ chối.
     static func validatedName(_ raw: String) -> Result<String, ValidationError> {
         let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty { return .failure(ValidationError("Tên trang không được để trống.")) }
-        if name.count > maxNameLength { return .failure(ValidationError("Tên trang tối đa \(maxNameLength) ký tự.")) }
+        if name.isEmpty { return .failure(ValidationError(biN("Tên trang không được để trống.", "The page name can't be empty."))) }
+        if name.count > maxNameLength { return .failure(ValidationError(biN("Tên trang tối đa \(maxNameLength) ký tự.", "A page name can be up to \(maxNameLength) characters."))) }
         return .success(name)
     }
 
@@ -99,14 +99,14 @@ struct PageStructure: Equatable {
     /// Lý do không xoá được trang, hoặc nil: chỉ còn một trang. Nút điều hướng trỏ tới trang không chặn (VM-D8: Desktop
     /// xoá trang và để nguyên nút).
     static func removalRefusal(pageCount: Int) -> String? {
-        pageCount <= 1 ? "Báo cáo phải còn ít nhất một trang." : nil
+        pageCount <= 1 ? biN("Báo cáo phải còn ít nhất một trang.", "The report must keep at least one page.") : nil
     }
 
     /// Desktop không cho xoá trang hiển thị duy nhất (menu của tab chỉ có "Set as landing page", "Duplicate", "Rename"; VM-D13):
     /// trang cần xoá không ẩn và không còn trang hiển thị nào khác (trang ẩn như trang drillthrough không tính).
     static func removalRefusal(removingHidden: Bool, otherVisiblePages: Int) -> String? {
         !removingHidden && otherVisiblePages == 0
-            ? "Đây là trang hiển thị duy nhất; Power BI Desktop không cho xoá (còn trang ẩn thì vẫn không)." : nil
+            ? biN("Đây là trang hiển thị duy nhất; Power BI Desktop không cho xoá (còn trang ẩn thì vẫn không).", "This is the only visible page; Power BI Desktop doesn't allow deleting it (even if hidden pages remain).") : nil
     }
 
     static func bookmarkImpact(removing ids: Set<String>, bookmarks: [BookmarkInfo]) -> BookmarkImpact {

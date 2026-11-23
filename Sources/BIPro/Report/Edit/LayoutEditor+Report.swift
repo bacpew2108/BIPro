@@ -207,7 +207,7 @@ extension LayoutEditor {
         var writes: [(id: String, bookmark: UserBookmark, displayName: String)] = []
         for (id, fresh) in edits.updated.sorted(by: { $0.key < $1.key }) where !edits.deleted.contains(id) {
             if onDisk[id] == nil {
-                notes.append("Bookmark \"\(edits.renamed[id] ?? fresh.name)\": không có trong file nên chưa cập nhật được.")
+                notes.append(biN("Bookmark \"\(edits.renamed[id] ?? fresh.name)\": không có trong file nên chưa cập nhật được.", "Bookmark \"\(edits.renamed[id] ?? fresh.name)\": it isn't in the file, so it can't be updated yet."))
                 continue
             }
             writes.append((id, fresh, edits.renamed[id] ?? fresh.name))
@@ -254,7 +254,7 @@ extension LayoutEditor {
             for group in edits.groupsAdded where !has(group.id) {
                 let before = data
                 data = try PBIRBookmarkPatch.groupingItems(group.children, id: group.id, displayName: group.name, in: data)
-                if data == before { notes.append("Nhóm bookmark \"\(group.name)\": các bookmark trong nhóm chưa lưu được vào file nên chưa ghi nhóm.") }
+                if data == before { notes.append(biN("Nhóm bookmark \"\(group.name)\": các bookmark trong nhóm chưa lưu được vào file nên chưa ghi nhóm.", "Bookmark group \"\(group.name)\": its bookmarks can't be saved to the file yet, so the group wasn't written.")) }
             }
             index = data
         }
@@ -326,7 +326,7 @@ extension LayoutEditor {
             case .set(let filter):
                 switch FilterExport.card(for: filter, key: key, decimal: decimalColumns.contains("\(filter.column.table)[\(filter.column.column)]"), currency: currencyColumns.contains("\(filter.column.table)[\(filter.column.column)]")) {
                 case .writable(let card): op = .upsert(card)
-                case .sessionOnly(let reason): notes.append("Bộ lọc \(filter.column.column): \(reason)")
+                case .sessionOnly(let reason): notes.append(biN("Bộ lọc \(filter.column.column): \(reason)", "Filter \(filter.column.column): \(reason)"))
                 }
             }
             guard let op else { continue }

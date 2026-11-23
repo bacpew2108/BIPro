@@ -21,10 +21,10 @@ enum CalculatedEditor {
     static func columnEdit(table: String, name: String, expression: String, engine: DAXEngine) throws -> ModelEdit {
         let values: [Value]
         do { values = try engine.calculatedColumn(table: table, expression: expression) } catch {
-            throw ModelEditError("Biểu thức của cột \(name) lỗi: \(error.message)")
+            throw ModelEditError(biN("Biểu thức của cột \(name) lỗi: \(error.message)", "The expression of column \(name) has an error: \(error.message)"))
         }
         let type: DAXType
-        do { type = try CalculatedData.inferType(values) } catch { throw ModelEditError("Cột \(name): \(error.message)") }
+        do { type = try CalculatedData.inferType(values) } catch { throw ModelEditError(biN("Cột \(name): \(error.message)", "Column \(name): \(error.message)")) }
         return .addCalculatedColumn(table: table, name: name, expression: expression, dataType: dataType(type))
     }
 
@@ -32,14 +32,14 @@ enum CalculatedEditor {
     static func tableEdit(name: String, expression: String, engine: DAXEngine) throws -> ModelEdit {
         let result: ResultTable, sources: [String]
         do { (result, sources) = try engine.calculatedTableWithSources(expression: expression) } catch {
-            throw ModelEditError("Biểu thức của bảng \(name) lỗi: \(error.message)")
+            throw ModelEditError(biN("Biểu thức của bảng \(name) lỗi: \(error.message)", "The expression of table \(name) has an error: \(error.message)"))
         }
-        guard !result.columns.isEmpty else { throw ModelEditError("Bảng \(name) không có cột nào") }
+        guard !result.columns.isEmpty else { throw ModelEditError(biN("Bảng \(name) không có cột nào", "Table \(name) has no columns")) }
         var columns: [ColumnSignature] = []
         for (index, column) in result.columns.enumerated() {
             let type: DAXType
             do { type = try CalculatedData.inferType(result.rows.map { $0[index] }) } catch {
-                throw ModelEditError("Bảng \(name), cột \(column): \(error.message)")
+                throw ModelEditError(biN("Bảng \(name), cột \(column): \(error.message)", "Table \(name), column \(column): \(error.message)"))
             }
             columns.append(ColumnSignature(name: column, dataType: dataType(type), sourceColumn: sources[index]))
         }
@@ -61,7 +61,7 @@ enum CalculatedEditor {
 extension DocumentState {
     /// "Cột mới": thêm cột tính toán vào `table`. Trả lý do bị từ chối hoặc nil. Một bước hoàn tác.
     func addCalculatedColumn(table: String, formula: String) async -> String? {
-        guard let (name, expression) = CalculatedEditor.split(formula) else { return "Công thức cần dạng Tên = biểu thức DAX" }
+        guard let (name, expression) = CalculatedEditor.split(formula) else { return biN("Công thức cần dạng Tên = biểu thức DAX", "The formula must be in the form Name = DAX expression") }
         let workspace = self.workspace
         let built: Result<ModelEdit, Error> = await Task.detached {
             Result { try CalculatedEditor.columnEdit(table: table, name: name, expression: expression, engine: try workspace.daxEngine()) }
@@ -74,7 +74,7 @@ extension DocumentState {
 
     /// "Bảng mới": thêm bảng tính toán. Trả lý do bị từ chối hoặc nil. Một bước hoàn tác.
     func addCalculatedTable(formula: String) async -> String? {
-        guard let (name, expression) = CalculatedEditor.split(formula) else { return "Công thức cần dạng Tên = biểu thức DAX" }
+        guard let (name, expression) = CalculatedEditor.split(formula) else { return biN("Công thức cần dạng Tên = biểu thức DAX", "The formula must be in the form Name = DAX expression") }
         let workspace = self.workspace
         let built: Result<ModelEdit, Error> = await Task.detached {
             Result { try CalculatedEditor.tableEdit(name: name, expression: expression, engine: try workspace.daxEngine()) }
@@ -91,20 +91,20 @@ extension DocumentState {
     /// (chặn khi còn được dùng). Giá trị và kiểu tính lại; cột/bảng tính toán phụ thuộc cũng tính lại. Trả lý do bị từ chối hoặc nil.
     func updateCalculatedColumn(table: String, name: String, formula: String) async -> String? {
         if let blocker = modelEditingBlocker { return blocker }
-        guard let (newName, expression) = CalculatedEditor.split(formula) else { return "Công thức cần dạng Tên = biểu thức DAX" }
+        guard let (newName, expression) = CalculatedEditor.split(formula) else { return biN("Công thức cần dạng Tên = biểu thức DAX", "The formula must be in the form Name = DAX expression") }
         guard let model = workspace.metadata,
               model.columns.contains(where: { $0.tableName == table && $0.name == name && $0.kind == .calculated }) else {
-            return "Không có cột tính toán \(table)[\(name)]"
+            return biN("Không có cột tính toán \(table)[\(name)]", "There is no calculated column \(table)[\(name)]")
         }
         if DAXEngine.references(in: expression).contains(where: {
             $0.name.caseInsensitiveCompare(name) == .orderedSame && ($0.table == nil || $0.table?.caseInsensitiveCompare(table) == .orderedSame)
         }) {
-            return "Cột \(name) không thể tham chiếu chính nó (phụ thuộc vòng)"
+            return biN("Cột \(name) không thể tham chiếu chính nó (phụ thuộc vòng)", "Column \(name) can't reference itself (circular dependency)")
         }
         if newName != name {
             let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                                 documents: ModelReferences.documents(layout: layout, workspace: workspace))
-            if !usages.isEmpty { return "Không đổi tên được: " + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
+            if !usages.isEmpty { return biN("Không đổi tên được: ", "Couldn't rename: ") + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
         }
         let workspace = self.workspace
         let built: Result<ModelEdit, Error> = await Task.detached {
@@ -115,7 +115,7 @@ extension DocumentState {
             var edits: [ModelEdit] = [.updateCalculatedColumn(table: table, name: name, expression: body, dataType: dataType)]
             if newName != name { edits.append(.updateColumn(table: table, name: name, patch: ColumnPatch(name: newName))) }
             return modelEditor.apply(edits)
-        case .success: return "Không dựng được thao tác sửa cột"
+        case .success: return biN("Không dựng được thao tác sửa cột", "Couldn't build the column edit")
         case .failure(let error): return (error as? ModelEditError)?.reason ?? (error as? DAXError)?.message ?? "\(error)"
         }
     }
@@ -123,14 +123,14 @@ extension DocumentState {
     /// Sửa công thức bảng tính toán `name` (T116). Đổi tên bảng ở thanh công thức chưa hỗ trợ. Trả lý do bị từ chối hoặc nil.
     func updateCalculatedTable(name: String, formula: String) async -> String? {
         if let blocker = modelEditingBlocker { return blocker }
-        guard let (newName, expression) = CalculatedEditor.split(formula) else { return "Công thức cần dạng Tên = biểu thức DAX" }
+        guard let (newName, expression) = CalculatedEditor.split(formula) else { return biN("Công thức cần dạng Tên = biểu thức DAX", "The formula must be in the form Name = DAX expression") }
         guard workspace.userTables.contains(where: { $0.name == name && $0.isCalculatedUserTable }) else {
-            return "Không có bảng tính toán \(name)"
+            return biN("Không có bảng tính toán \(name)", "There is no calculated table \(name)")
         }
-        guard newName == name else { return "Chưa đổi tên được bảng tính toán ở thanh công thức; giữ tên \(name)" }
+        guard newName == name else { return biN("Chưa đổi tên được bảng tính toán ở thanh công thức; giữ tên \(name)", "A calculated table can't be renamed from the formula bar yet; keeping the name \(name)") }
         if DAXEngine.tableNames(in: expression)?.contains(name.lowercased()) == true
             || DAXEngine.references(in: expression).contains(where: { $0.table?.caseInsensitiveCompare(name) == .orderedSame }) {
-            return "Bảng \(name) không thể tham chiếu chính nó (phụ thuộc vòng)"
+            return biN("Bảng \(name) không thể tham chiếu chính nó (phụ thuộc vòng)", "Table \(name) can't reference itself (circular dependency)")
         }
         let workspace = self.workspace
         let built: Result<ModelEdit, Error> = await Task.detached {
@@ -139,7 +139,7 @@ extension DocumentState {
         switch built {
         case .success(.addCalculatedTable(_, let body, let columns)):
             return modelEditor.apply(.updateCalculatedTable(name: name, expression: body, columns: columns))
-        case .success: return "Không dựng được thao tác sửa bảng"
+        case .success: return biN("Không dựng được thao tác sửa bảng", "Couldn't build the table edit")
         case .failure(let error): return (error as? ModelEditError)?.reason ?? (error as? DAXError)?.message ?? "\(error)"
         }
     }
@@ -149,11 +149,11 @@ extension DocumentState {
     @discardableResult
     func deleteCalculatedColumn(table: String, name: String) -> String? {
         if let blocker = modelEditingBlocker { return blocker }
-        guard let model = workspace.metadata else { return "File không có mô hình dữ liệu." }
+        guard let model = workspace.metadata else { return biN("File không có mô hình dữ liệu.", "The file has no data model.") }
         let usages = ModelReferences.usages(ofColumn: table, name: name, in: model,
                                             documents: ModelReferences.documents(layout: layout, workspace: workspace))
             .filter { ![.relationship, .sortBy, .hierarchy].contains($0.kind) }
-        if !usages.isEmpty { return "Không xoá được: " + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
+        if !usages.isEmpty { return biN("Không xoá được: ", "Couldn't delete: ") + ModelReferences.message(usages, what: "cột \(table)[\(name)]") }
         if let reason = modelEditor.apply(.deleteCalculatedColumn(table: table, name: name)) { return reason }
         if self.table == table, column == name { column = nil; measureDraft = nil }
         return nil
@@ -169,7 +169,7 @@ extension DocumentState {
     func deleteCalculatedTable(name: String) -> String? {
         if let blocker = modelEditingBlocker { return blocker }
         guard workspace.userTables.contains(where: { $0.name == name && $0.isCalculatedUserTable }) else {
-            return "Bảng \(name) không phải bảng tính toán; chỉ xoá được bảng tính toán"
+            return biN("Bảng \(name) không phải bảng tính toán; chỉ xoá được bảng tính toán", "Table \(name) isn't a calculated table; only calculated tables can be deleted")
         }
         if let reason = modelEditor.apply(.dropTable(name: name)) { return reason }
         if table == name { table = nil; column = nil; measureDraft = nil }
@@ -185,10 +185,10 @@ extension ModelRuntime {
         var out: [String: VertiPaqWriter.Values] = [:]
         func add(_ table: String, _ column: String) throws {
             if let error = errors["\(table)[\(column)]"] ?? errors[table] {
-                throw ModelEditError("Chưa lưu được: \(table)[\(column)] đang lỗi (\(error))")
+                throw ModelEditError(biN("Chưa lưu được: \(table)[\(column)] đang lỗi (\(error))", "Can't save yet: \(table)[\(column)] has an error (\(error))"))
             }
             guard let id = engine.store.schema.column(table: table, name: column)?.id else {
-                throw ModelEditError("Không tìm thấy cột tính toán \(table)[\(column)] để lưu")
+                throw ModelEditError(biN("Không tìm thấy cột tính toán \(table)[\(column)] để lưu", "Couldn't find calculated column \(table)[\(column)] to save"))
             }
             let data = try engine.store.column(id)
             out["\(table)[\(column)]"] = try TableLoader.values(of: TableColumn(name: column, data: data), rows: try engine.store.rowCount(id.table))

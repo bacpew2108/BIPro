@@ -22,28 +22,28 @@ struct RelationshipDraft: Equatable {
 
     /// `isUnique`: cột có toàn giá trị khác nhau (phía một). Trả `Result` với lý do tiếng Việt khi không tạo được.
     static func propose(model: ModelMetadata, drag: ColumnRef, drop: ColumnRef, isUnique: (ColumnRef) -> Bool) -> Result<RelationshipDraft, Refusal> {
-        guard drag.table != drop.table else { return .failure(Refusal(reason: "Hai cột phải ở hai bảng khác nhau.")) }
+        guard drag.table != drop.table else { return .failure(Refusal(reason: biN("Hai cột phải ở hai bảng khác nhau.", "The two columns must be in different tables."))) }
         guard let a = model.columns.first(where: { $0.tableName == drag.table && $0.name == drag.column && $0.kind != .rowNumber }),
               let b = model.columns.first(where: { $0.tableName == drop.table && $0.name == drop.column && $0.kind != .rowNumber }) else {
-            return .failure(Refusal(reason: "Không tìm thấy cột \(drag.table)[\(drag.column)] hoặc \(drop.table)[\(drop.column)]."))
+            return .failure(Refusal(reason: biN("Không tìm thấy cột \(drag.table)[\(drag.column)] hoặc \(drop.table)[\(drop.column)].", "Couldn't find column \(drag.table)[\(drag.column)] or \(drop.table)[\(drop.column)].")))
         }
         guard a.kind != .calculated, b.kind != .calculated else {
-            return .failure(Refusal(reason: "Cột tính toán chưa dùng làm đầu quan hệ được."))
+            return .failure(Refusal(reason: biN("Cột tính toán chưa dùng làm đầu quan hệ được.", "A calculated column can't be used as a relationship end yet.")))
         }
         guard a.dataType == b.dataType else {
-            return .failure(Refusal(reason: "Hai cột khác kiểu dữ liệu (\(a.dataType) và \(b.dataType))."))
+            return .failure(Refusal(reason: biN("Hai cột khác kiểu dữ liệu (\(a.dataType) và \(b.dataType)).", "The two columns have different data types (\(a.dataType) and \(b.dataType)).")))
         }
         let same = model.relationships.contains {
             Set(["\($0.fromTable)[\($0.fromColumn)]", "\($0.toTable)[\($0.toColumn)]"]) == Set(["\(drag.table)[\(drag.column)]", "\(drop.table)[\(drop.column)]"])
         }
-        guard !same else { return .failure(Refusal(reason: "Đã có quan hệ nối đúng hai cột này.")) }
+        guard !same else { return .failure(Refusal(reason: biN("Đã có quan hệ nối đúng hai cột này.", "A relationship between exactly these two columns already exists."))) }
 
         let aUnique = isUnique(drag), bUnique = isUnique(drop)
         switch (aUnique, bUnique) {
         case (true, true):
-            return .failure(Refusal(reason: "Cả hai cột đều có giá trị duy nhất: quan hệ một-một chưa được hỗ trợ."))
+            return .failure(Refusal(reason: biN("Cả hai cột đều có giá trị duy nhất: quan hệ một-một chưa được hỗ trợ.", "Both columns have unique values: one-to-one relationships aren't supported yet.")))
         case (false, false):
-            return .failure(Refusal(reason: "Cả hai cột đều có giá trị trùng: quan hệ nhiều-nhiều chưa được hỗ trợ. Một phía phải có giá trị duy nhất."))
+            return .failure(Refusal(reason: biN("Cả hai cột đều có giá trị trùng: quan hệ nhiều-nhiều chưa được hỗ trợ. Một phía phải có giá trị duy nhất.", "Both columns have duplicate values: many-to-many relationships aren't supported yet. One side must have unique values.")))
         default: break
         }
         let many = aUnique ? drop : drag, one = aUnique ? drag : drop
@@ -55,7 +55,7 @@ struct RelationshipDraft: Equatable {
         }
         if hasActive {
             forcedInactive = true
-            notes.append("Đã có quan hệ hoạt động giữa \(many.table) và \(one.table), nên quan hệ mới không hoạt động.")
+            notes.append(biN("Đã có quan hệ hoạt động giữa \(many.table) và \(one.table), nên quan hệ mới không hoạt động.", "There is already an active relationship between \(many.table) and \(one.table), so the new relationship is inactive."))
         } else if Self.connected(model, many.table, one.table) {
             forcedInactive = true
             notes.append("Hai bảng đã nối với nhau qua các quan hệ hoạt động khác; bật thêm quan hệ này tạo đường lọc mơ hồ, nên nó không hoạt động.")

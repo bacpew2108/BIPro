@@ -244,7 +244,7 @@ private struct FormatCardView: View {
         return toggle.defaultOn == false
     }
 
-    private var rowHelp: String? { blocker ?? (cardState.isEditable ? nil : "Thẻ này có định dạng riêng theo trường") }
+    private var rowHelp: String? { blocker ?? (cardState.isEditable ? nil : biN("Thẻ này có định dạng riêng theo trường", "This card has per-field formatting")) }
 
     @ViewBuilder private func switchView(_ property: FormatProperty) -> some View {
         let current = cardState.values[property.key]
@@ -252,7 +252,7 @@ private struct FormatCardView: View {
         Toggle("", isOn: Binding(get: { on }, set: { state.setFormat(.bool($0), scope: card.scope, object: card.objectKey, property: property.key) }))
             .toggleStyle(.switch).controlSize(.mini).labelsHidden()
             .disabled(disabled)
-            .help(blocker ?? (current == nil && property.defaultOn == nil ? "Chưa biết giá trị mặc định của Power BI" : property.title))
+            .help(blocker ?? (current == nil && property.defaultOn == nil ? biN("Chưa biết giá trị mặc định của Power BI", "The default value in Power BI isn't known yet") : property.title))
     }
 }
 

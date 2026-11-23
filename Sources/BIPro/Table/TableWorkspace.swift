@@ -69,7 +69,7 @@ struct FormulaBar: View {
         .padding(.horizontal, 10)
         .frame(height: 36)
         .hairline(.bottom)
-        .help(column?.kind == .calculated ? "Cột tính toán: \(state.modelEditingBlocker ?? "chọn lại cột để sửa công thức")" : "Cột dữ liệu nạp từ nguồn")
+        .help(column?.kind == .calculated ? "Cột tính toán: \(state.modelEditingBlocker ?? "chọn lại cột để sửa công thức")" : biN("Cột dữ liệu nạp từ nguồn", "Column loaded from the source"))
     }
 
     private func formula(_ column: ModelMetadata.Column?) -> String {
@@ -106,14 +106,14 @@ struct MeasureFormulaBar: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(canCancel ? DS.Palette.label : DS.Palette.tertiaryLabel)
                     .frame(height: 22)
-                    .help("Bỏ phần đang sửa")
+                    .help(biN("Bỏ phần đang sửa", "Discard edit"))
                 Button { Task { await state.applyMeasureDraft() } } label: { Image(systemName: "checkmark") }
                     .buttonStyle(.plain)
                     .foregroundStyle(blocker == nil && !draft.isApplying ? DS.Palette.accent : DS.Palette.tertiaryLabel)
                     .frame(height: 22)
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(blocker != nil || draft.isApplying)
-                    .help(blocker ?? "Áp dụng công thức (⌘↩)")
+                    .help(blocker ?? biN("Áp dụng công thức (⌘↩)", "Apply formula (⌘↩)"))
                 CodeEditor(text: $draft.text, language: .dax, isEditable: blocker == nil, completionModel: completionModel)
                     .frame(height: 60)
                     .overlay(RoundedRectangle(cornerRadius: DS.Radius.control).strokeBorder(DS.Palette.separator))
@@ -141,20 +141,20 @@ struct MeasureFormulaBar: View {
 
     private var statusLine: String? {
         if let message = draft.message { return message }
-        if draft.isApplying { return "Đang kiểm biểu thức…" }
+        if draft.isApplying { return biN("Đang kiểm biểu thức…", "Checking expression…") }
         if let blocker = state.modelEditingBlocker { return blocker }
-        if let preview = draft.preview { return "Đã áp dụng. Giá trị: \(preview)" }
+        if let preview = draft.preview { return biN("Đã áp dụng. Giá trị: \(preview)", "Applied. Value: \(preview)") }
         switch draft.mode {
-        case .new: return "Gõ biểu thức rồi bấm ✓ (⌘↩) để thêm vào mô hình."
-        case .newColumn(let table): return "Cột tính toán mới của bảng \(table): gõ Tên = biểu thức DAX (tính theo từng dòng) rồi bấm ✓ (⌘↩)."
-        case .newTable: return "Bảng tính toán mới: gõ Tên = biểu thức bảng DAX (ví dụ CALENDAR, DISTINCT) rồi bấm ✓ (⌘↩)."
+        case .new: return biN("Gõ biểu thức rồi bấm ✓ (⌘↩) để thêm vào mô hình.", "Type an expression, then click ✓ (⌘↩) to add it to the model.")
+        case .newColumn(let table): return biN("Cột tính toán mới của bảng \(table): gõ Tên = biểu thức DAX (tính theo từng dòng) rồi bấm ✓ (⌘↩).", "New calculated column of table \(table): type Name = DAX expression (evaluated per row), then click ✓ (⌘↩).")
+        case .newTable: return biN("Bảng tính toán mới: gõ Tên = biểu thức bảng DAX (ví dụ CALENDAR, DISTINCT) rồi bấm ✓ (⌘↩).", "New calculated table: type Name = DAX table expression (for example CALENDAR, DISTINCT), then click ✓ (⌘↩).")
         case .edit: break
         case .editColumn(let table, let name):
-            if let error = state.workspace.runtime?.calculationErrors["\(table)[\(name)]"] { return "Cột đang lỗi: \(error)" }
-            if draft.isChanged { return "Bấm ✓ (⌘↩) để áp dụng; cột và bảng tính toán dùng cột này được tính lại." }
+            if let error = state.workspace.runtime?.calculationErrors["\(table)[\(name)]"] { return biN("Cột đang lỗi: \(error)", "The column has an error: \(error)") }
+            if draft.isChanged { return biN("Bấm ✓ (⌘↩) để áp dụng; cột và bảng tính toán dùng cột này được tính lại.", "Click ✓ (⌘↩) to apply; calculated columns and tables that use this column are recalculated.") }
         case .editTable(let name):
-            if let error = state.workspace.runtime?.calculationErrors[name] { return "Bảng đang lỗi: \(error)" }
-            if draft.isChanged { return "Bấm ✓ (⌘↩) để áp dụng; bảng được tính lại theo công thức mới." }
+            if let error = state.workspace.runtime?.calculationErrors[name] { return biN("Bảng đang lỗi: \(error)", "The table has an error: \(error)") }
+            if draft.isChanged { return biN("Bấm ✓ (⌘↩) để áp dụng; bảng được tính lại theo công thức mới.", "Click ✓ (⌘↩) to apply; the table is recalculated with the new formula.") }
         }
         return nil
     }
@@ -229,9 +229,9 @@ struct TableGridView: View {
                          onRowsChanged: { visibleRows = $0 }) { name in state.select(table: table, column: name) }
                     .id(titles + ["\(loads)"])   // đổi tên cột hoặc nạp dữ liệu mới thì dựng lại lưới
             } else if let error {
-                ContentUnavailableView("Không giải mã được bảng", systemImage: "exclamationmark.triangle", description: Text(error))
+                ContentUnavailableView(biN("Không giải mã được bảng", "Couldn't decode the table"), systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
-                ProgressView("Đang giải mã \(table)…").frame(maxWidth: .infinity, maxHeight: .infinity)
+                ProgressView(biN("Đang giải mã \(table)…", "Decoding \(table)…")).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .onChange(of: state.column) { _, _ in filterText = "" }   // bộ lọc thuộc về một cột: đổi cột thì xoá
@@ -292,7 +292,7 @@ struct DataGrid: NSViewRepresentable {
             tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: String(index), ascending: true)
             let minimum: CGFloat = column.dataType == .dateTime ? 165 : 96
             tableColumn.width = max(minimum, min(260, CGFloat(column.name.count) * 8 + 32))
-            tableColumn.headerToolTip = "\(column.name) · \(dataTypeName(column.dataType))" + (info?.kind == .calculated ? " · cột tính toán" : "")
+            tableColumn.headerToolTip = "\(column.name) · \(dataTypeName(column.dataType))" + (info?.kind == .calculated ? biN(" · cột tính toán", " · calculated column") : "")
             let numeric = [.int64, .double, .decimal].contains(column.dataType)
             let calculated = info?.kind == .calculated
             tableColumn.dataCell = Self.cell(alignment: numeric ? .right : .left,

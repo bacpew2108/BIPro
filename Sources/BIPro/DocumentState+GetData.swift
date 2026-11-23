@@ -9,7 +9,7 @@ import PBIXKit
 extension DocumentState {
     /// Lý do nút "Lấy dữ liệu" chưa dùng được, nil khi dùng được.
     var getDataBlocker: String? {
-        workspace.runtime == nil ? "File không có mô hình dữ liệu để nạp bảng" : nil
+        workspace.runtime == nil ? biN("File không có mô hình dữ liệu để nạp bảng", "The file has no data model to load the table into") : nil
     }
 
     /// Tên mọi bảng của mô hình hiệu lực (kể cả bảng hệ thống), để tên bảng nạp mới không trùng.

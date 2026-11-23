@@ -56,12 +56,12 @@ struct DiagramEdits: Equatable {
     mutating func renameTab(from old: String, to proposed: String, existing: [String]) -> String? {
         let new = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
         var list = current(existing)
-        guard let index = list.firstIndex(where: { $0.name == old }) else { return "Không có bố cục “\(old)”." }
-        if index == 0 { return "Bố cục “\(old)” không đổi tên được." }
-        if new.isEmpty { return "Tên bố cục không được để trống." }
+        guard let index = list.firstIndex(where: { $0.name == old }) else { return biN("Không có bố cục “\(old)”.", "There is no layout “\(old)”.") }
+        if index == 0 { return biN("Bố cục “\(old)” không đổi tên được.", "Layout “\(old)” can't be renamed.") }
+        if new.isEmpty { return biN("Tên bố cục không được để trống.", "The layout name can't be empty.") }
         if new == old { return nil }
         if list.enumerated().contains(where: { $0.offset != index && $0.element.name.caseInsensitiveCompare(new) == .orderedSame }) {
-            return "Đã có bố cục tên “\(new)”."
+            return biN("Đã có bố cục tên “\(new)”.", "A layout named “\(new)” already exists.")
         }
         list[index].name = new
         store(list, existing: existing)
@@ -73,8 +73,8 @@ struct DiagramEdits: Equatable {
     /// Xoá tab (không xoá bảng khỏi mô hình). Trả lý do bị từ chối hoặc nil. Tab đầu ("All tables") không xoá được.
     mutating func deleteTab(_ name: String, existing: [String]) -> String? {
         var list = current(existing)
-        guard let index = list.firstIndex(where: { $0.name == name }) else { return "Không có bố cục “\(name)”." }
-        if index == 0 { return "Bố cục “\(name)” không xoá được." }
+        guard let index = list.firstIndex(where: { $0.name == name }) else { return biN("Không có bố cục “\(name)”.", "There is no layout “\(name)”.") }
+        if index == 0 { return biN("Bố cục “\(name)” không xoá được.", "Layout “\(name)” can't be deleted.") }
         list.remove(at: index)
         store(list, existing: existing)
         positions[name] = nil; baseline[name] = nil; zoom[name] = nil; zoomBaseline[name] = nil; added[name] = nil; removed[name] = nil

@@ -670,7 +670,7 @@ struct SemanticModelTree: View {
             }
             .padding(.vertical, 4)
         }
-        PaneFooter(text: "\(w.userTables.count) bảng · \(m?.relationships.count ?? 0) quan hệ · hợp lệ")
+        PaneFooter(text: biN("\(w.userTables.count) bảng · \(m?.relationships.count ?? 0) quan hệ · hợp lệ", "\(w.userTables.count) tables · \(m?.relationships.count ?? 0) relationships · valid"))
     }
 
     @ViewBuilder private func group<Content: View>(_ key: String, _ title: String, _ symbol: String, _ count: Int,

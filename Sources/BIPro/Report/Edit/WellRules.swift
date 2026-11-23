@@ -111,7 +111,7 @@ enum WellRules {
 
     // MARK: Từ chối
 
-    static let unverifiedReason = "Ô này chưa kiểm với Power BI Desktop (buổi VM-D2), nên chưa thêm trường được."
+    static let unverifiedReason = biN("Ô này chưa kiểm với Power BI Desktop (buổi VM-D2), nên chưa thêm trường được.", "This well hasn't been verified against Power BI Desktop (session VM-D2), so fields can't be added yet.")
     static let aggregationReason = "Ô này cần measure: mô hình đặt \"discourage implicit measures\" (như Nhom6) nên Power BI Desktop cũng chặn cột ở ô này (VM-D2b). Hãy tạo measure, ví dụ SUM(Bảng[Cột])."
 
     /// Lý do không thêm được `field` vào ô `role` của `visual`, hoặc nil nếu thêm được.
@@ -119,7 +119,7 @@ enum WellRules {
     /// VM-F10). Cột đã gộp trong visual thì từ chối: hai trường cùng `queryRef` (`Sum(Bảng.Cột)`) bị Desktop coi là một (gate VM-F10,
     /// biểu đồ hiện "Average of Qty and Average of Qty"); cách Desktop đặt `queryRef` khi thêm cùng cột hai lần chưa quan sát.
     static func refusal(adding field: FieldRef, to role: String, in visual: ReportVisual, implicitMeasures: Bool = false) -> String? {
-        guard let rule = rule(for: visual, role: role) else { return "Visual này không có ô \"\(role)\"." }
+        guard let rule = rule(for: visual, role: role) else { return biN("Visual này không có ô \"\(role)\".", "This visual has no well \"\(role)\".") }
         guard rule.status == .observed else { return unverifiedReason }
         let kind = WellKind(field.kind)
         if implicitMeasures, field.kind == .column, rule.accepts == [.measure] {
@@ -134,25 +134,25 @@ enum WellRules {
         }
         // Desktop cho thêm cùng một measure hai lần vào một ô (VM-D2 `R-D2-h-dup`); cột trùng thì chưa quan sát nên từ chối.
         if kind == .column, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
-            return "Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
+            return biN("Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\".", "The field \"\(field.property)\" is already in the well \"\(rule.label)\".")
         }
         if field.kind == .hierarchy, visual.fields.contains(where: { $0.role == role && $0.queryRef.hasPrefix(field.queryRef + ".") }) {
-            return "Phân cấp \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
+            return biN("Phân cấp \"\(field.property)\" đã có trong ô \"\(rule.label)\".", "The hierarchy \"\(field.property)\" is already in the well \"\(rule.label)\".")
         }
         return nil
     }
 
     /// Lý do không chuyển được `field` (đang ở một ô của `visual`) sang ô `role`, hoặc nil.
     static func refusal(moving field: ReportField, to role: String, in visual: ReportVisual, implicitMeasures: Bool = false) -> String? {
-        guard let rule = rule(for: visual, role: role) else { return "Visual này không có ô \"\(role)\"." }
+        guard let rule = rule(for: visual, role: role) else { return biN("Visual này không có ô \"\(role)\".", "This visual has no well \"\(role)\".") }
         guard rule.status == .observed else { return unverifiedReason }
         // Cột dời sang ô giá trị thành trường gộp (VM-F10 a6: Region từ Categories sang Value thành First).
         if implicitMeasures, field.kind == .column, rule.accepts == [.measure] { return nil }
         guard let kind = WellKind(field.kind), rule.accepts.contains(kind) else {
-            return "Ô \"\(rule.label)\" không nhận loại trường này."
+            return biN("Ô \"\(rule.label)\" không nhận loại trường này.", "The well \"\(rule.label)\" doesn't accept this field type.")
         }
         if field.role != role, kind == .column, visual.fields.contains(where: { $0.role == role && $0.queryRef == field.queryRef }) {
-            return "Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\"."
+            return biN("Trường \"\(field.property)\" đã có trong ô \"\(rule.label)\".", "The field \"\(field.property)\" is already in the well \"\(rule.label)\".")
         }
         return nil
     }

@@ -19,8 +19,8 @@ extension DocumentState {
 
     /// Lý do chưa đổi được Auto date/time (cần mô hình sửa được), nil khi đổi được.
     var autoDateTimeBlocker: String? {
-        if workspace.runtime == nil { return workspace.modelError ?? "File không có mô hình dữ liệu." }
-        if workspace.pbix.reportFormat == .none { return "File này không có báo cáo đọc được; chưa lưu được thay đổi mô hình." }
+        if workspace.runtime == nil { return workspace.modelError ?? biN("File không có mô hình dữ liệu.", "The file has no data model.") }
+        if workspace.pbix.reportFormat == .none { return biN("File này không có báo cáo đọc được; chưa lưu được thay đổi mô hình.", "This file has no readable report; model changes can't be saved yet.") }
         return nil
     }
 
@@ -32,10 +32,10 @@ extension DocumentState {
         let current = fileOptions
         if options.autoDateTime != current.autoDateTime {
             if let blocker = autoDateTimeBlocker { return blocker }
-            guard let model = workspace.metadata else { return "File không có mô hình dữ liệu." }
+            guard let model = workspace.metadata else { return biN("File không có mô hình dữ liệu.", "The file has no data model.") }
             if !options.autoDateTime, let users = variationUsers.nilIfEmpty {
                 return "Chưa tắt được Tự động ngày/giờ: visual vẫn dùng phân cấp ngày (\(users.joined(separator: ", "))). "
-                    + "Bỏ phân cấp ngày khỏi các visual đó rồi tắt lại."
+                    + biN("Bỏ phân cấp ngày khỏi các visual đó rồi tắt lại.", "Remove the date hierarchy from those visuals, then turn it off again.")
             }
             if let refusal = modelEditor.apply(AutoDateTime.toggle(enabled: options.autoDateTime, model: model)) { return refusal }
         }

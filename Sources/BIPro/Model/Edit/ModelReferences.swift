@@ -153,7 +153,7 @@ extension ModelReferences {
             if path.hasSuffix("/page.json"), path.hasPrefix("Report/definition/pages/") {
                 label = "bộ lọc của trang \(path.split(separator: "/").dropLast().last.map(String.init) ?? path)"
             } else if path == "Report/definition/report.json" {
-                label = "bộ lọc cấp báo cáo"
+                label = biN("bộ lọc cấp báo cáo", "report-level filters")
             } else if path.hasPrefix("Report/definition/bookmarks/"), path.hasSuffix(".bookmark.json") {
                 label = "bookmark \(path.split(separator: "/").last.map(String.init) ?? path)"
             } else { continue }

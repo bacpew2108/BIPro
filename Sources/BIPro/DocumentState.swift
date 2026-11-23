@@ -281,7 +281,7 @@ final class DocumentState {
         let runtime = workspace.runtime
         layout.modelBase = runtime?.base
         modelEditor = ModelEditor(layout: layout) { [weak workspace] edits in
-            guard let runtime else { throw ModelEditError("File không có mô hình dữ liệu để sửa") }
+            guard let runtime else { throw ModelEditError(biN("File không có mô hình dữ liệu để sửa", "The file has no data model to edit")) }
             try runtime.validate(edits)
             // Cột/bảng tính toán phải tính lại: không vòng phụ thuộc, cột có sẵn trong file lưu lại được (T116).
             try runtime.validateCalculations(edits)
@@ -295,7 +295,7 @@ final class DocumentState {
             let documents = ModelReferences.documents(layout: layout, workspace: workspace)
             for name in newDrops.sorted() {
                 let usages = ModelReferences.documentUsages(ofTable: name, documents: documents)
-                if !usages.isEmpty { throw ModelEditError("Không thể gỡ bảng \(name): " + ModelReferences.message(usages, what: "bảng \(name)")) }
+                if !usages.isEmpty { throw ModelEditError(biN("Không thể gỡ bảng \(name): ", "Couldn't remove table \(name): ") + ModelReferences.message(usages, what: "bảng \(name)")) }
             }
         } expand: { current, new in
             // Auto date/time (T032): bảng ngày cục bộ theo cột ngày thêm, đổi hay bỏ khi tuỳ chọn của file bật.
@@ -325,7 +325,7 @@ final class DocumentState {
         layout.diagramLineageTag = { [weak workspace] table in workspace?.userTables.first { $0.name == table }?.lineageTag }
         layout.modelEditsChanged = { [weak self] edits in
             do { try runtime?.setEdits(edits) } catch {
-                self?.layout.noteFieldRefusal("Không áp lại được thay đổi mô hình: \(error)")
+                self?.layout.noteFieldRefusal(biN("Không áp lại được thay đổi mô hình: \(error)", "Couldn't reapply the model changes: \(error)"))
             }
             self?.modelVersion += 1
             if let self { Self.applyColumnKinds(to: self.layout, metadata: self.workspace.metadata) }
@@ -382,9 +382,9 @@ final class DocumentState {
 
     /// Lý do chưa thêm hoặc đổi loại visual được (chế độ Xem, báo cáo định dạng cũ), hoặc nil.
     var visualEditingBlocker: String? {
-        if mode != .report { return "Chỉ thêm visual được ở chế độ Báo cáo." }
-        if !canEditLayout { return "Báo cáo định dạng cũ (Report/Layout) chưa sửa được." }
-        if !editMode { return "Bật chế độ Sửa (⌘E) để thêm hoặc đổi loại visual." }
+        if mode != .report { return biN("Chỉ thêm visual được ở chế độ Báo cáo.", "Visuals can only be added in Report view.") }
+        if !canEditLayout { return biN("Báo cáo định dạng cũ (Report/Layout) chưa sửa được.", "Legacy-format reports (Report/Layout) can't be edited yet.") }
+        if !editMode { return biN("Bật chế độ Sửa (⌘E) để thêm hoặc đổi loại visual.", "Turn on Edit mode (⌘E) to add or change a visual's type.") }
         return nil
     }
 
@@ -434,7 +434,7 @@ final class DocumentState {
     func changeType(_ type: String) -> String? {
         if let blocker = visualEditingBlocker { layout.noteFieldRefusal(blocker); return blocker }
         guard layout.selection.count == 1, let id = layout.primary else {
-            let message = "Chọn đúng một visual để đổi loại."
+            let message = biN("Chọn đúng một visual để đổi loại.", "Select exactly one visual to change its type.")
             layout.noteFieldRefusal(message)
             return message
         }
@@ -445,11 +445,11 @@ final class DocumentState {
 
     /// Lý do chưa sửa định dạng của visual đang chọn (chế độ Xem, báo cáo cũ, nhiều visual, visual trong nhóm), hoặc nil.
     var formatEditingBlocker: String? {
-        if mode != .report { return "Chỉ sửa định dạng được ở chế độ Báo cáo." }
-        if !canEditLayout { return "Báo cáo định dạng cũ (Report/Layout) chưa sửa được." }
-        if !editMode { return "Bật chế độ Sửa (⌘E) để sửa định dạng." }
-        if layout.selection.count > 1 { return "Chọn đúng một visual để sửa định dạng." }
-        guard let id = visual?.id else { return "Chọn một visual để sửa định dạng." }
+        if mode != .report { return biN("Chỉ sửa định dạng được ở chế độ Báo cáo.", "Formatting can only be edited in Report view.") }
+        if !canEditLayout { return biN("Báo cáo định dạng cũ (Report/Layout) chưa sửa được.", "Legacy-format reports (Report/Layout) can't be edited yet.") }
+        if !editMode { return biN("Bật chế độ Sửa (⌘E) để sửa định dạng.", "Turn on Edit mode (⌘E) to edit formatting.") }
+        if layout.selection.count > 1 { return biN("Chọn đúng một visual để sửa định dạng.", "Select exactly one visual to edit its formatting.") }
+        guard let id = visual?.id else { return biN("Chọn một visual để sửa định dạng.", "Select a visual to edit its formatting.") }
         return layout.formatEditingBlocker(for: id)
     }
 

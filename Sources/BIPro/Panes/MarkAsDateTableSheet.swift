@@ -8,30 +8,30 @@ enum DateTableValidator {
     static func validate(table: String, column: String, workspace: Workspace) -> String? {
         guard let meta = workspace.metadata,
               let colMeta = meta.columns.first(where: { $0.tableName == table && $0.name == column }) else {
-            return "Không tìm thấy cột \(table)[\(column)]."
+            return biN("Không tìm thấy cột \(table)[\(column)].", "Couldn't find column \(table)[\(column)].")
         }
         guard colMeta.dataType == .dateTime else {
-            return "Cột khoá bảng ngày phải có kiểu Ngày/Giờ (Date/DateTime)."
+            return biN("Cột khoá bảng ngày phải có kiểu Ngày/Giờ (Date/DateTime).", "The date table key column must be of type Date/DateTime.")
         }
         guard let decoded = try? workspace.table(table),
               let col = decoded.first(where: { $0.name == column }) else {
-            return "Không đọc được dữ liệu của bảng \(table)."
+            return biN("Không đọc được dữ liệu của bảng \(table).", "Couldn't read the data of table \(table).")
         }
         guard col.count > 0 else {
-            return "Bảng ngày phải có ít nhất một dòng dữ liệu."
+            return biN("Bảng ngày phải có ít nhất một dòng dữ liệu.", "The date table must have at least one row.")
         }
         var seen = Set<Int>()
         for i in 0..<col.count {
             switch col[i] {
             case .null:
-                return "Cột \(column) chứa giá trị trống (null) — không thể làm cột khoá bảng ngày."
+                return biN("Cột \(column) chứa giá trị trống (null) — không thể làm cột khoá bảng ngày.", "Column \(column) contains blank (null) values and can't be the date table key.")
             case .dateTime(let serial):
                 let dayKey = Int(floor(serial))
                 if !seen.insert(dayKey).inserted {
-                    return "Cột \(column) chứa ngày bị trùng — cột bảng ngày phải có các ngày duy nhất."
+                    return biN("Cột \(column) chứa ngày bị trùng — cột bảng ngày phải có các ngày duy nhất.", "Column \(column) contains duplicate dates; a date table column must have unique dates.")
                 }
             default:
-                return "Cột \(column) có giá trị không phải kiểu ngày."
+                return biN("Cột \(column) có giá trị không phải kiểu ngày.", "Column \(column) has values that aren't dates.")
             }
         }
         return nil

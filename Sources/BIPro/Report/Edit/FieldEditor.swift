@@ -20,7 +20,7 @@ enum FieldEditor {
     /// `implicitMeasures`: cột vào ô chỉ nhận measure thành trường gộp với phép gộp mặc định của cột (VM-F10).
     static func add(_ field: FieldRef, to role: String, wells: [Well], visual: ReportVisual, implicitMeasures: Bool = false) -> Result {
         if let reason = WellRules.refusal(adding: field, to: role, in: visual, implicitMeasures: implicitMeasures) { return .refused(reason) }
-        guard let rule = WellRules.rule(for: visual, role: role) else { return .refused("Visual này không có ô \"\(role)\".") }
+        guard let rule = WellRules.rule(for: visual, role: role) else { return .refused(biN("Visual này không có ô \"\(role)\".", "This visual has no well \"\(role)\".")) }
         if field.kind == .column, !rule.accepts.contains(.column) {
             let function = AggregateFunction.defaultFunction(for: field)
             let native = function.nativeQueryRef(column: field.property, kind: AggregateFunction.ColumnKind(field.family))
@@ -36,7 +36,7 @@ enum FieldEditor {
         }
         if field.kind == .hierarchy {
             // Phân cấp: một phần tử mỗi cấp, `active: true` cả (VM-D11 mục 1). Ô một trường thì thay các trường cũ.
-            guard !field.levels.isEmpty else { return .refused("Phân cấp \"\(field.property)\" không có cấp nào.") }
+            guard !field.levels.isEmpty else { return .refused(biN("Phân cấp \"\(field.property)\" không có cấp nào.", "The hierarchy \"\(field.property)\" has no levels.")) }
             // Phân cấp ngày Auto date/time: chỉ cấp đầu `active` [SUY ĐOÁN, kiểm ở gate T037; file Desktop đã drill có đúng một cấp
             // `active`], để visual hiện theo Năm như Desktop vừa thả.
             let elements = field.levels.enumerated().map { offset, level in
@@ -78,7 +78,7 @@ enum FieldEditor {
     static func remove(role: String, index: Int, wells: [Well], visual: ReportVisual,
                        references: (ReportField) -> [FieldReference]) -> Result {
         guard let w = wells.firstIndex(where: { $0.role == role }), wells[w].elements.indices.contains(index) else {
-            return .refused("Không có trường để bỏ.")
+            return .refused(biN("Không có trường để bỏ.", "No field to remove."))
         }
         let field = wells[w].elements[index].field
         let others = wells.enumerated().flatMap { (wi, well) in
@@ -87,7 +87,7 @@ enum FieldEditor {
         if !others.contains(field.queryRef) {
             let refs = references(field)
             if let first = refs.first {
-                return .refused("Chưa bỏ được \"\(field.label)\": \(first.reason). Hãy đổi sắp xếp của visual sang trường khác trước.")
+                return .refused(biN("Chưa bỏ được \"\(field.label)\": \(first.reason). Hãy đổi sắp xếp của visual sang trường khác trước.", "Can't remove \"\(field.label)\" yet: \(first.reason). Change the visual's sort to another field first."))
             }
         }
         var result = wells
@@ -99,9 +99,9 @@ enum FieldEditor {
 
     /// Đưa phần tử `from` của ô `role` tới vị trí `to` (chỉ số trong ô sau khi đổi).
     static func reorder(role: String, from: Int, to: Int, wells: [Well]) -> Result {
-        guard let w = wells.firstIndex(where: { $0.role == role }) else { return .refused("Không có ô \"\(role)\".") }
+        guard let w = wells.firstIndex(where: { $0.role == role }) else { return .refused(biN("Không có ô \"\(role)\".", "There is no well \"\(role)\".")) }
         let count = wells[w].elements.count
-        guard (0..<count).contains(from), (0..<count).contains(to) else { return .refused("Vị trí ngoài ô.") }
+        guard (0..<count).contains(from), (0..<count).contains(to) else { return .refused(biN("Vị trí ngoài ô.", "Position is outside the well.")) }
         guard from != to else { return .unchanged }
         var result = wells
         let moved = result[w].elements.remove(at: from)
@@ -114,14 +114,14 @@ enum FieldEditor {
     static func move(role: String, index: Int, to target: String, wells: [Well], visual: ReportVisual,
                      implicitMeasures: Bool = false, column: FieldRef? = nil) -> Result {
         guard let w = wells.firstIndex(where: { $0.role == role }), wells[w].elements.indices.contains(index) else {
-            return .refused("Không có trường để chuyển.")
+            return .refused(biN("Không có trường để chuyển.", "No field to move."))
         }
         guard role != target else { return .unchanged }
         var element = wells[w].elements[index]
         if let reason = WellRules.refusal(moving: element.field, to: target, in: visual, implicitMeasures: implicitMeasures) {
             return .refused(reason)
         }
-        guard let rule = WellRules.rule(for: visual, role: target) else { return .refused("Visual này không có ô \"\(target)\".") }
+        guard let rule = WellRules.rule(for: visual, role: target) else { return .refused(biN("Visual này không có ô \"\(target)\".", "This visual has no well \"\(target)\".")) }
         if element.field.kind == .column, !rule.accepts.contains(.column) {
             let info = column ?? FieldRef(kind: .column, entity: element.field.entity, property: element.field.property)
             var converted = PBIRQueryPatch.newAggregation(entity: element.field.entity, property: element.field.property,
@@ -150,9 +150,9 @@ enum FieldEditor {
             return .refused("Không có trường để đổi phép gộp.")
         }
         let element = wells[w].elements[index]
-        guard element.field.kind == .aggregation else { return .refused("Trường này không có phép gộp.") }
+        guard element.field.kind == .aggregation else { return .refused(biN("Trường này không có phép gộp.", "This field has no aggregation.")) }
         guard AggregateFunction.menu(for: kind).contains(function) else {
-            return .refused("Cột kiểu này không gộp bằng \(function.label(column: element.field.property, kind: kind)).")
+            return .refused(biN("Cột kiểu này không gộp bằng \(function.label(column: element.field.property, kind: kind)).", "A column of this type can't be aggregated with \(function.label(column: element.field.property, kind: kind))."))
         }
         guard element.field.aggregationFunction != function.rawValue else { return .unchanged }
         var result = wells
@@ -166,7 +166,7 @@ enum FieldEditor {
     /// Đặt tên hiển thị riêng cho visual. Chuỗi rỗng hoặc bằng tên gốc: bỏ `displayName`.
     static func rename(role: String, index: Int, to name: String, wells: [Well]) -> Result {
         guard let w = wells.firstIndex(where: { $0.role == role }), wells[w].elements.indices.contains(index) else {
-            return .refused("Không có trường để đổi tên.")
+            return .refused(biN("Không có trường để đổi tên.", "No field to rename."))
         }
         let field = wells[w].elements[index].field
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
