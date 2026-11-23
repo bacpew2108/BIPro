@@ -155,9 +155,11 @@ final class DocumentState {
     var showFilters = true
     var showVisualizations = true
     var showData = true
-    var showSelection = false
-    var showBookmarks = false
-    var showPerformanceAnalyzer = false
+    /// Ba ngăn phụ bên phải canvas. Mở một ngăn thì Filters tự thu gọn để canvas không bị ép quá nhỏ (4 pane chen nhau).
+    var showSelection = false { didSet { if showSelection { filtersCollapsed = true } } }
+    var showBookmarks = false { didSet { if showBookmarks { filtersCollapsed = true } } }
+    var showPerformanceAnalyzer = false { didSet { if showPerformanceAnalyzer { filtersCollapsed = true } } }
+    var hasSidePane: Bool { showSelection || showBookmarks || showPerformanceAnalyzer }
     let perf = PerformanceRecorder()
     /// Trạng thái thu gọn pane theo cửa sổ (Phase H / US5, không lưu). Filters thu gọn mặc định như Desktop.
     var filtersCollapsed = true
@@ -218,6 +220,7 @@ final class DocumentState {
     var pendingCascadeRename: CascadeRenameTarget? = nil
     /// Wave 4 (v1.2): các hộp thoại Ribbon mới mở khoá (Show as a table, Quick Measure, Mark as Date Table, RLS, DAX Update Model).
     var showDataTableVisualID: String? = nil
+    var showDataPointTable = false
     var showQuickMeasureSheet = false
     var showMarkDateTableSheet = false
     var showManageRolesSheet = false

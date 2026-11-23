@@ -103,7 +103,8 @@ struct RibbonCatalogTests {
                 hasTMDLDocument: true,
                 canUngroup: false,
                 canMerge: false,
-                isRefreshing: false
+                isRefreshing: false,
+                hasDataPointSelected: true
             )
             let multiCtx = RibbonContext(
                 mode: mode,
@@ -133,7 +134,8 @@ struct RibbonCatalogTests {
                 hasTMDLDocument: true,
                 canUngroup: true,
                 canMerge: true,
-                isRefreshing: false
+                isRefreshing: false,
+                hasDataPointSelected: true
             )
             return (predicate(singleCtx) || predicate(multiCtx)) ? .contextual : .pending
         }

@@ -149,10 +149,13 @@ extension RibbonCatalog {
                         symbol: "tablecells.badge.ellipsis",
                         tint: .neutral,
                         kind: .large,
-                        availability: .pending(Bilingual(
-                            vi: "BI Pro chưa hỗ trợ bảng điểm dữ liệu (Show data point as a table)",
-                            en: "Data point table is not yet implemented in BI Pro"
-                        ))
+                        availability: .when(
+                            { $0.mode == .report && $0.hasDataPointSelected },
+                            disabledReason: Bilingual(
+                                vi: "Bấm chọn một điểm dữ liệu trên visual để xem dạng bảng",
+                                en: "Select a data point on a visual to show it as a table"
+                            )
+                        )
                     ),
                 ]
             ),

@@ -160,6 +160,17 @@ private struct Wave4SheetsModifier: ViewModifier {
                     .preferredColorScheme(colorScheme)
                 }
             }
+            .sheet(isPresented: $state.showDataPointTable) {
+                if let page = state.page {
+                    let selection = state.interaction.state(for: page).selection
+                    if let vid = selection.sourceVisualID, let visual = page.visuals.first(where: { $0.id == vid }) {
+                        DataPointTableSheet(visual: visual, selection: selection, view: state.interaction.loadedDataViews[vid]) {
+                            state.showDataPointTable = false
+                        }
+                        .preferredColorScheme(colorScheme)
+                    }
+                }
+            }
             .sheet(isPresented: $state.showQuickMeasureSheet) {
                 QuickMeasureSheet(state: state) { state.showQuickMeasureSheet = false }
                     .preferredColorScheme(colorScheme)

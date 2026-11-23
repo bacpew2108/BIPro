@@ -50,7 +50,7 @@ enum VisualCatalog {
     ]
 
     static func entry(_ type: String) -> Entry? { gallery.first { $0.type == type } }
-    static func name(_ type: String) -> String { entry(type)?.name ?? type }
+    @MainActor static func name(_ type: String) -> String { ui(entry(type)?.name ?? type) }
     static func symbol(_ type: String) -> String { entry(type)?.symbol ?? "square.dashed" }
 
     /// `shape`/`basicShape`, `barChart`/`stackedBarChart`, and `columnChart`/`stackedColumnChart` share gallery slots.
@@ -61,7 +61,7 @@ enum VisualCatalog {
             || (visualType == "stackedColumnChart" && galleryType == "columnChart")
     }
 
-    static func displayTitle(_ visual: ReportVisual) -> String {
+    @MainActor static func displayTitle(_ visual: ReportVisual) -> String {
         if let title = visual.containerObjects.string("title", "text"), !title.isEmpty { return title }
         if let text = visual.objects.raw("general", "paragraphs")?.array.first?["textRuns"]?.array.first?["value"]?.string, !text.isEmpty {
             return text

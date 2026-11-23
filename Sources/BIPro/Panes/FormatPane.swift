@@ -47,8 +47,8 @@ struct FormatPane: View {
                 let allCards = (scope == .objects ? format.objects : format.container)
                 let q = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 let cards = q.isEmpty ? allCards : allCards.filter { cardState in
-                    cardState.card.title.lowercased().contains(q)
-                        || cardState.card.properties.contains { $0.title.lowercased().contains(q) }
+                    ui(cardState.card.title).lowercased().contains(q) || cardState.card.title.lowercased().contains(q)
+                        || cardState.card.properties.contains { ui($0.title).lowercased().contains(q) || $0.title.lowercased().contains(q) }
                 }
                 if scope == .objects, allCards.isEmpty {
                     Text(bi("Loại visual này chưa có thẻ định dạng đã quan sát.", "No observed formatting cards for this visual type yet."))
@@ -157,7 +157,7 @@ private struct FormatCardView: View {
                     HStack {
                         Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(DS.Palette.tertiaryLabel).frame(width: 10)
-                        Text(card.title).font(DS.Typeface.headlineSmall).foregroundStyle(DS.Palette.label)
+                        Text(ui(card.title)).font(DS.Typeface.headlineSmall).foregroundStyle(DS.Palette.label)
                         Spacer()
                     }
                     .contentShape(Rectangle())
@@ -270,7 +270,7 @@ private struct FormatRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text(property.title).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
+                Text(ui(property.title)).font(DS.Typeface.bodySmall).foregroundStyle(DS.Palette.secondaryLabel)
                 Spacer(minLength: 8)
                 control.disabled(disabled || isUnsupported)
             }
@@ -310,7 +310,7 @@ private struct FormatRow: View {
                 if current == nil || !options.contains(where: { $0.literal == current }) {
                     Text(current == nil ? bi("Mặc định", "Default") : bi("Giá trị khác", "Other value")).tag(current ?? "")
                 }
-                ForEach(options, id: \.literal) { Text($0.title).tag($0.literal) }
+                ForEach(options, id: \.literal) { Text(ui($0.title)).tag($0.literal) }
             }
             .labelsHidden().frame(maxWidth: 130)
         case .color:

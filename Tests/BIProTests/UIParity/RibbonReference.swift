@@ -351,7 +351,7 @@ enum RibbonReference {
         groups: [
             RefGroup(en: "Show", items: [
                 RefItem("visualTable", en: "Visual table", kind: .large, avail: .contextual),
-                RefItem("dataPointTable", en: "Data point table", kind: .large, avail: .pending),
+                RefItem("dataPointTable", en: "Data point table", kind: .large, avail: .contextual),
             ]),
             RefGroup(en: "Interactions", items: [
                 RefItem("applyDrillFiltersTo", en: "Apply drill down filters to", kind: .field, avail: .pending),

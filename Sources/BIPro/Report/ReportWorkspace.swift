@@ -79,7 +79,7 @@ struct ReportWorkspace: View {
             panes
         }
         .onChange(of: state.visualID) { oldID, newID in
-            if oldID == nil && newID != nil && state.showFilters {
+            if oldID == nil && newID != nil && state.showFilters && !state.hasSidePane {
                 state.filtersCollapsed = false
             }
         }

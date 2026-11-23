@@ -352,7 +352,7 @@ enum L10n {
 
         // Onboarding
         case .onboardingWindowTitle: ("Chào mừng đến với BI Pro", "Welcome to BI Pro")
-        case .onboardingBadge: ("BI Pro v1.0 · macOS Native", "BI Pro v1.0 · macOS Native")
+        case .onboardingBadge: ("BI Pro v1.3 · macOS Native", "BI Pro v1.3 · macOS Native")
         case .onboardingSkip: ("Bỏ qua", "Skip")
         case .onboardingBack: ("Quay lại", "Back")
         case .onboardingNext: ("Tiếp theo", "Next")

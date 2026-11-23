@@ -82,6 +82,7 @@ struct StartScreen: View {
     @State private var showOptions = false
     @State private var showAbout = false
     @State private var cardsExpanded = true
+    @State private var recommendedExpanded = true
 
     private var entries: [RecentFileEntry] {
         recentEntries ?? RecentFileEntry.load()
@@ -192,6 +193,8 @@ struct StartScreen: View {
                 }
             }
 
+            recommendedSection
+
             RecentFilesList(entries: entries) { url in
                 onOpenURL(url)
                 onDismiss()
@@ -203,6 +206,52 @@ struct StartScreen: View {
         .padding(.horizontal, 32)
         .padding(.bottom, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// Khối "Recommended" như Desktop: một thẻ "Getting started" mở báo cáo trống kèm hướng dẫn nhanh của BI Pro.
+    private var recommendedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { recommendedExpanded.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .rotationEffect(.degrees(recommendedExpanded ? 0 : -90))
+                        .foregroundStyle(DS.Palette.secondaryLabel)
+                    Text(bi("Gợi ý", "Recommended")).font(.system(size: 18, weight: .semibold)).foregroundStyle(DS.Palette.label)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(recommendedExpanded ? bi("đang mở", "expanded") : bi("đã thu gọn", "collapsed"))
+            if recommendedExpanded {
+                Button {
+                    UntitledDocuments.openNew { _ in AppPreferences.shared.requestShowOnboarding() }
+                    onDismiss()
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 26)).foregroundStyle(DS.Palette.accentBrand)
+                            .frame(width: 56, height: 56)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(DS.Palette.selectionSoft))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(bi("Bắt đầu", "Getting started")).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(DS.Palette.label)
+                            Text(bi("Xem nhanh cách dùng BI Pro", "A quick tour of BI Pro"))
+                                .font(.system(size: 11.5)).foregroundStyle(DS.Palette.secondaryLabel)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .frame(width: 300, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(DS.Palette.canvas))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DS.Palette.separator))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(bi("Bắt đầu: xem nhanh cách dùng BI Pro", "Getting started: a quick tour of BI Pro"))
+            }
+        }
     }
 
     private func startCard(_ entry: StartEntry) -> some View {

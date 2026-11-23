@@ -32,6 +32,8 @@ struct RibbonContext: Equatable, Sendable {
     let canUngroup: Bool
     let canMerge: Bool
     let isRefreshing: Bool
+    /// Đang có điểm dữ liệu được chọn trên một visual (bật nút Data point table).
+    let hasDataPointSelected: Bool
 
     init(
         mode: WorkspaceMode = .report,
@@ -61,7 +63,8 @@ struct RibbonContext: Equatable, Sendable {
         hasTMDLDocument: Bool = true,
         canUngroup: Bool? = nil,
         canMerge: Bool? = nil,
-        isRefreshing: Bool = false
+        isRefreshing: Bool = false,
+        hasDataPointSelected: Bool = false
     ) {
         self.mode = mode
         self.hasModel = hasModel
@@ -91,6 +94,7 @@ struct RibbonContext: Equatable, Sendable {
         self.canUngroup = canUngroup ?? groupSelected
         self.canMerge = canMerge ?? (groupSelected && multiSelected)
         self.isRefreshing = isRefreshing
+        self.hasDataPointSelected = hasDataPointSelected
     }
 
     @MainActor
@@ -138,7 +142,8 @@ struct RibbonContext: Equatable, Sendable {
             hasTMDLDocument: state.workspace.tmdlDocuments.contains(where: { $0.path == state.tmdlPath }),
             canUngroup: state.ungroupBlocker == nil,
             canMerge: state.mergeBlocker == nil,
-            isRefreshing: state.refreshProgress?.isRunning == true
+            isRefreshing: state.refreshProgress?.isRunning == true,
+            hasDataPointSelected: state.page.map { !state.interaction.state(for: $0).selection.points.isEmpty } ?? false
         )
     }
 

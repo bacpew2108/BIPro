@@ -30,7 +30,7 @@ enum RibbonActions {
              .refreshVisuals, .performanceAnalyzer,
              .about, .guidedLearning,
              .editInteractions, .selectionPane, .align, .group, .bringForward, .sendBackward,
-             .visualTable, .expandNextLevel, .drillUp, .drillDown,
+             .visualTable, .dataPointTable, .expandNextLevel, .drillUp, .drillDown,
              .tableName, .columnName, .format, .currencyFormat, .percentFormat, .thousandsFormat, .decimalFormat,
              .summarization, .dataCategory, .sortByColumn,
              .daxFormat, .comment, .uncomment:
@@ -50,7 +50,7 @@ enum RibbonActions {
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
              .examples, .consultingServices,
              .applyDrillFiltersTo,
-             .dataPointTable, .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
+             .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
              .dataType, .decimalPlaces, .dataGroups,
              .tmdlFormat, .find, .replace, .commandPalette:
             return .noop
@@ -257,6 +257,11 @@ enum RibbonActions {
             state.showDataTableVisualID = visual.id
             return .performed
 
+        case .dataPointTable:
+            guard let page = state.page, !state.interaction.state(for: page).selection.points.isEmpty else { return .noop }
+            state.showDataPointTable = true
+            return .performed
+
         case .drillUp:
             guard let page = state.page, let visual = state.visual else { return .noop }
             state.interaction.drillUp(page: page, visual: visual)
@@ -323,7 +328,7 @@ enum RibbonActions {
              .powerBIBlog, .community, .powerBIForDevelopers, .submitAnIdea, .externalTools,
              .examples, .consultingServices,
              .applyDrillFiltersTo,
-             .dataPointTable, .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
+             .switchToNextLevel, .drillThrough, .groups, .findAnomalies,
              .dataType, .decimalPlaces, .dataGroups,
              .tmdlFormat, .find, .replace, .commandPalette:
             return .noop
